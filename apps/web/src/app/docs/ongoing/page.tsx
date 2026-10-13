@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/meta";
 import { DocsShell } from "@/components/docs-shell";
 
-export const metadata: Metadata = { title: "Ongoing development" };
+export const metadata: Metadata = pageMeta("Ongoing development", "Keep every new screen on your installed Pigment design system version as the product grows.", "/docs/ongoing");
 
 export default function OngoingGuide() {
   return (

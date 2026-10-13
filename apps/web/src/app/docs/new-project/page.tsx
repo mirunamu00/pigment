@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/meta";
 import Link from "next/link";
 import { DocsShell } from "@/components/docs-shell";
 
-export const metadata: Metadata = { title: "Start a new project" };
+export const metadata: Metadata = pageMeta("Start a new project", "Start a new project on a Pigment design system: install tokens, set up the base styles and build every screen on-system.", "/docs/new-project");
 
 export default function NewProjectGuide() {
   return (

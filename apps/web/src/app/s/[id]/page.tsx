@@ -6,6 +6,7 @@ import { ApplyPanel } from "@/components/apply-panel";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { DemoViewer } from "@/components/demo-viewer";
 import { Bloom } from "@/components/details";
+import { pageMeta } from "@/lib/meta";
 
 export const dynamicParams = false;
 
@@ -26,7 +27,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const t = safeList().find((x) => x.id === id);
-  return t ? { title: t.name, description: t.description } : {};
+  return t ? pageMeta(`${t.name} design system`, t.description, `/s/${t.id}`) : {};
 }
 
 const SEMANTIC_ORDER = [

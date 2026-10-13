@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Caveat, Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { SITE_URL } from "@pigment/content/prompts";
 import { WatercolorFilters } from "@/components/details";
 import "./globals.css";
 import "./pages.css";
@@ -9,9 +10,18 @@ const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono", display: 
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-serif", display: "swap" });
 const hand = Caveat({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-hand", display: "swap" });
 
+const TITLE = "Pigment — Design systems for coding agents";
+const DESCRIPTION = "Versioned design systems that Claude Code, Codex and any MCP client can apply to new and existing codebases.";
+
 export const metadata: Metadata = {
-  title: { default: "Pigment — Design systems for coding agents", template: "%s — Pigment" },
-  description: "Versioned design systems that Claude Code, Codex and any MCP client can apply to new and existing codebases.",
+  metadataBase: new URL(SITE_URL),
+  title: { default: TITLE, template: "%s — Pigment" },
+  description: DESCRIPTION,
+  applicationName: "Pigment",
+  keywords: ["design system", "design tokens", "AI coding agent", "MCP server", "Claude Code", "Codex", "Cursor", "UI templates"],
+  alternates: { canonical: "/" },
+  openGraph: { type: "website", siteName: "Pigment", locale: "en_US", url: "/", title: TITLE, description: DESCRIPTION },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };
 
 export const viewport: Viewport = {

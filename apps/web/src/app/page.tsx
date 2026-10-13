@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { listTemplates, type TemplateSummary } from "@pigment/content";
-import { MCP_URL } from "@pigment/content/prompts";
+import { MCP_URL, SITE_URL } from "@pigment/content/prompts";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { Bloom, Note, Swash } from "@/components/details";
 import { Gallery } from "@/components/gallery";
@@ -17,8 +17,16 @@ function loadTemplates(): TemplateSummary[] {
 
 export default function HomePage() {
   const templates = loadTemplates();
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Pigment",
+    url: SITE_URL,
+    description: "Versioned design systems that Claude Code, Codex and any MCP client can apply to new and existing codebases.",
+  };
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <SiteHeader active="systems" />
       <main className="page gallery-page">
         <div className="gallery-intro">

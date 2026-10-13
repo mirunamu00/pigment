@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/meta";
 import Link from "next/link";
 import { Bloom, Note } from "@/components/details";
 import { DocsShell } from "@/components/docs-shell";
 
-export const metadata: Metadata = { title: "Apply a system to an existing project" };
+export const metadata: Metadata = pageMeta("Apply a system to an existing project", "Restyle an existing codebase with a Pigment design system without changing behavior, routes or tests.", "/docs/existing-project");
 
 const STEPS = [
   ["Audit", "The agent maps your styling approach, shared components, routes and tests, and lists what the change would touch."],

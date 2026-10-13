@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/meta";
 import { DocsShell } from "@/components/docs-shell";
 
-export const metadata: Metadata = { title: "Package format" };
+export const metadata: Metadata = pageMeta("Package format", "What is inside a Pigment design system package: agent.md, tokens, component specs, principles and installation guides.", "/docs/package");
 
 export default function PackageReference() {
   return (

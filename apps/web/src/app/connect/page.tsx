@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/meta";
 import Link from "next/link";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { ConnectView } from "@/components/connect-view";
 import { Bloom } from "@/components/details";
 
-export const metadata: Metadata = { title: "Connect an agent" };
+export const metadata: Metadata = pageMeta("Connect an agent", "Connect Claude Code, Codex, Cursor or any MCP client to Pigment — remote or with npx pigment-mcp — and let the agent read design system specs as tools.", "/connect");
 export const dynamic = "force-static";
 
 const TOOLS = [

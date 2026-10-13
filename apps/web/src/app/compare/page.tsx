@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/meta";
 import { getManifest, getTokens, listTemplates } from "@pigment/content";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { CompareView, type CompareItem } from "@/components/compare-view";
 import { Bloom } from "@/components/details";
 
-export const metadata: Metadata = { title: "Compare" };
+export const metadata: Metadata = pageMeta("Compare", "Compare Pigment design systems side by side: palette, type, spacing, radius and the same four apps restyled by an agent.", "/compare");
 export const dynamic = "force-static";
 
 function items(): CompareItem[] {

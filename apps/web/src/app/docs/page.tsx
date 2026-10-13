@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/meta";
 import Link from "next/link";
 import { DocsShell } from "@/components/docs-shell";
 
-export const metadata: Metadata = { title: "Docs" };
+export const metadata: Metadata = pageMeta("Docs", "How Pigment design systems are delivered to coding agents: version-pinned prompts, the MCP server, the HTTP API and offline packages.", "/docs");
 
 export default function DocsOverview() {
   return (
