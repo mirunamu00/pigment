@@ -3,7 +3,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { cleanUrl } from "../discover.ts";
 import { extractStyles, mergeSamples, settle, type StyleSample } from "../extract.ts";
 import { pipelineDir, paths, rel } from "../paths.ts";
-import { deepCapture, type DeepCapture } from "../probe.ts";
+import { deepCapture, watchLottie, type DeepCapture, type LottieSummary } from "../probe.ts";
 import { selectDeep, surveySite, type Survey } from "../survey.ts";
 import { fail, info, ok, readJson, writeJson, writeText } from "../util.ts";
 import type { Intake } from "./intake.ts";
@@ -28,7 +28,7 @@ const COMPONENT_PROBES: Array<{ kind: string; selector: string }> = [
   { kind: "footer", selector: "footer" },
 ];
 
-async function open(browser: Browser, url: string, viewport: keyof typeof VIEWPORTS, scheme: "light" | "dark", motion: boolean) {
+async function open(browser: Browser, url: string, viewport: keyof typeof VIEWPORTS, scheme: "light" | "dark", motion: boolean, before?: (page: Page) => void) {
   const v = VIEWPORTS[viewport];
   const context = await browser.newContext({
     viewport: { width: v.width, height: v.height },
@@ -38,6 +38,7 @@ async function open(browser: Browser, url: string, viewport: keyof typeof VIEWPO
     reducedMotion: motion ? "no-preference" : "reduce",
   });
   const page = await context.newPage();
+  before?.(page);
   try {
     await page.goto(url, { waitUntil: "networkidle", timeout: 45_000 });
   } catch {
@@ -128,13 +129,14 @@ export async function capture(slug: string, options: { headed?: boolean; maxPage
       }
       pages.push({ key, url, reason, shots, darkDiffers });
       try {
-        const { context, page } = await open(browser, url, "desktop", "light", true);
+        let lottie: (() => Promise<LottieSummary[]>) | undefined;
+        const { context, page } = await open(browser, url, "desktop", "light", true, (p) => (lottie = watchLottie(p, join(outDir, "raw"), key)));
         await page.waitForTimeout(1500);
-        const result = await deepCapture(page, outDir, key, { darkDiffers });
+        const result = await deepCapture(page, outDir, key, { darkDiffers, lottie });
         if (result.theme.toggled?.changed) samples.push(await extractStyles(page, "dark"));
         deep.push({ key, ...result });
         info(
-          `  ${result.motion.animations.length} animation(s), ${result.motion.frames.length} frame sequence(s), ${result.interactions.length} interaction(s), ${result.inventory.svgs.filter((s) => s.role === "illustration").length} illustration(s)`,
+          `  ${result.motion.animations.length} animation(s), ${result.motion.frames.length + result.motion.visual.length} frame sequence(s), ${result.motion.lottieFiles.length} Lottie file(s), ${result.interactions.length} interaction(s), ${result.inventory.svgs.filter((s) => s.role === "illustration").length} illustration(s)`,
         );
         await context.close();
       } catch (e) {
@@ -195,6 +197,11 @@ function report(slug: string, survey: Survey | null, pages: Array<{ key: string;
       lines.push(
         `- Motion: ${d.motion.animations.length} animations (${loops} looping, ${d.motion.animations.filter((a) => a.inSvg).length} in SVG), ${d.motion.keyframeRules.filter((k) => k.used).length} keyframe rules in use, ${d.motion.smil.length} SMIL, ${d.motion.reveals.length} scroll reveals, ${d.motion.lottie.length} Lottie, ${d.motion.videos.length} videos`,
         ...d.motion.frames.map((f) => `  - frames \`${rel(f.file)}\` — ${f.name || "animation"} ${f.durationMs}ms × ${f.iterations}`),
+        ...d.motion.visual.map((v) => `  - frames \`${rel(v.file)}\` — ${v.kind}, pixels change (script- or canvas-driven), ${v.box.w}×${v.box.h}`),
+        ...d.motion.lottieFiles.map(
+          (l) =>
+            `  - Lottie ${l.size}, ${l.durationMs}ms at ${l.fps}fps, ${l.shapeLayers} shape layers (${Math.round(l.frameByFrame * 100)}% shown ≤ 2 frames: ${l.frameByFrame >= 0.5 ? "frame-by-frame, cel-style" : "tweened"}), lines drawn as ${l.drawing}, trim paths: ${l.trimPaths ? "yes (draws itself)" : "no"}, stroke widths ${JSON.stringify(l.strokeWidths)}, stroke colors ${JSON.stringify(l.strokeColors)}, fill colors ${JSON.stringify(l.fillColors)}, caps ${JSON.stringify(l.lineCaps)}${l.raw ? ` — \`${rel(l.raw)}\`` : ""}`,
+        ),
         `- Interactions: ${d.interactions.length}`,
         ...d.interactions.filter((i) => i.file).map((i) => `  - ${i.kind}: \`${rel(i.file!)}\` (hover changes: ${Object.keys(i.hover ?? {}).join(", ") || "none"})`),
         `- Illustrations: ${illus.length}${illus.length ? ` — ${illus.filter((s) => s.file).map((s) => `\`${rel(s.file!)}\``).join(", ")}` : ""}`,

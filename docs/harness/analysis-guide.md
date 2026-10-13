@@ -19,7 +19,14 @@ failed analysis.
 4. **Deep capture** per page, motion allowed — running animations with keyframes and timing, frame
    sequences, scroll reveals, hover/press/focus/open states, illustration and icon inventory with stroke
    data, button variants, section structure, header behavior on scroll, theme mechanism (and the theme
-   toggle, tried once).
+   toggle, tried once). Motion the browser's animation list can't see — Lottie, canvas, script-driven
+   SVG — is found by watching pixels as each element enters the viewport, and every Lottie file the page
+   loads is summarized: fps, duration, how lines are drawn (strokes or filled outlines), whether it is
+   redrawn frame by frame (cel-style) or tweened, trim paths (draw-on), colors and caps.
+
+A recipe for hand-drawn motion should say all of that: e.g. "lines are filled outlines with uneven
+weight, redrawn frame by frame at 12 fps, ink and paper fills only" rebuilds the feel; "an animated
+icon" does not.
 
 `capture-report.md` indexes all of it.
 

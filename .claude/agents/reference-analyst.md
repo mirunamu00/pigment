@@ -31,9 +31,14 @@ accent color is one detail among many.
   captured in depth and why, and an index of every evidence file
 - `reference/survey.json` — every surveyed page and its features (what the site does often vs. once)
 - `reference/screenshots/` — every captured page, desktop and mobile, light and dark (or toggled)
-- `reference/motion/*.png` — frame sequences of running animations (restarted, even intervals) ·
-  `reference/motion.json` — every animation with its keyframes, duration, delay, iterations and easing;
-  keyframe rules; scroll reveals (before → after); SMIL, Lottie, video, canvas; reduced-motion rules
+- `reference/motion/*.png` — frame sequences: `-m*` are CSS/Web animations (restarted, even intervals);
+  `-v*` are elements whose pixels changed while in view — script-driven SVG (Lottie), canvas, animated
+  images — filmed as they entered the viewport. Many sites draw their signature this way.
+- `reference/motion.json` — every animation with its keyframes, duration, delay, iterations and easing;
+  keyframe rules; scroll reveals (before → after); SMIL, video, canvas; reduced-motion rules; `visual`
+  (the `-v*` sequences) and `lottieFiles`: each Lottie the page loaded — fps, duration, size, shape layers,
+  how lines are drawn (strokes vs. filled outlines), frame-by-frame share (cel-style redrawing vs. tweening),
+  trim paths (draw-on), stroke widths, colors and caps. Raw files in `raw/lottie/` for construction only.
 - `reference/interactions/*.png` + `interactions.json` — default, hover, press, keyboard focus and open
   states of buttons, links, cards, inputs, disclosures and tabs, with the exact style changes
 - `reference/illustrations/`, `icons/`, `raw/svg/` + `inventory.json` — illustrations and icons with stroke

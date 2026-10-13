@@ -46,6 +46,129 @@ export interface MotionReport {
   reveals: Array<{ target: string; before: Record<string, string>; after: Record<string, string>; transition: string }>;
   inaccessibleStylesheets: number;
   frames: Array<{ file: string; target: string; name: string; durationMs: number; iterations: number | "infinite"; spanMs: number }>;
+  /**
+   * Motion the browser's animation list can't see — script-driven SVG (Lottie), canvas, animated images —
+   * found by watching the pixels: frame sequences of every element that changed while in view.
+   */
+  visual: Array<{ kind: "lottie" | "canvas" | "svg" | "image"; target: string; box: Box; file: string }>;
+  /** Lottie animation files the page loaded, summarized: timing, size, stroke widths/colors/caps, trim paths (draw-on). */
+  lottieFiles: LottieSummary[];
+}
+
+export interface LottieSummary {
+  url: string;
+  raw: string | null;
+  fps: number;
+  frames: number;
+  durationMs: number;
+  size: string;
+  layers: number;
+  /** Trim paths animate a stroke's visible length: the "draws itself" effect. */
+  trimPaths: boolean;
+  strokeWidths: Record<string, number>;
+  strokeColors: Record<string, number>;
+  fillColors: Record<string, number>;
+  lineCaps: Record<string, number>;
+  animatedStrokeWidth: boolean;
+  /** How lines are drawn: real strokes, or hand-drawn lines exported as filled outlines (uneven weight). */
+  drawing: "strokes" | "filled outlines" | "mixed" | "none";
+  shapeLayers: number;
+  /** Share of shape layers shown for two frames or less: redrawn frame by frame, like cel animation. */
+  frameByFrame: number;
+}
+
+/** Reads a Lottie (bodymovin) JSON: what is drawn and how. */
+export function summarizeLottie(url: string, data: unknown, raw: string | null): LottieSummary | null {
+  const d = data as { v?: string; fr?: number; ip?: number; op?: number; w?: number; h?: number; layers?: unknown[] };
+  if (!d || typeof d !== "object" || !Array.isArray(d.layers) || typeof d.fr !== "number" || typeof d.op !== "number") return null;
+  const out: LottieSummary = {
+    url,
+    raw,
+    fps: d.fr,
+    frames: Math.round(d.op - (d.ip ?? 0)),
+    durationMs: Math.round(((d.op - (d.ip ?? 0)) / d.fr) * 1000),
+    size: `${d.w ?? "?"}×${d.h ?? "?"}`,
+    layers: d.layers.length,
+    trimPaths: false,
+    strokeWidths: {},
+    strokeColors: {},
+    fillColors: {},
+    lineCaps: {},
+    animatedStrokeWidth: false,
+    drawing: "none",
+    shapeLayers: 0,
+    frameByFrame: 0,
+  };
+  let shortLayers = 0;
+  const bump = (m: Record<string, number>, k: string) => (m[k] = (m[k] ?? 0) + 1);
+  const color = (k: unknown): string | null => {
+    const v = Array.isArray(k) && typeof k[0] === "number" ? (k as number[]) : Array.isArray(k) && (k[0] as { s?: number[] })?.s ? (k[0] as { s: number[] }).s : null;
+    if (!v) return null;
+    const [r, g, b] = v.map((x) => Math.round(Math.min(1, Math.max(0, x)) * 255));
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+  const caps = ["", "butt", "round", "square"];
+  const walk = (node: unknown) => {
+    if (Array.isArray(node)) return node.forEach(walk);
+    if (!node || typeof node !== "object") return;
+    const n = node as Record<string, unknown>;
+    if (n.ty === "tm") out.trimPaths = true;
+    if (n.ty === 4 && typeof n.ip === "number" && typeof n.op === "number") {
+      out.shapeLayers++;
+      if (n.op - n.ip <= 2) shortLayers++;
+    }
+    if (n.ty === "st") {
+      const w = (n.w as { k?: unknown; a?: number } | undefined) ?? {};
+      if (typeof w.k === "number") bump(out.strokeWidths, `${Math.round(w.k * 100) / 100}`);
+      else if (Array.isArray(w.k)) out.animatedStrokeWidth = true;
+      const c = color((n.c as { k?: unknown } | undefined)?.k);
+      if (c) bump(out.strokeColors, c);
+      if (typeof n.lc === "number") bump(out.lineCaps, caps[n.lc] ?? String(n.lc));
+    }
+    if (n.ty === "fl") {
+      const c = color((n.c as { k?: unknown } | undefined)?.k);
+      if (c) bump(out.fillColors, c);
+    }
+    for (const v of Object.values(n)) if (v && typeof v === "object") walk(v);
+  };
+  walk(d.layers);
+  walk((d as { assets?: unknown }).assets);
+  const strokes = Object.keys(out.strokeWidths).length > 0 || out.animatedStrokeWidth;
+  const fills = Object.keys(out.fillColors).length > 0;
+  out.drawing = strokes && fills ? "mixed" : strokes ? "strokes" : fills ? "filled outlines" : "none";
+  out.frameByFrame = out.shapeLayers ? Math.round((shortLayers / out.shapeLayers) * 100) / 100 : 0;
+  return out;
+}
+
+/** Collects the Lottie files a page loads. Attach before navigating; call the result to read them. */
+export function watchLottie(page: Page, rawDir: string, key: string): () => Promise<LottieSummary[]> {
+  const found: LottieSummary[] = [];
+  const pending: Array<Promise<void>> = [];
+  page.on("response", (res) => {
+    const url = res.url();
+    const type = res.headers()["content-type"] ?? "";
+    if (!/json/.test(type) && !/\.json(\?|$)/.test(url)) return;
+    pending.push(
+      (async () => {
+        try {
+          const text = await res.text();
+          if (text.length > 8_000_000 || !text.includes('"layers"') || found.some((x) => x.url === url)) return;
+          const file = join(rawDir, "lottie", `${key}-l${found.length + 1}.json`);
+          const summary = summarizeLottie(url, JSON.parse(text), file);
+          if (!summary) return;
+          mkdirSync(dirname(file), { recursive: true });
+          writeFileSync(file, text);
+          found.push(summary);
+        } catch {
+          // a body that can't be read or parsed isn't evidence
+        }
+      })(),
+    );
+  });
+  return async () => {
+    await Promise.allSettled(pending);
+    return found;
+  };
 }
 
 export interface InteractionRecord {
@@ -249,7 +372,7 @@ function readReveal(): MotionReport["reveals"] {
   return out;
 }
 
-function motionStatics(usedNames: string[]): Omit<MotionReport, "animations" | "reveals" | "frames"> {
+function motionStatics(usedNames: string[]): Omit<MotionReport, "animations" | "reveals" | "frames" | "visual" | "lottieFiles"> {
   const pg = (window as unknown as { __pg: Pg }).__pg;
   const keyframeRules: MotionReport["keyframeRules"] = [];
   const reducedMotionRules: string[] = [];
@@ -281,7 +404,7 @@ function motionStatics(usedNames: string[]): Omit<MotionReport, "animations" | "
       repeatCount: el.getAttribute("repeatCount") ?? "",
       target: el.parentElement ? pg.path(el.parentElement) : "",
     }));
-  const lottie = Array.from(document.querySelectorAll("lottie-player, dotlottie-player, dotlottie-wc, [class*=lottie i], [id*=lottie i]"))
+  const lottie = Array.from(document.querySelectorAll("lottie-player, dotlottie-player, dotlottie-wc, [class*=lottie i], svg:has([id^=__lottie])"))
     .slice(0, 20)
     .map((el) => `${pg.path(el)} ${el.getAttribute("src") ?? ""}`.trim());
   const videos = Array.from(document.querySelectorAll<HTMLVideoElement>("video"))
@@ -836,7 +959,66 @@ async function probeTheme(page: Page, outDir: string, key: string, darkDiffers: 
  * Deep capture of one page. The page must be freshly loaded with motion allowed and not yet scrolled,
  * so scroll-triggered reveals can be observed.
  */
-export async function deepCapture(page: Page, refDir: string, key: string, options: { darkDiffers: boolean }): Promise<DeepCapture> {
+/** Elements in view that may be drawn by script or canvas; marked data-pg-v. Runs in the page. */
+function visualCandidates(): Array<{ id: string; kind: "lottie" | "canvas" | "svg" | "image"; target: string; box: Box }> {
+  const pg = (window as unknown as { __pg: Pg }).__pg;
+  const inView = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    return r.top >= -r.height * 0.25 && r.bottom <= innerHeight + r.height * 0.25 && r.width > 0;
+  };
+  const out: Array<{ id: string; kind: "lottie" | "canvas" | "svg" | "image"; target: string; box: Box; area: number }> = [];
+  const take = (el: Element, kind: "lottie" | "canvas" | "svg" | "image") => {
+    if (el.hasAttribute("data-pg-v") || !pg.visible(el) || !inView(el)) return;
+    const b = pg.box(el);
+    out.push({ id: pg.mark(el, "data-pg-v"), kind, target: pg.path(el), box: b, area: b.w * b.h });
+  };
+  for (const s of Array.from(document.querySelectorAll("svg"))) {
+    if (s.parentElement?.closest("svg")) continue;
+    const r = s.getBoundingClientRect();
+    if (Math.max(r.width, r.height) < 48) continue;
+    take(s, s.querySelector("[id^=__lottie], clipPath[id*=lottie i]") ? "lottie" : "svg");
+  }
+  for (const c of Array.from(document.querySelectorAll("canvas"))) if (c.getBoundingClientRect().width >= 64) take(c, "canvas");
+  for (const i of Array.from(document.querySelectorAll<HTMLImageElement>("img"))) {
+    if (/\.(gif|apng|webp)(\?|$)/i.test(i.currentSrc || i.src) && i.getBoundingClientRect().width >= 64) take(i, "image");
+  }
+  return out.sort((a, b) => Number(b.kind === "lottie") - Number(a.kind === "lottie") || b.area - a.area).map(({ area: _a, ...rest }) => rest);
+}
+
+/**
+ * Walks down a freshly loaded page; each script-, canvas- or image-driven element that comes into view is
+ * filmed right away (so play-on-enter animations are caught from the start) and kept if its pixels change.
+ */
+async function visualMotion(page: Page, outDir: string, key: string, max = 8): Promise<MotionReport["visual"]> {
+  const out: MotionReport["visual"] = [];
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  const step = Math.round((page.viewportSize()?.height ?? 900) * 0.6);
+  let filmed = 0;
+  for (let y = 0, i = 0; y < height && i < 40 && filmed < max * 2; y += step, i++) {
+    await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), y);
+    await page.waitForTimeout(250);
+    for (const c of await page.evaluate(visualCandidates)) {
+      if (out.length >= max || filmed >= max * 2) break;
+      filmed++;
+      const frames: Array<{ label: string; png: Buffer }> = [];
+      const start = Date.now();
+      for (let f = 0; f < 10; f++) {
+        const wait = start + f * 280 - Date.now();
+        if (wait > 0) await page.waitForTimeout(wait);
+        const png = await clipShot(page, `[data-pg-v="${c.id}"]`, 0.04);
+        if (png) frames.push({ label: `t=${Date.now() - start}ms`, png });
+      }
+      const changed = frames.some((fr) => !fr.png.equals(frames[0]!.png));
+      if (!changed) continue;
+      const file = await contactSheet(page, `${c.kind} (pixels change) · ${c.target}`, frames, join(outDir, "motion", `${key}-v${out.length + 1}.png`));
+      if (file) out.push({ kind: c.kind, target: c.target, box: c.box, file });
+    }
+  }
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  return out;
+}
+
+export async function deepCapture(page: Page, refDir: string, key: string, options: { darkDiffers: boolean; lottie?: () => Promise<LottieSummary[]> }): Promise<DeepCapture> {
   await prepare(page);
   const { animations, reveals } = await scanMotion(page);
   const statics = await page.evaluate(motionStatics, [...new Set(animations.map((a) => a.name))]);
@@ -856,8 +1038,14 @@ export async function deepCapture(page: Page, refDir: string, key: string, optio
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
   }
   const interactions = await probeInteractions(page, refDir, key);
+  // Script- and canvas-driven motion on a fresh load, so play-on-enter animations start from the beginning.
+  await page.reload({ waitUntil: "load" }).catch(() => {});
+  await page.waitForTimeout(800);
+  await prepare(page);
+  const visual = await visualMotion(page, refDir, key);
   const theme = await probeTheme(page, refDir, key, options.darkDiffers);
-  return { url: page.url(), motion: { animations, reveals, frames, ...statics }, interactions, inventory, theme, structure };
+  const lottieFiles = (await options.lottie?.()) ?? [];
+  return { url: page.url(), motion: { animations, reveals, frames, visual, lottieFiles, ...statics }, interactions, inventory, theme, structure };
 }
 
 /**

@@ -47,6 +47,11 @@ const pages: Record<string, string> = {
 <section style="height:1400px"><h2 class="reveal">Later</h2><div class="reveal"><p>Revealed on scroll.</p></div></section></main>${foot}`,
   "/features": `${head("Features")}<main><section><h1>Features</h1><div role="tablist"><button role="tab" aria-selected="true">One</button><button role="tab" aria-selected="false" onclick="this.setAttribute('aria-selected','true')">Two</button></div>
 <table><tr><th>Plan</th><th>Seats</th></tr><tr><td>A</td><td>1</td></tr></table><form><input type="email" placeholder="you@example.com"><button class="btn" type="button">Join</button></form></section></main>${foot}`,
+  // Script-driven motion (no CSS animation) and a Lottie file, like sites that animate with lottie-web.
+  "/download": `${head("Download")}<main><section><h1>Download</h1>
+<svg id="scripted" width="160" height="160" viewBox="0 0 160 160" fill="none"><path id="hand" d="M20 120 Q 80 20 140 120" stroke="#1f1e1d" stroke-width="3" stroke-linecap="round"/></svg>
+<script>let t=0;(function tick(){t+=1;document.getElementById('hand').setAttribute('d','M20 120 Q 80 '+(20+40*Math.sin(t/8))+' 140 120');requestAnimationFrame(tick)})();fetch('/anim.json')</script>
+</section></main>${foot}`,
   "/faq": `${head("FAQ")}<main><section><div>${question}</div><h1>Questions</h1>
 <details><summary>First question ${chevron}</summary><p>Answer.</p></details><details><summary>Second question ${chevron}</summary><p>Answer.</p></details></section></main>${foot}`,
   "/blog": `${head("Blog")}<main><section><h1>Blog</h1><div class="grid">${Array.from({ length: 8 }, (_, i) => `<a class="card" href="/blog/post-${i + 1}"><h3>Post ${i + 1}</h3></a>`).join("")}</div></section></main>${foot}`,
@@ -63,6 +68,14 @@ export function startFixtureSite(): Promise<{ url: string; server: Server; reque
     requested.push(path);
     if (path === "/robots.txt") {
       res.writeHead(200, { "content-type": "text/plain" }).end(`User-agent: *\nDisallow: /private\n\nSitemap: http://${req.headers.host}/sitemap.xml\n`);
+      return;
+    }
+    if (path === "/anim.json") {
+      const lottie = {
+        v: "5.7.0", fr: 30, ip: 0, op: 90, w: 200, h: 200,
+        layers: [{ ty: 4, shapes: [{ ty: "gr", it: [{ ty: "sh" }, { ty: "st", c: { k: [0.12, 0.12, 0.11, 1] }, w: { k: 2.5 }, lc: 2 }, { ty: "tm", s: { k: 0 }, e: { k: [{ t: 0, s: [0] }, { t: 60, s: [100] }] } }] }] }],
+      };
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(lottie));
       return;
     }
     if (path === "/sitemap.xml") {

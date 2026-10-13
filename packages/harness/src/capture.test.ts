@@ -6,7 +6,7 @@ import { after, before, test } from "node:test";
 import { chromium, type Browser } from "playwright";
 import { allowedByRobots, cleanUrl, groupKey, localeOf, parseRobots } from "./discover.ts";
 import { startFixtureSite } from "./fixtures/site.ts";
-import { deepCapture } from "./probe.ts";
+import { deepCapture, watchLottie } from "./probe.ts";
 import { selectDeep, surveySite, type Survey } from "./survey.ts";
 
 test("urls: domains become URLs, tracking parameters go", () => {
@@ -88,6 +88,20 @@ test("deep capture: motion with frames, scroll reveals, interactions, inventory,
   assert.ok(home.theme.themeSelectors.some((t) => t.selector.includes("data-theme")));
   assert.equal(home.theme.toggled?.changed, true, "the theme toggle was tried and changed the page");
   assert.equal(home.structure.header?.position, "sticky");
+
+  // Script-driven motion and Lottie files are invisible to the animation list: pixels and the network show them.
+  const scriptedPage = await context.newPage();
+  const lottie = watchLottie(scriptedPage, join(out, "raw"), "p3");
+  await scriptedPage.goto(`${site.url}/download`);
+  await scriptedPage.waitForTimeout(300);
+  const scripted = await deepCapture(scriptedPage, out, "p3", { darkDiffers: false, lottie });
+  assert.ok(scripted.motion.visual.some((v) => v.kind === "svg" && existsSync(v.file)), "script-driven SVG filmed");
+  const file = scripted.motion.lottieFiles[0];
+  assert.ok(file, "Lottie file summarized");
+  assert.equal(file!.trimPaths, true);
+  assert.deepEqual(file!.strokeWidths, { "2.5": 1 });
+  assert.deepEqual(file!.lineCaps, { round: 1 });
+  assert.equal(file!.durationMs, 3000);
 
   await page.goto(`${site.url}/faq`);
   await page.waitForTimeout(300);
