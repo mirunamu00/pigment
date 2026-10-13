@@ -1,4 +1,4 @@
-import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AppId, RunRecord } from "@pigment/schema";
 import { appMeta, baseApps, build, copyApp, install, WORK_ROOT } from "../appdir.ts";
@@ -167,5 +167,38 @@ export async function baseline(force = false): Promise<void> {
     await shootApp(work, out);
     writeFileSync(join(out, "meta.json"), JSON.stringify({ app, capturedAt: timestamp(), routes: appMeta(work).routes }, null, 2));
     ok(`[baseline ${app}] captured → ${rel(out)}`);
+  }
+}
+
+/**
+ * Re-captures the latest run of each app with the current capture code, without running the agent again —
+ * for when the capture gains new evidence (e.g. drawing crops). Uses the run's built work folder, or
+ * rebuilds the kept copy of the restyled app when that folder is gone. The agent's output is untouched.
+ */
+export async function reshoot(id: string, version: string, apps?: AppId[]): Promise<void> {
+  for (const app of (apps ?? (baseApps() as AppId[])).filter((a) => baseApps().includes(a))) {
+    const dir = join(runsDir(id, version), app);
+    const latest = existsSync(dir) ? readdirSync(dir).filter((d) => existsSync(join(dir, d, "run.json"))).sort().at(-1) : undefined;
+    if (!latest) {
+      info(`[${app}] no run to reshoot`);
+      continue;
+    }
+    const out = join(dir, latest);
+    const record = JSON.parse(readFileSync(join(out, "run.json"), "utf8")) as RunRecord & { workDir?: string };
+    if (!record.build?.ok) {
+      info(`[${app}] ${latest} did not build — nothing to reshoot`);
+      continue;
+    }
+    let work = record.workDir && existsSync(join(record.workDir, "node_modules")) ? record.workDir : null;
+    if (!work) {
+      work = join(WORK_ROOT, id, version, app, `${latest}-reshoot`);
+      copyApp(join(out, "app"), work);
+      info(`[${app}] rebuilding the kept copy`);
+      if (!(await install(work)) || !(await build(work)).ok) throw new Error(`the kept copy of ${app} ${latest} does not build`);
+    }
+    info(`[${app}] capturing ${latest} again`);
+    const shots = await shootApp(work, out);
+    writeJson(join(out, "run.json"), { ...record, screenshots: shots.screenshots });
+    ok(`[${app}] reshot → ${rel(out)}`);
   }
 }

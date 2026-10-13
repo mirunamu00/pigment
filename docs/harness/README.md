@@ -12,6 +12,7 @@ reference URL
    │  4. author     prompt-author agent                        → content/templates/<id>/<version>/  (the design prompt package)
    │  5. validate   pnpm harness validate <id>@<version>       → schema, required tokens, contrast, prompt lint
    │  6. generate   pnpm harness generate <id>@<version>       → showcase/runs/<id>/<version>/<app>/<runId>/  (agent restyles each base app)
+   │               pnpm harness reshoot <id>@<version>        → capture the latest runs again after the capture code changes (no agent run)
    │  7. evaluate   pnpm harness evaluate <id>@<version>       → gates: build, e2e, a11y, token adherence, reference similarity
    │               design-critic agent                         → scores + concrete prompt fixes
    │  8. iterate    back to 4 with the fixes (max 3 iterations, each recorded)

@@ -7,7 +7,7 @@ import { capture } from "./commands/capture.ts";
 import { checkAnalysis } from "./commands/check-analysis.ts";
 import { evaluate, mergeCritic } from "./commands/evaluate.ts";
 import { makeFixture } from "./commands/fixture.ts";
-import { baseline, generate, type Agent } from "./commands/generate.ts";
+import { baseline, generate, reshoot, type Agent } from "./commands/generate.ts";
 import { intake } from "./commands/intake.ts";
 import { checkAll, publish } from "./commands/publish.ts";
 import { scaffold } from "./commands/scaffold.ts";
@@ -94,6 +94,16 @@ program
       concurrency: Number(opts.concurrency),
       timeoutMinutes: Number(opts.timeout),
     });
+  });
+
+program
+  .command("reshoot")
+  .description("6b. capture the latest runs again with the current capture code (no agent run)")
+  .argument("<ref>")
+  .option("--apps <apps...>", `subset of ${AppId.options.join(", ")}`)
+  .action(async (ref: string, opts) => {
+    const { id, version } = parseRef(ref);
+    await reshoot(id, version, opts.apps?.map((a: string) => AppId.parse(a)));
   });
 
 program

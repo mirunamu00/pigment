@@ -914,6 +914,18 @@ async function probeInventory(page: Page, outDir: string, rawDir: string, key: s
       s.raw = raw;
     }
   }
+  // Small drawings (33–95px: card and header pictograms, badges) are evidence too: without them a critic
+  // can't tell whether small drawings are part of the reference's language.
+  const graphics = inv.svgs.filter((s) => s.role === "graphic").slice(0, 12);
+  for (const [n, s] of graphics.entries()) {
+    const png = await clipShot(page, `[data-pg-s="${s.id}"]`, 0.15);
+    if (png) {
+      const file = join(outDir, "illustrations", `${key}-g${n + 1}.png`);
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, png);
+      s.file = file;
+    }
+  }
   const iconFrames: Array<{ label: string; png: Buffer }> = [];
   for (const s of inv.svgs.filter((x) => x.role === "icon").slice(0, 30)) {
     const png = await clipShot(page, `[data-pg-s="${s.id}"]`, 0.4);
@@ -1046,6 +1058,27 @@ export async function deepCapture(page: Page, refDir: string, key: string, optio
   const theme = await probeTheme(page, refDir, key, options.darkDiffers);
   const lottieFiles = (await options.lottie?.()) ?? [];
   return { url: page.url(), motion: { animations, reveals, frames, visual, lottieFiles, ...statics }, interactions, inventory, theme, structure };
+}
+
+/**
+ * Crops of every drawing on an agent-built page (SVGs larger than an icon) at native resolution, so the
+ * critic can judge them at the size people see them and side by side with the reference's crops —
+ * full-page screenshots are scaled down when read and lose small drawings.
+ */
+export async function drawingCrops(page: Page, outDir: string, key: string, max = 12): Promise<Array<{ file: string; w: number; h: number }>> {
+  await prepare(page);
+  const inv = await page.evaluate(inventoryInPage);
+  const out: Array<{ file: string; w: number; h: number }> = [];
+  for (const [n, s] of inv.svgs.filter((x) => x.role !== "icon").slice(0, max).entries()) {
+    const png = await clipShot(page, `[data-pg-s="${s.id}"]`, 0.15);
+    if (!png) continue;
+    const file = join(outDir, "drawings", `${key}-d${n + 1}.png`);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, png);
+    out.push({ file, w: Math.round(s.box.w), h: Math.round(s.box.h) });
+  }
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  return out;
 }
 
 /**
