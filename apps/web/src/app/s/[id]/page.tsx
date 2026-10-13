@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { contrastRatio, getChangelog, getComponents, getManifest, getTokens, listTemplates, registry, type TemplateSummary } from "@pigment/content";
+import { contrastRatio, getComponents, getHistory, getManifest, getTokens, listTemplates, type TemplateSummary } from "@pigment/content";
 import { ApplyPanel } from "@/components/apply-panel";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { DemoViewer } from "@/components/demo-viewer";
@@ -84,7 +84,7 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
     .filter(([p]) => p.startsWith("space."))
     .map(([, v]) => String(v));
   const components = getComponents(id, version).components;
-  const versions = registry().templates.find((t) => t.id === id)?.versions ?? [];
+  const history = getHistory(id);
   const bodyFont = manifest.fonts.find((f) => f.role === "body") ?? manifest.fonts[0]!;
   const headingFont = manifest.fonts.find((f) => f.role === "heading" || f.role === "display") ?? bodyFont;
 
@@ -102,7 +102,7 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
           <div>
             <div className="detail-head__title">
               <h1>{manifest.name}</h1>
-              <span className="badge-version">v{version} · pinned</span>
+              <span className="badge-version">Updated {summary.updated}</span>
             </div>
             <p className="detail-head__desc">{manifest.description}</p>
             <p className="meta" style={{ marginTop: 12 }}>
@@ -111,7 +111,7 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
             </p>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <a href={`/download/${id}/${version}`} className="btn btn--lg">
+            <a href={`/download/${id}`} className="btn btn--lg">
               Package
             </a>
             <a href="#apply" className="btn btn--primary btn--lg">
@@ -123,7 +123,7 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
         <div className="detail-body">
           <div className="detail-main">
             <section aria-labelledby="demos-h">
-              <DemoViewer id={id} version={version} shots={summary.shots} light={summary.swatches[1] ?? "#eeeeee"} dark={String(tokens.dark?.["color.surface.default"] ?? "#111111")} />
+              <DemoViewer id={id} shots={summary.shots} light={summary.swatches[1] ?? "#eeeeee"} dark={String(tokens.dark?.["color.surface.default"] ?? "#111111")} />
             </section>
 
             <section aria-labelledby="color-h">
@@ -209,56 +209,46 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
 
             <section aria-labelledby="log-h">
               <div className="section-head">
-                <h2 id="log-h">Versions</h2>
-                <span className="meta">Published versions never change</span>
+                <h2 id="log-h">Changelog</h2>
+                <span className="meta">Your project keeps its own copy</span>
               </div>
-              <p className="versions__intro">
-                Applying a system records the version in the project&apos;s <code>design-system/VERSION</code>, and every later
-                screen uses that version — a new release never restyles a project unless you ask your agent to upgrade it.
-                Leave the version out and your agent starts from the latest.
+              <p className="changelog__intro">
+                Applying a system copies its tokens and rules into your project&apos;s <code>design-system/</code> folder, and every
+                later screen is built from that copy. Updates here never restyle a project on their own — ask your agent to
+                update and it applies only what changed since your copy.
               </p>
-              <ol className="versions">
-                {[...versions].reverse().map((v) => {
-                  const log = getChangelog(id, v.version);
-                  return (
-                    <li key={v.version} className="versions__item">
-                      <div className="versions__head">
-                        <span className="mono versions__num">{v.version}</span>
-                        {v.version === version && <span className="status-pill">latest</span>}
-                        <span className="meta">{v.publishedAt ? `Published ${v.publishedAt.slice(0, 10)}` : v.status}</span>
-                        <span className="versions__links meta">
-                          <a href={`/s/${id}/${v.version}/agent.md`}>Spec</a>
-                          <a href={`/download/${id}/${v.version}`}>Package</a>
-                        </span>
-                      </div>
-                      {log.summary && <p className="versions__summary">{inlineCode(log.summary)}</p>}
-                      {log.changes.length > 0 && (
-                        <details className="versions__changes">
-                          <summary>
-                            {log.changes.length} change{log.changes.length === 1 ? "" : "s"} {log.since ? `since ${log.since}` : "in this version"}
-                          </summary>
-                          <ul>
-                            {log.changes.map((c, i) => (
-                              <li key={i}>{inlineCode(c)}</li>
-                            ))}
-                          </ul>
-                        </details>
-                      )}
-                    </li>
-                  );
-                })}
+              <ol className="changelog">
+                {history.map((entry, i) => (
+                  <li key={entry.date + i} className="changelog__item">
+                    <div className="changelog__head">
+                      <span className="mono changelog__num">{entry.date}</span>
+                      {i === 0 && <span className="status-pill">current</span>}
+                    </div>
+                    {entry.summary && <p className="changelog__summary">{inlineCode(entry.summary)}</p>}
+                    {entry.changes.length > 0 && (
+                      <details className="changelog__changes">
+                        <summary>Details ({entry.changes.length})</summary>
+                        <ul>
+                          {entry.changes.map((c, j) => (
+                            <li key={j}>{inlineCode(c)}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </li>
+                ))}
               </ol>
             </section>
           </div>
 
           <aside id="apply" aria-labelledby="apply-h" className="detail-aside">
             <Bloom size={560} style={{ left: -90, top: -70 }} />
-            <ApplyPanel id={id} version={version} name={manifest.name} />
+            <ApplyPanel id={id} name={manifest.name} />
           </aside>
         </div>
 
         <div className="mobile-apply">
-          <a href={`/download/${id}/${version}`} className="btn" aria-label="Download package" style={{ width: 52, padding: 0 }}>
+          <a href={`/download/${id}`} className="btn" aria-label="Download package" style={{ width: 52, padding: 0 }}>
             <svg aria-hidden="true" viewBox="0 0 16 16" width={16} height={16}>
               <path d="M8 2v8M4.5 6.5L8 10l3.5-3.5M3 13h10" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
             </svg>

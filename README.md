@@ -24,7 +24,7 @@
 <br />
 
 Coding agents ship working screens that drift apart: every request fills the gaps with the model's own
-defaults. **Pigment** gives your agent a complete, versioned design system — exact tokens, component
+defaults. **Pigment** gives your agent a complete design system — exact tokens, component
 states and decision rules — so every screen it builds, today or next month, looks like it belongs.
 
 ## Quick start
@@ -39,8 +39,8 @@ claude mcp add --transport http pigment https://pigmentui.com/mcp
 
 > Apply the Pigment design system margin-notes to this project.
 
-That's it. Your agent takes the latest version, records it in `design-system/VERSION`, and keeps every new
-screen on it — a new release never restyles your project unless you ask for an upgrade.
+That's it. Your agent copies the system into your project's `design-system/` folder and builds every new screen
+from that copy — updates to the system never restyle your project unless you ask for them.
 
 <details>
 <summary><b>Codex, Cursor and other MCP clients</b></summary>
@@ -66,8 +66,8 @@ Local, with the specs bundled in the package:
 
 <br />
 
-Every system page on [pigmentui.com](https://pigmentui.com) has a version-pinned prompt to copy into any
-agent, a plain spec URL (`/s/<id>/<version>/agent.md`) and an offline `.zip` package.
+Every system page on [pigmentui.com](https://pigmentui.com) has a ready-made prompt to copy into any
+agent, a plain spec URL (`/s/<id>/agent.md`) and an offline `.zip` package.
 
 </details>
 
@@ -95,8 +95,8 @@ unedited output, cropped to the first screen.
 | --- | --- |
 | **Measured, not adjectival** | Every rule carries a value: color, type, spacing, radius, elevation and motion — light and dark. |
 | **Rules, not page templates** | Decision rules that fit a dashboard, a store, a blog and a settings page alike. |
-| **Proven before publishing** | Each version is applied by an agent to four reference apps, gated on builds, tests, accessibility and design adherence. |
-| **Pinned versions** | Published versions never change, so a project keeps the design it installed. |
+| **Proven before publishing** | Every system — and every update — is applied by an agent to four reference apps, gated on builds, tests, accessibility and design adherence. |
+| **Yours to keep** | Your project keeps its own copy. Updates come with a dated changelog and land only when you ask. |
 
 ## What your agent gets
 
@@ -104,7 +104,7 @@ unedited output, cropped to the first screen.
 | --- | --- |
 | `agent.md` | One document: character, defining rules, tokens, components, how to apply |
 | `tokens.css` · `tokens.json` | Exact values, light and dark — copied, never retyped |
-| MCP tools | `list_design_systems` · `get_design_system` · `get_tokens` · `get_component_spec` · `get_installation_guide` · `get_references` |
+| MCP tools | `list_design_systems` · `get_design_system` · `get_tokens` · `get_component_spec` · `get_installation_guide` · `get_changelog` · `get_references` |
 | HTTP API | [`/api/v1/design-systems`](https://pigmentui.com/api/v1/design-systems) — the same specs as JSON |
 | Package | A `.zip` with everything, for offline use |
 

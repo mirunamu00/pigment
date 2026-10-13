@@ -17,7 +17,7 @@ export default async function SystemImage({ params }: { params: Promise<{ id: st
   const name = t?.name ?? "Pigment";
   const description = t?.description ?? "";
   const short = description.length > 150 ? `${description.slice(0, 147).replace(/[\s,;]+\S*$/, "")}…` : description;
-  // Unedited agent output: the dashboard app restyled with this version.
+  // Unedited agent output: the dashboard app restyled with this system.
   const shot = t && publicImage(t.shots["dashboard.desktopLight"] ?? Object.values(t.shots)[0] ?? "");
 
   return new ImageResponse(
@@ -30,7 +30,7 @@ export default async function SystemImage({ params }: { params: Promise<{ id: st
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ fontSize: 22, color: INK_3, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-              {`Design system${t ? ` · ${t.version}` : ""}`}
+              Design system
             </div>
             <div style={{ marginTop: 10, fontFamily: "Instrument Serif", fontSize: 92, lineHeight: 1, letterSpacing: "-0.01em" }}>{name}</div>
             <div style={{ marginTop: 22, fontSize: 25, lineHeight: 1.4, color: INK_3, paddingRight: 24 }}>{short}</div>

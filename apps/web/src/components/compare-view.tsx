@@ -9,7 +9,6 @@ import { APPS, Shot, type AppKey } from "./shot";
 export interface CompareItem {
   id: string;
   name: string;
-  version: string;
   shots: Record<string, string>;
   lightBg: string | null;
   darkBg: string | null;
@@ -67,7 +66,6 @@ export function CompareView({ items }: { items: CompareItem[] }) {
                 <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                   <span aria-hidden="true" style={{ width: 14, height: 14, borderRadius: "50%", background: item.accent, flex: "none" }} />
                   <span style={{ fontSize: 14, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</span>
-                  <span className="mono meta">v{item.version}</span>
                 </span>
                 <button
                   type="button"
@@ -88,7 +86,7 @@ export function CompareView({ items }: { items: CompareItem[] }) {
                 <Shot
                   src={bg ? item.shots[`${app}.desktop${scheme === "light" ? "Light" : "Dark"}`] : undefined}
                   title={bg ? label : `No ${scheme} mode`}
-                  meta={bg ? `/${item.id}/${item.version}/${app}` : `${item.name} ships ${item.rows.appearance} only`}
+                  meta={bg ? `/${item.id}/${app}` : `${item.name} ships ${item.rows.appearance} only`}
                   bg={bg ?? "#e9e6df"}
                   ink={bg && isDark(bg) ? "#e8ebf1" : "#0e0e0c"}
                   height={360}

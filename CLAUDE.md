@@ -1,7 +1,7 @@
 # Pigment
 
 Agent-ready design system templates. A gallery site where people pick a design system and hand a
-version-pinned prompt to their coding agent; an MCP server and static API that serve the same specs;
+ready-made prompt to their coding agent; an MCP server and static API that serve the same specs;
 and the harness that turns a reference website into a tested, published template.
 
 Planning: `docs/planning/` (the v0.2 spec). Approved visual design: the "Pigment — design exploration"
@@ -38,6 +38,9 @@ analysis, and before publishing. Never publish without the user's explicit appro
   proprietary fonts. Follow `docs/harness/prompt-writing-rules.md`.
 - Published template versions are immutable (`content/published.json` holds their hashes). Fix by
   publishing a new version.
+- Versions are internal. The site, API, MCP tools and prompts always serve the current system and never
+  show a version number; people and agents see the update date and a dated changelog
+  (`getHistory`). Old versioned spec/download URLs stay only so shared links keep working.
 - Gallery screenshots are unedited agent output. Never retouch or hand-pick across runs without saying so.
 - The platform UI follows the interface kit: ink and paper, no brand color; watercolor bloom, tape and
   pencil notes only at the edges and never inside a template preview.

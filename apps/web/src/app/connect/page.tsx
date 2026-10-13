@@ -9,12 +9,13 @@ export const metadata: Metadata = pageMeta("Connect an agent", "Connect Claude C
 export const dynamic = "force-static";
 
 const TOOLS = [
-  { name: "list_design_systems", desc: "Browse systems with their tags and latest stable version.", args: "tone?  appearance?" },
-  { name: "get_design_system", desc: "Tokens, visual principles and application rules for one version — latest unless the project pins one.", args: "id  version?" },
-  { name: "get_tokens", desc: "tokens.css or tokens.json, light and dark — copied into the project, never retyped.", args: "id  version?  format?: css | json" },
-  { name: "get_component_spec", desc: "Variants, states, accessibility and token mapping for one component.", args: "id  version?  component" },
-  { name: "get_references", desc: "Screenshots of the four reference apps restyled with this version.", args: "id  version?  app?" },
-  { name: "get_installation_guide", desc: "Steps, approval points and checks for your scenario.", args: "id  version?  mode: new | existing | ongoing" },
+  { name: "list_design_systems", desc: "Browse systems with their tags and when each was last updated.", args: "tone?  appearance?" },
+  { name: "get_design_system", desc: "Tokens, visual principles and application rules for one system.", args: "id" },
+  { name: "get_tokens", desc: "tokens.css or tokens.json, light and dark — copied into the project, never retyped.", args: "id  format?: css | json" },
+  { name: "get_component_spec", desc: "Variants, states, accessibility and token mapping for one component.", args: "id  component" },
+  { name: "get_references", desc: "Screenshots of the four reference apps restyled with this system.", args: "id  app?" },
+  { name: "get_installation_guide", desc: "Steps, approval points and checks for your scenario.", args: "id  mode: new | existing | ongoing" },
+  { name: "get_changelog", desc: "What changed, by date — used to update a project that already has the system.", args: "id" },
 ];
 
 export default function ConnectPage() {
@@ -74,7 +75,7 @@ export default function ConnectPage() {
                 “List the Pigment design systems.”
               </p>
               <p className="meta" style={{ margin: 0 }}>
-                It should call <span className="mono">list_design_systems</span> and return each system with its latest stable version.
+                It should call <span className="mono">list_design_systems</span> and return each system with when it was last updated.
               </p>
             </section>
           </aside>

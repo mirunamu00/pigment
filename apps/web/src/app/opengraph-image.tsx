@@ -24,7 +24,7 @@ export default function OpenGraphImage() {
             <span>not a prompt.</span>
           </div>
           <div style={{ marginTop: 28, fontSize: 30, lineHeight: 1.35, color: INK_3, maxWidth: 820 }}>
-            Versioned design systems that Claude Code, Codex and any MCP client can apply.
+            Design systems that Claude Code, Codex and any MCP client can apply.
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 24, color: INK_3 }}>

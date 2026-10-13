@@ -1,36 +1,25 @@
 import { McpServer } from "@modelcontextprotocol/server";
-import {
-  ContentError,
-  getAgentMd,
-  getComponents,
-  getComponentSpec,
-  getGuide,
-  getManifest,
-  getShots,
-  getTokenFile,
-  listTemplates,
-  resolveVersion,
-} from "@pigment/content";
+import { ContentError, getAgentMd, getComponents, getComponentSpec, getGuide, getHistory, getShots, getTokenFile, listTemplates } from "@pigment/content";
 import { buildPrompt, SITE_URL } from "@pigment/content/prompts";
 import { z } from "zod";
 import pkg from "../package.json" with { type: "json" };
 
 export const SERVER_VERSION = pkg.version;
 
+// Systems have no user-facing versions: every tool serves the current system. Releases stay immutable
+// internally (content/templates/<id>/<version>), but agents and people only ever see update dates.
+const CURRENT = "latest";
+
 const id = z.string().describe('Design system id, e.g. "margin-notes" (see list_design_systems)');
-const version = z
-  .string()
-  .default("latest")
-  .describe('Leave out (or "latest") when adding a system to a project. If the project has design-system/VERSION (e.g. margin-notes@1.0.0), pass that exact version.');
+const mode = z.enum(["new", "existing", "ongoing"]);
 
 // Sent to the client at connection time; most hosts put it in the agent's context.
 const INSTRUCTIONS = [
-  "Pigment serves versioned design systems. Published versions never change.",
-  "Before UI work, check the project for design-system/VERSION. If it exists, use exactly that id and version in every call.",
-  "If it does not, the user is adding a system: omit the version (latest), then record the exact id@version that get_design_system reports in design-system/VERSION.",
-  "Only change the recorded version when the user asks to upgrade.",
+  "Pigment serves design systems for coding agents. Every tool returns the current system; there is nothing to choose or pin.",
+  "Applying a system copies it into the project's design-system/ folder (tokens, component notes and a VERSION file naming the system and its update date).",
+  "From then on design-system/ is the project's source of truth: build new screens from it and don't re-fetch tokens unless the user asks to update.",
+  "To update, call get_changelog, apply only the entries dated after the date in design-system/VERSION, and then write the new date.",
 ].join("\n");
-const mode = z.enum(["new", "existing", "ongoing"]);
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 
@@ -48,13 +37,20 @@ function guard(fn: () => string): ToolResult {
   }
 }
 
+function updated(systemId: string): string {
+  const t = listTemplates().find((x) => x.id === systemId);
+  if (!t) throw new ContentError("unknown_template", `No published system "${systemId}". Call list_design_systems.`);
+  return t.updated;
+}
+
 /**
  * The spec without its component chapter (served one component at a time by get_component_spec), with a
  * header that maps the files agent.md mentions to the tools that deliver them over MCP.
  */
-function specForMcp(systemId: string, pinned: string): string {
-  const md = getAgentMd(systemId, pinned);
-  const index = getComponents(systemId, pinned).components;
+function specForMcp(systemId: string): string {
+  const date = updated(systemId);
+  const md = getAgentMd(systemId, CURRENT);
+  const index = getComponents(systemId, CURRENT).components;
   const start = md.indexOf("\n## Components");
   const end = start < 0 ? -1 : md.indexOf("\n## ", start + 4);
   const specified = index.filter((c) => c.status !== "unsupported").map((c) => c.name);
@@ -62,11 +58,11 @@ function specForMcp(systemId: string, pinned: string): string {
   const chapter = [
     "\n## Components\n",
     `Specified: ${specified.join(", ")}. Read each with get_component_spec before building it.`,
-    unsupported.length ? `Not specified in this version: ${unsupported.join(", ")} — compose them from tokens and say so in your report.` : "",
+    unsupported.length ? `Not specified in this system: ${unsupported.join(", ")} — compose them from tokens and say so in your report.` : "",
   ].join("\n");
   const body = start < 0 ? md : md.slice(0, start) + chapter + (end < 0 ? "" : md.slice(end));
   return [
-    `> Delivered over MCP as ${systemId}@${pinned}. Record exactly \`${systemId}@${pinned}\` in design-system/VERSION and pass version "${pinned}" in every later call.`,
+    `> Pigment system ${systemId}, updated ${date}. Write \`${systemId}, updated ${date}\` in design-system/VERSION.`,
     "> Where this document says tokens.css or tokens.json, call get_tokens and copy the file verbatim.",
     "",
     body,
@@ -81,8 +77,7 @@ export function createServer(): McpServer {
     "list_design_systems",
     {
       title: "List design systems",
-      description:
-        "Browse the published Pigment design systems with their tone, appearance, keywords and latest stable version. Use it to pick a system or check which versions exist.",
+      description: "Browse the Pigment design systems with their tone, appearance, keywords and when each was last updated. Use it to pick a system.",
       inputSchema: z.object({
         tone: z.string().optional().describe("Filter by tone: minimal, natural, soft, editorial, brutalist, technical, playful, luxury"),
         appearance: z.enum(["light", "dark"]).optional().describe("Only systems that support this appearance"),
@@ -94,8 +89,8 @@ export function createServer(): McpServer {
         const items = listTemplates()
           .filter((t) => !tone || t.tags.tone === tone)
           .filter((t) => !appearance || t.tags.appearance.includes(appearance))
-          .map((t) => ({ id: t.id, name: t.name, latest: t.version, versions: t.versions, description: t.description, tags: t.tags, page: `${SITE_URL}/s/${t.id}` }));
-        return items.length ? JSON.stringify(items, null, 2) : "No published system matches that filter.";
+          .map((t) => ({ id: t.id, name: t.name, updated: t.updated, description: t.description, tags: t.tags, page: `${SITE_URL}/s/${t.id}` }));
+        return items.length ? JSON.stringify(items, null, 2) : "No system matches that filter.";
       }),
   );
 
@@ -104,11 +99,11 @@ export function createServer(): McpServer {
     {
       title: "Get design system",
       description:
-        "The full specification of one version (the latest unless the project pins one): character, the defining rules, color, type, spacing and motion rules, semantic and primitive token tables, setup and verification. Read it before changing any UI.",
-      inputSchema: z.object({ id, version }),
+        "The full specification of a system: character, the defining rules, color, type, spacing and motion rules, semantic and primitive token tables, setup and verification. Read it before changing any UI.",
+      inputSchema: z.object({ id }),
       annotations: { readOnlyHint: true },
     },
-    async (args) => guard(() => specForMcp(args.id, resolveVersion(args.id, args.version))),
+    async (args) => guard(() => specForMcp(args.id)),
   );
 
   server.registerTool(
@@ -116,10 +111,10 @@ export function createServer(): McpServer {
     {
       title: "Get token file",
       description: "The exact token values, light and dark, as tokens.css (CSS custom properties) or tokens.json. Copy the file into the project unchanged; never retype values.",
-      inputSchema: z.object({ id, version, format: z.enum(["css", "json"]).default("css") }),
+      inputSchema: z.object({ id, format: z.enum(["css", "json"]).default("css") }),
       annotations: { readOnlyHint: true },
     },
-    async (args) => guard(() => getTokenFile(args.id, args.version, args.format)),
+    async (args) => guard(() => getTokenFile(args.id, CURRENT, args.format)),
   );
 
   server.registerTool(
@@ -127,10 +122,10 @@ export function createServer(): McpServer {
     {
       title: "Get component spec",
       description: "Anatomy, variants, every state, accessibility and token mapping for one component (e.g. button, table, dialog). Read it before building or restyling that component.",
-      inputSchema: z.object({ id, version, component: z.string().describe("Component name from the Components list in get_design_system") }),
+      inputSchema: z.object({ id, component: z.string().describe("Component name from the Components list in get_design_system") }),
       annotations: { readOnlyHint: true },
     },
-    async (args) => guard(() => getComponentSpec(args.id, args.version, args.component).markdown),
+    async (args) => guard(() => getComponentSpec(args.id, CURRENT, args.component).markdown),
   );
 
   server.registerTool(
@@ -139,10 +134,22 @@ export function createServer(): McpServer {
       title: "Get installation guide",
       description:
         "Steps, approval points and checks for one scenario: new (set up a fresh project), existing (restyle a working app without changing behavior) or ongoing (build new screens in a project that already uses the system).",
-      inputSchema: z.object({ id, version, mode }),
+      inputSchema: z.object({ id, mode }),
       annotations: { readOnlyHint: true },
     },
-    async (args) => guard(() => getGuide(args.id, args.version, args.mode)),
+    async (args) => guard(() => getGuide(args.id, CURRENT, args.mode)),
+  );
+
+  server.registerTool(
+    "get_changelog",
+    {
+      title: "Get changelog",
+      description:
+        "What changed in a system, newest first, by date. Use it to update a project: apply only the entries dated after the date in the project's design-system/VERSION.",
+      inputSchema: z.object({ id }),
+      annotations: { readOnlyHint: true },
+    },
+    async (args) => guard(() => JSON.stringify(getHistory(args.id), null, 2)),
   );
 
   server.registerTool(
@@ -150,22 +157,22 @@ export function createServer(): McpServer {
     {
       title: "Get references",
       description:
-        "Screenshots of four reference apps (dashboard, store, blog, settings) restyled with this version by an agent — desktop and mobile, light and dark — plus links to the system page, spec and offline package.",
-      inputSchema: z.object({ id, version, app: z.string().optional().describe("Only one app: dashboard, commerce, blog or settings") }),
+        "Screenshots of four reference apps (dashboard, store, blog, settings) restyled with this system by an agent — desktop and mobile, light and dark — plus links to the system page, spec and offline package.",
+      inputSchema: z.object({ id, app: z.string().optional().describe("Only one app: dashboard, commerce, blog or settings") }),
       annotations: { readOnlyHint: true },
     },
     async (args) =>
       guard(() => {
-        const pinned = resolveVersion(args.id, args.version);
-        const shots = Object.entries(getShots(args.id, pinned))
+        const shots = Object.entries(getShots(args.id, CURRENT))
           .filter(([key]) => !args.app || key.startsWith(`${args.app}.`))
           .map(([key, path]) => ({ view: key, url: SITE_URL + path }));
         return JSON.stringify(
           {
-            system: `${args.id}@${pinned}`,
-            page: `${SITE_URL}/s/${args.id}/${pinned}`,
-            spec: `${SITE_URL}/s/${args.id}/${pinned}/agent.md`,
-            package: `${SITE_URL}/download/${args.id}/${pinned}`,
+            system: args.id,
+            updated: updated(args.id),
+            page: `${SITE_URL}/s/${args.id}`,
+            spec: `${SITE_URL}/s/${args.id}/agent.md`,
+            package: `${SITE_URL}/download/${args.id}`,
             screenshots: shots,
           },
           null,
@@ -179,23 +186,16 @@ export function createServer(): McpServer {
     "apply",
     {
       title: "Apply a design system",
-      description: "Install or apply a pinned Pigment design system with a plan, an approval step and a verification report.",
+      description: "Install or apply a Pigment design system with a plan, an approval step and a verification report.",
       argsSchema: z.object({
         id: z.string().describe('Design system id, e.g. "margin-notes"'),
-        version: z.string().optional().describe("Version to pin; defaults to the latest stable version"),
         mode: z.string().optional().describe("new, existing (default) or ongoing"),
       }),
     },
-    ({ id: systemId, version: wanted, mode: scenario }) => {
-      const pinned = getManifest(systemId, wanted ?? "latest").version;
+    ({ id: systemId, mode: scenario }) => {
       const m = mode.safeParse(scenario ?? "existing");
       return {
-        messages: [
-          {
-            role: "user" as const,
-            content: { type: "text" as const, text: buildPrompt(systemId, pinned, m.success ? m.data : "existing", "mcp") },
-          },
-        ],
+        messages: [{ role: "user" as const, content: { type: "text" as const, text: buildPrompt(systemId, m.success ? m.data : "existing", "mcp") } }],
       };
     },
   );

@@ -11,7 +11,7 @@ export default function NotFound() {
           This page washed <span className="serif">out</span>.
         </h1>
         <p className="muted" style={{ marginTop: 14 }}>
-          The system or page you were looking for does not exist, or that version was never published.
+          The system or page you were looking for does not exist.
         </p>
         <p style={{ marginTop: 24 }}>
           <Link href="/" className="btn btn--primary">

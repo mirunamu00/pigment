@@ -37,7 +37,7 @@ export function ConnectView() {
               </h2>
               <span className="pill-dark">Recommended</span>
             </div>
-            <p>Nothing to install. Always serves the exact version your prompt pins.</p>
+            <p>Nothing to install. Always serves the current systems.</p>
             <pre className="code" style={{ padding: "16px 18px" }}>
               {connectSnippet(client, "remote")}
             </pre>
@@ -59,13 +59,13 @@ export function ConnectView() {
             {connectSnippet(client, "local")}
           </pre>
           <p className="meta">
-            Fully offline? Point it at a downloaded package: <span className="mono">--package ./design-packages/&lt;system&gt;-&lt;version&gt;</span>
+            Every system is bundled in the package, so it keeps working offline once installed.
           </p>
         </section>
 
         <section aria-labelledby="m3" className="panel method">
-          <h2 id="m3">Pinned per project</h2>
-          <p>Lock the server version in your lockfile so the whole team and CI use the same one. Dev dependency only — it never ships with your app.</p>
+          <h2 id="m3">Installed per project</h2>
+          <p>A dev dependency, so the whole team and CI run the same server. It never ships with your app.</p>
           <pre className="code code--light" style={{ padding: "14px 16px", fontSize: 12.5 }}>
             {connectSnippet(client, "project")}
           </pre>

@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { ComponentIndex, Manifest, Registry, resolveTokens, type TokenTree } from "@pigment/schema";
 
 export type ErrorCode = "unknown_template" | "unknown_version" | "invalid_component" | "unavailable_artifact" | "invalid_mode";
@@ -45,6 +45,8 @@ export interface TemplateSummary {
   description: string;
   tags: Manifest["tags"];
   versions: string[];
+  /** When the current version was published (YYYY-MM-DD) — what users see instead of a version number. */
+  updated: string;
   /** Five representative colors for palette chips: surface, subtle surface, text, action, accent hover. */
   swatches: string[];
   /** Demo screenshots exported at publish time, relative to the site's public folder. */
@@ -72,9 +74,23 @@ export function getManifest(id: string, version: string): Manifest {
 }
 
 function readArtifact(id: string, version: string, rel: string): string {
-  const file = join(versionDir(id, version), rel);
+  const dir = versionDir(id, version);
+  const file = join(dir, rel);
   if (!existsSync(file)) throw new ContentError("unavailable_artifact", `${id}@${version} has no ${rel}`);
-  return readFileSync(file, "utf8");
+  return unversioned(id, basename(dir), readFileSync(file, "utf8"));
+}
+
+/**
+ * Versions are internal: published files are frozen with their version written in (titles, the
+ * design-system/VERSION step, token headers), so they are presented with the update date instead.
+ */
+function unversioned(id: string, version: string, text: string): string {
+  const name = getManifest(id, version).name;
+  const date = (registry().templates.find((t) => t.id === id)?.versions.find((v) => v.version === version)?.publishedAt ?? "").slice(0, 10);
+  return text
+    .replaceAll(`${name} ${version}`, name)
+    .replaceAll(`${id}@${version}`, date ? `${id}, updated ${date}` : id)
+    .replaceAll(`"version": "${version}",`, `"updated": "${date}",`);
 }
 
 export function getTokens(id: string, version: string): Record<string, Record<string, unknown>> {
@@ -99,7 +115,7 @@ export function getComponents(id: string, version: string): ComponentIndex {
 export function getComponentSpec(id: string, version: string, name: string): { entry: ComponentIndex["components"][number]; markdown: string } {
   const entry = getComponents(id, version).components.find((c) => c.name === name);
   if (!entry) throw new ContentError("invalid_component", `${id}@${version} has no component "${name}"`);
-  if (entry.status === "unsupported" || !entry.file) return { entry, markdown: `${name} is not specified in this version.` };
+  if (entry.status === "unsupported" || !entry.file) return { entry, markdown: `${name} is not specified in this system.` };
   return { entry, markdown: readArtifact(id, version, join("components", entry.file)) };
 }
 
@@ -129,37 +145,51 @@ export function getTokenFile(id: string, version: string, format: "css" | "json"
 }
 
 export function packageFile(id: string, version: string): string {
-  const file = join(versionDir(id, version), "dist", `${id}-${version}.zip`);
+  const dir = versionDir(id, version);
+  const file = join(dir, "dist", `${id}-${basename(dir)}.zip`);
   if (!existsSync(file)) throw new ContentError("unavailable_artifact", `${id}@${version} has no package`);
   return file;
 }
 
-/**
- * One version's entry from its CHANGELOG.md: the opening paragraph as a summary and the bullet list of
- * changes (continuation lines folded in). Empty when the version has no entry.
- */
-export function getChangelog(id: string, version: string): { summary: string; changes: string[]; since?: string } {
-  const pinned = resolveVersion(id, version);
+export interface HistoryEntry {
+  /** Publish date, YYYY-MM-DD. Users and agents see dates, never version numbers. */
+  date: string;
+  summary: string;
+  changes: string[];
+}
+
+/** One published version's CHANGELOG.md entry: the opening paragraph and the bullet list. */
+function changelogEntry(id: string, version: string): { summary: string; changes: string[] } {
   let md: string;
   try {
-    md = readArtifact(id, pinned, "CHANGELOG.md").replace(/\r\n/g, "\n");
+    md = readArtifact(id, version, "CHANGELOG.md").replace(/\r\n/g, "\n");
   } catch {
     return { summary: "", changes: [] };
   }
-  const start = md.indexOf(`\n## ${pinned}\n`);
+  const start = md.indexOf(`\n## ${version}\n`);
   if (start < 0) return { summary: "", changes: [] };
-  const rest = md.slice(start + pinned.length + 5);
+  const rest = md.slice(start + version.length + 5);
   const section = rest.slice(0, rest.search(/\n## |$/)).trim();
-  const blocks = section.split(/\n\s*\n/);
-  const summary = (blocks[0] ?? "").replace(/\s*\n\s*/g, " ").trim();
+  const summary = (section.split(/\n\s*\n/)[0] ?? "").replace(/\s*\n\s*/g, " ").trim();
   const changes: string[] = [];
   for (const line of section.split("\n")) {
     if (line.startsWith("- ")) changes.push(line.slice(2).trim());
     else if (/^\s+\S/.test(line) && changes.length) changes[changes.length - 1] += ` ${line.trim()}`;
   }
-  // "Changes since 0.1.0-rc.3 (...)": the list is relative to that version, not everything in this one.
-  const since = /^Changes since (\S+?)[\s(:]/m.exec(section)?.[1];
-  return { summary, changes, since };
+  return { summary, changes };
+}
+
+/**
+ * A system's update history, newest first. Versions stay internal (each release is an immutable folder that
+ * its gallery screenshots belong to); what people and agents see is a dated changelog.
+ */
+export function getHistory(id: string): HistoryEntry[] {
+  const entry = registry().templates.find((t) => t.id === id);
+  if (!entry) throw new ContentError("unknown_template", `No published template "${id}"`);
+  return entry.versions
+    .filter((v) => v.status === "published")
+    .reverse()
+    .map((v) => ({ date: (v.publishedAt ?? "").slice(0, 10), ...changelogEntry(id, v.version) }));
 }
 
 /** The pinned version "latest" points to. */
@@ -222,6 +252,7 @@ export function listTemplates(): TemplateSummary[] {
         description: manifest.description,
         tags: manifest.tags,
         versions: t.versions.filter((v) => v.status === "published").map((v) => v.version),
+        updated: (t.versions.find((v) => v.version === version)?.publishedAt ?? "").slice(0, 10),
         swatches: ["color.surface.default", "color.surface.subtle", "color.text.primary", "color.action.primary", "color.action.primaryHover"].map(swatch),
         shots: shotsFor(t.id, version),
       };

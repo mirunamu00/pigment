@@ -86,7 +86,7 @@ function Card({ t, angles, onStatus }: { t: TemplateSummary; angles: readonly [n
       <Shot
         src={t.shots[`${app}.desktopLight`]}
         title={label}
-        meta={`${t.id}@${t.version} · ${app}`}
+        meta={`${t.id} · ${app}`}
         bg={bg}
         ink={isDark(bg) ? "#e8ebf1" : "#0e0e0c"}
         height={400}
@@ -102,7 +102,6 @@ function Card({ t, angles, onStatus }: { t: TemplateSummary; angles: readonly [n
         <div style={{ minWidth: 0 }}>
           <div className="card__name">
             <h2>{t.name}</h2>
-            <span className="mono meta">v{t.version}</span>
           </div>
           <p className="card__desc">{t.description}</p>
           <div className="card__swatches">
@@ -121,8 +120,8 @@ function Card({ t, angles, onStatus }: { t: TemplateSummary; angles: readonly [n
             Details
           </Link>
           <CopyButton
-            text={buildPrompt(t.id, t.version, "existing", "url")}
-            successMessage={`Prompt for ${t.id}@${t.version} copied.`}
+            text={buildPrompt(t.id, "existing", "url")}
+            successMessage={`Prompt for ${t.name} copied.`}
             onStatus={(s) => onStatus(s.message)}
           />
         </div>

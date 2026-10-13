@@ -12,7 +12,7 @@ export function GET(request: Request) {
     const items = listTemplates()
       .filter((t) => !tone || t.tags.tone === tone)
       .filter((t) => !appearance || t.tags.appearance.includes(appearance as "light" | "dark"))
-      .map((t) => ({ id: t.id, name: t.name, latest: t.version, versions: t.versions, description: t.description, tags: t.tags }));
+      .map((t) => ({ id: t.id, name: t.name, updated: t.updated, description: t.description, tags: t.tags, href: `/api/v1/design-systems/${t.id}` }));
     return json({ items });
   });
 }

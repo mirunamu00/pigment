@@ -2,7 +2,8 @@ import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 const ID = "fixture-system";
-const VERSION = "1.0.0";
+// The fixture registry publishes fixture-system on this date. Versions are internal: nothing user-facing shows one.
+const UPDATED = "2026-10-11";
 
 test.describe("gallery", () => {
   test("lists the published system and filters by tone", async ({ page }) => {
@@ -16,13 +17,14 @@ test.describe("gallery", () => {
     await expect(page.getByRole("heading", { name: "Fixture System" })).toBeVisible();
   });
 
-  test("copy prompt puts a version-pinned prompt on the clipboard", async ({ page, context }) => {
+  test("copy prompt puts a ready-made prompt on the clipboard", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto("/");
     await page.getByRole("button", { name: "Copy prompt" }).first().click();
     await expect(page.getByRole("button", { name: "Copied" }).first()).toBeVisible();
     const text = await page.evaluate(() => navigator.clipboard.readText());
-    expect(text).toContain(`${ID}@${VERSION}`);
+    expect(text).toContain(`Apply design system ${ID} to this project.`);
+    expect(text).not.toMatch(/\d+\.\d+\.\d+/);
     expect(text).toContain("Preserve features");
   });
 
@@ -38,10 +40,12 @@ test.describe("gallery", () => {
 });
 
 test.describe("system detail", () => {
-  test("shows tokens, components and versions", async ({ page }) => {
+  test("shows tokens, components and a dated changelog", async ({ page }) => {
     await page.goto(`/s/${ID}`);
     await expect(page.getByRole("heading", { level: 1, name: "Fixture System" })).toBeVisible();
-    await expect(page.getByText(`v${VERSION} · pinned`)).toBeVisible();
+    await expect(page.getByText(`Updated ${UPDATED}`)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Changelog" })).toBeVisible();
+    expect(await page.locator("main, .page").first().innerText()).not.toMatch(/\bv?\d+\.\d+\.\d+\b/);
     await expect(page.getByText("text.primary", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Components" })).toBeVisible();
     await expect(page.getByText("data-display / table")).toBeVisible();
@@ -51,7 +55,7 @@ test.describe("system detail", () => {
     await page.goto(`/s/${ID}`);
     const panel = page.locator("#apply");
     await panel.getByRole("group", { name: "Spec delivery" }).getByRole("button", { name: "Spec URL" }).click();
-    await expect(panel.locator("pre").last()).toContainText(`/s/${ID}/${VERSION}/agent.md`);
+    await expect(panel.locator("pre").last()).toContainText(`/s/${ID}/agent.md`);
     await panel.getByRole("group", { name: "Project" }).getByRole("button", { name: "New" }).click();
     await expect(panel.locator("pre").last()).toContainText("Set up design system");
     await panel.getByRole("group", { name: "Spec delivery" }).getByRole("button", { name: "MCP" }).click();
@@ -74,32 +78,35 @@ test.describe("system detail", () => {
 });
 
 test.describe("API and downloads", () => {
-  test("list, version, tokens, component and guide", async ({ request }) => {
+  test("list, system, tokens, component and guide — no versions anywhere", async ({ request }) => {
     const list = await (await request.get("/api/v1/design-systems")).json();
     expect(list.items.map((i: { id: string }) => i.id)).toEqual([ID]);
+    expect(list.items[0].updated).toBe(UPDATED);
+    expect(JSON.stringify(list)).not.toMatch(/"version|"latest"/);
 
-    const version = await (await request.get(`/api/v1/design-systems/${ID}/latest`)).json();
-    expect(version.manifest.version).toBe(VERSION);
-    expect(version.artifacts.components.length).toBeGreaterThanOrEqual(12);
+    const system = await (await request.get(`/api/v1/design-systems/${ID}`)).json();
+    expect(system.manifest.version).toBeUndefined();
+    expect(system.manifest.updated).toBe(UPDATED);
+    expect(system.artifacts.components.length).toBeGreaterThanOrEqual(12);
+    expect(system.artifacts.spec).toBe(`/s/${ID}/agent.md`);
 
-    const tokens = await (await request.get(`/api/v1/design-systems/${ID}/${VERSION}/tokens`)).json();
+    const tokens = await (await request.get(`/api/v1/design-systems/${ID}/tokens`)).json();
     expect(tokens.modes.light["color.text.primary"]).toMatch(/^#[0-9a-f]{6}$/);
     expect(tokens.modes.dark).toBeTruthy();
 
-    const button = await (await request.get(`/api/v1/design-systems/${ID}/${VERSION}/components/button`)).json();
+    const button = await (await request.get(`/api/v1/design-systems/${ID}/components/button`)).json();
     expect(button.markdown).toContain("### Button");
 
-    const guide = await (await request.get(`/api/v1/design-systems/${ID}/${VERSION}/guides/existing`)).json();
+    const guide = await (await request.get(`/api/v1/design-systems/${ID}/guides/existing`)).json();
     expect(guide.markdown).toContain("## Existing project");
     expect(guide.markdown).toContain("## Verification");
   });
 
   test("errors carry stable codes", async ({ request }) => {
     const cases: Array<[string, number, string]> = [
-      ["/api/v1/design-systems/nope/1.0.0", 404, "unknown_template"],
-      [`/api/v1/design-systems/${ID}/9.9.9`, 404, "unknown_version"],
-      [`/api/v1/design-systems/${ID}/${VERSION}/components/carousel`, 404, "invalid_component"],
-      [`/api/v1/design-systems/${ID}/${VERSION}/guides/sometimes`, 400, "invalid_mode"],
+      ["/api/v1/design-systems/nope", 404, "unknown_template"],
+      [`/api/v1/design-systems/${ID}/components/carousel`, 404, "invalid_component"],
+      [`/api/v1/design-systems/${ID}/guides/sometimes`, 400, "invalid_mode"],
     ];
     for (const [url, status, code] of cases) {
       const res = await request.get(url);
@@ -109,13 +116,15 @@ test.describe("API and downloads", () => {
   });
 
   test("spec URL serves agent.md and the package downloads", async ({ request }) => {
-    const spec = await request.get(`/s/${ID}/${VERSION}/agent.md`);
+    const spec = await request.get(`/s/${ID}/agent.md`);
     expect(spec.headers()["content-type"]).toContain("text/markdown");
     const md = await spec.text();
-    expect(md).toContain(`\`${ID}@${VERSION}\``);
+    expect(md).toContain(`\`${ID}, updated ${UPDATED}\``);
+    expect(md).not.toContain("1.0.0");
     expect(md).toContain("## Semantic color tokens — light");
 
-    const zip = await request.get(`/download/${ID}/${VERSION}`);
+    const zip = await request.get(`/download/${ID}`);
+    expect(zip.headers()["content-disposition"]).toContain(`${ID}.zip`);
     expect(zip.status()).toBe(200);
     expect(zip.headers()["content-type"]).toBe("application/zip");
     expect(zip.headers()["x-content-sha256"]).toMatch(/^[0-9a-f]{64}$/);

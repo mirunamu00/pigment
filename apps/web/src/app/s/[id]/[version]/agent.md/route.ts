@@ -3,7 +3,7 @@ import { handle, isPinned } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
-/** The spec URL used in prompts: one markdown document an agent can fetch and read. */
+/** Old spec links that carried a version (kept so links already shared keep working). */
 export async function GET(_: Request, { params }: { params: Promise<{ id: string; version: string }> }) {
   const { id, version } = await params;
   return handle(

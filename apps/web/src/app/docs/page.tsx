@@ -3,7 +3,7 @@ import { pageMeta } from "@/lib/meta";
 import Link from "next/link";
 import { DocsShell } from "@/components/docs-shell";
 
-export const metadata: Metadata = pageMeta("Docs", "How Pigment design systems are delivered to coding agents: version-pinned prompts, the MCP server, the HTTP API and offline packages.", "/docs");
+export const metadata: Metadata = pageMeta("Docs", "How Pigment design systems are delivered to coding agents: prompts, the MCP server, the HTTP API and offline packages.", "/docs");
 
 export default function DocsOverview() {
   return (
@@ -11,7 +11,7 @@ export default function DocsOverview() {
       <p className="meta">Start / Overview</p>
       <h1>How Pigment works</h1>
       <p className="lead">
-        A Pigment system is a complete, versioned design language — tokens, rules and component specs — written for coding agents. You pick one, your agent
+        A Pigment system is a complete design language — tokens, rules and component specs — written for coding agents. You pick one, your agent
         applies it to your codebase, and every screen it builds afterwards follows the same rules.
       </p>
 
@@ -25,7 +25,7 @@ export default function DocsOverview() {
           <strong>Exact values</strong> — <span className="mono">tokens.css</span> and <span className="mono">tokens.json</span>, so nothing is retyped.
         </li>
         <li>
-          <strong>Proof</strong> — every version is applied by an agent to four real apps before it is published. The screenshots in the gallery are that output,
+          <strong>Proof</strong> — every system is applied by an agent to four real apps before it is published, and again with every update. The screenshots in the gallery are that output,
           unedited.
         </li>
       </ul>
@@ -35,14 +35,14 @@ export default function DocsOverview() {
         <li>
           <Link href="/connect">MCP server</Link> — your agent looks up exactly what it needs while it works.
         </li>
-        <li>Spec URL — the prompt contains a pinned link to the spec.</li>
+        <li>Spec URL — the prompt contains a link to the spec.</li>
         <li>Offline package — a zip with everything, for networks without outside access.</li>
       </ul>
 
-      <h2 id="versions">Versions never change</h2>
+      <h2 id="versions">Your copy never changes under you</h2>
       <p>
-        A published version is frozen. Fixes ship as new versions, and your project keeps the version it installed until you choose to upgrade. The version is
-        in every prompt you copy.
+        Applying a system copies its tokens and rules into your project&apos;s <span className="mono">design-system/</span> folder. Updates to the system never
+        touch that copy: each system page has a dated changelog, and your agent applies an update only when you ask for it.
       </p>
 
       <h2 id="next">Next</h2>

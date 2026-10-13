@@ -20,7 +20,6 @@ function items(): CompareItem[] {
       return {
         id: t.id,
         name: t.name,
-        version: t.version,
         shots: t.shots,
         lightBg: typeof light["color.surface.subtle"] === "string" ? String(light["color.surface.subtle"]) : null,
         darkBg: typeof tokens.dark?.["color.surface.default"] === "string" ? String(tokens.dark["color.surface.default"]) : null,

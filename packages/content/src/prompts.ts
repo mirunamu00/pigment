@@ -1,6 +1,7 @@
 /**
  * The prompts people copy from the site. Short on purpose: the detail lives in the spec, the prompt only
- * pins the version, says where the spec is and sets the working agreement.
+ * names the system, says where the spec is and sets the working agreement. There are no version numbers:
+ * the site always serves the current system, and a project keeps its own copy in design-system/.
  */
 export type Mode = "new" | "existing" | "ongoing";
 export type Delivery = "url" | "mcp" | "offline";
@@ -9,18 +10,17 @@ export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pigmentui.c
 // The remote server is a route of the site itself (apps/web/src/app/mcp), so it shares its domain.
 export const MCP_URL = process.env.NEXT_PUBLIC_MCP_URL ?? `${SITE_URL}/mcp`;
 
-export function specRef(id: string, version: string, delivery: Delivery): string {
-  if (delivery === "url") return `Spec: ${SITE_URL}/s/${id}/${version}/agent.md`;
+export function specRef(id: string, delivery: Delivery): string {
+  if (delivery === "url") return `Spec: ${SITE_URL}/s/${id}/agent.md`;
   if (delivery === "mcp") return "Read the spec with the Pigment MCP tools (get_design_system, get_component_spec).";
-  return `Spec: ./design-packages/${id}-${version}/dist/agent.md`;
+  return `Spec: dist/agent.md in the ${id} package, unzipped under ./design-packages/`;
 }
 
-export function buildPrompt(id: string, version: string, mode: Mode, delivery: Delivery): string {
-  const ref = `${id}@${version}`;
-  const spec = specRef(id, version, delivery);
+export function buildPrompt(id: string, mode: Mode, delivery: Delivery): string {
+  const spec = specRef(id, delivery);
   if (mode === "new") {
     return [
-      `Set up design system ${ref} in this codebase.`,
+      `Set up design system ${id} in this codebase.`,
       spec,
       "First inspect the framework, styling approach and component structure, then propose an installation plan and wait for my approval.",
       "Don't add libraries that don't fit the existing stack. Leave an AGENTS.md / CLAUDE.md pointer so future screens reuse the system.",
@@ -29,7 +29,7 @@ export function buildPrompt(id: string, version: string, mode: Mode, delivery: D
   }
   if (mode === "existing") {
     return [
-      `Apply design system ${ref} to this project.`,
+      `Apply design system ${id} to this project.`,
       spec,
       "Preserve features, routes, business logic, API contracts, tests and accessibility.",
       "Audit styles and components first, then propose a migration plan and wait for my approval. Restyle one screen as a sample and wait again.",
@@ -37,7 +37,7 @@ export function buildPrompt(id: string, version: string, mode: Mode, delivery: D
     ].join("\n");
   }
   return [
-    `Build this with the installed design system ${ref}.`,
+    `Build this with the installed design system ${id}.`,
     "Use its semantic tokens and component conventions from design-system/. Don't hard-code new style values.",
     "If the spec doesn't cover something, ask me with options before deciding.",
   ].join("\n");
@@ -46,13 +46,11 @@ export function buildPrompt(id: string, version: string, mode: Mode, delivery: D
 /**
  * With the MCP server connected there is nothing to paste: the agent finds the tools itself, so the site only
  * suggests what to say. The working agreement (plan first, sample screen) comes from the server's guide.
+ * An ongoing project already has design-system/, so it doesn't even need the id.
  */
-export function mcpRequest(id: string, mode: Mode, version?: string): string {
-  // No version: the agent takes the latest and records it in design-system/VERSION. An ongoing project
-  // already has that file, so it never needs the id either.
-  const ref = version ? `${id}@${version}` : id;
-  if (mode === "new") return `Set up the Pigment design system ${ref} in this project.`;
-  if (mode === "existing") return `Apply the Pigment design system ${ref} to this project.`;
+export function mcpRequest(id: string, mode: Mode): string {
+  if (mode === "new") return `Set up the Pigment design system ${id} in this project.`;
+  if (mode === "existing") return `Apply the Pigment design system ${id} to this project.`;
   return "Build this screen with our Pigment design system.";
 }
 

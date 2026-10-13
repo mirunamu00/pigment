@@ -10,7 +10,7 @@ function isDark(hex: string): boolean {
   return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 128;
 }
 
-export function DemoViewer({ id, version, shots, light, dark }: { id: string; version: string; shots: Record<string, string>; light: string; dark: string }) {
+export function DemoViewer({ id, shots, light, dark }: { id: string; shots: Record<string, string>; light: string; dark: string }) {
   const [app, setApp] = useState<AppKey>("dashboard");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const [scheme, setScheme] = useState<"light" | "dark">("light");
@@ -34,7 +34,7 @@ export function DemoViewer({ id, version, shots, light, dark }: { id: string; ve
         <Shot
           src={shots[key]}
           title={label}
-          meta={`/${id}/${version}/${app} · ${mobile ? "390 × 844" : "1440 × 900"} · ${scheme}`}
+          meta={`/${id}/${app} · ${mobile ? "390 × 844" : "1440 × 900"} · ${scheme}`}
           bg={bg}
           ink={isDark(bg) ? "#e8ebf1" : "#0e0e0c"}
           height={520}
@@ -57,7 +57,7 @@ export function DemoViewer({ id, version, shots, light, dark }: { id: string; ve
         })}
       </div>
       <p className="meta" style={{ marginTop: 14 }}>
-        Built once for v{version} by a coding agent from the standard prompt, on the same base apps as every other system. Unedited.
+        Built by a coding agent from this system's prompt, on the same base apps as every other system. Unedited.
       </p>
     </>
   );

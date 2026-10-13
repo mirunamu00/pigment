@@ -21,12 +21,12 @@ const DELIVERIES = [
   ["offline", "Offline"],
 ] as const;
 
-export function ApplyPanel({ id, version, name }: { id: string; version: string; name: string }) {
+export function ApplyPanel({ id, name }: { id: string; name: string }) {
   const [mode, setMode] = useState<Mode>("existing");
   const [agent, setAgent] = useState<Client>("claude");
   const [delivery, setDelivery] = useState<Delivery>("url");
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
-  const prompt = buildPrompt(id, version, mode, delivery);
+  const prompt = buildPrompt(id, mode, delivery);
   const connect = connectSnippet(agent, "remote");
   const request = mcpRequest(id, mode);
   const reset = <T,>(set: (v: T) => void) => (v: T) => {
@@ -84,9 +84,9 @@ export function ApplyPanel({ id, version, name }: { id: string; version: string;
           <div className="apply__step" style={{ position: "relative", marginBottom: 30 }}>
             <span className="apply__step-label">Then just ask</span>
             <p className="apply__ask">“{request}”</p>
-            <span className="meta">No prompt to paste — the agent reads the spec through the Pigment tools and records the version it used.</span>
+            <span className="meta">No prompt to paste — the agent reads the spec through the Pigment tools and copies it into your project.</span>
             <Note arrow="up-left" arrowFirst style={{ right: 4, bottom: -40, color: "var(--ink-2)" }}>
-              <span style={{ paddingTop: 10, display: "block", fontSize: 20 }}>latest, then pinned</span>
+              <span style={{ paddingTop: 10, display: "block", fontSize: 20 }}>yours to keep</span>
             </Note>
           </div>
         </>
@@ -99,10 +99,10 @@ export function ApplyPanel({ id, version, name }: { id: string; version: string;
               {prompt}
             </pre>
             <Note arrow="up-left" arrowFirst style={{ right: 4, bottom: -40, color: "var(--ink-2)" }}>
-              <span style={{ paddingTop: 10, display: "block", fontSize: 20 }}>version is pinned</span>
+              <span style={{ paddingTop: 10, display: "block", fontSize: 20 }}>plan first, then a sample</span>
             </Note>
           </div>
-          <CopyButton text={prompt} className="btn btn--primary btn--lg" successMessage={`Prompt for ${id}@${version} copied.`} onStatus={setStatus} />
+          <CopyButton text={prompt} className="btn btn--primary btn--lg" successMessage={`Prompt for ${name} copied.`} onStatus={setStatus} />
           <p aria-live="polite" className="apply__status" style={{ color: status?.ok ? "var(--ok)" : "var(--err)" }}>
             {status?.message ?? ""}
           </p>
@@ -112,13 +112,13 @@ export function ApplyPanel({ id, version, name }: { id: string; version: string;
       <div className="apply__package">
         <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <span style={{ fontSize: 13, fontWeight: 500 }}>
-            {id}-{version}.zip
+            {id}.zip
           </span>
           <span className="mono meta" style={{ fontSize: 11 }}>
-            offline package · same version as this page
+            offline package · everything above, for air-gapped work
           </span>
         </span>
-        <a href={`/download/${id}/${version}`} className="btn">
+        <a href={`/download/${id}`} className="btn">
           Download
         </a>
       </div>

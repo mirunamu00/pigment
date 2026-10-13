@@ -22,7 +22,7 @@ export default function HomePage() {
     "@type": "WebSite",
     name: "Pigment",
     url: SITE_URL,
-    description: "Versioned design systems that Claude Code, Codex and any MCP client can apply to new and existing codebases.",
+    description: "Design systems that Claude Code, Codex and any MCP client can apply to new and existing codebases.",
   };
   return (
     <>
@@ -35,7 +35,7 @@ export default function HomePage() {
               Give your agent a <Swash>palette</Swash>, not&nbsp;a&nbsp;prompt.
             </h1>
             <p className="gallery-intro__sub">
-              Versioned design systems that Claude Code, Codex and any MCP client can apply.{templates.length > 0 && " Pick one below."}
+              Design systems that Claude Code, Codex and any MCP client can apply.{templates.length > 0 && " Pick one below."}
             </p>
           </div>
           <Link href="/connect" className="btn btn--cmd">
@@ -64,7 +64,7 @@ export default function HomePage() {
               <span className="mono">01</span>Connect the MCP server once.
             </li>
             <li>
-              <span className="mono">02</span>Hand your agent a version-pinned prompt.
+              <span className="mono">02</span>Ask your agent to apply a system.
             </li>
             <li>
               <span className="mono">03</span>Every new screen stays on-system.
@@ -86,12 +86,12 @@ export default function HomePage() {
               <span className="c"># 1 · connect once</span>
               {"\n"}claude mcp add --transport http pigment <span className="s">{MCP_URL}</span>
               {"\n\n"}
-              <span className="c"># 2 · hand off a pinned version</span>
-              {"\n"}› Apply <span className="s">&lt;system&gt;@&lt;version&gt;</span> to this codebase.
+              <span className="c"># 2 · just ask</span>
+              {"\n"}› Apply the Pigment design system <span className="s">&lt;system&gt;</span> to this project.
               {"\n"}  Preserve routes, logic and tests. Show a plan first.
               {"\n\n"}
               <span className="c"># 3 · your agent reads the spec</span>
-              {"\n"}get_design_system(<span className="s">&quot;&lt;system&gt;&quot;</span>, <span className="s">&quot;&lt;version&gt;&quot;</span>)
+              {"\n"}get_design_system(<span className="s">&quot;&lt;system&gt;&quot;</span>)
             </pre>
           </div>
           <Note arrow="up-right" style={{ position: "relative", justifyContent: "flex-end", marginTop: 8, marginRight: 28 }}>

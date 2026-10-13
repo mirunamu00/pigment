@@ -3,11 +3,10 @@
 # pigment-mcp
 
 MCP server for [Pigment](https://pigmentui.com) design systems. Your coding agent (Claude Code, Codex,
-Cursor or any MCP client) reads tokens, rules, component specs and installation guides for a pinned
-version while it works.
+Cursor or any MCP client) reads tokens, rules, component specs and installation guides while it works.
 
-Every published design system ships inside this package, so it works offline and a version never changes
-under you. New systems arrive with new package versions.
+Every design system ships inside this package, so it works offline. New systems and updates arrive with new
+package releases.
 
 ## Connect
 
@@ -42,11 +41,12 @@ propose a plan, restyle one sample screen, then report build and visual checks.
 
 | Tool | Returns |
 | --- | --- |
-| `list_design_systems` | Published systems with tags and versions (`tone?`, `appearance?`) |
-| `get_design_system` | The full spec of one pinned version: rules, token tables, setup, verification |
+| `list_design_systems` | Systems with tags and when each was last updated (`tone?`, `appearance?`) |
+| `get_design_system` | The full spec of a system: rules, token tables, setup, verification |
 | `get_tokens` | `tokens.css` or `tokens.json`, to copy verbatim |
 | `get_component_spec` | One component: anatomy, variants, states, accessibility, token mapping |
 | `get_installation_guide` | Steps and approval points for `new`, `existing` or `ongoing` |
+| `get_changelog` | What changed, by date — to update a project that already has the system |
 | `get_references` | Screenshots of four reference apps restyled with the system |
 
 Requires Node 22+.

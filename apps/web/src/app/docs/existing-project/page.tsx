@@ -76,13 +76,13 @@ export default function ExistingProjectGuide() {
 
       <h2 id="prompt">The prompt</h2>
       <pre className="code">
-        Apply design system <span className="s">&lt;system&gt;@&lt;version&gt;</span> to this project.{"\n"}
+        Apply design system <span className="s">&lt;system&gt;</span> to this project.{"\n"}
         Preserve features, routes, business logic, API contracts, tests and accessibility.{"\n"}
         Audit styles and components first, then propose a migration plan and wait for my approval.{"\n"}
         Restyle one screen as a sample and wait again.{"\n"}
         Report build results, visual checks and anything left unimplemented.
       </pre>
-      <p className="meta">Copy it with the version already filled in from any system page.</p>
+      <p className="meta">Copy it ready-made from any system page.</p>
 
       <h2 id="files">What lands in your repo</h2>
       <pre className="code code--light">
@@ -99,7 +99,7 @@ export default function ExistingProjectGuide() {
         <span style={{ color: "var(--ink-4)" }}>conventions your agent follows</span>
         {`
 └── VERSION           `}
-        <span style={{ color: "var(--ink-4)" }}>the pinned system and version</span>
+        <span style={{ color: "var(--ink-4)" }}>the system and the date of this copy</span>
         {`
 AGENTS.md             `}
         <span style={{ color: "var(--ink-4)" }}>one line pointing at design-system/</span>
