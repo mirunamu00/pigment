@@ -13,13 +13,18 @@ already exists in `pipeline/<slug>/`.
 
 - Choose a slug (`<reference>-study`). A domain is enough (`example.com`); pages the user names are kept
   as seeds and their locale (e.g. `/ko/`) is followed. Tracking parameters are stripped.
-- List the brand terms that must never appear in the template (company and product names).
-- `pnpm harness intake <slug> <domain-or-urls...> --brand <terms...> --notes "<what the user liked>"`
+- The user doesn't explain the site and you don't ask. Finding what makes it distinctive is the
+  pipeline's job (survey → deep capture → analyst). Never write notes on the user's behalf: a guess
+  steers the analysis toward the guess. Pass `--notes` only with the user's own words, when they offered
+  them.
+- Find the brand terms yourself from the site (company, product and model names) — no need to ask.
+- `pnpm harness intake <slug> <domain-or-urls...> --brand <terms...>` (add `--notes "<their words>"` only
+  when they gave some)
 
 ## 1. Capture
 
 `pnpm harness capture <slug>` surveys the site until it stops finding anything new (robots.txt respected;
-stops after 20 pages without a new feature or page type, at most 150 pages), then captures the pages that
+after 20 pages without a new feature it opens only page types it hasn't seen, then stops; at most 150 pages), then captures the pages that
 together cover every surveyed feature (`--deep`, default 16): screenshots,
 motion with frame sequences, interactions, illustrations, structure, theme. It takes a while — run it in
 the background and report progress. If pages block automation or show a cookie wall, tell the user and
@@ -27,8 +32,9 @@ continue with what worked. Read `reference/capture-report.md` before delegating.
 
 ## 2. Analysis — delegate to the `reference-analyst` agent
 
-Give it the slug and what the user liked. It audits the whole design language — signature elements,
-motion, interaction, patterns, not just the theme — writes `pipeline/<slug>/analysis.json`, and runs
+Give it the slug. It decides from the evidence what makes the site distinctive and audits the whole
+design language — signature elements, motion, interaction, patterns, not just the theme. The user's
+notes, if any, are a hint it checks, never the scope. It writes `pipeline/<slug>/analysis.json`, and runs
 `pnpm harness check-analysis <slug>` until it passes. Subagents may be blocked from writing
 report-style files: if it returns the analysis.md content in its message instead, save it yourself to
 `pipeline/<slug>/analysis.md` and set `intake.json` status to `analyzed`. The same applies to the

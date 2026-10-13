@@ -21,7 +21,7 @@ program
   .argument("<slug>", "work-area name, e.g. linear-study")
   .argument("<urls...>", "a domain (example.com) or pages of one site; tracking parameters are stripped")
   .option("--brand <terms...>", "brand/product names that must never appear in the template")
-  .option("--notes <text>", "what the submitter liked about it")
+  .option("--notes <text>", "optional: the submitter's own words about the site — a hint for the analyst, never required or guessed")
   .action((slug: string, urls: string[], opts) => intake(slug, urls, opts));
 
 program
@@ -29,7 +29,7 @@ program
   .description("2. survey the site, then capture the selected pages: screenshots, styles, motion, interactions, illustrations")
   .argument("<slug>")
   .option("--max-pages <n>", "most pages to survey (robots.txt is respected)", "150")
-  .option("--patience <n>", "stop surveying once this many pages in a row add no new feature or page type", "20")
+  .option("--patience <n>", "once this many pages in a row add no new feature, open only unseen page types, then stop", "20")
   .option("--deep <n>", "pages to capture in depth, chosen so every surveyed feature is covered", "16")
   .option("--no-survey", "capture only the given pages")
   .option("--headed", "show the browser")

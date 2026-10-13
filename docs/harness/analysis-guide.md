@@ -12,8 +12,8 @@ failed analysis.
 1. **Survey** — opens the site's pages (robots.txt respected, one locale, collections sampled, header
    navigation first) and records the features each one uses: motion kinds, line drawings, illustrations,
    disclosures, tabs, forms, tables, card grids, logo walls, theme toggles, button styles. It stops at
-   **saturation** — when 20 pages in a row (`--patience`) add no new feature or page type and every page
-   type found has been opened — or at 150 pages (`--max-pages`). Result: `survey.json` and the frequency
+   **saturation** — when 20 pages in a row (`--patience`) add no new feature, it opens one page of each page
+   type not yet seen, then stops — or at 150 pages (`--max-pages`). Result: `survey.json` and the frequency
    table in `capture-report.md`, which says why the survey stopped.
 2. **Selection** — picks pages for the deep capture so every surveyed feature is covered at least once.
 3. **Static capture** per page — full-page screenshots (desktop 1440, mobile 390; light and dark when the

@@ -18,6 +18,10 @@ So the question is never just "what are the colors?" It is: what does this site 
 how is it built, how does it move, how does it respond, where does it appear and how often — precisely
 enough that an agent can rebuild it, originally, in a settings page the site never had.
 
+**Nobody tells you what the concept is.** The person submitting a site usually gives only a domain, and
+templates will keep arriving that way. Finding the concept is your job, from the evidence. Notes in the
+intake, when there are any, are a hint to check — never the scope, and never a reason to stop looking.
+
 Example: a site whose character is hand-drawn line illustrations that draw themselves on scroll, an icon
 that slowly turns, and soft cards on a warm paper ground. The illustration style (stroke weight,
 roughness, line caps, colors by role), the draw-on and rotation motion (keyframes, timing, easing,
@@ -26,7 +30,8 @@ accent color is one detail among many.
 
 ## Inputs — `pipeline/<slug>/`
 
-- `intake.json` — what the user gave, brand terms, what they liked
+- `intake.json` — what the user gave, brand terms, and `notes`: the user's own words about the site,
+  usually empty
 - `reference/capture-report.md` — **start here**: site-wide feature frequency from the survey, the pages
   captured in depth and why, and an index of every evidence file
 - `reference/survey.json` — every surveyed page and its features (what the site does often vs. once)
@@ -65,18 +70,26 @@ Follow `docs/harness/analysis-guide.md` for what each section must contain. In o
 7. Theme mechanism and the dark appearance, from `theme.json` and the dark or toggled screenshots.
 8. Measure: `styles.json` is the source of truth for values. Round to the system the site clearly uses
    and say so. Never invent a value you could have measured.
-9. **Signature elements** (usually 2–5): what makes the site recognizable. Each gets what, evidence,
+9. **Find the signature yourself.** List every candidate — anything a generic site wouldn't do: an
+   illustration or drawing style, a motion habit (looping, drawing, flipping, frame-by-frame), a texture
+   or ground, a typographic voice, an unusual interaction, a recurring composition. Rank them by how
+   distinctive they are (would a default agent-built UI have it?) and how much of the site carries them
+   (survey share, where they sit — heroes and section openers count more than footers). Motion and
+   illustration evidence (`motion/*.png`, `lottieFiles`, `illustrations/`) is where the strongest
+   candidates usually are; look there before deciding. Then compare with the notes, if any: say what you
+   found that they don't mention and anything they mention that the evidence doesn't support.
+10. **Signature elements** (usually 2–5): the top of that list. Each gets what, evidence,
    frequency, a recipe an agent can build an original instance from (construction steps, technique —
    e.g. `stroke-dasharray` draw-on, `transform-origin` rotation — stroke and color by token role), its
    motion, an application map of at least six contexts including product screens (dashboard, form,
    settings, table, empty, error, loading), and limits (how much per screen, where never, reduced motion).
-10. Fill what a marketing site never shows (forms, tables, dense data, errors, empty states) by
+11. Fill what a marketing site never shows (forms, tables, dense data, errors, empty states) by
     derivation from the character, flagged as derived.
-11. Coverage: account for every audit area — observed, derived, or absent with a reason. Nothing the
+12. Coverage: account for every audit area — observed, derived, or absent with a reason. Nothing the
     survey found can be absent.
-12. Provenance: brand names, logos, artwork, proprietary fonts and distinctive marks that must not carry
+13. Provenance: brand names, logos, artwork, proprietary fonts and distinctive marks that must not carry
     over, with substitutes (fonts: the closest family under OFL/Apache).
-13. Run `pnpm harness check-analysis <slug>` and fix everything it reports.
+14. Run `pnpm harness check-analysis <slug>` and fix everything it reports.
 
 ## Bar
 
