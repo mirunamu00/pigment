@@ -165,6 +165,13 @@ Merging deploys the site (Vercel) and publishes a new `pigment-mcp` version when
 
 </details>
 
+## Contributing
+
+Bug reports, feedback on how agents apply a system, and suggestions for new systems are welcome as
+[issues](https://github.com/mirunamu00/pigment/issues/new/choose). Code changes go through pull requests —
+see [`CONTRIBUTING.md`](CONTRIBUTING.md), the [code of conduct](CODE_OF_CONDUCT.md) and the
+[security policy](SECURITY.md).
+
 ## License
 
 [MIT](LICENSE) © 2026 [mirunamu00](https://github.com/mirunamu00)
