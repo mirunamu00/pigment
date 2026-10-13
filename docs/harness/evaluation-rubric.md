@@ -41,20 +41,43 @@ Reported, not gated — templates are derived, not cloned, so 100% would be a re
 
 Scored on the screenshots of all four apps side by side, with the reference screenshots when available.
 Besides the page captures, each run includes interaction-state captures (`state-*.png`: keyboard focus,
-hover, validation errors, dialogs, toasts, empty results) defined in each base app's `pigment.app.json`.
+hover, validation errors, dialogs, toasts, empty results) defined in each base app's `pigment.app.json`,
+and native-resolution crops of every drawing (`drawings/*.png`, listed in `shots.json` → `drawings`).
+Full-page screenshots are scaled down when read, so drawings are judged on the crops, next to the
+reference's crops (`pipeline/<slug>/reference/illustrations/`: `-i` large, `-g` small drawings).
+
+### The reference is the measure
+
+A template is a reference's design language carried into other products. A trait the reference has is
+not a defect when the template reproduces it: small drawings, rough lines, a muted palette, dense or
+airy layouts, an unusual type choice. The critic judges the work against the reference, not against a
+generic idea of good UI:
+
+- **Before marking anything down, check the reference.** If the trait is in the reference (cite the
+  screenshot or crop), reproducing it is fidelity, not a flaw. Only executing it worse than the reference
+  does is a flaw — say what the reference does better.
+- **A defect is one of:** worse than the reference at the same thing; not in the reference and not asked
+  for by the spec; against the spec; or broken for people regardless of style (unreadable text,
+  overlapping content, a broken layout, content that contradicts its label).
+- **Every point taken off cites its evidence:** the app screenshot or crop, and for anything about style,
+  the reference image it was compared with.
+- **One problem, one score.** Drawings, motion and other signature elements are scored under Signature
+  only. Polish covers what is not a signature element: alignment, optical balance, default-browser
+  leftovers, a generic look the reference does not have.
 
 | Score | Question |
 | --- | --- |
 | Reference fidelity | Would someone who knows the reference recognize its character — without it being a copy? |
 | Cross-app consistency | Do the four apps look like one family? |
-| Hierarchy | Is it obvious what matters first on each screen? |
+| Hierarchy | Is it obvious what matters first on each screen, the way the reference makes it obvious? |
 | Spacing rhythm | Is spacing consistent and on the scale? |
 | Component states | Are focus, hover, disabled, error and empty states designed, not defaulted? |
-| Polish | Alignment, optical balance, no default-browser leftovers, no AI-generic look |
-| Signature | Are the signature elements present in all four apps, placed as Applying the concept says, built to their recipes and moving as specified (check the motion frames)? Scored for `schemaVersion: 2` packages |
+| Polish | Alignment, optical balance, no default-browser leftovers, no generic look the reference doesn't have. Signature elements are not scored here |
+| Signature | Are the signature elements present in all four apps, placed as Applying the concept says, built to their recipes, as well crafted as the reference's at the same size (compare the crops), and moving as specified (check the motion frames)? Scored for `schemaVersion: 2` packages |
 
 **Bar:** average ≥ 4.0 and no single score below 3. Every score below 4 must come with a concrete
-prompt fix ("add `color.surface.raised` usage rule for cards on subtle backgrounds").
+prompt fix ("add `color.surface.raised` usage rule for cards on subtle backgrounds") and the evidence
+behind it.
 
 ## Iteration
 

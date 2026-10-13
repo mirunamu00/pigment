@@ -3,7 +3,7 @@ import { AxeBuilder } from "@axe-core/playwright";
 import { chromium } from "playwright";
 import { appMeta, preview } from "../appdir.ts";
 import { extractStyles, mergeSamples, settle, type StyleSample } from "../extract.ts";
-import { motionEvidence } from "../probe.ts";
+import { drawingCrops, motionEvidence } from "../probe.ts";
 import { writeJson } from "../util.ts";
 
 export interface ShotResult {
@@ -17,6 +17,8 @@ export interface ShotResult {
   reducedMotionLoops?: Array<{ route: string; count: number }>;
   /** What moves on the app's first route with motion allowed, and frame sequences of it. */
   motion?: Awaited<ReturnType<typeof motionEvidence>>;
+  /** Native-resolution crops of every drawing per route (desktop, light, final frames). */
+  drawings?: Array<{ route: string; file: string; w: number; h: number }>;
 }
 
 /**
@@ -66,6 +68,9 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
             (result.reducedMotionLoops ??= []).push({ route: route.path, count: loops });
             const axe = await new AxeBuilder({ page }).analyze();
             for (const v of axe.violations) result.axe.push({ route: route.path, id: v.id, impact: v.impact ?? null, nodes: v.nodes.length });
+            for (const d of await drawingCrops(page, outDir, slug).catch(() => [])) {
+              (result.drawings ??= []).push({ route: route.path, ...d, file: relative(outDir, d.file).replaceAll("\\", "/") });
+            }
           }
           await context.close();
         }

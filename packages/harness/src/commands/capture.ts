@@ -199,6 +199,7 @@ function report(slug: string, survey: Survey | null, pages: Array<{ key: string;
     lines.push(`### ${p.key} — ${p.url}`, "", `Why: ${p.reason}.`, "", `- Screenshots: ${p.shots.map((s) => `\`${s}\``).join(", ") || "none"}`);
     if (d) {
       const illus = d.inventory.svgs.filter((s) => s.role === "illustration");
+      const graphics = d.inventory.svgs.filter((s) => s.role === "graphic");
       const loops = d.motion.animations.filter((a) => a.iterations === "infinite").length;
       lines.push(
         `- Motion: ${d.motion.animations.length} animations (${loops} looping, ${d.motion.animations.filter((a) => a.inSvg).length} in SVG), ${d.motion.keyframeRules.filter((k) => k.used).length} keyframe rules in use, ${d.motion.smil.length} SMIL, ${d.motion.reveals.length} scroll reveals, ${d.motion.lottie.length} Lottie, ${d.motion.videos.length} videos`,
@@ -211,6 +212,7 @@ function report(slug: string, survey: Survey | null, pages: Array<{ key: string;
         `- Interactions: ${d.interactions.length}`,
         ...d.interactions.filter((i) => i.file).map((i) => `  - ${i.kind}: \`${rel(i.file!)}\` (hover changes: ${Object.keys(i.hover ?? {}).join(", ") || "none"})`),
         `- Illustrations: ${illus.length}${illus.length ? ` — ${illus.filter((s) => s.file).map((s) => `\`${rel(s.file!)}\``).join(", ")}` : ""}`,
+        `- Small drawings (33–95px): ${graphics.length}${graphics.some((s) => s.file) ? ` — ${graphics.filter((s) => s.file).map((s) => `\`${rel(s.file!)}\``).join(", ")}` : ""}`,
         `- Icons: ${d.inventory.svgs.filter((s) => s.role === "icon").length}${d.inventory.files.icons ? ` — \`${rel(d.inventory.files.icons)}\`` : ""}`,
         `- Button variants: ${d.inventory.buttons.length}${d.inventory.files.buttons ? ` — \`${rel(d.inventory.files.buttons)}\`` : ""}`,
         `- Sections: ${d.structure.sections.length}; header ${d.structure.header?.position ?? "none"}; content width ${d.structure.maxContentWidth}px`,
@@ -222,7 +224,7 @@ function report(slug: string, survey: Survey | null, pages: Array<{ key: string;
   lines.push(
     "## Files",
     "",
-    "`survey.json` (every surveyed page and its features) · `styles.json` (measured histograms) · `motion.json` (animations, keyframes, reveals, frame sequences) · `interactions.json` (hover/focus/press/open diffs) · `inventory.json` (illustrations, icons, images, type by role, button variants) · `structure.json` (sections, header, footer) · `theme.json` · `screenshots/` · `components/` · `motion/` · `interactions/` · `illustrations/` · `icons/` · `raw/svg/` (illustration markup, evidence only — never copied).",
+    "`survey.json` (every surveyed page and its features) · `styles.json` (measured histograms) · `motion.json` (animations, keyframes, reveals, frame sequences) · `interactions.json` (hover/focus/press/open diffs) · `inventory.json` (illustrations, icons, images, type by role, button variants) · `structure.json` (sections, header, footer) · `theme.json` · `screenshots/` · `components/` · `motion/` · `interactions/` · `illustrations/` (`-i` large, `-g` small drawings) · `icons/` · `raw/svg/` (illustration markup, evidence only — never copied).",
     "",
   );
   return lines.join("\n");

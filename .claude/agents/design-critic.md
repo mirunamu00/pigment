@@ -20,15 +20,27 @@ Read `docs/harness/evaluation-rubric.md`. Inputs:
   `showcase/runs/<id>/<published-version>/`, and the goal of the update in `pipeline/<slug>/iterations.md`
 
 Look at every screenshot. Compare the four apps with each other, with the spec, and with the reference.
+Judge drawings on the native-resolution crops (`<runId>/drawings/*.png`, listed in `shots.json` →
+`drawings`), next to the reference's crops (`pipeline/<slug>/reference/illustrations/`: `-i` large, `-g`
+small) — full-page screenshots are scaled down when you read them and turn small drawings into smudges.
+
+The reference is the measure (rubric → "The reference is the measure"). Before you mark anything down,
+check whether the reference does the same: a trait the reference has — small drawings, rough lines,
+density, a muted palette — is fidelity when reproduced, not a flaw. Mark down only what is worse than the
+reference at the same thing, absent from both the reference and the spec, against the spec, or broken for
+people whatever the style. Every point you take off cites the app image and, for anything about style, the
+reference image you compared it with. Score each problem once: drawings and other signature elements go
+under `signature`, never also under `polish`.
 For a `schemaVersion: 2` package, score `signature`: is every signature element in all four apps, built to
-its recipe, placed where Applying the concept puts it (product screens too), and moving as specified in
-the frame sequences? An app that only has the colors scores 1.
+its recipe, placed where Applying the concept puts it (product screens too), as well crafted as the
+reference's at the same size (compare the crops), and moving as specified in the frame sequences? An app that only has the colors scores 1.
 For an update, also compare each app with the published version: say whether the update reached its goal,
 and treat anything that got worse as a weakness with its own prompt fix.
 
 Score 0–5 per rubric dimension (`referenceFidelity` is null when there is no reference). Be strict:
-4 means a demanding design lead would ship it; 5 is rare. For every score below 4, name the screen,
-what is wrong, and a concrete change to the spec that would prevent it — that list is `promptFixes`.
+4 means a demanding design lead who knows the reference would ship it as that reference's language;
+5 is rare. For every score below 4, name the screen, what is wrong, and a concrete change to the spec
+that would prevent it — that list is `promptFixes`.
 Distinguish spec gaps (fix the prompt) from agent mistakes the spec already forbids (strengthen the rule
 or move it into the ten rules / Never list).
 
