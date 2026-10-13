@@ -1,0 +1,73 @@
+---
+name: template-intake
+description: Turn a reference website into a tested Pigment design system template — capture, analysis, design prompt authoring, demo generation on the four base apps, evaluation, iteration and (after user approval) publishing. Use when the user submits a site they like, asks to add a template, or asks to iterate on a template candidate.
+---
+
+# Template intake
+
+Runs the pipeline in `docs/harness/README.md`. Read that file, `docs/harness/prompt-writing-rules.md`
+and `docs/harness/evaluation-rubric.md` before starting. Every stage writes files; resume from whatever
+already exists in `pipeline/<slug>/`.
+
+## 0. Intake
+
+- Choose a slug (`<reference>-study`). Collect 2–4 URLs of different page types from the same site
+  (home, a product or feature page, docs or pricing) — one page is not enough to see a system.
+- List the brand terms that must never appear in the template (company and product names).
+- `pnpm harness intake <slug> <urls...> --brand <terms...> --notes "<what the user liked>"`
+
+## 1. Capture
+
+`pnpm harness capture <slug>` → `pipeline/<slug>/reference/` (screenshots, component crops, styles.json).
+If a page blocks automation or shows a cookie wall, tell the user and continue with the pages that worked.
+
+## 2. Analysis — delegate to the `reference-analyst` agent
+
+Give it the slug. It writes `pipeline/<slug>/analysis.json`. Subagents may be blocked from writing
+report-style files: if it returns the analysis.md content in its message instead, save it yourself to
+`pipeline/<slug>/analysis.md` and set `intake.json` status to `analyzed`. The same applies to the
+design-critic's JSON.
+
+**Checkpoint 1 (stop here):** show the user the character summary, the proposed template name and tags,
+the ten defining rules, the gaps it will fill by derivation, and what will not be carried over. Wait for
+approval or corrections.
+
+## 3. Authoring — delegate to the `prompt-author` agent
+
+- First iteration: `pnpm harness scaffold <id>@0.1.0-rc.1 --name "<Name>"`, then the author fills the
+  package from the analysis.
+- Later iterations: `pnpm harness scaffold <id>@0.1.0-rc.<n> --name "<Name>" --from <id>@0.1.0-rc.<n-1>`,
+  and the author applies the fixes from the last evaluation.
+- The author runs `pnpm harness validate` and `pnpm harness bundle` until validation is clean.
+
+## 4. Generate
+
+- Once per machine: `pnpm harness baseline` (captures the unstyled base apps).
+- `pnpm harness generate <id>@<version>` — the agent restyles all four base apps outside the repo,
+  then the harness builds and screenshots them. This takes a while; run it in the background and
+  report progress.
+
+## 5. Evaluate
+
+- `pnpm harness evaluate <id>@<version>` → gates + `review-<n>.html`.
+- If gates pass (verdict `pending-review`), delegate to the `design-critic` agent with the template ref,
+  the latest runs and the reference screenshots. It writes `showcase/runs/<id>/<version>/critic-<n>.json`.
+- `pnpm harness critic <id>@<version> showcase/runs/<id>/<version>/critic-<n>.json`
+
+## 6. Iterate
+
+On `fail`: collect failing gates and the critic's `promptFixes`, log them in `pipeline/<slug>/iterations.md`,
+and go back to step 3 with a new rc. Maximum three iterations — then stop and report the failure analysis.
+
+## 7. Approval and publish
+
+**Checkpoint 2 (stop here):** show the user `review-<n>.html` (screenshots of all four apps, desktop and
+mobile, light and dark), the reference screenshots, the gate table, the critic scores and the iteration
+log. Only on explicit approval:
+
+1. `pnpm harness scaffold <id>@<final> --name "<Name>" --from <id>@<last-rc>` (e.g. 1.0.0)
+2. `pnpm harness generate` + `evaluate` + critic on the final version (screenshots must come from the published version itself)
+3. `pnpm harness publish <id>@<final> --approved-by "<user's name>"`
+4. Set `status` in `pipeline/<slug>/intake.json` to `published`.
+
+Report what was published and where the gallery assets are.

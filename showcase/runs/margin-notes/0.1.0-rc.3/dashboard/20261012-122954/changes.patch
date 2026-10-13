@@ -1,0 +1,2824 @@
+diff --git a/index.html b/index.html
+index 5602a04..a3b0045 100644
+--- a/index.html
++++ b/index.html
+@@ -3,7 +3,14 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <meta name="color-scheme" content="light dark" />
+     <link rel="icon" href="data:," />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=Caveat:wght@400&family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap"
++    />
+     <title>Northwind Ops</title>
+   </head>
+   <body>
+diff --git a/src/components/BarChart.tsx b/src/components/BarChart.tsx
+index 63f7c3f..db62f13 100644
+--- a/src/components/BarChart.tsx
++++ b/src/components/BarChart.tsx
+@@ -1,3 +1,4 @@
++import { useEffect, useRef, useState } from 'react';
+ import type { MonthlyValue } from '../data/metrics';
+ 
+ interface BarChartProps {
+@@ -5,44 +6,64 @@ interface BarChartProps {
+   data: MonthlyValue[];
+ }
+ 
+-const WIDTH = 600;
+-const HEIGHT = 240;
++// Drawn at the figure's real pixel width so bars, gaps and labels keep their specified sizes.
++const HEIGHT = 220;
+ const PADDING_TOP = 24;
+ const PADDING_BOTTOM = 28;
+-const PADDING_X = 16;
++const PADDING_X = 8;
++const MAX_BAR = 28;
++const RADIUS = 7; // radius.inner
++const GRIDLINES = 3; // plus the baseline: four lines in total
++
++function barPath(x: number, y: number, width: number, height: number): string {
++  const r = Math.min(RADIUS, width / 2, height);
++  return `M${x},${y + height} V${y + r} Q${x},${y} ${x + r},${y} H${x + width - r} Q${x + width},${y} ${x + width},${y + r} V${y + height} Z`;
++}
+ 
+ export default function BarChart({ title, data }: BarChartProps) {
++  const figureRef = useRef<HTMLElement>(null);
++  const [width, setWidth] = useState(600);
++
++  useEffect(() => {
++    const element = figureRef.current;
++    if (!element) return;
++    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(240, Math.round(entry.contentRect.width))));
++    observer.observe(element);
++    return () => observer.disconnect();
++  }, []);
++
+   const max = Math.max(...data.map((point) => point.value), 1);
+   const plotHeight = HEIGHT - PADDING_TOP - PADDING_BOTTOM;
+-  const slot = (WIDTH - PADDING_X * 2) / data.length;
+-  const barWidth = slot * 0.6;
++  const baseline = HEIGHT - PADDING_BOTTOM;
++  const slot = (width - PADDING_X * 2) / data.length;
++  // Gaps stay at least 1.5x the bar.
++  const barWidth = Math.min(MAX_BAR, slot / 2.5);
+   const summary = data.map((point) => `${point.month}: ${point.value}`).join(', ');
+ 
+   return (
+-    <figure className="chart" data-testid="bar-chart">
++    <figure className="chart" data-testid="bar-chart" ref={figureRef}>
+       <figcaption className="chart-title">{title}</figcaption>
+       <svg
+         className="chart-svg"
+-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
++        width={width}
++        height={HEIGHT}
++        viewBox={`0 0 ${width} ${HEIGHT}`}
+         role="img"
+         aria-label={`${title}. ${summary}`}
+-        preserveAspectRatio="xMidYMid meet"
+       >
+-        <line
+-          className="chart-axis"
+-          x1={PADDING_X}
+-          x2={WIDTH - PADDING_X}
+-          y1={HEIGHT - PADDING_BOTTOM}
+-          y2={HEIGHT - PADDING_BOTTOM}
+-        />
++        {Array.from({ length: GRIDLINES + 1 }, (_, index) => {
++          const y = baseline - (plotHeight * index) / GRIDLINES;
++          return <line key={index} className="chart-grid" x1={PADDING_X} x2={width - PADDING_X} y1={y} y2={y} />;
++        })}
+         {data.map((point, index) => {
+           const barHeight = (point.value / max) * plotHeight;
+           const x = PADDING_X + index * slot + (slot - barWidth) / 2;
+-          const y = HEIGHT - PADDING_BOTTOM - barHeight;
++          const y = baseline - barHeight;
++          const current = index === data.length - 1;
+           return (
+-            <g key={point.month} data-testid="chart-bar">
+-              <rect className="chart-bar" x={x} y={y} width={barWidth} height={barHeight} />
+-              <text className="chart-value" x={x + barWidth / 2} y={y - 6} textAnchor="middle">
++            <g key={point.month} data-testid="chart-bar" className={current ? 'is-current' : undefined}>
++              <path className="chart-bar" d={barPath(x, y, barWidth, barHeight)} />
++              <text className="chart-value" x={x + barWidth / 2} y={y - 8} textAnchor="middle">
+                 {point.value}
+               </text>
+               <text className="chart-label" x={x + barWidth / 2} y={HEIGHT - 8} textAnchor="middle">
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 2a82e37..75161d0 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,6 +1,7 @@
+ import { useEffect, useRef, useState, type FormEvent } from 'react';
+ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+ import { currentUser } from '../data/team';
++import StudioFilters from './StudioFilters';
+ 
+ const NAV_ITEMS = [
+   { to: '/', label: 'Overview', testId: 'nav-overview', end: true },
+@@ -14,12 +15,16 @@ export default function Layout() {
+   const location = useLocation();
+   const [query, setQuery] = useState('');
+   const [menuOpen, setMenuOpen] = useState(false);
++  const [navOpen, setNavOpen] = useState(false);
+   const menuRef = useRef<HTMLDivElement>(null);
++  const navSheetRef = useRef<HTMLDivElement>(null);
++  const navButtonRef = useRef<HTMLButtonElement>(null);
+ 
+-  // Close the user menu when the route changes.
++  // Close the user menu and the mobile menu sheet when the route changes.
+   useEffect(() => {
+     setMenuOpen(false);
+-  }, [location.pathname]);
++    setNavOpen(false);
++  }, [location.pathname, location.search]);
+ 
+   useEffect(() => {
+     if (!menuOpen) return;
+@@ -37,6 +42,27 @@ export default function Layout() {
+     };
+   }, [menuOpen]);
+ 
++  useEffect(() => {
++    if (!navOpen) return;
++    function onKeyDown(event: KeyboardEvent) {
++      if (event.key === 'Escape') {
++        setNavOpen(false);
++        navButtonRef.current?.focus();
++      }
++    }
++    function onPointerDown(event: PointerEvent) {
++      const target = event.target as Node;
++      if (navSheetRef.current?.contains(target) || navButtonRef.current?.contains(target)) return;
++      setNavOpen(false);
++    }
++    document.addEventListener('keydown', onKeyDown);
++    document.addEventListener('pointerdown', onPointerDown);
++    return () => {
++      document.removeEventListener('keydown', onKeyDown);
++      document.removeEventListener('pointerdown', onPointerDown);
++    };
++  }, [navOpen]);
++
+   function handleSearch(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+     const term = query.trim();
+@@ -45,87 +71,107 @@ export default function Layout() {
+ 
+   return (
+     <div className="app-shell">
++      <StudioFilters />
+       <a className="skip-link" href="#main-content">
+         Skip to content
+       </a>
+-      <aside className="sidebar">
+-        <div className="brand">Northwind Ops</div>
+-        <nav aria-label="Primary" data-testid="sidebar-nav">
+-          <ul className="nav-list">
+-            {NAV_ITEMS.map((item) => (
+-              <li key={item.to}>
+-                <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
+-                  {item.label}
+-                </NavLink>
+-              </li>
+-            ))}
+-          </ul>
+-        </nav>
+-      </aside>
+ 
+-      <div className="main-column">
+-        <header className="topbar">
+-          <form role="search" className="topbar-search" onSubmit={handleSearch}>
+-            <label htmlFor="global-search" className="visually-hidden">
+-              Search projects
+-            </label>
+-            <input
+-              id="global-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search projects…"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="global-search"
+-            />
+-            <button type="submit" className="button" data-testid="global-search-submit">
+-              Search
+-            </button>
+-          </form>
++      <header className="site-header">
++        <div className="container header-inner">
++          <div className="brand">Northwind Ops</div>
++
++          {/* One nav and one search: inline in the header on wide screens, a menu sheet under breakpoint.md. */}
++          <div id="site-menu" ref={navSheetRef} className={navOpen ? 'header-menu is-open' : 'header-menu'}>
++            <form role="search" className="header-search" onSubmit={handleSearch}>
++              <label htmlFor="global-search" className="visually-hidden">
++                Search projects
++              </label>
++              <input
++                id="global-search"
++                type="search"
++                className="input"
++                placeholder="Search projects…"
++                value={query}
++                onChange={(event) => setQuery(event.target.value)}
++                data-testid="global-search"
++              />
++              <button type="submit" className="button button-secondary" data-testid="global-search-submit">
++                Search
++              </button>
++            </form>
++
++            <nav aria-label="Primary" className="primary-nav" data-testid="sidebar-nav">
++              <ul className="nav-list">
++                {NAV_ITEMS.map((item) => (
++                  <li key={item.to}>
++                    <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
++                      {item.label}
++                    </NavLink>
++                  </li>
++                ))}
++              </ul>
++            </nav>
++          </div>
++
++          <div className="header-actions">
++            <div className="user-menu" ref={menuRef}>
++              <button
++                type="button"
++                className="button button-ghost user-menu-button"
++                aria-expanded={menuOpen}
++                aria-controls="user-menu-panel"
++                onClick={() => setMenuOpen((open) => !open)}
++                data-testid="user-menu-button"
++              >
++                <span className="avatar" aria-hidden="true">
++                  {currentUser.initials}
++                </span>
++                <span className="user-menu-name">{currentUser.name}</span>
++              </button>
++              {menuOpen && (
++                <div id="user-menu-panel" className="user-menu-panel" data-testid="user-menu">
++                  <p className="user-menu-email">{currentUser.email}</p>
++                  <ul className="user-menu-list">
++                    <li>
++                      <Link to="/settings" className="user-menu-link">
++                        Account settings
++                      </Link>
++                    </li>
++                    <li>
++                      <Link to="/team" className="user-menu-link">
++                        My team
++                      </Link>
++                    </li>
++                    <li>
++                      <button type="button" className="link-button user-menu-link" onClick={() => setMenuOpen(false)}>
++                        Sign out
++                      </button>
++                    </li>
++                  </ul>
++                </div>
++              )}
++            </div>
+ 
+-          <div className="user-menu" ref={menuRef}>
+             <button
++              ref={navButtonRef}
+               type="button"
+-              className="button user-menu-button"
+-              aria-expanded={menuOpen}
+-              aria-controls="user-menu-panel"
+-              onClick={() => setMenuOpen((open) => !open)}
+-              data-testid="user-menu-button"
++              className="menu-button"
++              aria-label="Menu"
++              aria-expanded={navOpen}
++              aria-controls="site-menu"
++              onClick={() => setNavOpen((open) => !open)}
+             >
+-              <span className="avatar" aria-hidden="true">
+-                {currentUser.initials}
+-              </span>
+-              <span>{currentUser.name}</span>
++              <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
++                <path d="M3 7h14M3 13h14" />
++              </svg>
+             </button>
+-            {menuOpen && (
+-              <div id="user-menu-panel" className="user-menu-panel" data-testid="user-menu">
+-                <p className="user-menu-email">{currentUser.email}</p>
+-                <ul className="user-menu-list">
+-                  <li>
+-                    <Link to="/settings" className="user-menu-link">
+-                      Account settings
+-                    </Link>
+-                  </li>
+-                  <li>
+-                    <Link to="/team" className="user-menu-link">
+-                      My team
+-                    </Link>
+-                  </li>
+-                  <li>
+-                    <button type="button" className="link-button" onClick={() => setMenuOpen(false)}>
+-                      Sign out
+-                    </button>
+-                  </li>
+-                </ul>
+-              </div>
+-            )}
+           </div>
+-        </header>
++        </div>
++      </header>
+ 
+-        <main id="main-content" className="content" tabIndex={-1}>
+-          <Outlet />
+-        </main>
+-      </div>
++      <main id="main-content" className="content" tabIndex={-1}>
++        <Outlet />
++      </main>
+     </div>
+   );
+ }
+diff --git a/src/components/ProjectsTable.tsx b/src/components/ProjectsTable.tsx
+index 28169e4..35ed8cc 100644
+--- a/src/components/ProjectsTable.tsx
++++ b/src/components/ProjectsTable.tsx
+@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
+ import { Link } from 'react-router';
+ import { projects, type Project, type ProjectStatus } from '../data/projects';
+ import StatusPill from './StatusPill';
++import { ArrowIcon } from './Icons';
+ 
+ type StatusFilter = 'all' | ProjectStatus;
+ type SortKey = 'name' | 'owner' | 'status' | 'budget' | 'dueDate';
+@@ -77,11 +78,11 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+   }
+ 
+   return (
+-    <section className="panel" aria-labelledby="projects-table-heading">
++    <section className="panel table-card" aria-labelledby="projects-table-heading">
+       <div className="panel-header">
+         <h2 id="projects-table-heading">{heading}</h2>
+-        <p className="muted" data-testid="result-count" aria-live="polite">
+-          Showing {rows.length} of {projects.length} projects
++        <p className="muted small" data-testid="result-count" aria-live="polite">
++          Showing <span className="mono">{rows.length}</span> of <span className="mono">{projects.length}</span> projects
+         </p>
+       </div>
+ 
+@@ -100,7 +101,7 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+             </button>
+           ))}
+         </div>
+-        <div className="field-inline">
++        <div className="field toolbar-field">
+           <label htmlFor="project-filter">Filter projects</label>
+           <input
+             id="project-filter"
+@@ -115,60 +116,87 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+       </div>
+ 
+       {rows.length === 0 ? (
+-        <div className="empty-state" data-testid="projects-empty">
++        <div className="empty-state empty-state-inline" data-testid="projects-empty">
+           <h3>No projects match your filters</h3>
+           <p className="muted">Try a different search term or status.</p>
+-          <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++          <button type="button" className="button button-secondary" onClick={clearFilters} data-testid="clear-filters">
+             Clear filters
+           </button>
+         </div>
+       ) : (
+-        <div className="table-wrap">
+-          <table className="table" data-testid="projects-table">
+-            <thead>
+-              <tr>
+-                {COLUMNS.map((column) => (
+-                  <th
+-                    key={column.key}
+-                    scope="col"
+-                    aria-sort={sortKey === column.key ? sortDirection : 'none'}
+-                    data-testid={`column-${column.key}`}
+-                  >
+-                    <button
+-                      type="button"
+-                      className="sort-button"
+-                      onClick={() => toggleSort(column.key)}
+-                      data-testid={`sort-${column.key}`}
++        <>
++          {/* Under breakpoint.md the header row is hidden by the stacked layout; these chips keep sorting reachable. */}
++          <div className="sort-chips" role="group" aria-label="Sort projects by">
++            {COLUMNS.map((column) => (
++              <button
++                key={column.key}
++                type="button"
++                className="chip"
++                aria-pressed={sortKey === column.key}
++                onClick={() => toggleSort(column.key)}
++              >
++                {column.label}
++                {sortKey === column.key && <ArrowIcon direction={sortDirection === 'ascending' ? 'up' : 'down'} />}
++              </button>
++            ))}
++          </div>
++          <div className="table-wrap">
++            <table className="table table--stack" role="table" data-testid="projects-table">
++              <thead role="rowgroup">
++                <tr role="row">
++                  {COLUMNS.map((column) => (
++                    <th
++                      key={column.key}
++                      scope="col"
++                      role="columnheader"
++                      className={column.key === 'budget' ? 'numeric' : undefined}
++                      aria-sort={sortKey === column.key ? sortDirection : 'none'}
++                      data-testid={`column-${column.key}`}
+                     >
+-                      {column.label}
+-                      <span className="sort-indicator" aria-hidden="true">
+-                        {sortKey === column.key ? (sortDirection === 'ascending' ? '▲' : '▼') : ''}
+-                      </span>
+-                    </button>
+-                  </th>
+-                ))}
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {rows.map((project) => (
+-                <tr key={project.id} data-testid="project-row">
+-                  <td>
+-                    <Link to={`/projects/${project.id}`} data-testid="project-link">
+-                      {project.name}
+-                    </Link>
+-                    <div className="muted small">{project.client}</div>
+-                  </td>
+-                  <td>{project.owner}</td>
+-                  <td>
+-                    <StatusPill status={project.status} />
+-                  </td>
+-                  <td className="numeric">{currency.format(project.budget)}</td>
+-                  <td>{formatDate(project.dueDate)}</td>
++                      <button
++                        type="button"
++                        className="sort-button"
++                        onClick={() => toggleSort(column.key)}
++                        data-testid={`sort-${column.key}`}
++                      >
++                        {column.label}
++                        <span className="sort-indicator" aria-hidden="true">
++                          {sortKey === column.key && (
++                            <ArrowIcon direction={sortDirection === 'ascending' ? 'up' : 'down'} />
++                          )}
++                        </span>
++                      </button>
++                    </th>
++                  ))}
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
++              </thead>
++              <tbody role="rowgroup">
++                {rows.map((project) => (
++                  <tr key={project.id} role="row" data-testid="project-row">
++                    <td role="cell" className="cell-primary" data-label="Project">
++                      <Link to={`/projects/${project.id}`} data-testid="project-link">
++                        {project.name}
++                      </Link>
++                      <div className="muted small">{project.client}</div>
++                    </td>
++                    <td role="cell" data-label="Owner">
++                      {project.owner}
++                    </td>
++                    <td role="cell" data-label="Status">
++                      <StatusPill status={project.status} />
++                    </td>
++                    <td role="cell" className="numeric mono" data-label="Budget">
++                      {currency.format(project.budget)}
++                    </td>
++                    <td role="cell" className="mono" data-label="Due date">
++                      {formatDate(project.dueDate)}
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++        </>
+       )}
+     </section>
+   );
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..623aa1a 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '../design-system/tokens.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index dde83ce..e245234 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -2,10 +2,12 @@ import { Link } from 'react-router';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to overview</Link>
+-    </section>
++    <div className="container page-solo">
++      <section className="empty-state" data-testid="not-found">
++        <h1>Page not found</h1>
++        <p className="muted">The page you are looking for does not exist or has moved.</p>
++        <Link to="/">Go to overview</Link>
++      </section>
++    </div>
+   );
+ }
+diff --git a/src/pages/OverviewPage.tsx b/src/pages/OverviewPage.tsx
+index 67fc003..8fee2f6 100644
+--- a/src/pages/OverviewPage.tsx
++++ b/src/pages/OverviewPage.tsx
+@@ -1,5 +1,7 @@
+ import { Link } from 'react-router';
+ import BarChart from '../components/BarChart';
++import Bloom from '../components/Bloom';
++import { ArrowIcon, PencilNote } from '../components/Icons';
+ import ProjectsTable from '../components/ProjectsTable';
+ import { deploymentsByMonth, kpis, recentActivity } from '../data/metrics';
+ import { projects } from '../data/projects';
+@@ -7,47 +9,64 @@ import { projects } from '../data/projects';
+ export default function OverviewPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Overview</h1>
+-        <p className="muted">Delivery health across all teams for October 2026.</p>
++      <div className="page-header bloom-band">
++        <Bloom />
++        <div className="container band-content">
++          <h1>Overview</h1>
++          <p className="lead">
++            Delivery health across all teams for{' '}
++            <span className="note-anchor">
++              October 2026
++              <PencilNote text="this month so far" />
++            </span>
++            .
++          </p>
++        </div>
+       </div>
+ 
+-      <section aria-label="Key metrics" className="kpi-grid" data-testid="kpi-grid">
+-        {kpis.map((kpi) => (
+-          <article key={kpi.id} className="card kpi-card" data-testid="kpi-card">
+-            <h2 className="kpi-label">{kpi.label}</h2>
+-            <p className="kpi-value">{kpi.value}</p>
+-            <p className={`kpi-change kpi-change-${kpi.trend}`}>{kpi.change}</p>
+-          </article>
+-        ))}
+-      </section>
+-
+-      <div className="two-column">
+-        <section className="panel" aria-labelledby="throughput-heading">
+-          <h2 id="throughput-heading">Deployment throughput</h2>
+-          <BarChart title="Production deployments per month" data={deploymentsByMonth} />
++      <div className="container page-body">
++        <section aria-label="Key metrics" className="kpi-grid" data-testid="kpi-grid">
++          {kpis.map((kpi) => (
++            <article key={kpi.id} className="card kpi-card" data-testid="kpi-card">
++              <h2 className="kpi-label" title={kpi.label}>
++                {kpi.label}
++              </h2>
++              <p className="kpi-value">{kpi.value}</p>
++              <p className={`kpi-change kpi-change-${kpi.trend}`}>
++                <ArrowIcon direction={kpi.trend} />
++                {kpi.change}
++              </p>
++            </article>
++          ))}
+         </section>
+ 
+-        <section className="panel" aria-labelledby="activity-heading">
+-          <h2 id="activity-heading">Recent activity</h2>
+-          <ul className="activity-list" data-testid="activity-list">
+-            {recentActivity.map((item) => {
+-              const project = projects.find((p) => p.name === item.target);
+-              return (
+-                <li key={item.id} className="activity-item" data-testid="activity-item">
+-                  <p>
+-                    <strong>{item.actor}</strong> {item.action}{' '}
+-                    {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
+-                  </p>
+-                  <p className="muted small">{item.time}</p>
+-                </li>
+-              );
+-            })}
+-          </ul>
+-        </section>
+-      </div>
++        <div className="two-column">
++          <section className="panel" aria-labelledby="throughput-heading">
++            <h2 id="throughput-heading">Deployment throughput</h2>
++            <BarChart title="Production deployments per month" data={deploymentsByMonth} />
++          </section>
+ 
+-      <ProjectsTable heading="Projects" />
++          <section className="panel" aria-labelledby="activity-heading">
++            <h2 id="activity-heading">Recent activity</h2>
++            <ul className="activity-list" data-testid="activity-list">
++              {recentActivity.map((item) => {
++                const project = projects.find((p) => p.name === item.target);
++                return (
++                  <li key={item.id} className="activity-item" data-testid="activity-item">
++                    <p>
++                      <strong>{item.actor}</strong> {item.action}{' '}
++                      {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
++                    </p>
++                    <p className="muted small">{item.time}</p>
++                  </li>
++                );
++              })}
++            </ul>
++          </section>
++        </div>
++
++        <ProjectsTable heading="Projects" />
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProjectDetailPage.tsx b/src/pages/ProjectDetailPage.tsx
+index 3e13517..c97f4a5 100644
+--- a/src/pages/ProjectDetailPage.tsx
++++ b/src/pages/ProjectDetailPage.tsx
+@@ -1,6 +1,7 @@
+ import { useRef, useState, type KeyboardEvent } from 'react';
+ import { Link, useParams } from 'react-router';
+ import StatusPill from '../components/StatusPill';
++import TableScroll from '../components/TableScroll';
+ import { formatDate } from '../components/ProjectsTable';
+ import { findProject, type Project, type Task } from '../data/projects';
+ 
+@@ -20,10 +21,14 @@ export default function ProjectDetailPage() {
+ 
+   if (!project) {
+     return (
+-      <div className="empty-state" data-testid="project-not-found">
+-        <h1>Project not found</h1>
+-        <p className="muted">There is no project with the id “{id}”.</p>
+-        <Link to="/projects">Back to all projects</Link>
++      <div className="container page-solo">
++        <div className="empty-state" data-testid="project-not-found">
++          <h1>Project not found</h1>
++          <p className="muted">
++            There is no project with the id “<span className="mono">{id}</span>”.
++          </p>
++          <Link to="/projects">Back to all projects</Link>
++        </div>
+       </div>
+     );
+   }
+@@ -57,25 +62,30 @@ function ProjectDetail({ project }: { project: Project }) {
+ 
+   return (
+     <>
+-      <nav aria-label="Breadcrumb" className="breadcrumb">
+-        <ol>
+-          <li>
+-            <Link to="/projects">Projects</Link>
+-          </li>
+-          <li aria-current="page">{project.name}</li>
+-        </ol>
+-      </nav>
+-
+-      <div className="page-header page-header-row">
+-        <div>
+-          <h1 data-testid="project-title">{project.name}</h1>
+-          <p className="muted">
+-            {project.client} · Owned by {project.owner}
+-          </p>
++      <div className="page-header">
++        <div className="container">
++          <nav aria-label="Breadcrumb" className="breadcrumb">
++            <ol>
++              <li>
++                <Link to="/projects">Projects</Link>
++              </li>
++              <li aria-current="page">{project.name}</li>
++            </ol>
++          </nav>
++
++          <h1 data-testid="project-title" className="h1-object">
++            {project.name}
++          </h1>
++          <div className="meta-line">
++            <p className="muted">
++              {project.client} · Owned by {project.owner}
++            </p>
++            <StatusPill status={project.status} />
++          </div>
+         </div>
+-        <StatusPill status={project.status} />
+       </div>
+ 
++      <div className="container page-body page-body-tabs">
+       <div className="tabs" role="tablist" aria-label="Project sections">
+         {TABS.map((tab, index) => (
+           <button
+@@ -101,25 +111,25 @@ function ProjectDetail({ project }: { project: Project }) {
+ 
+       {activeTab === 'overview' && (
+         <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="panel" data-testid="panel-overview">
+-          <p>{project.description}</p>
++          <p className="description">{project.description}</p>
+           <dl className="details">
+             <div>
+               <dt>Budget</dt>
+-              <dd>{currency.format(project.budget)}</dd>
++              <dd className="mono">{currency.format(project.budget)}</dd>
+             </div>
+             <div>
+               <dt>Due date</dt>
+-              <dd>{formatDate(project.dueDate)}</dd>
++              <dd className="mono">{formatDate(project.dueDate)}</dd>
+             </div>
+             <div>
+               <dt>Tasks</dt>
+               <dd>
+-                {completed} of {tasks.length} complete
++                <span className="mono">{completed}</span> of <span className="mono">{tasks.length}</span> complete
+               </dd>
+             </div>
+             <div>
+               <dt>Files</dt>
+-              <dd>{project.files.length}</dd>
++              <dd className="mono">{project.files.length}</dd>
+             </div>
+           </dl>
+         </section>
+@@ -129,7 +139,7 @@ function ProjectDetail({ project }: { project: Project }) {
+         <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="panel" data-testid="panel-tasks">
+           <div className="progress-row">
+             <p data-testid="task-progress" aria-live="polite">
+-              {completed} of {tasks.length} tasks complete
++              <span className="mono">{completed}</span> of <span className="mono">{tasks.length}</span> tasks complete
+             </p>
+             <progress className="progress" max={tasks.length} value={completed} aria-label="Task completion" />
+           </div>
+@@ -152,27 +162,38 @@ function ProjectDetail({ project }: { project: Project }) {
+       )}
+ 
+       {activeTab === 'files' && (
+-        <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="panel" data-testid="panel-files">
+-          <table className="table">
+-            <thead>
+-              <tr>
+-                <th scope="col">File name</th>
+-                <th scope="col">Size</th>
+-                <th scope="col">Last updated</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {project.files.map((file) => (
+-                <tr key={file.id} data-testid="file-row">
+-                  <td>{file.name}</td>
+-                  <td>{file.size}</td>
+-                  <td>{formatDate(file.updated)}</td>
++        <section
++          id="panel-files"
++          role="tabpanel"
++          aria-labelledby="tab-files"
++          className="panel table-card"
++          data-testid="panel-files"
++        >
++          <TableScroll label="Project files">
++            <table className="table">
++              <thead>
++                <tr>
++                  <th scope="col">File name</th>
++                  <th scope="col" className="numeric">
++                    Size
++                  </th>
++                  <th scope="col">Last updated</th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
++              </thead>
++              <tbody>
++                {project.files.map((file) => (
++                  <tr key={file.id} data-testid="file-row">
++                    <td>{file.name}</td>
++                    <td className="numeric mono">{file.size}</td>
++                    <td className="mono">{formatDate(file.updated)}</td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </TableScroll>
+         </section>
+       )}
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProjectsPage.tsx b/src/pages/ProjectsPage.tsx
+index 9529547..a63b97e 100644
+--- a/src/pages/ProjectsPage.tsx
++++ b/src/pages/ProjectsPage.tsx
+@@ -8,11 +8,15 @@ export default function ProjectsPage() {
+   return (
+     <>
+       <div className="page-header">
+-        <h1>Projects</h1>
+-        <p className="muted">Every initiative tracked by the operations team.</p>
++        <div className="container">
++          <h1>Projects</h1>
++          <p className="lead">Every initiative tracked by the operations team.</p>
++        </div>
++      </div>
++      <div className="container page-body">
++        {/* Re-mount when the global search changes so the table picks up the new query. */}
++        <ProjectsTable key={initialQuery} heading="All projects" initialQuery={initialQuery} />
+       </div>
+-      {/* Re-mount when the global search changes so the table picks up the new query. */}
+-      <ProjectsTable key={initialQuery} heading="All projects" initialQuery={initialQuery} />
+     </>
+   );
+ }
+diff --git a/src/pages/SettingsPage.tsx b/src/pages/SettingsPage.tsx
+index 920db50..8abe48a 100644
+--- a/src/pages/SettingsPage.tsx
++++ b/src/pages/SettingsPage.tsx
+@@ -1,19 +1,33 @@
+ import { Link } from 'react-router';
++import Bloom from '../components/Bloom';
++import { PencilNote } from '../components/Icons';
+ 
+ export default function SettingsPage() {
+   return (
+     <>
+       <div className="page-header">
+-        <h1>Settings</h1>
++        <div className="container">
++          <h1 className="h1-object">Settings</h1>
++        </div>
++      </div>
++      <div className="container page-body">
++        <div className="empty-wrap">
++          <Bloom className="bloom--empty" />
++          <section className="panel empty-state empty-state-page" data-testid="settings-placeholder">
++            <h2>Workspace settings are coming soon</h2>
++            <p className="muted">
++              Notification rules, integrations and access control will live here. For now, ask a workspace admin to
++              make changes.
++            </p>
++            <span className="note-anchor empty-action">
++              <Link to="/" className="button button-secondary">
++                Back to overview
++              </Link>
++              <PencilNote text="back to the overview" />
++            </span>
++          </section>
++        </div>
+       </div>
+-      <section className="panel empty-state" data-testid="settings-placeholder">
+-        <h2>Workspace settings are coming soon</h2>
+-        <p className="muted">
+-          Notification rules, integrations and access control will live here. For now, ask a workspace admin to make
+-          changes.
+-        </p>
+-        <Link to="/">Back to overview</Link>
+-      </section>
+     </>
+   );
+ }
+diff --git a/src/pages/TeamPage.tsx b/src/pages/TeamPage.tsx
+index c6c6245..e9d6297 100644
+--- a/src/pages/TeamPage.tsx
++++ b/src/pages/TeamPage.tsx
+@@ -1,51 +1,58 @@
++import TableScroll from '../components/TableScroll';
+ import { team } from '../data/team';
+ 
+ export default function TeamPage() {
+   return (
+     <>
+       <div className="page-header">
+-        <h1>Team</h1>
+-        <p className="muted">{team.length} people across engineering, design and operations.</p>
++        <div className="container">
++          <h1>Team</h1>
++          <p className="lead">{team.length} people across engineering, design and operations.</p>
++        </div>
+       </div>
+-      <section className="panel" aria-label="Team members">
+-        <div className="table-wrap">
+-          <table className="table" data-testid="team-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Name</th>
+-                <th scope="col">Role</th>
+-                <th scope="col">Location</th>
+-                <th scope="col">Active projects</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {team.map((member) => (
+-                <tr key={member.id} data-testid="team-row">
+-                  <td>
+-                    <div className="person">
+-                      <span className="avatar" aria-hidden="true">
+-                        {member.name
+-                          .split(' ')
+-                          .map((part) => part[0])
+-                          .join('')}
+-                      </span>
+-                      <div>
+-                        <div>{member.name}</div>
+-                        <a href={`mailto:${member.email}`} className="small">
+-                          {member.email}
+-                        </a>
+-                      </div>
+-                    </div>
+-                  </td>
+-                  <td>{member.role}</td>
+-                  <td>{member.location}</td>
+-                  <td className="numeric">{member.activeProjects}</td>
++      <div className="container page-body">
++        <section className="panel table-card" aria-label="Team members">
++          <TableScroll label="Team members">
++            <table className="table" data-testid="team-table">
++              <thead>
++                <tr>
++                  <th scope="col">Name</th>
++                  <th scope="col">Role</th>
++                  <th scope="col">Location</th>
++                  <th scope="col" className="numeric">
++                    Active projects
++                  </th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
+-      </section>
++              </thead>
++              <tbody>
++                {team.map((member) => (
++                  <tr key={member.id} data-testid="team-row">
++                    <td>
++                      <div className="person">
++                        <span className="avatar" aria-hidden="true">
++                          {member.name
++                            .split(' ')
++                            .map((part) => part[0])
++                            .join('')}
++                        </span>
++                        <div>
++                          <div className="person-name">{member.name}</div>
++                          <a href={`mailto:${member.email}`} className="small">
++                            {member.email}
++                          </a>
++                        </div>
++                      </div>
++                    </td>
++                    <td>{member.role}</td>
++                    <td>{member.location}</td>
++                    <td className="numeric mono">{member.activeProjects}</td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </TableScroll>
++        </section>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 3eb965f..9ce5878 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,49 +1,8 @@
+ /*
+- * Base styles for the Northwind Ops dashboard.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Base styles for the Northwind Ops dashboard, following design system margin-notes@0.1.0-rc.3.
++ * Every value comes from design-system/tokens.css (loaded first); never hard-code colors, sizes or radii here.
++ * Breakpoints: "under md" = max-width 859px, "under lg" = max-width 1199px.
+  */
+-:root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-status-active-bg: #e3f2e5;
+-  --color-status-active-text: #1b5e20;
+-  --color-status-paused-bg: #fff4d6;
+-  --color-status-paused-text: #7a5a00;
+-  --color-status-done-bg: #e8e8e8;
+-  --color-status-done-text: #444444;
+-  --color-chart-bar: #6f8fbf;
+-  --color-chart-axis: #999999;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
+-}
+ 
+ *,
+ *::before,
+@@ -54,48 +13,79 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-body);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-ui);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-semibold);
+ }
+ 
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-size: clamp(38px, 5vw, var(--font-size-h1));
++  line-height: var(--font-line-height-display);
++  letter-spacing: var(--font-tracking-display);
+ }
+ 
+ h2 {
+   font-size: var(--font-size-h2);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-h2);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-base);
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-title);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-2);
++  margin: 0;
++}
++
++strong {
++  font-weight: var(--font-weight-semibold);
++  color: var(--color-text-primary);
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
++  text-decoration: underline;
++  text-decoration-thickness: 1px;
++  text-underline-offset: 3px;
++  transition: color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++a:hover {
++  color: var(--color-action-primary-hover);
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: 2px solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
++@media (prefers-reduced-motion: reduce) {
++  *,
++  *::before,
++  *::after {
++    transition-duration: var(--motion-duration-instant) !important;
++    animation-duration: var(--motion-duration-instant) !important;
++  }
++}
++
+ .visually-hidden {
+   position: absolute;
+   width: 1px;
+@@ -114,15 +104,17 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-8);
++  top: var(--space-8);
++  background: var(--color-surface-lifted);
++  box-shadow: var(--elevation-pinned);
++  border-radius: var(--radius-control);
++  padding: var(--space-8) var(--space-12);
++  z-index: 30;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+@@ -131,109 +123,313 @@ a {
+ 
+ .numeric {
+   font-variant-numeric: tabular-nums;
++  text-align: right;
++}
++
++/* Machine facts: numbers, dates, IDs (rule 7). */
++.mono {
++  font-family: var(--font-family-mono);
++  font-variant-numeric: tabular-nums;
++}
++
++.icon-12 {
++  width: 12px;
++  height: 12px;
++  flex-shrink: 0;
++  fill: none;
++  stroke: currentColor;
++  stroke-width: 1.5;
++  stroke-linecap: round;
++  stroke-linejoin: round;
+ }
+ 
+ /* Layout */
++.container {
++  width: 100%;
++  max-width: calc(var(--size-container) + 2 * var(--space-40));
++  margin-inline: auto;
++  padding-inline: var(--space-40);
++}
++
+ .app-shell {
+-  display: flex;
+   min-height: 100vh;
+ }
+ 
+-.sidebar {
+-  width: var(--sidebar-width);
+-  flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++.content:focus {
++  outline: none;
+ }
+ 
+-.brand {
+-  font-weight: bold;
+-  margin-bottom: var(--space-4);
++.page-header {
++  padding: var(--space-64) 0 var(--space-40);
+ }
+ 
+-.nav-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
++.page-header .lead {
++  margin-top: var(--space-16);
+ }
+ 
+-.nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
+-  text-decoration: none;
++.lead {
++  max-width: 560px;
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-article);
++  color: var(--color-text-secondary);
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
++.h1-object {
++  font-size: clamp(32px, 4vw, var(--font-size-h1article));
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-h1article);
+ }
+ 
+-.main-column {
+-  flex: 1;
+-  min-width: 0;
++/* Dense data: blocks sit space.32 apart. */
++.page-body {
+   display: flex;
+   flex-direction: column;
++  gap: var(--space-32);
++  padding-bottom: var(--space-96);
++}
++
++.page-body > * {
++  min-width: 0;
++}
++
++.page-body-tabs {
++  gap: var(--space-24);
++}
++
++.page-solo {
++  padding-top: var(--space-64);
++  padding-bottom: var(--space-96);
+ }
+ 
+-.topbar {
++.meta-line {
+   display: flex;
++  flex-wrap: wrap;
+   align-items: center;
+-  justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-8) var(--space-12);
++  margin-top: var(--space-16);
++}
++
++.meta-line p {
++  font-size: var(--font-size-lead);
+ }
+ 
+-.topbar-search {
++.two-column {
++  display: grid;
++  grid-template-columns: repeat(12, minmax(0, 1fr));
++  gap: var(--space-32);
++  align-items: start;
++}
++
++.two-column > :first-child {
++  grid-column: span 7;
++}
++
++.two-column > :last-child {
++  grid-column: span 5;
++}
++
++/* Header and navigation */
++.site-header {
++  position: relative;
++  z-index: 10;
++  background: var(--color-surface-default);
++  border-bottom: 1px solid var(--color-border-default);
++}
++
++.header-inner {
+   display: flex;
+-  gap: var(--space-2);
++  align-items: center;
++  gap: var(--space-40);
++  height: var(--size-header);
++}
++
++.brand {
++  flex-shrink: 0;
++  font-size: var(--font-size-lead);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: var(--font-tracking-title);
++  color: var(--color-text-primary);
++}
++
++.header-menu {
++  display: flex;
++  align-items: center;
++  gap: var(--space-24);
+   flex: 1;
+-  max-width: 420px;
++  min-width: 0;
++}
++
++.primary-nav {
++  order: 0;
+ }
+ 
+-.content {
+-  padding: var(--space-6);
++.header-search {
++  order: 1;
++  margin-left: auto;
+   display: flex;
+-  flex-direction: column;
+-  gap: var(--space-6);
++  gap: var(--space-8);
++}
++
++.header-search .input {
++  height: var(--size-control-sm);
++  width: 240px;
++  flex: 0 1 240px;
++}
++
++.header-search .button {
++  height: var(--size-control-sm);
++  padding: 0 var(--space-12);
++  font-size: var(--font-size-small);
+ }
+ 
+-.page-header-row {
++.nav-list {
++  list-style: none;
++  margin: 0;
++  padding: 0;
+   display: flex;
+-  justify-content: space-between;
+-  align-items: flex-start;
+-  gap: var(--space-4);
++  gap: var(--space-24);
+ }
+ 
+-.two-column {
+-  display: grid;
+-  grid-template-columns: 3fr 2fr;
+-  gap: var(--space-6);
++.nav-link {
++  display: inline-flex;
++  align-items: center;
++  min-height: var(--size-control-sm);
++  font-size: var(--font-size-ui);
++  color: var(--color-text-secondary);
++  text-decoration: none;
++  border-radius: var(--radius-inner);
++  transition: color var(--motion-duration-fast) var(--motion-easing-standard),
++    background-color var(--motion-duration-fast) var(--motion-easing-standard);
+ }
+ 
+-/* Controls */
+-.input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
+-  flex: 1;
++.nav-link:hover {
++  color: var(--color-text-primary);
++}
++
++.nav-link.active {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++}
++
++.header-actions {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  flex-shrink: 0;
+ }
+ 
++.menu-button {
++  display: none;
++  align-items: center;
++  justify-content: center;
++  width: var(--size-touch);
++  height: var(--size-touch);
++  padding: 0;
++  border: none;
++  border-radius: var(--radius-control);
++  background: transparent;
++  color: var(--color-text-secondary);
++  cursor: pointer;
++  transition: color var(--motion-duration-fast) var(--motion-easing-standard),
++    background-color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.menu-button:hover,
++.menu-button[aria-expanded='true'] {
++  color: var(--color-text-primary);
++  background: var(--color-surface-subtle);
++}
++
++.menu-button svg {
++  fill: none;
++  stroke: currentColor;
++  stroke-width: 1.5;
++  stroke-linecap: round;
++}
++
++/* Overlays fade in with a 4px rise. */
++@keyframes overlay-in {
++  from {
++    opacity: 0;
++    transform: translateY(4px);
++  }
++  to {
++    opacity: 1;
++    transform: none;
++  }
++}
++
++/* Buttons */
+ .button {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-8);
++  height: var(--size-control);
++  padding: 0 var(--space-16);
++  flex-shrink: 0;
+   font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
++  font-size: var(--font-size-ui);
++  line-height: var(--font-line-height-ui);
++  white-space: nowrap;
++  text-decoration: none;
++  border: 1px solid var(--color-border-control);
++  border-radius: var(--radius-control);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+   cursor: pointer;
++  transition: color var(--motion-duration-fast) var(--motion-easing-standard),
++    background-color var(--motion-duration-fast) var(--motion-easing-standard),
++    border-color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.button:hover {
++  border-color: var(--color-border-strong);
++  color: var(--color-text-primary);
++}
++
++.button:active {
++  background: var(--color-surface-subtle);
++}
++
++.button-primary {
++  background: var(--color-action-primary);
++  border-color: transparent;
++  color: var(--color-text-on-action);
++  font-weight: var(--font-weight-medium);
++}
++
++.button-primary:hover {
++  background: var(--color-action-primary-hover);
++  border-color: transparent;
++  color: var(--color-text-on-action);
++}
++
++.button-primary:active {
++  background: var(--color-action-primary-active);
++}
++
++.button-ghost {
++  background: transparent;
++  border-color: transparent;
++  color: var(--color-text-secondary);
++}
++
++.button-ghost:hover,
++.button-ghost[aria-expanded='true'] {
++  background: var(--color-surface-subtle);
++  border-color: transparent;
++  color: var(--color-text-primary);
++}
++
++.button:disabled,
++.chip:disabled,
++.segmented-button:disabled {
++  background: var(--color-action-disabled);
++  border-color: transparent;
++  color: var(--color-text-tertiary);
++  box-shadow: none;
++  cursor: not-allowed;
+ }
+ 
+ .link-button {
+@@ -241,15 +437,57 @@ a {
+   background: none;
+   border: none;
+   padding: 0;
+-  color: var(--color-link);
++  color: var(--color-text-primary);
+   text-decoration: underline;
++  text-underline-offset: 3px;
+   cursor: pointer;
+ }
+ 
+-.field-inline {
++/* Text fields */
++.input {
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  flex: 1 1 240px;
++  min-width: 0;
++  font: inherit;
++  font-size: var(--font-size-ui);
++  color: var(--color-text-primary);
++  background: var(--color-surface-raised);
++  border: 1px solid var(--color-border-control);
++  border-radius: var(--radius-control);
++  transition: border-color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.input::placeholder {
++  color: var(--color-text-tertiary);
++  opacity: 1;
++}
++
++.input:hover {
++  border-color: var(--color-border-strong);
++}
++
++.input:disabled {
++  background: var(--color-action-disabled);
++  color: var(--color-text-tertiary);
++  cursor: not-allowed;
++}
++
++.input[aria-invalid='true'] {
++  border-color: var(--color-status-danger);
++}
++
++.field {
+   display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++  flex-direction: column;
++  gap: var(--space-6);
++  min-width: 0;
++}
++
++.field label {
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-primary);
+ }
+ 
+ /* User menu */
+@@ -258,21 +496,30 @@ a {
+ }
+ 
+ .user-menu-button {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++  height: var(--size-control-md);
++  padding: 0 var(--space-10) 0 var(--space-4);
++  color: var(--color-text-primary);
+ }
+ 
+ .user-menu-panel {
+   position: absolute;
+   right: 0;
+-  top: calc(100% + var(--space-1));
+-  min-width: 220px;
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-3);
+-  z-index: 5;
++  top: calc(100% + var(--space-8));
++  min-width: 240px;
++  padding: var(--space-4);
++  background: var(--color-surface-lifted);
++  border-radius: var(--radius-media);
++  box-shadow: var(--elevation-pinned);
++  z-index: 20;
++  animation: overlay-in var(--motion-duration-overlay) var(--motion-easing-standard);
++}
++
++.user-menu-email {
++  padding: var(--space-6) var(--space-10) var(--space-8);
++  font-size: var(--font-size-small);
++  color: var(--color-text-tertiary);
++  border-bottom: 1px solid var(--color-border-default);
++  margin-bottom: var(--space-4);
+ }
+ 
+ .user-menu-list {
+@@ -280,103 +527,187 @@ a {
+   margin: 0;
+   padding: 0;
+   display: grid;
+-  gap: var(--space-2);
++}
++
++.user-menu-link {
++  display: flex;
++  align-items: center;
++  width: 100%;
++  height: var(--size-control-md);
++  padding: 0 var(--space-10);
++  font-size: var(--font-size-ui);
++  color: var(--color-text-primary);
++  text-decoration: none;
++  text-align: left;
++  border-radius: var(--radius-inner);
++  transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.user-menu-link:hover {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
+ }
+ 
+ .avatar {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
++  flex-shrink: 0;
+   width: 28px;
+   height: 28px;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .person {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-10);
++}
++
++.person-name {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++}
++
++.table .person a {
++  color: var(--color-text-secondary);
++  font-weight: var(--font-weight-regular);
+ }
+ 
+ /* Cards and panels */
+ .panel,
+ .card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-12);
++  min-width: 0;
++  padding: var(--space-24);
++  background: var(--color-surface-raised);
++  border-radius: var(--radius-panel);
++  box-shadow: var(--elevation-rest);
++}
++
++.panel > h2 {
++  font-size: var(--font-size-panel-title);
++  line-height: var(--font-line-height-card);
++  letter-spacing: var(--font-tracking-title);
++  margin-bottom: var(--space-4);
+ }
+ 
+ .panel-header {
+   display: flex;
++  flex-wrap: wrap;
+   justify-content: space-between;
+   align-items: baseline;
+-  gap: var(--space-4);
++  gap: var(--space-8) var(--space-16);
++}
++
++.panel-header h2 {
++  font-size: var(--font-size-panel-title);
++  line-height: var(--font-line-height-card);
++  letter-spacing: var(--font-tracking-title);
+ }
+ 
++/* A panel that frames a table edge to edge. */
++.table-card {
++  padding: 0;
++  gap: 0;
++  overflow: clip;
++}
++
++.table-card > .panel-header {
++  padding: var(--space-24) var(--space-24) 0;
++}
++
++/* Stat cards */
+ .kpi-grid {
+   display: grid;
+-  grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(4, minmax(0, 1fr));
++  gap: var(--space-32);
++}
++
++.kpi-card {
++  gap: var(--space-8);
+ }
+ 
+ .kpi-label {
+-  font-size: var(--font-size-small);
+-  font-weight: normal;
+-  color: var(--color-text-muted);
++  overflow: hidden;
++  white-space: nowrap;
++  text-overflow: ellipsis;
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-ui);
++  letter-spacing: var(--font-tracking-eyebrow);
++  text-transform: uppercase;
++  color: var(--color-text-tertiary);
+ }
+ 
+ .kpi-value {
+-  font-size: 28px;
+-  font-weight: bold;
+-  margin: 0;
++  font-size: clamp(28px, 3vw, 40px);
++  font-weight: var(--font-weight-semibold);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-h1article);
++  color: var(--color-text-primary);
++  margin-top: var(--space-4);
+ }
+ 
+ .kpi-change {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-4);
+   font-size: var(--font-size-small);
+-  margin: 0;
++  color: var(--color-text-secondary);
+ }
+ 
+-.kpi-change-up {
+-  color: var(--color-positive);
+-}
+-
+-.kpi-change-down {
+-  color: var(--color-negative);
+-}
+-
+-/* Chart */
++/* Chart: lighter than its numbers */
+ .chart {
+   margin: 0;
++  min-width: 0;
+ }
+ 
+ .chart-title {
+   font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
+-  margin-bottom: var(--space-2);
++  color: var(--color-text-secondary);
++  margin-bottom: var(--space-12);
+ }
+ 
+ .chart-svg {
+-  width: 100%;
+-  height: auto;
+   display: block;
++  width: 100%;
++  overflow: visible;
++}
++
++.chart-grid {
++  stroke: var(--color-border-default);
++  stroke-width: 1;
++  shape-rendering: crispEdges;
+ }
+ 
+ .chart-bar {
+-  fill: var(--color-chart-bar);
++  fill: var(--color-text-primary);
++  opacity: var(--opacity-chart-rest);
+ }
+ 
+-.chart-axis {
+-  stroke: var(--color-chart-axis);
++.is-current .chart-bar {
++  opacity: 1;
+ }
+ 
+ .chart-value,
+ .chart-label {
+-  font-size: 12px;
+-  fill: var(--color-text);
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-caption);
++  font-variant-numeric: tabular-nums;
++  fill: var(--color-text-tertiary);
++}
++
++.is-current .chart-value,
++.is-current .chart-label {
++  fill: var(--color-text-primary);
+ }
+ 
+ /* Activity */
+@@ -387,234 +718,848 @@ a {
+ }
+ 
+ .activity-item {
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  display: grid;
++  gap: var(--space-4);
++  padding: var(--space-12) 0;
++  border-bottom: 1px solid var(--color-border-default);
++  font-size: var(--font-size-ui);
+ }
+ 
+-.activity-item p {
+-  margin: 0;
++.activity-item:first-child {
++  padding-top: 0;
+ }
+ 
+-/* Toolbar & table */
++.activity-item:last-child {
++  border-bottom: none;
++  padding-bottom: 0;
++}
++
++.activity-item .muted {
++  color: var(--color-text-tertiary);
++}
++
++/* Toolbar, segmented control and chips */
+ .toolbar {
+   display: flex;
+   flex-wrap: wrap;
+   justify-content: space-between;
+-  gap: var(--space-3);
+-  margin: var(--space-3) 0;
++  align-items: flex-end;
++  gap: var(--space-16);
++  padding: var(--space-16) var(--space-24);
++}
++
++.toolbar-field {
++  flex: 0 1 320px;
++}
++
++.toolbar-field .input {
++  flex: none;
++  width: 100%;
+ }
+ 
+ .segmented {
+-  display: flex;
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-4);
++  height: var(--size-control);
++  padding: 3px;
++  background: var(--color-surface-subtle);
++  border-radius: var(--radius-control);
++  max-width: 100%;
+ }
+ 
+ .segmented-button {
++  height: var(--size-control-sm);
++  padding: 0 var(--space-12);
+   font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
++  background: transparent;
++  border: none;
++  border-radius: var(--radius-inner);
+   cursor: pointer;
+-  margin-left: -1px;
++  transition: color var(--motion-duration-fast) var(--motion-easing-standard),
++    background-color var(--motion-duration-fast) var(--motion-easing-standard);
+ }
+ 
+-.segmented-button:first-child {
+-  border-radius: var(--radius) 0 0 var(--radius);
+-  margin-left: 0;
++.segmented-button:hover {
++  color: var(--color-text-primary);
+ }
+ 
+-.segmented-button:last-child {
+-  border-radius: 0 var(--radius) var(--radius) 0;
++.segmented-button[aria-pressed='true'] {
++  background: var(--color-surface-raised);
++  box-shadow: var(--elevation-segment);
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+-.segmented-button[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.chip {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  flex-shrink: 0;
++  height: var(--size-control-md);
++  padding: 0 var(--space-14);
++  font: inherit;
++  font-size: var(--font-size-small);
++  color: var(--color-text-primary);
++  background: var(--color-surface-raised);
++  border: 1px solid var(--color-border-control);
++  border-radius: var(--radius-full);
++  cursor: pointer;
++  transition: color var(--motion-duration-fast) var(--motion-easing-standard),
++    background-color var(--motion-duration-fast) var(--motion-easing-standard),
++    border-color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.chip:hover {
++  border-color: var(--color-border-strong);
++}
++
++.chip[aria-pressed='true'] {
++  background: var(--color-action-primary);
++  border-color: transparent;
++  color: var(--color-text-on-action);
++}
++
++/* Shown only with the stacked table, under breakpoint.md. */
++.sort-chips {
++  display: none;
+ }
+ 
++/* Tables */
+ .table-wrap {
++  min-width: 0;
++}
++
++.table-scroll {
+   overflow-x: auto;
++  min-width: 0;
++}
++
++/* Cells keep one line so the next column is cut mid-cell when the table scrolls. */
++.table-scroll .table td {
++  white-space: nowrap;
++}
++
++.table-scroll:focus-visible {
++  outline-offset: -2px;
++}
++
++.table-scroll[data-overflow]:not([data-at-end]) {
++  mask-image: linear-gradient(to left, transparent, black 32px);
++}
++
++.table-scroll-hint {
++  padding: var(--space-8) var(--space-20) 0;
++  text-align: right;
++  font-size: var(--font-size-caption);
++  color: var(--color-text-tertiary);
++}
++
++.table-scroll-hint[data-hidden] {
++  visibility: hidden;
+ }
+ 
+ .table {
+   width: 100%;
+   border-collapse: collapse;
++  font-size: var(--font-size-small);
++  color: var(--color-text-body);
+ }
+ 
+ .table th,
+ .table td {
++  height: var(--size-row);
++  padding: var(--space-6) var(--space-12);
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  vertical-align: top;
++  vertical-align: middle;
++  border-bottom: 1px solid var(--color-border-default);
++}
++
++.table th.numeric,
++.table td.numeric {
++  text-align: right;
++}
++
++.table th:first-child,
++.table td:first-child {
++  padding-left: var(--space-24);
++}
++
++.table th:last-child,
++.table td:last-child {
++  padding-right: var(--space-24);
+ }
+ 
+ .table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-secondary);
++  white-space: nowrap;
++}
++
++.table th[aria-sort='ascending'],
++.table th[aria-sort='descending'] {
++  color: var(--color-text-primary);
++}
++
++.table tbody tr:last-child td {
++  border-bottom: none;
++}
++
++.table tbody tr {
++  transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.table tbody tr:hover {
++  background: color-mix(in srgb, var(--color-surface-subtle) 50%, transparent);
++}
++
++.table td a {
++  font-weight: var(--font-weight-medium);
++}
++
++.table .cell-primary .small {
++  color: var(--color-text-tertiary);
+ }
+ 
+ .sort-button {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-4);
++  padding: 0;
+   font: inherit;
+   color: inherit;
+   background: none;
+   border: none;
+-  padding: 0;
++  border-radius: var(--radius-swatch);
+   cursor: pointer;
+-  display: inline-flex;
+-  gap: var(--space-1);
++  transition: color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.sort-button:hover {
++  color: var(--color-text-primary);
+ }
+ 
+ .sort-indicator {
+-  font-size: 10px;
++  display: inline-flex;
++  width: 12px;
+ }
+ 
++/* Badges */
+ .pill {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  height: 22px;
++  padding: 0 var(--space-8);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-medium);
++  white-space: nowrap;
++  border-radius: var(--radius-full);
++}
++
++.pill::before {
++  content: '';
++  width: 6px;
++  height: 6px;
++  border-radius: var(--radius-full);
++  background: currentColor;
+ }
+ 
+ .pill-active {
+-  background: var(--color-status-active-bg);
+-  color: var(--color-status-active-text);
++  background: var(--color-status-success-subtle);
++  color: var(--color-status-success);
+ }
+ 
+ .pill-paused {
+-  background: var(--color-status-paused-bg);
+-  color: var(--color-status-paused-text);
++  background: var(--color-status-warning-subtle);
++  color: var(--color-status-warning);
+ }
+ 
+ .pill-done {
+-  background: var(--color-status-done-bg);
+-  color: var(--color-status-done-text);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
+ }
+ 
++/* Empty states */
+ .empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-12);
++  max-width: 480px;
++  padding: var(--space-40) var(--space-32);
++  text-align: left;
++  background: var(--color-surface-lifted);
++  border-radius: var(--radius-panel);
++  box-shadow: var(--elevation-pinned);
++}
++
++.empty-state h1,
++.empty-state h2,
++.empty-state h3 {
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-title);
++}
++
++.empty-state > :last-child {
++  margin-top: var(--space-12);
++}
++
++/* Inside a table or widget: no details, resting paper. */
++.empty-state-inline {
++  margin: 0 var(--space-24) var(--space-24);
++  background: var(--color-surface-raised);
++  box-shadow: var(--elevation-rest);
++}
++
++.empty-wrap {
++  position: relative;
++  max-width: 480px;
++  padding-top: var(--space-56);
++}
++
++.empty-state-page {
++  position: relative;
++  z-index: 1;
+ }
+ 
+ /* Project detail */
++.breadcrumb {
++  margin-bottom: var(--space-16);
++}
++
+ .breadcrumb ol {
+   list-style: none;
+   display: flex;
+-  gap: var(--space-2);
++  flex-wrap: wrap;
++  gap: var(--space-8);
+   margin: 0;
+   padding: 0;
+   font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
+ 
+ .breadcrumb li + li::before {
+   content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
++  margin-right: var(--space-8);
++  color: var(--color-text-tertiary);
+ }
+ 
+ .tabs {
+   display: flex;
+-  gap: var(--space-1);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-24);
++  overflow-x: auto;
++  box-shadow: inset 0 -1px 0 var(--color-border-default);
+ }
+ 
+ .tab {
++  flex-shrink: 0;
++  height: var(--size-touch);
++  padding: 0;
+   font: inherit;
++  font-size: var(--font-size-ui);
++  color: var(--color-text-secondary);
+   background: none;
+-  border: var(--border-width) solid transparent;
+-  border-bottom: none;
+-  border-radius: var(--radius) var(--radius) 0 0;
+-  padding: var(--space-2) var(--space-4);
+-  color: var(--color-text);
++  border: none;
+   cursor: pointer;
+-  margin-bottom: -1px;
++  transition: color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.tab:hover {
++  color: var(--color-text-primary);
++}
++
++.tab:focus-visible {
++  outline-offset: -2px;
++  border-radius: var(--radius-inner);
+ }
+ 
+ .tab[aria-selected='true'] {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  border-bottom: var(--border-width) solid var(--color-surface);
+-  font-weight: bold;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-semibold);
++  box-shadow: inset 0 -2px 0 var(--color-action-primary);
+ }
+ 
++.description {
++  max-width: var(--size-article);
++  line-height: var(--font-line-height-article);
++}
++
++/* Spec rows */
+ .details {
++  margin: var(--space-12) 0 0;
++  max-width: var(--size-article);
++  border-top: 1px solid var(--color-border-default);
++}
++
++.details > div {
+   display: grid;
+-  grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 0;
++  grid-template-columns: 180px minmax(0, 1fr);
++  gap: var(--space-16);
++  padding: var(--space-14) 0;
++  border-bottom: 1px solid var(--color-border-default);
++}
++
++.details > div:last-child {
++  border-bottom: none;
++  padding-bottom: 0;
+ }
+ 
+ .details dt {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .details dd {
+   margin: 0;
++  color: var(--color-text-primary);
+ }
+ 
+ .progress-row {
+   display: flex;
++  flex-wrap: wrap;
+   align-items: center;
+-  gap: var(--space-4);
++  gap: var(--space-8) var(--space-16);
+ }
+ 
+ .progress-row p {
+-  margin: 0;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .progress {
+-  flex: 1;
++  flex: 1 1 160px;
+   max-width: 240px;
++  height: 6px;
++  appearance: none;
++  border: none;
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
++  overflow: hidden;
++}
++
++.progress::-webkit-progress-bar {
++  background: var(--color-surface-subtle);
++  border-radius: var(--radius-full);
++}
++
++.progress::-webkit-progress-value {
++  background: var(--color-action-primary);
++  border-radius: var(--radius-full);
++}
++
++.progress::-moz-progress-bar {
++  background: var(--color-action-primary);
++  border-radius: var(--radius-full);
+ }
+ 
+ .task-list {
+   list-style: none;
+-  margin: var(--space-3) 0 0;
++  margin: var(--space-4) 0 0;
+   padding: 0;
+ }
+ 
+ .task {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-10);
++  min-height: var(--size-touch);
++  padding: var(--space-6) 0;
++  border-bottom: 1px solid var(--color-border-default);
++  font-size: var(--font-size-ui);
++}
++
++.task:last-child {
++  border-bottom: none;
+ }
+ 
+ .task label {
+   flex: 1;
++  min-width: 0;
++  color: var(--color-text-primary);
++  cursor: pointer;
++}
++
++.task .muted {
++  color: var(--color-text-tertiary);
++  text-align: right;
+ }
+ 
+ .task-done label {
+   text-decoration: line-through;
+-  color: var(--color-text-muted);
++  color: var(--color-text-tertiary);
++}
++
++/* Checkbox */
++input[type='checkbox'] {
++  appearance: none;
++  position: relative;
++  flex-shrink: 0;
++  width: 18px;
++  height: 18px;
++  margin: 0;
++  background: var(--color-surface-raised);
++  border: 1px solid var(--color-text-tertiary);
++  border-radius: var(--radius-swatch);
++  cursor: pointer;
++  transition: background-color var(--motion-duration-fast) var(--motion-easing-standard),
++    border-color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++input[type='checkbox']:hover {
++  border-color: var(--color-text-secondary);
++}
++
++input[type='checkbox']:checked {
++  background: var(--color-action-primary);
++  border-color: var(--color-action-primary);
++}
++
++input[type='checkbox']:checked::after {
++  content: '';
++  position: absolute;
++  left: 5px;
++  top: 1.5px;
++  width: 5px;
++  height: 10px;
++  border: solid var(--color-text-on-action);
++  border-width: 0 1.5px 1.5px 0;
++  transform: rotate(45deg);
++}
++
++input[type='checkbox']:disabled {
++  background: var(--color-action-disabled);
++  border-color: var(--color-border-strong);
++  cursor: not-allowed;
++}
++
++/* Studio details: bloom (overview header and the settings empty state) */
++.bloom-band {
++  position: relative;
++  overflow-x: clip;
++}
++
++.band-content {
++  position: relative;
++  z-index: 1;
++}
++
++.bloom {
++  position: absolute;
++  z-index: 0;
++  pointer-events: none;
++  top: 0;
++  right: -120px;
++  width: 520px;
++  height: 100%;
++  min-height: 200px;
++  mask-image: radial-gradient(closest-side at 50% 45%, black 50%, transparent);
++}
++
++.bloom-paint {
++  filter: url(#mn-wash);
++  opacity: var(--opacity-bloom);
++}
++
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) .bloom-paint {
++    filter: url(#mn-wash-night);
++  }
++}
++
++:root[data-theme='dark'] .bloom-paint {
++  filter: url(#mn-wash-night);
++}
++
++.bloom.bloom--empty {
++  top: 0;
++  right: -140px;
++  width: 280px;
++  height: 180px;
++  min-height: 0;
++}
++
++/* Studio details: pencil note */
++.note-anchor {
++  position: relative;
+ }
+ 
+-@media (max-width: 900px) {
+-  .app-shell {
++.empty-action {
++  display: inline-flex;
++}
++
++.note {
++  position: absolute;
++  z-index: 1;
++  display: flex;
++  gap: 2px;
++  white-space: nowrap;
++  pointer-events: none;
++  transform: rotate(-2deg);
++  transform-origin: 0 100%;
++  font: 400 var(--font-size-h3) / var(--font-line-height-hand) var(--font-family-hand);
++  color: var(--color-decor-pencil);
++}
++
++.note path {
++  fill: none;
++  stroke: currentColor;
++  stroke-width: 1.4;
++  stroke-linecap: round;
++}
++
++.note--beside {
++  left: calc(100% + 12px);
++  bottom: 50%;
++}
++
++@media (max-width: 1199px) {
++  .note {
++    display: none;
++  }
++
++  .bloom:not(.bloom--empty) {
++    width: 176px;
++    height: 96px;
++    min-height: 0;
++    right: -48px;
++  }
++
++  .bloom-band .lead {
++    margin-top: var(--space-20);
++  }
++
++  .two-column > :first-child,
++  .two-column > :last-child {
++    grid-column: 1 / -1;
++  }
++}
++
++/* breakpoint.md to lg: 8-column grid with space.24 gaps */
++@media (max-width: 1199px) and (min-width: 860px) {
++  .two-column,
++  .kpi-grid {
++    gap: var(--space-24);
++  }
++}
++
++/* Under breakpoint.md */
++@media (max-width: 859px) {
++  .container {
++    padding-inline: var(--space-16);
++  }
++
++  .page-header {
++    padding-top: var(--space-40);
++  }
++
++  .panel,
++  .card {
++    padding: var(--space-20);
++  }
++
++  .table-card {
++    padding: 0;
++  }
++
++  .table-card > .panel-header {
++    padding: var(--space-20) var(--space-20) 0;
++  }
++
++  .toolbar {
++    padding: var(--space-16) var(--space-20);
++  }
++
++  .toolbar-field {
++    flex: 1 1 100%;
++  }
++
++  .table th:first-child,
++  .table td:first-child {
++    padding-left: var(--space-20);
++  }
++
++  .table th:last-child,
++  .table td:last-child {
++    padding-right: var(--space-20);
++  }
++
++  .empty-state-inline {
++    margin: 0 var(--space-20) var(--space-20);
++  }
++
++  .bloom.bloom--empty {
++    right: -16px;
++    width: 176px;
++    height: 96px;
++  }
++
++  .kpi-grid {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: var(--space-16);
++  }
++
++  .two-column {
++    gap: var(--space-16);
++  }
++
++  .details > div {
++    grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-4);
++  }
++
++  /* Header: product name, one action and the menu button; nav and search live in the sheet. */
++  .header-inner {
++    height: var(--size-header-mobile);
++    gap: var(--space-16);
++    justify-content: space-between;
++  }
++
++  .menu-button {
++    display: inline-flex;
++  }
++
++  .user-menu-button {
++    width: var(--size-touch);
++    height: var(--size-touch);
++    padding: 0;
++  }
++
++  .user-menu-name {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    overflow: hidden;
++    clip-path: inset(50%);
++    white-space: nowrap;
++  }
++
++  .header-menu {
++    display: none;
++    position: absolute;
++    top: calc(100% + var(--space-8));
++    left: var(--space-16);
++    right: var(--space-16);
+     flex-direction: column;
++    align-items: stretch;
++    gap: var(--space-8);
++    padding: var(--space-8);
++    background: var(--color-surface-lifted);
++    border-radius: var(--radius-media);
++    box-shadow: var(--elevation-pinned);
++    animation: overlay-in var(--motion-duration-overlay) var(--motion-easing-standard);
++  }
++
++  .header-menu.is-open {
++    display: flex;
++  }
++
++  .header-search {
++    order: 0;
++    margin-left: 0;
+   }
+ 
+-  .sidebar {
++  .header-search .input {
++    height: var(--size-control);
+     width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    flex: 1 1 auto;
++  }
++
++  .header-search .button {
++    height: var(--size-control);
++    padding: 0 var(--space-16);
++    font-size: var(--font-size-ui);
+   }
+ 
+   .nav-list {
++    flex-direction: column;
++    gap: 0;
++  }
++
++  .nav-link {
+     display: flex;
+-    flex-wrap: wrap;
+-    gap: var(--space-2);
++    min-height: var(--size-touch);
++    padding: 0 var(--space-10);
+   }
+ 
+-  .kpi-grid,
+-  .details {
+-    grid-template-columns: repeat(2, 1fr);
++  .nav-link:hover,
++  .nav-link.active {
++    background: var(--color-surface-subtle);
+   }
+ 
+-  .two-column {
+-    grid-template-columns: 1fr;
++  /* Stacked table */
++  .table--stack thead {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    overflow: hidden;
++    clip-path: inset(50%);
++  }
++
++  .table--stack,
++  .table--stack tbody,
++  .table--stack tr,
++  .table--stack td {
++    display: block;
++  }
++
++  .table--stack tr {
++    padding: var(--space-14) var(--space-20);
++    border-bottom: 1px solid var(--color-border-default);
++  }
++
++  .table--stack tbody tr:last-child {
++    border-bottom: none;
++  }
++
++  .table--stack td,
++  .table--stack td:first-child,
++  .table--stack td:last-child {
++    display: grid;
++    grid-template-columns: minmax(96px, 38%) 1fr;
++    align-items: center;
++    gap: var(--space-12);
++    height: auto;
++    padding: var(--space-4) 0;
++    text-align: left;
++    border-bottom: none;
++  }
++
++  .table--stack td.numeric {
++    text-align: left;
++  }
++
++  .table--stack td > * {
++    justify-self: start;
++  }
++
++  .table--stack td::before {
++    content: attr(data-label);
++    font-family: var(--font-family-sans);
++    font-size: var(--font-size-caption);
++    color: var(--color-text-tertiary);
++  }
++
++  .table--stack .cell-primary,
++  .table--stack .cell-primary:first-child {
++    display: block;
++    font-size: var(--font-size-ui);
++    font-weight: var(--font-weight-medium);
++    padding-bottom: var(--space-6);
++  }
++
++  .table--stack .cell-primary::before {
++    content: none;
++  }
++
++  .sort-chips {
++    display: flex;
++    gap: var(--space-6);
++    overflow-x: auto;
++    padding: 0 var(--space-20) var(--space-12);
++    scrollbar-width: none;
+   }
+ }

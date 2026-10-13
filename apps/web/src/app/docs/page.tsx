@@ -1,0 +1,53 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { DocsShell } from "@/components/docs-shell";
+
+export const metadata: Metadata = { title: "Docs" };
+
+export default function DocsOverview() {
+  return (
+    <DocsShell current="/docs">
+      <p className="meta">Start / Overview</p>
+      <h1>How Pigment works</h1>
+      <p className="lead">
+        A Pigment system is a complete, versioned design language — tokens, rules and component specs — written for coding agents. You pick one, your agent
+        applies it to your codebase, and every screen it builds afterwards follows the same rules.
+      </p>
+
+      <h2 id="what">What you get</h2>
+      <ul>
+        <li>
+          <strong>A spec your agent reads</strong> — one document (<span className="mono">agent.md</span>) with the character, the defining rules, every token and
+          component state.
+        </li>
+        <li>
+          <strong>Exact values</strong> — <span className="mono">tokens.css</span> and <span className="mono">tokens.json</span>, so nothing is retyped.
+        </li>
+        <li>
+          <strong>Proof</strong> — every version is applied by an agent to four real apps before it is published. The screenshots in the gallery are that output,
+          unedited.
+        </li>
+      </ul>
+
+      <h2 id="ways">Three ways to hand it over</h2>
+      <ul>
+        <li>
+          <Link href="/connect">MCP server</Link> — your agent looks up exactly what it needs while it works.
+        </li>
+        <li>Spec URL — the prompt contains a pinned link to the spec.</li>
+        <li>Offline package — a zip with everything, for networks without outside access.</li>
+      </ul>
+
+      <h2 id="versions">Versions never change</h2>
+      <p>
+        A published version is frozen. Fixes ship as new versions, and your project keeps the version it installed until you choose to upgrade. The version is
+        in every prompt you copy.
+      </p>
+
+      <h2 id="next">Next</h2>
+      <p>
+        <Link href="/docs/existing-project">Apply a system to an existing project</Link> · <Link href="/docs/new-project">Start a new project</Link>
+      </p>
+    </DocsShell>
+  );
+}

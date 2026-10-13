@@ -1,0 +1,64 @@
+name: Release MCP package
+
+# `pnpm harness publish` bumps packages/mcp/package.json, because the npm package bundles every published
+# system. When that version is not on npm yet, this workflow builds and publishes it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - packages/mcp/**
+      - packages/content/**
+      - content/**
+  workflow_dispatch:
+
+concurrency:
+  group: release-mcp
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+
+      - name: Is this version already on npm?
+        id: version
+        run: |
+          VERSION=$(node -p "require('./packages/mcp/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if npm view "pigment-mcp@$VERSION" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "pigment-mcp@$VERSION is already published — nothing to do."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check, test and build
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          pnpm check:content
+          pnpm --filter @pigment/content --filter @pigment/mcp test
+          pnpm --filter @pigment/mcp release:build
+
+      - name: Publish to npm
+        if: steps.version.outputs.exists == 'false'
+        run: npm publish ./packages/mcp/release --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Tag the release
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          git tag "mcp-v${{ steps.version.outputs.version }}"
+          git push origin "mcp-v${{ steps.version.outputs.version }}"

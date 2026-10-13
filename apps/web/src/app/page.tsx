@@ -1,0 +1,97 @@
+import Link from "next/link";
+import { listTemplates, type TemplateSummary } from "@pigment/content";
+import { MCP_URL } from "@pigment/content/prompts";
+import { SiteFooter, SiteHeader } from "@/components/chrome";
+import { Bloom, Note, Swash } from "@/components/details";
+import { Gallery } from "@/components/gallery";
+
+export const dynamic = "force-static";
+
+function loadTemplates(): TemplateSummary[] {
+  try {
+    return listTemplates();
+  } catch {
+    return [];
+  }
+}
+
+export default function HomePage() {
+  const templates = loadTemplates();
+  return (
+    <>
+      <SiteHeader active="systems" />
+      <main className="page gallery-page">
+        <div className="gallery-intro">
+          <div style={{ maxWidth: 760 }}>
+            <h1 className="gallery-intro__title">
+              Give your agent a <Swash>palette</Swash>, not&nbsp;a&nbsp;prompt.
+            </h1>
+            <p className="gallery-intro__sub">
+              Versioned design systems that Claude Code, Codex and any MCP client can apply.{templates.length > 0 && " Pick one below."}
+            </p>
+          </div>
+          <Link href="/connect" className="btn btn--cmd">
+            <span className="prompt-sign">$</span>claude mcp add pigment
+          </Link>
+          {templates.length > 0 && (
+            <Note arrow="down-left" arrowFirst style={{ left: 790, bottom: -6 }}>
+              <span style={{ paddingBottom: 30, display: "block" }}>real agent output, not mockups</span>
+            </Note>
+          )}
+        </div>
+
+        <div className="gallery-stage">
+          <Bloom size={760} strength={0.34} style={{ right: -180, top: 240 }} />
+          <Gallery templates={templates} />
+        </div>
+      </main>
+
+      <section id="how" className="page how">
+        <div className="how__text">
+          <h2 className="how__title">
+            Mix once. Paint <span className="serif">forever</span>.
+          </h2>
+          <ol className="how__steps">
+            <li>
+              <span className="mono">01</span>Connect the MCP server once.
+            </li>
+            <li>
+              <span className="mono">02</span>Hand your agent a version-pinned prompt.
+            </li>
+            <li>
+              <span className="mono">03</span>Every new screen stays on-system.
+            </li>
+          </ol>
+          <p className="meta" style={{ marginTop: 28 }}>
+            No MCP? Each system also ships as a spec URL and an offline package.
+          </p>
+        </div>
+        <div className="how__code">
+          <div className="code-panel">
+            <div className="code-panel__tabs" aria-hidden="true">
+              <span>Claude Code</span>
+              <span>Codex</span>
+              <span>Cursor</span>
+              <span>Other MCP clients</span>
+            </div>
+            <pre className="code" style={{ borderRadius: 0 }}>
+              <span className="c"># 1 · connect once</span>
+              {"\n"}claude mcp add --transport http pigment <span className="s">{MCP_URL}</span>
+              {"\n\n"}
+              <span className="c"># 2 · hand off a pinned version</span>
+              {"\n"}› Apply <span className="s">&lt;system&gt;@&lt;version&gt;</span> to this codebase.
+              {"\n"}  Preserve routes, logic and tests. Show a plan first.
+              {"\n\n"}
+              <span className="c"># 3 · your agent reads the spec</span>
+              {"\n"}get_design_system(<span className="s">&quot;&lt;system&gt;&quot;</span>, <span className="s">&quot;&lt;version&gt;&quot;</span>)
+            </pre>
+          </div>
+          <Note arrow="up-right" style={{ position: "relative", justifyContent: "flex-end", marginTop: 8, marginRight: 28 }}>
+            <span style={{ paddingTop: 18, display: "block" }}>that&apos;s the whole setup</span>
+          </Note>
+        </div>
+      </section>
+      <SiteFooter />
+    </>
+  );
+}
