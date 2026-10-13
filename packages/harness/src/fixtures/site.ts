@@ -33,7 +33,7 @@ summary{cursor:pointer;padding:16px 0}summary svg{transition:transform .3s}detai
 <header><a href="/">Home</a><a href="/features">Features</a><a href="/faq">FAQ</a><a href="/blog">Blog</a><a href="/login">Log in</a>
 <button class="btn secondary" aria-label="Toggle theme" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">◐</button></header>`;
 
-const foot = `<footer style="padding:48px 32px;background:#2b2a28;color:#eee"><a href="/legal/privacy" style="color:#eee">Privacy</a></footer>
+const foot = `<footer style="padding:48px 32px;background:#2b2a28;color:#eee"><a href="/download" style="color:#eee">Download</a> <a href="/legal/privacy" style="color:#eee">Privacy</a></footer>
 <script>new IntersectionObserver(es=>es.forEach(e=>e.isIntersecting&&e.target.classList.add('in'))).observe&&document.querySelectorAll('.reveal').forEach(el=>new IntersectionObserver(es=>es.forEach(e=>e.isIntersecting&&e.target.classList.add('in'))).observe(el))</script>
 </body></html>`;
 

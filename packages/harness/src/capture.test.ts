@@ -55,6 +55,15 @@ test("survey: finds the site's pages from one URL, skips what it must, samples c
   }
 });
 
+test("survey stops at saturation: nothing new for a while, every page type seen", async () => {
+  const short = await surveySite(browser, [`${site.url}/`], { maxPages: 30, perCollection: 5, patience: 2 });
+  assert.equal(short.stoppedBy, "saturated");
+  assert.ok(short.pages.filter((p) => p.group === "/blog/*").length < 5, "stops before working through the collection");
+  const groups = new Set(short.pages.map((p) => p.group));
+  for (const g of ["home", "/features", "/faq", "/blog", "/download", "/blog/*"]) assert.ok(groups.has(g), `opened page type ${g}`);
+  assert.equal(survey.stoppedBy, "exhausted", "without saturation the small site runs out of pages");
+});
+
 test("deep selection covers every surveyed feature", () => {
   const selected = selectDeep(survey, [`${site.url}/`], 10);
   const covered = new Set(selected.flatMap((s) => survey.pages.find((p) => p.url === s.url)!.features));

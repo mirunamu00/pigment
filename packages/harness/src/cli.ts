@@ -28,11 +28,12 @@ program
   .command("capture")
   .description("2. survey the site, then capture the selected pages: screenshots, styles, motion, interactions, illustrations")
   .argument("<slug>")
-  .option("--max-pages <n>", "pages to survey (robots.txt is respected)", "150")
+  .option("--max-pages <n>", "most pages to survey (robots.txt is respected)", "150")
+  .option("--patience <n>", "stop surveying once this many pages in a row add no new feature or page type", "20")
   .option("--deep <n>", "pages to capture in depth, chosen so every surveyed feature is covered", "16")
   .option("--no-survey", "capture only the given pages")
   .option("--headed", "show the browser")
-  .action((slug: string, opts) => capture(slug, { headed: opts.headed, survey: opts.survey, maxPages: Number(opts.maxPages), deep: Number(opts.deep) }));
+  .action((slug: string, opts) => capture(slug, { headed: opts.headed, survey: opts.survey, maxPages: Number(opts.maxPages), patience: Number(opts.patience), deep: Number(opts.deep) }));
 
 program
   .command("check-analysis")

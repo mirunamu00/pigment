@@ -25,6 +25,10 @@ export interface SurveyPage {
 export interface Survey extends Omit<SiteSources, "sitemapUrls"> {
   sitemapUrls: number;
   known: number;
+  /** Why the survey ended: no new feature or page type for a while (saturated), the page budget, or no pages left. */
+  stoppedBy: "saturated" | "budget" | "exhausted";
+  /** The page count when the last new feature or page type turned up. */
+  lastNewAt: number;
   pages: SurveyPage[];
   /** feature → pages using it (share of surveyed pages). */
   frequency: Array<{ feature: string; pages: number; share: number }>;
@@ -222,7 +226,7 @@ async function surveyPage(page: Page, url: string): Promise<Found> {
 export async function surveySite(
   browser: Browser,
   seeds: string[],
-  options: { maxPages: number; perCollection?: number; log?: (m: string) => void },
+  options: { maxPages: number; perCollection?: number; patience?: number; log?: (m: string) => void },
 ): Promise<Survey> {
   const log = options.log ?? (() => {});
   const perCollection = options.perCollection ?? 5;
@@ -264,24 +268,38 @@ export async function surveySite(
   const pages: SurveyPage[] = [];
   const visited = new Set<string>();
   const surveyedPerGroup = new Map<string, number>();
+  // Saturation: once `patience` pages in a row add no feature and no page type, only page types not yet seen
+  // are opened; when none are left, the survey has seen what the site does.
+  const patience = options.patience ?? 20;
+  const seenFeatures = new Set<string>();
+  let lastNewAt = 0;
+  let stoppedBy: Survey["stoppedBy"] = "budget";
   while (pages.length < options.maxPages) {
     const groups = groupMembers();
+    const saturated = pages.length - lastNewAt >= patience;
     const next = [...known.keys()]
       .filter((u) => !visited.has(u))
       .filter((u) => {
         const key = groupKey(u, sources.locale);
+        if (saturated) return !surveyedPerGroup.has(key);
         return !isCollection(key, groups) || (surveyedPerGroup.get(key) ?? 0) < perCollection;
       })
       .sort((a, b) => priority(b) - priority(a))[0];
-    if (!next) break;
+    if (!next) {
+      stoppedBy = saturated ? "saturated" : "exhausted";
+      break;
+    }
     visited.add(next);
     const group = groupKey(next, sources.locale);
     try {
       const found = await surveyPage(page, next);
       for (const l of found.links) remember(normalize(l.href, sources.origin), l.where);
       pages.push({ url: next, group, title: found.title, features: found.features, buttons: found.buttons, counts: found.counts, sections: found.sections });
+      const fresh = found.features.filter((f) => !seenFeatures.has(f));
+      for (const f of fresh) seenFeatures.add(f);
+      if (fresh.length || !surveyedPerGroup.has(group)) lastNewAt = pages.length;
       surveyedPerGroup.set(group, (surveyedPerGroup.get(group) ?? 0) + 1);
-      log(`surveyed ${pages.length}: ${new URL(next).pathname} (${found.features.length} features)`);
+      log(`surveyed ${pages.length}: ${new URL(next).pathname} (${found.features.length} features${fresh.length ? `, new: ${fresh.join(" ")}` : ""})`);
     } catch (e) {
       pages.push({ url: next, group, title: "", features: [], buttons: [], counts: {}, sections: [], error: (e as Error).message.split("\n")[0] });
     }
@@ -301,6 +319,8 @@ export async function surveySite(
     robots: sources.robots,
     sitemapUrls: sources.sitemapUrls.length,
     known: known.size,
+    stoppedBy,
+    lastNewAt,
     pages,
     frequency: [...featureCount.entries()]
       .map(([feature, n]) => ({ feature, pages: n, share: Math.round((n / Math.max(1, ok.length)) * 100) / 100 }))

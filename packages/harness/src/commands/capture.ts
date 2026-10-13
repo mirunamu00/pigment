@@ -70,7 +70,7 @@ function relative<T>(value: T): T {
   return JSON.parse(JSON.stringify(value, (_k, v) => (typeof v === "string" && v.startsWith(paths.root) ? rel(v) : v)));
 }
 
-export async function capture(slug: string, options: { headed?: boolean; maxPages?: number; deep?: number; survey?: boolean }): Promise<void> {
+export async function capture(slug: string, options: { headed?: boolean; maxPages?: number; patience?: number; deep?: number; survey?: boolean }): Promise<void> {
   const dir = pipelineDir(slug);
   let record: Intake;
   try {
@@ -91,7 +91,7 @@ export async function capture(slug: string, options: { headed?: boolean; maxPage
     let selected: Array<{ url: string; reason: string }> = seeds.map((url) => ({ url, reason: "given" }));
     if (options.survey !== false) {
       info(`surveying ${new URL(seeds[0]!).origin} (up to ${options.maxPages ?? 150} pages)`);
-      survey = await surveySite(browser, seeds, { maxPages: options.maxPages ?? 150, log: (m) => info(m) });
+      survey = await surveySite(browser, seeds, { maxPages: options.maxPages ?? 150, patience: options.patience ?? 20, log: (m) => info(m) });
       writeJson(join(outDir, "survey.json"), survey);
       selected = selectDeep(survey, seeds, options.deep ?? 16);
       record.discovered = selected.map((s) => s.url).filter((u) => !seeds.some((s) => cleanUrl(s).replace(/\/+$/, "") === u));
@@ -172,6 +172,12 @@ function report(slug: string, survey: Survey | null, pages: Array<{ key: string;
       "## Site survey",
       "",
       `${survey.pages.filter((p) => !p.error).length} pages surveyed of ${survey.known} known in ${survey.origin}${survey.locale ? `/${survey.locale}` : ""} (robots.txt ${survey.robots.found ? "respected" : "absent"}, ${survey.sitemapUrls} sitemap URLs). Collections were sampled, not exhausted.`,
+      "",
+      survey.stoppedBy === "saturated"
+        ? `Stopped at saturation: the last new feature or page type turned up on page ${survey.lastNewAt}; the pages after it added nothing, and every page type found was opened at least once.`
+        : survey.stoppedBy === "exhausted"
+          ? "Stopped when no in-scope page was left to open."
+          : `Stopped at the page budget; the last new feature or page type turned up on page ${survey.lastNewAt} — raise --max-pages if that is close to the end.`,
       "",
       "| Feature | Pages | Share |",
       "| --- | --- | --- |",

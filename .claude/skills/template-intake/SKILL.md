@@ -18,8 +18,9 @@ already exists in `pipeline/<slug>/`.
 
 ## 1. Capture
 
-`pnpm harness capture <slug>` surveys the whole site (robots.txt respected; `--max-pages`, default 150),
-then captures the pages that together cover every surveyed feature (`--deep`, default 16): screenshots,
+`pnpm harness capture <slug>` surveys the site until it stops finding anything new (robots.txt respected;
+stops after 20 pages without a new feature or page type, at most 150 pages), then captures the pages that
+together cover every surveyed feature (`--deep`, default 16): screenshots,
 motion with frame sequences, interactions, illustrations, structure, theme. It takes a while — run it in
 the background and report progress. If pages block automation or show a cookie wall, tell the user and
 continue with what worked. Read `reference/capture-report.md` before delegating.
