@@ -71,5 +71,6 @@ log. Only on explicit approval:
 2. `pnpm harness generate` + `evaluate` + critic on the final version (screenshots must come from the published version itself)
 3. `pnpm harness publish <id>@<final> --approved-by "<user's name>"`
 4. Set `status` in `pipeline/<slug>/intake.json` to `published`.
+5. Commit on a `feat/<id>` branch and open a PR (`CONTRIBUTING.md`); merge when the user asks and CI is green.
 
 Report what was published and where the gallery assets are.

@@ -39,7 +39,8 @@ an opening paragraph of what people will notice plus concrete bullets. Wait for 
    version; `pnpm harness validate` must pass (it lints the entry).
 3. `pnpm harness generate` + `evaluate` + critic on the final version.
 4. `pnpm harness publish <id>@<next> --approved-by "<user's name>"` — this also bumps the MCP package.
-5. Commit and push to `main` when the user asks. Vercel deploys the site; CI releases `pigment-mcp`.
+5. Work on a `fix/<id>-<topic>` branch and open a PR (`CONTRIBUTING.md`); merge when the user asks and CI
+   is green. Merging deploys the site; CI releases `pigment-mcp`.
 
 Report in plain words: what changed, the date it will show, and that projects already using the system
 keep their copy until they ask their agent to update.
