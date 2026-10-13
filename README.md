@@ -90,7 +90,7 @@ unedited output, cropped to the first screen.
 
 ## Why it works
 
-|  |  |
+| Principle | What it means |
 | --- | --- |
 | **Measured, not adjectival** | Every rule carries a value: color, type, spacing, radius, elevation and motion — light and dark. |
 | **Rules, not page templates** | Decision rules that fit a dashboard, a store, a blog and a settings page alike. |
@@ -99,7 +99,7 @@ unedited output, cropped to the first screen.
 
 ## What your agent gets
 
-| | |
+| You get | What it is |
 | --- | --- |
 | `agent.md` | One document: character, defining rules, tokens, components, how to apply |
 | `tokens.css` · `tokens.json` | Exact values, light and dark — copied, never retyped |
