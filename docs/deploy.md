@@ -42,7 +42,9 @@ claude mcp add --transport http pigment https://<domain>/mcp   # then /mcp in a 
 
 ## 2. Domain
 
-Add the domain in Vercel → Domains and set the DNS records it shows. Then change the default in
+Live: `pigmentui.com` (Vercel project `pigment`; DNS at hosting.kr: A `@` → `76.76.21.21`, CNAME `www` →
+`cname.vercel-dns.com.`; www redirects to the apex). For a new domain, add it in Vercel → Domains, set the
+DNS records it shows, then change the default in
 `packages/content/src/prompts.ts` (`SITE_URL`) to the real domain: the npm package uses that default for
 screenshot and spec links, because users don't set environment variables for it.
 

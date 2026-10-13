@@ -5,7 +5,7 @@
 export type Mode = "new" | "existing" | "ongoing";
 export type Delivery = "url" | "mcp" | "offline";
 
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pigment.dev";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pigmentui.com";
 // The remote server is a route of the site itself (apps/web/src/app/mcp), so it shares its domain.
 export const MCP_URL = process.env.NEXT_PUBLIC_MCP_URL ?? `${SITE_URL}/mcp`;
 

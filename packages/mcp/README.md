@@ -1,6 +1,6 @@
 # pigment-mcp
 
-MCP server for [Pigment](https://pigment.dev) design systems. Your coding agent (Claude Code, Codex,
+MCP server for [Pigment](https://pigmentui.com) design systems. Your coding agent (Claude Code, Codex,
 Cursor or any MCP client) reads tokens, rules, component specs and installation guides for a pinned
 version while it works.
 
@@ -25,7 +25,7 @@ Other clients (JSON config):
 }
 ```
 
-Prefer nothing to install? The same server runs remotely: `claude mcp add --transport http pigment https://pigment.dev/mcp`.
+Prefer nothing to install? The same server runs remotely: `claude mcp add --transport http pigment https://pigmentui.com/mcp`.
 
 ## Use
 

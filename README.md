@@ -6,8 +6,7 @@ Pigment is a gallery of versioned, agent-ready design systems. Pick one, hand yo
 (Claude Code, Codex, Cursor or any MCP client) a version-pinned prompt, and every screen it builds —
 in a new project or an existing one — follows the same design language.
 
-> Status: ready to deploy. The site, static API, MCP server (remote and `npx`) and template harness run
-> locally; hosting and the npm release are next — see [`docs/deploy.md`](docs/deploy.md).
+> Status: live at https://pigmentui.com · `npx -y pigment-mcp` · remote MCP at https://pigmentui.com/mcp
 
 ---
 
@@ -128,7 +127,7 @@ fonts are carried over from a reference. See
 
 | Variable | Default | Used by |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | `https://pigment.dev` (placeholder) | prompts, spec links |
+| `NEXT_PUBLIC_SITE_URL` | `https://pigmentui.com` | prompts, spec links |
 | `NEXT_PUBLIC_MCP_URL` | `<site>/mcp` | connect snippets |
 | `PIGMENT_CONTENT_DIR` | `<repo>/content` | site, API and MCP server (tests use fixtures; the npm package uses its bundled snapshot) |
 | `PIGMENT_WORKDIR` | `<os tmp>/pigment-runs` | where agents restyle base-app copies, outside the repo |
@@ -140,7 +139,7 @@ fonts are carried over from a reference. See
 - [x] Template harness with automated gates and critic review
 - [x] First published system (Margin Notes 1.0.0)
 - [x] MCP server (remote and `npx`), CI and the npm release workflow
-- [ ] Hosted deployment, domain and npm release ([`docs/deploy.md`](docs/deploy.md))
+- [x] Hosted at https://pigmentui.com, `pigment-mcp` on npm
 - [ ] Live demo apps
 
 ## License
