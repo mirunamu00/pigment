@@ -25,9 +25,9 @@ export interface SurveyPage {
 export interface Survey extends Omit<SiteSources, "sitemapUrls"> {
   sitemapUrls: number;
   known: number;
-  /** Why the survey ended: no new feature or page type for a while (saturated), the page budget, or no pages left. */
+  /** Why the survey ended: no new feature for a while, then every page type opened (saturated), the page budget, or no pages left. */
   stoppedBy: "saturated" | "budget" | "exhausted";
-  /** The page count when the last new feature or page type turned up. */
+  /** The page count when the last new feature turned up. */
   lastNewAt: number;
   pages: SurveyPage[];
   /** feature → pages using it (share of surveyed pages). */
@@ -268,8 +268,9 @@ export async function surveySite(
   const pages: SurveyPage[] = [];
   const visited = new Set<string>();
   const surveyedPerGroup = new Map<string, number>();
-  // Saturation: once `patience` pages in a row add no feature and no page type, only page types not yet seen
-  // are opened; when none are left, the survey has seen what the site does.
+  // Saturation: once `patience` pages in a row add no new feature, only page types not yet seen are opened
+  // (one page each); when none are left, the survey has seen what the site does. A new page type alone
+  // doesn't reset the count — sites with many page types would never saturate.
   const patience = options.patience ?? 20;
   const seenFeatures = new Set<string>();
   let lastNewAt = 0;
@@ -297,7 +298,7 @@ export async function surveySite(
       pages.push({ url: next, group, title: found.title, features: found.features, buttons: found.buttons, counts: found.counts, sections: found.sections });
       const fresh = found.features.filter((f) => !seenFeatures.has(f));
       for (const f of fresh) seenFeatures.add(f);
-      if (fresh.length || !surveyedPerGroup.has(group)) lastNewAt = pages.length;
+      if (fresh.length) lastNewAt = pages.length;
       surveyedPerGroup.set(group, (surveyedPerGroup.get(group) ?? 0) + 1);
       log(`surveyed ${pages.length}: ${new URL(next).pathname} (${found.features.length} features${fresh.length ? `, new: ${fresh.join(" ")}` : ""})`);
     } catch (e) {

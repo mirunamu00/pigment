@@ -174,10 +174,10 @@ function report(slug: string, survey: Survey | null, pages: Array<{ key: string;
       `${survey.pages.filter((p) => !p.error).length} pages surveyed of ${survey.known} known in ${survey.origin}${survey.locale ? `/${survey.locale}` : ""} (robots.txt ${survey.robots.found ? "respected" : "absent"}, ${survey.sitemapUrls} sitemap URLs). Collections were sampled, not exhausted.`,
       "",
       survey.stoppedBy === "saturated"
-        ? `Stopped at saturation: the last new feature or page type turned up on page ${survey.lastNewAt}; the pages after it added nothing, and every page type found was opened at least once.`
+        ? `Stopped at saturation: the last new feature turned up on page ${survey.lastNewAt}; the pages after it added nothing, and every page type found was opened at least once.`
         : survey.stoppedBy === "exhausted"
           ? "Stopped when no in-scope page was left to open."
-          : `Stopped at the page budget; the last new feature or page type turned up on page ${survey.lastNewAt} — raise --max-pages if that is close to the end.`,
+          : `Stopped at the page budget; the last new feature turned up on page ${survey.lastNewAt} — raise --max-pages if that is close to the end.`,
       "",
       "| Feature | Pages | Share |",
       "| --- | --- | --- |",
