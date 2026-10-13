@@ -4,6 +4,7 @@ import { AppId } from "@pigment/schema";
 import { parseRef } from "./paths.ts";
 import { bundle } from "./commands/bundle.ts";
 import { capture } from "./commands/capture.ts";
+import { checkAnalysis } from "./commands/check-analysis.ts";
 import { evaluate, mergeCritic } from "./commands/evaluate.ts";
 import { makeFixture } from "./commands/fixture.ts";
 import { baseline, generate, type Agent } from "./commands/generate.ts";
@@ -18,17 +19,29 @@ program
   .command("intake")
   .description("1. register a reference submission")
   .argument("<slug>", "work-area name, e.g. linear-study")
-  .argument("<urls...>", "reference pages to study (2–4 different page types work best)")
+  .argument("<urls...>", "a domain (example.com) or pages of one site; tracking parameters are stripped")
   .option("--brand <terms...>", "brand/product names that must never appear in the template")
   .option("--notes <text>", "what the submitter liked about it")
   .action((slug: string, urls: string[], opts) => intake(slug, urls, opts));
 
 program
   .command("capture")
-  .description("2. screenshot the reference and measure its styles")
+  .description("2. survey the site, then capture the selected pages: screenshots, styles, motion, interactions, illustrations")
   .argument("<slug>")
+  .option("--max-pages <n>", "most pages to survey (robots.txt is respected)", "150")
+  .option("--patience <n>", "stop surveying once this many pages in a row add no new feature or page type", "20")
+  .option("--deep <n>", "pages to capture in depth, chosen so every surveyed feature is covered", "16")
+  .option("--no-survey", "capture only the given pages")
   .option("--headed", "show the browser")
-  .action((slug: string, opts) => capture(slug, opts));
+  .action((slug: string, opts) => capture(slug, { headed: opts.headed, survey: opts.survey, maxPages: Number(opts.maxPages), patience: Number(opts.patience), deep: Number(opts.deep) }));
+
+program
+  .command("check-analysis")
+  .description("3. check the analyst's output: schema, every audit area, evidence files, survey consistency")
+  .argument("<slug>")
+  .action((slug: string) => {
+    process.exitCode = checkAnalysis(slug) ? 0 : 1;
+  });
 
 program
   .command("scaffold")

@@ -11,26 +11,33 @@ already exists in `pipeline/<slug>/`.
 
 ## 0. Intake
 
-- Choose a slug (`<reference>-study`). Collect 2–4 URLs of different page types from the same site
-  (home, a product or feature page, docs or pricing) — one page is not enough to see a system.
+- Choose a slug (`<reference>-study`). A domain is enough (`example.com`); pages the user names are kept
+  as seeds and their locale (e.g. `/ko/`) is followed. Tracking parameters are stripped.
 - List the brand terms that must never appear in the template (company and product names).
-- `pnpm harness intake <slug> <urls...> --brand <terms...> --notes "<what the user liked>"`
+- `pnpm harness intake <slug> <domain-or-urls...> --brand <terms...> --notes "<what the user liked>"`
 
 ## 1. Capture
 
-`pnpm harness capture <slug>` → `pipeline/<slug>/reference/` (screenshots, component crops, styles.json).
-If a page blocks automation or shows a cookie wall, tell the user and continue with the pages that worked.
+`pnpm harness capture <slug>` surveys the site until it stops finding anything new (robots.txt respected;
+stops after 20 pages without a new feature or page type, at most 150 pages), then captures the pages that
+together cover every surveyed feature (`--deep`, default 16): screenshots,
+motion with frame sequences, interactions, illustrations, structure, theme. It takes a while — run it in
+the background and report progress. If pages block automation or show a cookie wall, tell the user and
+continue with what worked. Read `reference/capture-report.md` before delegating.
 
 ## 2. Analysis — delegate to the `reference-analyst` agent
 
-Give it the slug. It writes `pipeline/<slug>/analysis.json`. Subagents may be blocked from writing
+Give it the slug and what the user liked. It audits the whole design language — signature elements,
+motion, interaction, patterns, not just the theme — writes `pipeline/<slug>/analysis.json`, and runs
+`pnpm harness check-analysis <slug>` until it passes. Subagents may be blocked from writing
 report-style files: if it returns the analysis.md content in its message instead, save it yourself to
 `pipeline/<slug>/analysis.md` and set `intake.json` status to `analyzed`. The same applies to the
 design-critic's JSON.
 
-**Checkpoint 1 (stop here):** show the user the character summary, the proposed template name and tags,
-the ten defining rules, the gaps it will fill by derivation, and what will not be carried over. Wait for
-approval or corrections.
+**Checkpoint 1 (stop here):** show the user the character summary, the survey (pages, page types,
+site-wide features), every signature element with an evidence image (motion frame sheets included), the
+motion and interaction patterns, the proposed template name and tags, the ten defining rules, the gaps it
+will fill by derivation, and what will not be carried over. Wait for approval or corrections.
 
 ## 3. Authoring — delegate to the `prompt-author` agent
 

@@ -85,6 +85,26 @@ test("changelog: a final version needs a public entry — summary first, no vers
   assert.deepEqual(rules(), ["changelog.entry"]);
 });
 
+test("schema 2: signature elements need every part and a code recipe; the concept is mapped onto screens", () => {
+  const tpl = scaffoldTemp(true);
+  assert.equal(tpl.manifest.schemaVersion, 2);
+  const file = join(tpl.dir, "principles", "visual-language.md");
+  const filled = readFileSync(file, "utf8");
+  const rules = () => validateTemplate(tpl).filter((f) => f.level === "error").map((f) => f.message);
+
+  writeFileSync(file, filled.replace("**Limits.**", "**Bounds.**"));
+  assert.ok(rules().some((m) => m.includes("missing **Limits.**")));
+
+  writeFileSync(file, filled.replace(/```css[\s\S]*?```/, "Draw it nicely."));
+  assert.ok(rules().some((m) => m.includes("needs a code block")));
+
+  writeFileSync(file, filled.replace(/\| Card grid[\s\S]*?\| Toast or confirmation[^\n]*\n/, ""));
+  assert.ok(rules().some((m) => m.includes("Applying the concept covers")));
+
+  writeFileSync(file, filled.replace("## Interaction", "## Interactions"));
+  assert.ok(rules().some((m) => m.includes('missing "## Interaction"')));
+});
+
 test("bundle: css has light root, dark overrides and cubic-bezier; agent.md leads with principles", () => {
   const tpl = scaffoldTemp(true);
   const css = buildCss(tpl);

@@ -13,6 +13,10 @@ ask — go through every screen. Constraints that still apply:
   the specification allows.
 - Support both light and dark appearance if the specification defines both.
 - Do not change files under `design-packages/` or `tests/`.
+- If the specification has Signature elements and Applying the concept, they are part of the restyle, not
+  extras: build each signature element to its recipe as a reusable piece, and give every screen the elements
+  its context calls for — dashboards, forms, settings and tables included. Their motion must work and must
+  stop under `prefers-reduced-motion: reduce`.
 
 You may run exactly these commands, from the project root and without a `cd` prefix: `npm install`,
 `npm run build`, `npm run typecheck`, `node pigment-snap.mjs`.
