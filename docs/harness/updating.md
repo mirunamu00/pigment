@@ -52,7 +52,8 @@ Candidates are `<next>-rc.1`, `-rc.2`, …; only the final version is published.
    - `generate` + `evaluate` + critic on the final version — the gallery screenshots must come from the
      published version itself.
    - `pnpm harness publish <id>@<next> --approved-by "<name>"`
-9. **Commit and push to `main`.** The rest is automatic:
+9. **Open a pull request** from a `fix/<id>-<topic>` branch (`CONTRIBUTING.md`) and merge it once CI is
+   green. The rest is automatic:
    - Vercel deploys the site: the new date, changelog entry and screenshots appear.
    - `publish` bumped `packages/mcp/package.json`, so CI releases a new `pigment-mcp` with the update
      bundled (npm trusted publishing; see `docs/deploy.md`).

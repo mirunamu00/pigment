@@ -27,6 +27,13 @@ canvas (gallery, detail, compare, MCP, docs, mobile, interface kit).
 - `pnpm dev` — the site
 - `pnpm harness --help` — pipeline commands; `pnpm check:content` before committing content
 
+## Git workflow
+
+`main` is protected (see `CONTRIBUTING.md`): never commit or push to it directly, and never force-push.
+Work on a branch — `feat/`, `fix/`, `docs/` or `chore/` + a short topic — from an up-to-date `main`,
+run `pnpm typecheck && pnpm test && pnpm check:content`, push the branch and open a PR with `gh pr create`.
+The PR title is the squash-commit message. Merge only when the user asks and CI's `check` is green.
+
 ## Adding or updating a template
 
 - New system: the `template-intake` skill. It runs the whole pipeline and stops twice for the user: after

@@ -159,10 +159,18 @@ whole pipeline and stops for approval after the analysis and before publishing.
 | `PIGMENT_CONTENT_DIR` | `<repo>/content` | site, API and MCP server |
 | `PIGMENT_WORKDIR` | `<os tmp>/pigment-runs` | where agents restyle base-app copies |
 
-Releases: pushing to `main` deploys the site (Vercel) and publishes a new `pigment-mcp` version when
+Changes reach `main` only through pull requests with a green CI — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Merging deploys the site (Vercel) and publishes a new `pigment-mcp` version when
 `packages/mcp/package.json` changes, via npm trusted publishing. See [`docs/deploy.md`](docs/deploy.md).
 
 </details>
+
+## Contributing
+
+Bug reports, feedback on how agents apply a system, and suggestions for new systems are welcome as
+[issues](https://github.com/mirunamu00/pigment/issues/new/choose). Code changes go through pull requests —
+see [`CONTRIBUTING.md`](CONTRIBUTING.md), the [code of conduct](CODE_OF_CONDUCT.md) and the
+[security policy](SECURITY.md).
 
 ## License
 

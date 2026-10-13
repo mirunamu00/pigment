@@ -4,20 +4,11 @@ Three things go live: the site (with the static API and the remote MCP endpoint)
 and the `pigment-mcp` npm package. Everything below has been checked locally; these are the steps that
 need accounts.
 
-## 0. Before the first push
+## 0. Repository
 
-The initial commit still contains `docs/planning/*.docx` (internal, now gitignored). The remote is empty,
-so rewrite history before pushing anything:
-
-```bash
-git add -A
-git commit -m "MCP server, deploy setup, first published system"
-# Recreate history as one commit without the planning document:
-git checkout --orphan clean && git commit -m "Pigment: platform, harness, MCP server and Margin Notes 1.0.0"
-git branch -D main && git branch -m main
-git log --all --oneline -- docs/planning   # must print nothing
-git push -u origin main
-```
+Done: the history was rewritten before the first push so the internal planning document never reached
+GitHub (`docs/planning/` is gitignored). `main` is protected — changes arrive by pull request with a
+green CI (`CONTRIBUTING.md`). Merging to `main` is what deploys.
 
 ## 1. Vercel (site + API + remote MCP)
 
@@ -66,10 +57,10 @@ on an existing package, so the very first version goes up by hand:
    repository `pigment`, workflow filename `release-mcp.yml`. Then, under Publishing access, choose
    "Require two-factor authentication and disallow tokens".
 3. From then on `.github/workflows/release-mcp.yml` publishes `packages/mcp/package.json`'s version on
-   every push to `main` when it is not on npm yet (with provenance) and tags `mcp-v<version>`.
+   every merge to `main` when it is not on npm yet (with provenance) and tags `mcp-v<version>`.
 
 From then on, `pnpm harness publish` bumps the MCP package version with every new system, and the next
-push to `main` releases it.
+merge to `main` releases it.
 
 Check: `claude mcp add pigment -- npx -y pigment-mcp`, new session, "List the Pigment design systems."
 
