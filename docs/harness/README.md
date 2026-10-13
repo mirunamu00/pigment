@@ -21,6 +21,9 @@ reference URL
 In Claude Code, the `template-intake` skill walks through all of it and stops at the two human checkpoints:
 after the analysis (step 3) and before publishing (step 9).
 
+**Changing a system that is already published** follows the same steps from 4 on, starting from the
+published version: see [`updating.md`](updating.md) (the `template-update` skill).
+
 ## Folders
 
 | Path | What lives there |
@@ -38,6 +41,8 @@ after the analysis (step 3) and before publishing (step 9).
 
 - A template is a **derived design language**, never a clone. No logos, brand names, copied copy, copied
   illustrations or proprietary fonts from the reference. See `prompt-writing-rules.md` → Provenance.
-- Published versions are **immutable**. Fixes ship as a new version.
+- Published versions are **immutable**. Fixes ship as a new version ([`updating.md`](updating.md)).
+- Versions are **internal**. Everything people and agents see is the current system, its update date and
+  a dated changelog.
 - Screenshots in the gallery are **unedited agent output** from the standard prompt.
 - A template is published only after a **human approves** the evaluation report.

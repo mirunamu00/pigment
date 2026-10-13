@@ -112,6 +112,21 @@ export function validateTemplate(tpl: LoadedTemplate): Finding[] {
     if (brand && manifest.name.toLowerCase().includes(brand.toLowerCase())) err("provenance.name", `template name contains reference brand "${brand}"`);
   }
 
+  // Changelog: the entry of a final version is public — the system page and the MCP get_changelog tool show its
+  // opening paragraph and bullets under the publish date, and agents apply the bullets when updating a project.
+  const changelog = existsSync(join(tpl.dir, "CHANGELOG.md")) ? tpl.read("CHANGELOG.md").replace(/\r\n/g, "\n") : "";
+  const entry = changelogSection(changelog, tpl.version);
+  const candidate = tpl.version.includes("-");
+  if (entry === null) (candidate ? warn : err)("changelog.entry", `CHANGELOG.md has no "## ${tpl.version}" entry`);
+  else if (!candidate) {
+    const { summary, bullets } = entry;
+    if (!summary) err("changelog.summary", `the ${tpl.version} entry needs an opening paragraph: what people will notice, in plain words`);
+    for (const [label, text] of [["summary", summary], ...bullets.map((b, i) => [`bullet ${i + 1}`, b] as const)] as const) {
+      if (/\b\d+\.\d+\.\d+(-[\w.]+)?\b|\brc\.\d/.test(text)) err("changelog.public", `${label} mentions a version number — users only see dates`);
+      if (/\b(critic|gate|iteration|eval(uation)?|score)\b/i.test(text)) err("changelog.public", `${label} reads like a pipeline note — those go to pipeline/<slug>/iterations.md`);
+    }
+  }
+
   // Bundle budget (only when built)
   const bundle = join(tpl.dir, "dist", "agent.md");
   if (existsSync(bundle)) {
@@ -119,6 +134,22 @@ export function validateTemplate(tpl: LoadedTemplate): Finding[] {
     if (words > BUNDLE_WORD_BUDGET) err("bundle.budget", `agent.md has ${words} words, budget is ${BUNDLE_WORD_BUDGET}`);
   }
   return findings;
+}
+
+/** The "## <version>" entry: its opening paragraph and its "- " bullets (continuation lines folded in). Same reading as getHistory in @pigment/content. */
+function changelogSection(md: string, version: string): { summary: string; bullets: string[] } | null {
+  const start = md.indexOf(`\n## ${version}\n`);
+  if (start < 0) return null;
+  const rest = md.slice(start + version.length + 5);
+  const section = rest.slice(0, rest.search(/\n## |$/)).trim();
+  const first = section.split(/\n\s*\n/)[0] ?? "";
+  const summary = first.startsWith("- ") ? "" : first.replace(/\s*\n\s*/g, " ").trim();
+  const bullets: string[] = [];
+  for (const line of section.split("\n")) {
+    if (line.startsWith("- ")) bullets.push(line.slice(2).trim());
+    else if (/^\s+\S/.test(line) && bullets.length) bullets[bullets.length - 1] += ` ${line.trim()}`;
+  }
+  return { summary, bullets };
 }
 
 function resolveTokensSafe(tpl: LoadedTemplate, tree: LoadedTemplate["primitives"] | undefined, err: (r: string, m: string) => void) {

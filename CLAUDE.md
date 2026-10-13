@@ -27,10 +27,14 @@ canvas (gallery, detail, compare, MCP, docs, mobile, interface kit).
 - `pnpm dev` — the site
 - `pnpm harness --help` — pipeline commands; `pnpm check:content` before committing content
 
-## Adding a template
+## Adding or updating a template
 
-Use the `template-intake` skill. It runs the whole pipeline and stops twice for the user: after the
-analysis, and before publishing. Never publish without the user's explicit approval.
+- New system: the `template-intake` skill. It runs the whole pipeline and stops twice for the user: after
+  the analysis, and before publishing.
+- Change to a published system: the `template-update` skill (`docs/harness/updating.md`). It re-runs the
+  pipeline on a new internal version and stops before publishing.
+- Never publish without the user's explicit approval. The changelog entry of a final version is public
+  (system page, MCP `get_changelog`): plain summary, concrete bullets, no version numbers — validate lints it.
 
 ## Rules
 

@@ -15,8 +15,12 @@ Read `docs/harness/evaluation-rubric.md`. Inputs:
   `pigment.app.json`), and `agent-report.md`
 - The template's `content/templates/<id>/<version>/dist/agent.md` — what was asked
 - If `manifest.provenance.analysis` is set: `pipeline/<slug>/reference/screenshots/` and `analysis.md`
+- For an update of a published system (`docs/harness/updating.md`): the current published version's runs,
+  `showcase/runs/<id>/<published-version>/`, and the goal of the update in `pipeline/<slug>/iterations.md`
 
 Look at every screenshot. Compare the four apps with each other, with the spec, and with the reference.
+For an update, also compare each app with the published version: say whether the update reached its goal,
+and treat anything that got worse as a weakness with its own prompt fix.
 
 Score 0–5 per rubric dimension (`referenceFidelity` is null when there is no reference). Be strict:
 4 means a demanding design lead would ship it; 5 is rare. For every score below 4, name the screen,

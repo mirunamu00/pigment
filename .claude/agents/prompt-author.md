@@ -37,3 +37,11 @@ is anything ambiguous? Fix it.
 
 For a revision, append to `pipeline/<slug>/iterations.md`: version, what changed, which gate or critic
 note it answers. Finish with a summary of the changes.
+
+`CHANGELOG.md` gets a `## <version>` entry on top for every version you write. Candidate (`-rc.n`) entries
+are internal. The entry of a final version is public — the system page and the MCP `get_changelog` tool
+show it under the publish date, and agents apply it to projects that already use the system — so follow
+the format in `docs/harness/updating.md` → Changelog: an opening paragraph of what people will notice,
+then one bullet per change naming the token, component or rule with its old and new value. No version
+numbers, candidate names, scores or gate names; for an update it covers everything since the published
+version.

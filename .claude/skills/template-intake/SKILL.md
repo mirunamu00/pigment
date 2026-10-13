@@ -1,6 +1,6 @@
 ---
 name: template-intake
-description: Turn a reference website into a tested Pigment design system template — capture, analysis, design prompt authoring, demo generation on the four base apps, evaluation, iteration and (after user approval) publishing. Use when the user submits a site they like, asks to add a template, or asks to iterate on a template candidate.
+description: Turn a reference website into a tested Pigment design system template — capture, analysis, design prompt authoring, demo generation on the four base apps, evaluation, iteration and (after user approval) publishing. Use when the user submits a site they like, asks to add a template, or asks to iterate on a template candidate. To change a system that is already published, use template-update.
 ---
 
 # Template intake
@@ -65,7 +65,9 @@ and go back to step 3 with a new rc. Maximum three iterations — then stop and 
 mobile, light and dark), the reference screenshots, the gate table, the critic scores and the iteration
 log. Only on explicit approval:
 
-1. `pnpm harness scaffold <id>@<final> --name "<Name>" --from <id>@<last-rc>` (e.g. 1.0.0)
+1. `pnpm harness scaffold <id>@<final> --name "<Name>" --from <id>@<last-rc>` (e.g. 1.0.0), and write the
+   public `## <final>` changelog entry: what the system is, in plain words, with no version numbers or
+   pipeline notes (`docs/harness/updating.md` → Changelog). Show it to the user with the screenshots.
 2. `pnpm harness generate` + `evaluate` + critic on the final version (screenshots must come from the published version itself)
 3. `pnpm harness publish <id>@<final> --approved-by "<user's name>"`
 4. Set `status` in `pipeline/<slug>/intake.json` to `published`.

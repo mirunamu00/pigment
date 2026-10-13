@@ -68,4 +68,9 @@ what make AI-built UIs look alike.
 ## 8. Change discipline
 
 - Every iteration records what changed and why in `pipeline/<slug>/iterations.md`.
-- Published versions never change. A fix is a new version with a `CHANGELOG.md` entry.
+- Published versions never change. A fix is a new version with a `CHANGELOG.md` entry
+  (`updating.md` has the whole process).
+- The changelog entry of a final version is public: an opening paragraph of what people will notice, then
+  one concrete bullet per change. No version numbers, candidate names or pipeline notes — people only see
+  dates. **[lint]**
+- Versions are internal everywhere else too: never refer to a version number in the package's prose.

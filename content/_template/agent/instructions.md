@@ -4,7 +4,7 @@
 2. Install the tokens: copy `dist/tokens.css` into the project's global styles (or map `dist/tokens.json` into the theme system the project already uses). Do not retype values.
 3. Load the fonts listed in the manifest with their fallbacks, including the CJK fallback.
 4. Build the base components in the order of the component list, each with every specified state.
-5. Create `design-system/` in the repository with `VERSION`, the tokens, and a short `components.md` describing the conventions you established.
+5. Create `design-system/` in the repository with `VERSION` (the system id and update date the spec states, e.g. `{{id}}, updated 2026-01-31`), the tokens, and a short `components.md` describing the conventions you established.
 6. Add one line to `AGENTS.md` and `CLAUDE.md` (create them if missing): "UI work follows design-system/ — read it before building screens."
 
 ## Existing project

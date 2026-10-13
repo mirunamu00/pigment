@@ -67,6 +67,24 @@ test("raw hex and vendor names in prose are rejected; CLAUDE.md file name is all
   assert.ok(instructions.includes("CLAUDE.md"));
 });
 
+test("changelog: a final version needs a public entry — summary first, no version numbers or pipeline notes", () => {
+  const tpl = scaffoldTemp(true);
+  const file = join(tpl.dir, "CHANGELOG.md");
+  const rules = () => validateTemplate(tpl).filter((f) => f.level === "error").map((f) => f.rule);
+
+  writeFileSync(file, "# Changelog\n\n## 0.1.0\n\nButtons are softer and tables denser.\n\n- `radius.md` is now 10px.\n");
+  assert.deepEqual(rules(), []);
+
+  writeFileSync(file, "# Changelog\n\n## 0.1.0\n\nFixes from 0.0.9 after the critic review.\n");
+  assert.deepEqual(rules(), ["changelog.public", "changelog.public"]);
+
+  writeFileSync(file, "# Changelog\n\n## 0.1.0\n\n- `radius.md` is now 10px.\n");
+  assert.deepEqual(rules(), ["changelog.summary"]);
+
+  writeFileSync(file, "# Changelog\n\n## 0.0.9\n\nOlder.\n");
+  assert.deepEqual(rules(), ["changelog.entry"]);
+});
+
 test("bundle: css has light root, dark overrides and cubic-bezier; agent.md leads with principles", () => {
   const tpl = scaffoldTemp(true);
   const css = buildCss(tpl);
