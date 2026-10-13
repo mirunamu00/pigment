@@ -37,7 +37,7 @@ export default function ConnectPage() {
           <div style={{ flex: "999 1 640px", minWidth: 0 }}>
             <ConnectView />
             <p className="muted" style={{ marginTop: 20, fontSize: 13.5 }}>
-              No MCP at all? Every system also ships as a single spec URL and a downloadable package. <Link href="/docs">See the guide</Link>
+              No MCP at all? Every system also has a single spec URL you can hand to any agent. <Link href="/docs">See the guide</Link>
             </p>
           </div>
           <aside style={{ flex: "1 1 420px", minWidth: 0, position: "relative", display: "flex", flexDirection: "column", gap: 20 }}>

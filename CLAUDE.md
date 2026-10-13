@@ -11,7 +11,7 @@ canvas (gallery, detail, compare, MCP, docs, mobile, interface kit).
 
 | Path | What |
 | --- | --- |
-| `apps/web` | Next.js site (static), static JSON API under `/api/v1`, package downloads |
+| `apps/web` | Next.js site (static), static JSON API under `/api/v1`, spec URLs and the `/mcp` route |
 | `packages/schema` | zod contracts + emitted JSON Schema. Change contracts here first |
 | `packages/content` | Reads `content/` for the site and the MCP server |
 | `packages/harness` | `pnpm harness <command>` — the template pipeline |
@@ -40,7 +40,8 @@ analysis, and before publishing. Never publish without the user's explicit appro
   publishing a new version.
 - Versions are internal. The site, API, MCP tools and prompts always serve the current system and never
   show a version number; people and agents see the update date and a dated changelog
-  (`getHistory`). Old versioned spec/download URLs stay only so shared links keep working.
+  (`getHistory`). Old versioned spec URLs stay only so shared links keep working. The harness still builds a zip per
+  version for the record, but the site doesn't serve it: agent.md is the offline format.
 - Gallery screenshots are unedited agent output. Never retouch or hand-pick across runs without saying so.
 - The platform UI follows the interface kit: ink and paper, no brand color; watercolor bloom, tape and
   pencil notes only at the edges and never inside a template preview.

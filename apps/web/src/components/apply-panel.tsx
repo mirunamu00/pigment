@@ -18,7 +18,6 @@ const AGENTS = [
 const DELIVERIES = [
   ["url", "Spec URL"],
   ["mcp", "MCP"],
-  ["offline", "Offline"],
 ] as const;
 
 export function ApplyPanel({ id, name }: { id: string; name: string }) {
@@ -111,14 +110,12 @@ export function ApplyPanel({ id, name }: { id: string; name: string }) {
 
       <div className="apply__package">
         <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>
-            {id}.zip
-          </span>
+          <span style={{ fontSize: 13, fontWeight: 500 }}>agent.md</span>
           <span className="mono meta" style={{ fontSize: 11 }}>
-            offline package · everything above, for air-gapped work
+            the whole spec in one file · for offline setups
           </span>
         </span>
-        <a href={`/download/${id}`} className="btn">
+        <a href={`/s/${id}/agent.md`} download={`${id}-agent.md`} className="btn">
           Download
         </a>
       </div>

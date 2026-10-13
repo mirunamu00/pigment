@@ -111,8 +111,8 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
             </p>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <a href={`/download/${id}`} className="btn btn--lg">
-              Package
+            <a href={`/s/${id}/agent.md`} download={`${id}-agent.md`} className="btn btn--lg">
+              agent.md
             </a>
             <a href="#apply" className="btn btn--primary btn--lg">
               Apply this system
@@ -248,7 +248,7 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
         </div>
 
         <div className="mobile-apply">
-          <a href={`/download/${id}`} className="btn" aria-label="Download package" style={{ width: 52, padding: 0 }}>
+          <a href={`/s/${id}/agent.md`} download={`${id}-agent.md`} className="btn" aria-label="Download agent.md" style={{ width: 52, padding: 0 }}>
             <svg aria-hidden="true" viewBox="0 0 16 16" width={16} height={16}>
               <path d="M8 2v8M4.5 6.5L8 10l3.5-3.5M3 13h10" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
             </svg>

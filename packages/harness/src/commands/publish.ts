@@ -47,7 +47,7 @@ export function publish(id: string, version: string, approvedBy: string): void {
   bundle(id, version);
   const sha = hashDir(templateDir(id, version));
 
-  // Gallery assets: the screenshots of the evaluated runs and the offline package.
+  // Gallery assets: the screenshots of the evaluated runs.
   const assets = join(paths.webPublic, id, version);
   for (const run of report.runs) {
     const runDir = join(runsDir(id, version), run.app, run.runId);
@@ -72,9 +72,6 @@ export function publish(id: string, version: string, approvedBy: string): void {
       mobileDark: pick("mobile", "dark"),
     });
   }
-  const zip = join(tpl.dir, "dist", `${id}-${version}.zip`);
-  mkdirSync(join(paths.root, "apps", "web", "public", "packages"), { recursive: true });
-  cpSync(zip, join(paths.root, "apps", "web", "public", "packages", `${id}-${version}.zip`));
 
   const registry = readRegistry();
   let entry = registry.templates.find((t) => t.id === id);

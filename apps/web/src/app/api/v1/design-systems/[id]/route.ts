@@ -16,7 +16,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
         components: getComponents(id, "latest").components.map((c) => ({ name: c.name, status: c.status, href: `${base}/components/${c.name}` })),
         guides: ["new", "existing", "ongoing"].map((m) => `${base}/guides/${m}`),
         spec: `/s/${id}/agent.md`,
-        package: `/download/${id}`,
       },
     });
   });

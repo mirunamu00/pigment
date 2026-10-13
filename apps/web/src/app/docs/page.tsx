@@ -3,7 +3,7 @@ import { pageMeta } from "@/lib/meta";
 import Link from "next/link";
 import { DocsShell } from "@/components/docs-shell";
 
-export const metadata: Metadata = pageMeta("Docs", "How Pigment design systems are delivered to coding agents: prompts, the MCP server, the HTTP API and offline packages.", "/docs");
+export const metadata: Metadata = pageMeta("Docs", "How Pigment design systems are delivered to coding agents: prompts, the MCP server, a spec URL and the HTTP API.", "/docs");
 
 export default function DocsOverview() {
   return (
@@ -30,14 +30,17 @@ export default function DocsOverview() {
         </li>
       </ul>
 
-      <h2 id="ways">Three ways to hand it over</h2>
+      <h2 id="ways">Two ways to hand it over</h2>
       <ul>
         <li>
           <Link href="/connect">MCP server</Link> — your agent looks up exactly what it needs while it works.
         </li>
         <li>Spec URL — the prompt contains a link to the spec.</li>
-        <li>Offline package — a zip with everything, for networks without outside access.</li>
       </ul>
+      <p>
+        No network at all? Download a system&apos;s <span className="mono">agent.md</span> from its page — the whole spec is that one file — or install the
+        npm server, which carries every system with it.
+      </p>
 
       <h2 id="versions">Your copy never changes under you</h2>
       <p>

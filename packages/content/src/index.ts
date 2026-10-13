@@ -144,13 +144,6 @@ export function getTokenFile(id: string, version: string, format: "css" | "json"
   return readArtifact(id, version, join("dist", `tokens.${format}`));
 }
 
-export function packageFile(id: string, version: string): string {
-  const dir = versionDir(id, version);
-  const file = join(dir, "dist", `${id}-${basename(dir)}.zip`);
-  if (!existsSync(file)) throw new ContentError("unavailable_artifact", `${id}@${version} has no package`);
-  return file;
-}
-
 export interface HistoryEntry {
   /** Publish date, YYYY-MM-DD. Users and agents see dates, never version numbers. */
   date: string;

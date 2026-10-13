@@ -67,7 +67,8 @@ Local, with the specs bundled in the package:
 <br />
 
 Every system page on [pigmentui.com](https://pigmentui.com) has a ready-made prompt to copy into any
-agent, a plain spec URL (`/s/<id>/agent.md`) and an offline `.zip` package.
+agent and a plain spec URL (`/s/<id>/agent.md`) — the whole spec in one file, which you can also download
+for offline setups.
 
 </details>
 
@@ -106,7 +107,6 @@ unedited output, cropped to the first screen.
 | `tokens.css` · `tokens.json` | Exact values, light and dark — copied, never retyped |
 | MCP tools | `list_design_systems` · `get_design_system` · `get_tokens` · `get_component_spec` · `get_installation_guide` · `get_changelog` · `get_references` |
 | HTTP API | [`/api/v1/design-systems`](https://pigmentui.com/api/v1/design-systems) — the same specs as JSON |
-| Package | A `.zip` with everything, for offline use |
 
 ## How systems are made
 

@@ -82,7 +82,7 @@ const FOOTER_LINKS: Array<{ title: string; links: Array<{ label: string; href: s
       { label: "MCP server", href: "/connect" },
       { label: "HTTP API", href: "/api/v1/design-systems" },
       { label: "npm · pigment-mcp", href: "https://www.npmjs.com/package/pigment-mcp", external: true },
-      { label: "Package format", href: "/docs/package" },
+      { label: "Spec and API", href: "/docs/package" },
     ],
   },
   {

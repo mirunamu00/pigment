@@ -157,7 +157,7 @@ export function createServer(): McpServer {
     {
       title: "Get references",
       description:
-        "Screenshots of four reference apps (dashboard, store, blog, settings) restyled with this system by an agent — desktop and mobile, light and dark — plus links to the system page, spec and offline package.",
+        "Screenshots of four reference apps (dashboard, store, blog, settings) restyled with this system by an agent — desktop and mobile, light and dark — plus links to the system page and the spec.",
       inputSchema: z.object({ id, app: z.string().optional().describe("Only one app: dashboard, commerce, blog or settings") }),
       annotations: { readOnlyHint: true },
     },
@@ -172,7 +172,6 @@ export function createServer(): McpServer {
             updated: updated(args.id),
             page: `${SITE_URL}/s/${args.id}`,
             spec: `${SITE_URL}/s/${args.id}/agent.md`,
-            package: `${SITE_URL}/download/${args.id}`,
             screenshots: shots,
           },
           null,

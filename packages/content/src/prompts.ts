@@ -4,7 +4,7 @@
  * the site always serves the current system, and a project keeps its own copy in design-system/.
  */
 export type Mode = "new" | "existing" | "ongoing";
-export type Delivery = "url" | "mcp" | "offline";
+export type Delivery = "url" | "mcp";
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pigmentui.com";
 // The remote server is a route of the site itself (apps/web/src/app/mcp), so it shares its domain.
@@ -12,8 +12,7 @@ export const MCP_URL = process.env.NEXT_PUBLIC_MCP_URL ?? `${SITE_URL}/mcp`;
 
 export function specRef(id: string, delivery: Delivery): string {
   if (delivery === "url") return `Spec: ${SITE_URL}/s/${id}/agent.md`;
-  if (delivery === "mcp") return "Read the spec with the Pigment MCP tools (get_design_system, get_component_spec).";
-  return `Spec: dist/agent.md in the ${id} package, unzipped under ./design-packages/`;
+  return "Read the spec with the Pigment MCP tools (get_design_system, get_component_spec).";
 }
 
 export function buildPrompt(id: string, mode: Mode, delivery: Delivery): string {

@@ -115,7 +115,7 @@ test.describe("API and downloads", () => {
     }
   });
 
-  test("spec URL serves agent.md and the package downloads", async ({ request }) => {
+  test("spec URL serves agent.md; there is no zip download", async ({ request }) => {
     const spec = await request.get(`/s/${ID}/agent.md`);
     expect(spec.headers()["content-type"]).toContain("text/markdown");
     const md = await spec.text();
@@ -123,13 +123,8 @@ test.describe("API and downloads", () => {
     expect(md).not.toContain("1.0.0");
     expect(md).toContain("## Semantic color tokens — light");
 
-    const zip = await request.get(`/download/${ID}`);
-    expect(zip.headers()["content-disposition"]).toContain(`${ID}.zip`);
-    expect(zip.status()).toBe(200);
-    expect(zip.headers()["content-type"]).toBe("application/zip");
-    expect(zip.headers()["x-content-sha256"]).toMatch(/^[0-9a-f]{64}$/);
-    const bytes = await zip.body();
-    expect(bytes.subarray(0, 2).toString()).toBe("PK");
+    expect((await request.get(`/download/${ID}`)).status()).toBe(404);
+    expect((await request.get(`/packages/${ID}-1.0.0.zip`)).status()).toBe(404);
   });
 });
 

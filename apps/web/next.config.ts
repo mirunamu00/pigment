@@ -9,7 +9,6 @@ const config: NextConfig = {
   outputFileTracingIncludes: {
     "/api/**": ["../../content/**"],
     "/s/**": ["../../content/**"],
-    "/download/**": ["../../content/**"],
     // The MCP route reads content and the screenshot index (cover.json) from disk at request time.
     "/mcp": ["../../content/**", "./public/showcase/**/cover.json"],
   },

@@ -71,7 +71,7 @@ export default function HomePage() {
             </li>
           </ol>
           <p className="meta" style={{ marginTop: 28 }}>
-            No MCP? Each system also ships as a spec URL and an offline package.
+            No MCP? Every system also has a plain spec URL.
           </p>
         </div>
         <div className="how__code">
