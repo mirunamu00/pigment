@@ -64,9 +64,13 @@ writeFileSync(
       description: pkg.description,
       type: "module",
       bin: { "pigment-mcp": "cli.js" },
-      files: ["cli.js", "content", "README.md"],
+      files: ["cli.js", "content", "README.md", "LICENSE"],
       engines: { node: ">=22" },
       keywords: ["mcp", "model-context-protocol", "design-system", "design-tokens", "ai-agent"],
+      license: "MIT",
+      author: "mirunamu00 (https://github.com/mirunamu00)",
+      homepage: "https://pigmentui.com",
+      bugs: "https://github.com/mirunamu00/pigment/issues",
       repository: { type: "git", url: "git+https://github.com/mirunamu00/pigment.git", directory: "packages/mcp" },
       publishConfig: { access: "public" },
     },
@@ -75,6 +79,7 @@ writeFileSync(
   ) + "\n",
 );
 cpSync(join(pkgDir, "README.md"), join(out, "README.md"));
+cpSync(join(repo, "LICENSE"), join(out, "LICENSE"));
 
 const systems = published.map((t) => `${t.id}@${t.versions.map((v) => v.version).join(",")}`).join(" ");
 console.error(`built pigment-mcp ${pkg.version} → ${out} (${systems || "no published systems"})`);

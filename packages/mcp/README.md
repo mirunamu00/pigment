@@ -1,3 +1,5 @@
+<a href="https://pigmentui.com"><img src="https://pigmentui.com/opengraph-image" alt="Pigment — give your agent a palette, not a prompt." width="100%" /></a>
+
 # pigment-mcp
 
 MCP server for [Pigment](https://pigmentui.com) design systems. Your coding agent (Claude Code, Codex,
@@ -48,3 +50,7 @@ propose a plan, restyle one sample screen, then report build and visual checks.
 | `get_references` | Screenshots of four reference apps restyled with the system |
 
 Requires Node 22+.
+
+## License
+
+[MIT](https://github.com/mirunamu00/pigment/blob/main/LICENSE) © 2026 [mirunamu00](https://github.com/mirunamu00) · [Source](https://github.com/mirunamu00/pigment) · [pigmentui.com](https://pigmentui.com)
