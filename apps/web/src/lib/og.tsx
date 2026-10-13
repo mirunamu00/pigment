@@ -22,14 +22,11 @@ export const INK_3 = "#5a5a55";
 export const PAPER = "#faf9f6";
 export const LINE = "#e3e0d8";
 
-/** The header mark: two ink drops. */
+/** The site mark (the favicon SVG), as a data URL so share images and the home-screen icon use the same file. */
+export const MARK_SRC = `data:image/svg+xml;base64,${readFileSync(join(process.cwd(), "src", "app", "icon.svg")).toString("base64")}`;
+
 export function Mark({ size = 40 }: { size?: number }) {
-  return (
-    <svg viewBox="5 5 30 30" width={size} height={size}>
-      <circle cx="20" cy="20" r="14" fill={INK} />
-      <circle cx="27" cy="13" r="6" fill={INK} opacity={0.6} />
-    </svg>
-  );
+  return <img src={MARK_SRC} width={size} height={size} />;
 }
 
 /** The ink-blue watercolor bloom, kept to an edge as on the site. */

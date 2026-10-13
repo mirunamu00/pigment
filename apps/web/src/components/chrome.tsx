@@ -9,15 +9,10 @@ const NAV = [
 
 export type NavKey = (typeof NAV)[number]["key"];
 
+// The mark is the favicon itself (src/app/icon.svg): one watercolor bloom of four pigments.
 function Logo() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 40 40" width={24} height={24} style={{ overflow: "visible" }}>
-      <g filter="url(#wcs)">
-        <circle cx="20" cy="20" r="14" fill="var(--ink)" />
-        <circle cx="27" cy="13" r="6" fill="var(--ink)" opacity={0.6} />
-      </g>
-    </svg>
-  );
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/icon.svg" alt="" aria-hidden="true" width={26} height={26} />;
 }
 
 export function SiteHeader({ active }: { active?: NavKey }) {
