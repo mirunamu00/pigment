@@ -29,7 +29,8 @@ export const TemplateStatus = z.enum(["draft", "candidate", "published", "deprec
 export const Manifest = z.object({
   id: TemplateId,
   version: SemVer,
-  schemaVersion: z.literal(1),
+  /** 2: the principles carry Signature elements, Interaction and Applying the concept (validate enforces them). */
+  schemaVersion: z.union([z.literal(1), z.literal(2)]),
   name: z.string().min(2).max(40),
   description: z.string().min(20).max(240),
   status: TemplateStatus,
@@ -235,10 +236,68 @@ export const REQUIRED_COMPONENTS = [
 // Reference analysis (output of the reference-analyst)
 // ---------------------------------------------------------------------------
 
+/**
+ * Every area the analyst must account for — observed on the reference, derived for it, or absent with a
+ * reason. `pnpm harness check-analysis` fails when one is missing.
+ */
+export const AUDIT_AREAS = [
+  "color",
+  "typography",
+  "spacing",
+  "layout-grid",
+  "section-patterns",
+  "shape",
+  "borders",
+  "elevation",
+  "surfaces-and-backgrounds",
+  "buttons",
+  "links",
+  "navigation",
+  "forms",
+  "cards",
+  "disclosure",
+  "tabs",
+  "tables-and-data",
+  "feedback",
+  "overlays",
+  "iconography",
+  "illustration",
+  "media",
+  "motion-load",
+  "motion-scroll",
+  "motion-hover-and-press",
+  "motion-loop",
+  "theming",
+  "responsive",
+  "accessibility",
+  "writing-style",
+] as const;
+export const AuditArea = z.enum(AUDIT_AREAS);
+export type AuditArea = z.infer<typeof AuditArea>;
+
+const Evidence = z.array(z.string()).min(1).describe("Files under pipeline/<slug>/reference or JSON paths that show it");
+
+/** What makes the site recognizable beyond its tokens, written so an agent can rebuild it originally anywhere. */
+export const Signature = z.object({
+  name: z.string(),
+  what: z.string().describe("What it is and how it looks, measured"),
+  evidence: Evidence,
+  frequency: z.string().describe("Where and how often it appears across the surveyed site"),
+  recipe: z.string().describe("How to build an original one: construction, tokens, stroke and shape rules, code-level notes"),
+  motion: z.string().describe("Trigger, keyframes, duration, easing, iterations — or 'static'"),
+  applicationMap: z
+    .array(z.object({ context: z.string(), use: z.string() }))
+    .min(4)
+    .describe("Where it goes in any product: page headers, empty states, loading, onboarding, FAQ, section breaks, data screens…"),
+  limits: z.string().describe("How much per screen, where never, reduced-motion behavior"),
+  derived: z.boolean().describe("true when the reference doesn't show it this way and it was derived"),
+});
+
 export const Analysis = z.object({
   slug: z.string(),
   references: z.array(z.object({ url: z.string().url(), pages: z.array(z.string()) })),
   capturedAt: z.string(),
+  survey: z.object({ pagesSurveyed: z.number().int(), pageTypes: z.array(z.string()), notes: z.string() }),
   character: z.object({
     summary: z.string(),
     keywords: z.array(z.string()).min(3).max(8),
@@ -256,10 +315,39 @@ export const Analysis = z.object({
   spacing: z.object({ basePx: z.number(), scale: z.array(z.number()), notes: z.string() }),
   shape: z.object({ radii: z.array(z.object({ role: z.string(), px: z.number() })), borderWidths: z.array(z.number()), notes: z.string() }),
   elevation: z.array(z.object({ role: z.string(), css: z.string() })),
-  motion: z.object({ durationsMs: z.array(z.number()), easings: z.array(z.string()), notes: z.string() }),
+  motion: z.object({
+    durationsMs: z.array(z.number()),
+    easings: z.array(z.string()),
+    patterns: z
+      .array(
+        z.object({
+          name: z.string(),
+          trigger: z.enum(["load", "scroll", "hover", "focus", "press", "open", "loop", "state-change"]),
+          target: z.string(),
+          durationMs: z.number(),
+          easing: z.string(),
+          keyframes: z.string().describe("What changes, from → to"),
+          evidence: Evidence,
+        }),
+      )
+      .min(1),
+    reducedMotion: z.string().describe("What the reference does under prefers-reduced-motion, and what the template will do"),
+    notes: z.string(),
+  }),
   layout: z.object({ grid: z.string(), density: Manifest.shape.tags.shape.density, maxWidthPx: z.number().optional(), notes: z.string() }),
-  components: z.array(z.object({ name: z.string(), observations: z.string(), states: z.array(z.string()) })),
+  patterns: z
+    .array(z.object({ name: z.string(), description: z.string(), frequency: z.string(), evidence: Evidence }))
+    .min(3)
+    .describe("Recurring layouts and UI patterns across pages: section rhythm, hero composition, card grids, logo walls, FAQ blocks…"),
+  components: z.array(z.object({ name: z.string(), observations: z.string(), states: z.array(z.string()), evidence: Evidence })),
+  interactions: z
+    .array(z.object({ element: z.string(), hover: z.string(), focus: z.string(), press: z.string(), open: z.string().optional(), evidence: Evidence }))
+    .min(3),
+  theming: z.object({ mechanism: z.enum(["prefers-color-scheme", "toggle", "both", "none"]), notes: z.string(), evidence: Evidence }),
   imagery: z.object({ iconography: z.string(), illustration: z.string(), photography: z.string() }),
+  signatures: z.array(Signature).min(1),
+  writing: z.object({ casing: z.string(), tone: z.string(), notes: z.string() }).describe("Style only — never copy text"),
+  coverage: z.array(z.object({ area: AuditArea, status: z.enum(["observed", "derived", "absent"]), note: z.string() })),
   doNot: z.array(z.string()).describe("Things that would break the character"),
   ipRisks: z.array(z.string()).describe("Brand assets, proprietary fonts or distinctive marks that must NOT be carried over"),
 });
@@ -305,6 +393,8 @@ export const CriticScores = z.object({
   spacingRhythm: z.number().min(0).max(5),
   componentStates: z.number().min(0).max(5),
   polish: z.number().min(0).max(5),
+  /** Are the signature elements present across all four apps, placed per the application map, moving as specified? Null for packages without signatures. */
+  signature: z.number().min(0).max(5).nullable().optional(),
   notes: z.array(z.string()),
   promptFixes: z.array(z.string()).describe("Concrete spec changes that would fix the observed problems"),
 });

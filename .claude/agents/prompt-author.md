@@ -17,16 +17,28 @@ The package (scaffolded for you):
 - `tokens/primitives.json`, `tokens/semantic.light.json`, `tokens/semantic.dark.json` — DTCG format,
   semantic tokens alias primitives with `{path}`
 - `principles/visual-language.md` — character, the ten rules (rule + why), Never list, and the sections
-  for color, type, spacing, shape, motion, layout adaptation, imagery, accessibility
+  for signature elements, color, type, spacing, shape, motion, interaction, layout adaptation, applying the
+  concept, imagery, accessibility
 - `components/*.md` + `components/index.json` — every required component with states and token mapping
 - `agent/instructions.md` — keep the five sections; adapt only what this system needs
 - `CHANGELOG.md`
 
 Priorities, in order:
-1. The ten rules and the Never list. They carry the character; agents weigh early content most.
+1. The ten rules, the Never list and the **signature elements** — the concept people recognize the reference
+   by. Each signature element is a recipe an agent can build an original instance from (construction,
+   technique, tokens, a code block), with its motion and its place in every kind of screen. The analysis has
+   them under Signature elements; carry every one over.
 2. Exact values in tokens; prose refers to token names only (no raw hex in markdown).
 3. Decision rules for situations the reference never showed (dense tables, forms, errors, empty states).
-4. Component states — designed, not defaulted.
+4. Component states — designed, not defaulted — and Interaction: what hover, focus-visible, press and open
+   change, with motion tokens.
+5. Applying the concept: the table that puts the signature elements on product screens too (dashboard,
+   form, settings, table, empty, error, loading). A screen without the concept is a generic screen.
+6. Motion as values: keyframes, durations, easings, triggers, iterations, and reduced-motion behavior.
+
+The skeleton is `schemaVersion: 2`; `pnpm harness validate` checks these sections. In
+`agent/instructions.md`, new projects build the signature elements first as reusable pieces, and existing
+projects show them on the sample screen.
 
 Never carry over brand names, logos, copy, imagery or proprietary fonts. The template name must be
 original.

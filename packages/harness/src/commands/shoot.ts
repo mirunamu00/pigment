@@ -1,8 +1,9 @@
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
 import { chromium } from "playwright";
 import { appMeta, preview } from "../appdir.ts";
 import { extractStyles, mergeSamples, settle, type StyleSample } from "../extract.ts";
+import { motionEvidence } from "../probe.ts";
 import { writeJson } from "../util.ts";
 
 export interface ShotResult {
@@ -12,6 +13,10 @@ export interface ShotResult {
   overflow: Array<{ route: string; viewport: "desktop" | "mobile"; scheme: "light" | "dark"; px: number }>;
   stateFailures: Array<{ state: string; viewport: string; scheme: string; message: string }>;
   axe: Array<{ route: string; id: string; impact: string | null; nodes: number }>;
+  /** Looping animations still running with prefers-reduced-motion: reduce (should be none). */
+  reducedMotionLoops?: Array<{ route: string; count: number }>;
+  /** What moves on the app's first route with motion allowed, and frame sequences of it. */
+  motion?: Awaited<ReturnType<typeof motionEvidence>>;
 }
 
 /**
@@ -55,6 +60,10 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
           result.screenshots.push({ route: route.path, viewport, scheme, file: `screenshots/${slug}-${viewport}-${scheme}.png` });
           if (viewport === "desktop") samples.push(await extractStyles(page, scheme));
           if (viewport === "desktop" && scheme === "light") {
+            const loops = await page.evaluate(
+              () => document.getAnimations().filter((a) => a.playState === "running" && a.effect?.getTiming().iterations === Infinity).length,
+            );
+            (result.reducedMotionLoops ??= []).push({ route: route.path, count: loops });
             const axe = await new AxeBuilder({ page }).analyze();
             for (const v of axe.violations) result.axe.push({ route: route.path, id: v.id, impact: v.impact ?? null, nodes: v.nodes.length });
           }
@@ -62,6 +71,23 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
         }
       }
     }
+    // Motion: the first capture route with motion allowed — what the system's signature motion became.
+    const first = meta.routes.find((r) => r.capture);
+    if (first) {
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "light", reducedMotion: "no-preference" });
+      const page = await context.newPage();
+      try {
+        await page.goto(server.url + first.path, { waitUntil: "networkidle" });
+        await page.waitForTimeout(600);
+        result.motion = await motionEvidence(page, outDir, "motion");
+        result.motion.frames = result.motion.frames.map((f) => relative(outDir, f).replaceAll("\\", "/"));
+      } catch {
+        // motion evidence is best-effort; the gates above don't depend on it
+      } finally {
+        await context.close();
+      }
+    }
+
     // Interaction states: desktop light and dark, plus mobile light. Full-page captures so a message or
     // panel below the fold is never cut off.
     const variants = [

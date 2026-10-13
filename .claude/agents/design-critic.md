@@ -12,13 +12,17 @@ Read `docs/harness/evaluation-rubric.md`. Inputs:
 - The latest run of each app: `showcase/runs/<id>/<version>/<app>/<runId>/screenshots/*.png`
   (desktop and mobile, light and dark), the interaction-state captures `screenshots/state-*.png`
   (focus, hover, validation errors, dialogs, toasts, empty results — defined in each base app's
-  `pigment.app.json`), and `agent-report.md`
+  `pigment.app.json`), the motion frame sequences `motion/*.png` and `shots.json` → `motion` (what moves,
+  illustrations and line drawings), and `agent-report.md`
 - The template's `content/templates/<id>/<version>/dist/agent.md` — what was asked
 - If `manifest.provenance.analysis` is set: `pipeline/<slug>/reference/screenshots/` and `analysis.md`
 - For an update of a published system (`docs/harness/updating.md`): the current published version's runs,
   `showcase/runs/<id>/<published-version>/`, and the goal of the update in `pipeline/<slug>/iterations.md`
 
 Look at every screenshot. Compare the four apps with each other, with the spec, and with the reference.
+For a `schemaVersion: 2` package, score `signature`: is every signature element in all four apps, built to
+its recipe, placed where Applying the concept puts it (product screens too), and moving as specified in
+the frame sequences? An app that only has the colors scores 1.
 For an update, also compare each app with the published version: say whether the update reached its goal,
 and treat anything that got worse as a weakness with its own prompt fix.
 

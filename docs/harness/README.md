@@ -5,9 +5,10 @@ so any stage can be re-run, reviewed or handed to a different agent.
 
 ```
 reference URL
-   │  1. intake     pnpm harness intake <slug> <url...>        → pipeline/<slug>/intake.json
-   │  2. capture    pnpm harness capture <slug>                → pipeline/<slug>/reference/  (screenshots, styles.json)
+   │  1. intake     pnpm harness intake <slug> <domain|url...> → pipeline/<slug>/intake.json
+   │  2. capture    pnpm harness capture <slug>                → pipeline/<slug>/reference/  (site survey, screenshots, motion, interactions, illustrations)
    │  3. analyze    reference-analyst agent                    → pipeline/<slug>/analysis.md + analysis.json
+   │               pnpm harness check-analysis <slug>         → every audit area, evidence, survey consistency
    │  4. author     prompt-author agent                        → content/templates/<id>/<version>/  (the design prompt package)
    │  5. validate   pnpm harness validate <id>@<version>       → schema, required tokens, contrast, prompt lint
    │  6. generate   pnpm harness generate <id>@<version>       → showcase/runs/<id>/<version>/<app>/<runId>/  (agent restyles each base app)
@@ -28,7 +29,7 @@ published version: see [`updating.md`](updating.md) (the `template-update` skill
 
 | Path | What lives there |
 | --- | --- |
-| `pipeline/<slug>/` | Work area for one reference submission: intake, capture, analysis, iteration log |
+| `pipeline/<slug>/` | Work area for one reference submission: intake, capture, analysis, iteration log. Reference images stay local (gitignored); the measured JSON is kept |
 | `content/templates/<id>/<version>/` | The product: the design prompt package (manifest, tokens, principles, components, agent instructions) |
 | `content/_template/` | Skeleton copied by `pnpm harness scaffold` |
 | `showcase/base-apps/` | The four neutral apps every template is applied to (dashboard, commerce, blog, settings) |

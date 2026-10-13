@@ -121,6 +121,25 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
       const fresh = severe(shots.axe).filter((v) => !known.has(`${v.route}|${v.id}`));
       gates.push({ name: "accessibility", pass: fresh.length === 0, value: fresh.length, threshold: 0, detail: fresh.map((v) => `${v.route}: ${v.id}`).join("; ") || undefined });
 
+      // Motion: looping animations must stop when the user asks for reduced motion; the rest is reported for the critic.
+      if (shots.reducedMotionLoops) {
+        const still = shots.reducedMotionLoops.filter((r) => r.count > 0);
+        gates.push({
+          name: "reduced-motion",
+          pass: still.length === 0,
+          value: still.reduce((n, r) => n + r.count, 0),
+          threshold: 0,
+          detail: still.map((r) => `${r.route}: ${r.count} looping`).join("; ") || undefined,
+        });
+      }
+      if (shots.motion) {
+        metrics.animations = shots.motion.animations;
+        metrics.loopingAnimations = shots.motion.loops;
+        metrics.svgAnimations = shots.motion.inSvg;
+        metrics.illustrations = shots.motion.illustrations;
+        metrics.lineDrawings = shots.motion.lineDrawings;
+      }
+
       const color = colorShare(samples.flatMap((s) => [s.backgroundArea, s.textColor]), palette);
       metrics.colorAdherence = Math.round(color * 1000) / 1000;
       gates.push({ name: "color-adherence", pass: color >= THRESHOLDS.colorAdherence, value: metrics.colorAdherence, threshold: THRESHOLDS.colorAdherence });
@@ -222,7 +241,10 @@ function renderReviewPage(r: EvalReport, id: string, version: string): string {
         .map((s) => `<figure><img loading="lazy" src="${run.app}/${run.runId}/${s.file}" alt="${run.app} ${s.route} ${s.viewport} ${s.scheme}"><figcaption>${s.route} · ${s.viewport} · ${s.scheme}</figcaption></figure>`)
         .join("");
       const gates = run.gates.map((g) => `<li class="${g.pass ? "pass" : "fail"}">${g.name}: ${g.value ?? ""}</li>`).join("");
-      return `<section><h2>${run.app}</h2><ul>${gates}</ul><div class="grid">${imgs}</div></section>`;
+      const motion = (existsSync(join(runDir, "shots.json")) ? readJson<ShotResult>(join(runDir, "shots.json")).motion?.frames ?? [] : [])
+        .map((f) => `<figure><img loading="lazy" src="${run.app}/${run.runId}/${f}" alt="${run.app} motion"><figcaption>motion</figcaption></figure>`)
+        .join("");
+      return `<section><h2>${run.app}</h2><ul>${gates}</ul><div class="grid">${imgs}${motion}</div></section>`;
     })
     .join("");
   return `<!doctype html><meta charset="utf-8"><title>${id}@${version} review ${r.iteration}</title>
@@ -240,7 +262,7 @@ export function mergeCritic(id: string, version: string, criticFile: string): vo
   const file = join(dir, evals[evals.length - 1]!);
   const report = EvalReport.parse(readJson(file));
   const critic = CriticScores.parse(readJson(criticFile));
-  const scores = [critic.referenceFidelity, critic.crossAppConsistency, critic.hierarchy, critic.spacingRhythm, critic.componentStates, critic.polish].filter(
+  const scores = [critic.referenceFidelity, critic.crossAppConsistency, critic.hierarchy, critic.spacingRhythm, critic.componentStates, critic.polish, critic.signature ?? null].filter(
     (s): s is number => s !== null,
   );
   const avg = scores.reduce((a, b) => a + b, 0) / scores.length;

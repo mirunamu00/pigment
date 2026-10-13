@@ -17,6 +17,10 @@ bar, and a human approves. `pnpm harness evaluate` computes the gates and writes
 | Color adherence | ≥ 90% of painted color area within ΔE2000 ≤ 3 of a template color token | the agent used the palette, not its own |
 | Font adherence | every rendered text family is a template family or its fallback | type is part of the identity |
 | Radius adherence | ≥ 85% of rounded elements use a template radius (±1px) | shape is part of the identity |
+| Reduced motion | 0 looping animations still running with `prefers-reduced-motion: reduce` | motion must respect the user |
+
+Reported per app, not gated: animations running with motion allowed (looping, in SVG), illustrations and
+line drawings, and frame sequences of the most visible animations (`motion/*.png`) for the critic.
 
 ## Cross-app gates (automated)
 
@@ -47,6 +51,7 @@ hover, validation errors, dialogs, toasts, empty results) defined in each base a
 | Spacing rhythm | Is spacing consistent and on the scale? |
 | Component states | Are focus, hover, disabled, error and empty states designed, not defaulted? |
 | Polish | Alignment, optical balance, no default-browser leftovers, no AI-generic look |
+| Signature | Are the signature elements present in all four apps, placed as Applying the concept says, built to their recipes and moving as specified (check the motion frames)? Scored for `schemaVersion: 2` packages |
 
 **Bar:** average ≥ 4.0 and no single score below 3. Every score below 4 must come with a concrete
 prompt fix ("add `color.surface.raised` usage rule for cards on subtle backgrounds").

@@ -134,7 +134,7 @@ function collect(): Omit<StyleSample, "url" | "viewport" | "scheme"> {
 }
 
 /** tsx/esbuild wraps named inner functions in `__name(...)`; the browser needs a no-op for it. */
-async function shimNames(page: Page): Promise<void> {
+export async function shimNames(page: Page): Promise<void> {
   await page.evaluate("window.__name = window.__name || ((fn) => fn)");
 }
 

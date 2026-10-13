@@ -17,6 +17,7 @@ const INSTRUCTION_SECTIONS = ["## New project", "## Existing project", "## Ongoi
 // Instruction-file names (CLAUDE.md, GEMINI.md) are fine: the package tells agents to write pointers into them.
 const VENDOR_TERMS = [/\bclaude\b(?!\.md)/i, /\bcodex\b/i, /\bcursor\b/i, /\bcopilot\b/i, /\bgemini\b(?!\.md)/i, /(^|\s)\/[a-z][a-z-]+\s/m];
 const BUNDLE_WORD_BUDGET = 6000;
+const BUNDLE_WORD_BUDGET_V2 = 7500;
 
 /** Markdown with fenced code removed, so examples inside code blocks don't trip prose rules. */
 function prose(markdown: string): string {
@@ -92,8 +93,9 @@ export function validateTemplate(tpl: LoadedTemplate): Finding[] {
   const intake = findIntake(tpl);
   for (const file of markdownFiles) {
     const name = file.slice(tpl.dir.length + 1).replaceAll("\\", "/");
-    const text = prose(readFileSync(file, "utf8"));
-    if (/TODO\(/.test(text)) err("skeleton.todo", `${name}: unfilled skeleton placeholder (TODO(...))`);
+    const raw = readFileSync(file, "utf8");
+    const text = prose(raw);
+    if (/TODO\(/.test(raw)) err("skeleton.todo", `${name}: unfilled skeleton placeholder (TODO(...))`);
     const hexes = text.match(/#[0-9a-fA-F]{6}\b/g);
     if (hexes) err("prose.raw-values", `${name}: raw hex values in prose (${[...new Set(hexes)].slice(0, 4).join(", ")}) — reference tokens instead`);
     for (const term of VENDOR_TERMS) {
@@ -127,11 +129,44 @@ export function validateTemplate(tpl: LoadedTemplate): Finding[] {
     }
   }
 
-  // Bundle budget (only when built)
+  // Schema 2: the concept travels as recipes — signature elements, interaction, and where they go.
+  if (manifest.schemaVersion >= 2) {
+    const principles = tpl.read(manifest.artifacts.principles).replace(/\r\n/g, "\n");
+    const section = (heading: string) => {
+      const at = principles.indexOf(`\n${heading}\n`);
+      if (at < 0) return null;
+      const rest = principles.slice(at + heading.length + 2);
+      const next = rest.search(/\n## /);
+      return next < 0 ? rest : rest.slice(0, next);
+    };
+    for (const heading of ["## Signature elements", "## Interaction", "## Applying the concept"]) {
+      if (section(heading) === null) err("concept.sections", `principles: missing "${heading}"`);
+    }
+    const signatures = section("## Signature elements");
+    if (signatures !== null) {
+      const items = signatures.split(/\n### /).slice(1);
+      if (!items.length) err("concept.signatures", "Signature elements needs at least one ### element");
+      for (const item of items) {
+        const title = item.split("\n")[0]!.trim();
+        for (const label of ["**What.**", "**Recipe.**", "**Motion.**", "**Where.**", "**Limits.**"]) {
+          if (!item.includes(label)) err("concept.signatures", `signature "${title}": missing ${label}`);
+        }
+        if (!/```[\s\S]+?```/.test(item)) err("concept.signatures", `signature "${title}": the recipe needs a code block`);
+      }
+    }
+    const applying = section("## Applying the concept");
+    if (applying !== null) {
+      const rows = applying.split("\n").filter((l) => /^\s*(\|(?!\s*-)|[-*] )/.test(l)).length;
+      if (rows < 7) err("concept.application", `Applying the concept covers ${Math.max(0, rows - 1)} context(s) — map at least 6, product screens included`);
+    }
+  }
+
+  // Bundle budget (only when built). Schema 2 packages carry recipes, so they get more room.
   const bundle = join(tpl.dir, "dist", "agent.md");
+  const budget = manifest.schemaVersion >= 2 ? BUNDLE_WORD_BUDGET_V2 : BUNDLE_WORD_BUDGET;
   if (existsSync(bundle)) {
     const words = readFileSync(bundle, "utf8").split(/\s+/).length;
-    if (words > BUNDLE_WORD_BUDGET) err("bundle.budget", `agent.md has ${words} words, budget is ${BUNDLE_WORD_BUDGET}`);
+    if (words > budget) err("bundle.budget", `agent.md has ${words} words, budget is ${budget}`);
   }
   return findings;
 }

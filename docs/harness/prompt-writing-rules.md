@@ -32,14 +32,34 @@ what make AI-built UIs look alike.
 - No page templates. Layout guidance is about grid, rhythm, content priority and breakpoints — the system
   must fit a dashboard, a store, a blog and a settings page equally. **[review]**
 
-## 4. Components are complete or honestly incomplete
+## 4. The concept travels as recipes
+
+A template is more than its tokens: the reference's signature elements, the way it moves and the way it
+responds are what make people recognize it. They must reach every screen an agent builds. Packages with
+`schemaVersion: 2` carry three more sections in `principles/visual-language.md`: **[lint]**
+
+- `## Signature elements` — one `###` per element with **What.**, **Recipe.** (with a code block),
+  **Motion.**, **Where.** and **Limits.** The recipe lets an agent build an original instance from nothing
+  — construction, technique, stroke and color by token — never the reference's artwork.
+- `## Interaction` — per element type, what hover, focus-visible, press and open change, by how much,
+  with which motion tokens.
+- `## Applying the concept` — a table of at least six contexts, product screens included (dashboard,
+  form, settings, data table, empty, error, loading), saying which elements each uses and how strongly.
+  Dense screens get less, never nothing.
+
+Motion is specified like any other value: keyframes, durations and easings as tokens or exact values,
+triggers, iterations, and what happens under `prefers-reduced-motion: reduce` (loops stop; content stays
+readable). New projects build the signature elements first, as reusable pieces; existing projects show
+them on the sample screen.
+
+## 5. Components are complete or honestly incomplete
 
 - Every component in `REQUIRED_COMPONENTS` is `specified` or `partial`. **[lint]**
 - A spec covers: purpose, anatomy, sizes, variants, states (default, hover, focus-visible, active,
   disabled, loading, error where relevant), token mapping, keyboard and screen-reader behavior.
 - Anything not specified is listed as such — agents must not invent it silently.
 
-## 5. Agent instructions
+## 6. Agent instructions
 
 `agent/instructions.md` has these sections, in order: **[lint]**
 `## New project`, `## Existing project`, `## Ongoing development`, `## Verification`, `## Rollback`.
@@ -50,22 +70,23 @@ what make AI-built UIs look alike.
 - Ongoing: install the pointer lines in `AGENTS.md`/`CLAUDE.md`; never hard-code new values.
 - Agent-neutral wording: no tool names, slash commands or vendor-specific syntax. **[lint]**
 
-## 6. Provenance — derived, not cloned
+## 7. Provenance — derived, not cloned
 
 - No brand names, product names, logos, wordmarks or trademarks from the reference. **[lint: names in intake.json]**
-- No copied text, illustrations, photos or icons. Describe the style of imagery instead.
+- No copied text, illustrations, photos or icons. Describe the style of imagery and give a recipe for
+  making original ones instead.
 - Proprietary fonts are replaced with the closest redistributable family; the substitution is recorded
   in `analysis.json`.
 - The template gets its own name. It must not contain the reference's name.
 - Distinctive signature elements (a unique logo-like shape, a trademarked color name) are generalized.
 
-## 7. Budget
+## 8. Budget
 
-- `agent.md` (the bundle) stays under ~6,000 words. Details beyond that are served on demand by MCP
+- `agent.md` (the bundle) stays under ~6,000 words (7,500 for `schemaVersion: 2`, which carries recipes). Details beyond that are served on demand by MCP
   (`get_component_spec`). **[lint]**
 - Lead with what matters most: character summary, the 10 rules that define the look, then tokens.
 
-## 8. Change discipline
+## 9. Change discipline
 
 - Every iteration records what changed and why in `pipeline/<slug>/iterations.md`.
 - Published versions never change. A fix is a new version with a `CHANGELOG.md` entry
