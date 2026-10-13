@@ -51,10 +51,20 @@ screenshot and spec links, because users don't set environment variables for it.
 Published unscoped from a personal npm account (the workspace package is still `@pigment/mcp`; only the
 release manifest written by `packages/mcp/scripts/build.ts` uses the public name).
 
-1. On npmjs.com, create a granular access token with publish rights (or an automation token).
-2. Add it to the GitHub repo as the secret `NPM_TOKEN`.
-3. Push to `main`. `.github/workflows/release-mcp.yml` publishes `packages/mcp/package.json`'s version
-   if it is not on npm yet, with provenance, and tags `mcp-v<version>`.
+CI publishes with npm trusted publishing (OIDC): no token is stored anywhere. A trusted publisher is set
+on an existing package, so the very first version goes up by hand:
+
+1. First release, from your machine:
+   ```bash
+   npm login
+   pnpm --filter @pigment/mcp release:build
+   npm publish ./packages/mcp/release --access public
+   ```
+2. On npmjs.com → `pigment-mcp` → Settings → Trusted Publisher → GitHub Actions: owner `mirunamu00`,
+   repository `pigment`, workflow filename `release-mcp.yml`. Then, under Publishing access, choose
+   "Require two-factor authentication and disallow tokens".
+3. From then on `.github/workflows/release-mcp.yml` publishes `packages/mcp/package.json`'s version on
+   every push to `main` when it is not on npm yet (with provenance) and tags `mcp-v<version>`.
 
 From then on, `pnpm harness publish` bumps the MCP package version with every new system, and the next
 push to `main` releases it.
