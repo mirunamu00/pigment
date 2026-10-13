@@ -18,7 +18,18 @@ import pkg from "../package.json" with { type: "json" };
 export const SERVER_VERSION = pkg.version;
 
 const id = z.string().describe('Design system id, e.g. "margin-notes" (see list_design_systems)');
-const version = z.string().describe('Exact version such as "1.0.0". Pin the version a project installed; "latest" only when starting fresh.');
+const version = z
+  .string()
+  .default("latest")
+  .describe('Leave out (or "latest") when adding a system to a project. If the project has design-system/VERSION (e.g. margin-notes@1.0.0), pass that exact version.');
+
+// Sent to the client at connection time; most hosts put it in the agent's context.
+const INSTRUCTIONS = [
+  "Pigment serves versioned design systems. Published versions never change.",
+  "Before UI work, check the project for design-system/VERSION. If it exists, use exactly that id and version in every call.",
+  "If it does not, the user is adding a system: omit the version (latest), then record the exact id@version that get_design_system reports in design-system/VERSION.",
+  "Only change the recorded version when the user asks to upgrade.",
+].join("\n");
 const mode = z.enum(["new", "existing", "ongoing"]);
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
@@ -55,7 +66,8 @@ function specForMcp(systemId: string, pinned: string): string {
   ].join("\n");
   const body = start < 0 ? md : md.slice(0, start) + chapter + (end < 0 ? "" : md.slice(end));
   return [
-    `> Delivered over MCP as ${systemId}@${pinned}. Where this document says tokens.css or tokens.json, call get_tokens and copy the file verbatim.`,
+    `> Delivered over MCP as ${systemId}@${pinned}. Record exactly \`${systemId}@${pinned}\` in design-system/VERSION and pass version "${pinned}" in every later call.`,
+    "> Where this document says tokens.css or tokens.json, call get_tokens and copy the file verbatim.",
     "",
     body,
   ].join("\n");
@@ -63,7 +75,7 @@ function specForMcp(systemId: string, pinned: string): string {
 
 /** One server instance per connection (stdio) or per request (HTTP); content is read on demand. */
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "pigment", title: "Pigment design systems", version: SERVER_VERSION });
+  const server = new McpServer({ name: "pigment", title: "Pigment design systems", version: SERVER_VERSION }, { instructions: INSTRUCTIONS });
 
   server.registerTool(
     "list_design_systems",
@@ -92,7 +104,7 @@ export function createServer(): McpServer {
     {
       title: "Get design system",
       description:
-        "The full specification of one pinned version: character, the defining rules, color, type, spacing and motion rules, semantic and primitive token tables, setup and verification. Read it before changing any UI.",
+        "The full specification of one version (the latest unless the project pins one): character, the defining rules, color, type, spacing and motion rules, semantic and primitive token tables, setup and verification. Read it before changing any UI.",
       inputSchema: z.object({ id, version }),
       annotations: { readOnlyHint: true },
     },

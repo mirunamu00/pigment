@@ -37,9 +37,10 @@ claude mcp add --transport http pigment https://pigmentui.com/mcp
 
 **2 · Just ask**
 
-> Apply the Pigment design system margin-notes@1.0.0 to this project.
+> Apply the Pigment design system margin-notes to this project.
 
-That's it. Your agent reads the spec through the Pigment tools and keeps using it for every new screen.
+That's it. Your agent takes the latest version, records it in `design-system/VERSION`, and keeps every new
+screen on it — a new release never restyles your project unless you ask for an upgrade.
 
 <details>
 <summary><b>Codex, Cursor and other MCP clients</b></summary>

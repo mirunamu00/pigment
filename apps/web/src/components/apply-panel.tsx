@@ -28,7 +28,7 @@ export function ApplyPanel({ id, version, name }: { id: string; version: string;
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const prompt = buildPrompt(id, version, mode, delivery);
   const connect = connectSnippet(agent, "remote");
-  const request = mcpRequest(id, version, mode);
+  const request = mcpRequest(id, mode);
   const reset = <T,>(set: (v: T) => void) => (v: T) => {
     set(v);
     setStatus(null);
@@ -84,9 +84,9 @@ export function ApplyPanel({ id, version, name }: { id: string; version: string;
           <div className="apply__step" style={{ position: "relative", marginBottom: 30 }}>
             <span className="apply__step-label">Then just ask</span>
             <p className="apply__ask">“{request}”</p>
-            <span className="meta">No prompt to paste — the agent reads the spec through the Pigment tools.</span>
+            <span className="meta">No prompt to paste — the agent reads the spec through the Pigment tools and records the version it used.</span>
             <Note arrow="up-left" arrowFirst style={{ right: 4, bottom: -40, color: "var(--ink-2)" }}>
-              <span style={{ paddingTop: 10, display: "block", fontSize: 20 }}>version is pinned</span>
+              <span style={{ paddingTop: 10, display: "block", fontSize: 20 }}>latest, then pinned</span>
             </Note>
           </div>
         </>

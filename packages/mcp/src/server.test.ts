@@ -53,6 +53,14 @@ test("tokens, components and guides come from the pinned version", async () => {
   assert.match(guide, /## Verification/);
 });
 
+test("the version can be left out: latest is served and the exact version is named for the project to record", async () => {
+  const spec = textOf(await client.callTool({ name: "get_design_system", arguments: { id: "fixture-system" } }));
+  assert.match(spec, /Record exactly `fixture-system@1\.0\.0` in design-system\/VERSION/);
+  const css = textOf(await client.callTool({ name: "get_tokens", arguments: { id: "fixture-system" } }));
+  assert.match(css, /--color-/);
+  assert.match(client.getInstructions() ?? "", /design-system\/VERSION/);
+});
+
 test("unknown versions are tool errors with a stable code, not crashes", async () => {
   const r = (await client.callTool({ name: "get_design_system", arguments: { id: "fixture-system", version: "9.9.9" } })) as Text;
   assert.equal(r.isError, true);

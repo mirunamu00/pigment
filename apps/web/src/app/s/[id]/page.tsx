@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { contrastRatio, getComponents, getManifest, getTokens, listTemplates, registry, type TemplateSummary } from "@pigment/content";
+import { contrastRatio, getChangelog, getComponents, getManifest, getTokens, listTemplates, registry, type TemplateSummary } from "@pigment/content";
 import { ApplyPanel } from "@/components/apply-panel";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { DemoViewer } from "@/components/demo-viewer";
@@ -46,6 +46,11 @@ const SEMANTIC_ORDER = [
   "color.status.danger",
   "color.status.info",
 ];
+
+/** Changelog text with `backticks` rendered as code. */
+function inlineCode(text: string) {
+  return text.split(/(`[^`]+`)/).map((part, i) => (part.startsWith("`") && part.endsWith("`") ? <code key={i}>{part.slice(1, -1)}</code> : part));
+}
 
 function grade(ratio: number, path: string): string {
   if (path.startsWith("color.surface") || path.startsWith("color.border")) return "—";
@@ -205,19 +210,44 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
             <section aria-labelledby="log-h">
               <div className="section-head">
                 <h2 id="log-h">Versions</h2>
+                <span className="meta">Published versions never change</span>
               </div>
-              <div className="spec-rows">
-                {[...versions].reverse().map((v) => (
-                  <div key={v.version}>
-                    <span className="mono">{v.version}</span>
-                    <span className="meta">
-                      {v.status}
-                      {v.publishedAt ? ` · ${v.publishedAt.slice(0, 10)}` : ""}
-                      {v.version === version ? " · current" : ""}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <p className="versions__intro">
+                Applying a system records the version in the project&apos;s <code>design-system/VERSION</code>, and every later
+                screen uses that version — a new release never restyles a project unless you ask your agent to upgrade it.
+                Leave the version out and your agent starts from the latest.
+              </p>
+              <ol className="versions">
+                {[...versions].reverse().map((v) => {
+                  const log = getChangelog(id, v.version);
+                  return (
+                    <li key={v.version} className="versions__item">
+                      <div className="versions__head">
+                        <span className="mono versions__num">{v.version}</span>
+                        {v.version === version && <span className="status-pill">latest</span>}
+                        <span className="meta">{v.publishedAt ? `Published ${v.publishedAt.slice(0, 10)}` : v.status}</span>
+                        <span className="versions__links meta">
+                          <a href={`/s/${id}/${v.version}/agent.md`}>Spec</a>
+                          <a href={`/download/${id}/${v.version}`}>Package</a>
+                        </span>
+                      </div>
+                      {log.summary && <p className="versions__summary">{inlineCode(log.summary)}</p>}
+                      {log.changes.length > 0 && (
+                        <details className="versions__changes">
+                          <summary>
+                            {log.changes.length} change{log.changes.length === 1 ? "" : "s"} {log.since ? `since ${log.since}` : "in this version"}
+                          </summary>
+                          <ul>
+                            {log.changes.map((c, i) => (
+                              <li key={i}>{inlineCode(c)}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
             </section>
           </div>
 

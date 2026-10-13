@@ -56,7 +56,7 @@ test.describe("system detail", () => {
     await expect(panel.locator("pre").last()).toContainText("Set up design system");
     await panel.getByRole("group", { name: "Spec delivery" }).getByRole("button", { name: "MCP" }).click();
     await expect(panel.getByRole("button", { name: "Copy command" })).toBeVisible();
-    await expect(panel.locator(".apply__ask")).toContainText(`Set up the Pigment design system ${ID}@${VERSION}`);
+    await expect(panel.locator(".apply__ask")).toContainText(`Set up the Pigment design system ${ID} in this project`);
     await panel.getByRole("group", { name: "Agent" }).getByRole("button", { name: "Codex" }).click();
     await expect(panel.getByText("Exact config format follows")).toBeVisible();
   });

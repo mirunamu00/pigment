@@ -47,11 +47,13 @@ export function buildPrompt(id: string, version: string, mode: Mode, delivery: D
  * With the MCP server connected there is nothing to paste: the agent finds the tools itself, so the site only
  * suggests what to say. The working agreement (plan first, sample screen) comes from the server's guide.
  */
-export function mcpRequest(id: string, version: string, mode: Mode): string {
-  const ref = `${id}@${version}`;
+export function mcpRequest(id: string, mode: Mode, version?: string): string {
+  // No version: the agent takes the latest and records it in design-system/VERSION. An ongoing project
+  // already has that file, so it never needs the id either.
+  const ref = version ? `${id}@${version}` : id;
   if (mode === "new") return `Set up the Pigment design system ${ref} in this project.`;
   if (mode === "existing") return `Apply the Pigment design system ${ref} to this project.`;
-  return `Build this screen with the Pigment design system ${ref}.`;
+  return "Build this screen with our Pigment design system.";
 }
 
 export type Client ="claude" | "codex" | "cursor" | "vscode" | "other";

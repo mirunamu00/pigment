@@ -33,7 +33,7 @@ Prefer nothing to install? The same server runs remotely: `claude mcp add --tran
 
 Start a new session and just ask:
 
-> Apply the Pigment design system margin-notes@1.0.0 to this project.
+> Apply the Pigment design system margin-notes to this project.
 
 Or run the `apply` prompt (Claude Code: `/mcp__pigment__apply`), which adds the working agreement: audit first,
 propose a plan, restyle one sample screen, then report build and visual checks.

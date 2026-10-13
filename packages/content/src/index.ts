@@ -134,6 +134,34 @@ export function packageFile(id: string, version: string): string {
   return file;
 }
 
+/**
+ * One version's entry from its CHANGELOG.md: the opening paragraph as a summary and the bullet list of
+ * changes (continuation lines folded in). Empty when the version has no entry.
+ */
+export function getChangelog(id: string, version: string): { summary: string; changes: string[]; since?: string } {
+  const pinned = resolveVersion(id, version);
+  let md: string;
+  try {
+    md = readArtifact(id, pinned, "CHANGELOG.md").replace(/\r\n/g, "\n");
+  } catch {
+    return { summary: "", changes: [] };
+  }
+  const start = md.indexOf(`\n## ${pinned}\n`);
+  if (start < 0) return { summary: "", changes: [] };
+  const rest = md.slice(start + pinned.length + 5);
+  const section = rest.slice(0, rest.search(/\n## |$/)).trim();
+  const blocks = section.split(/\n\s*\n/);
+  const summary = (blocks[0] ?? "").replace(/\s*\n\s*/g, " ").trim();
+  const changes: string[] = [];
+  for (const line of section.split("\n")) {
+    if (line.startsWith("- ")) changes.push(line.slice(2).trim());
+    else if (/^\s+\S/.test(line) && changes.length) changes[changes.length - 1] += ` ${line.trim()}`;
+  }
+  // "Changes since 0.1.0-rc.3 (...)": the list is relative to that version, not everything in this one.
+  const since = /^Changes since (\S+?)[\s(:]/m.exec(section)?.[1];
+  return { summary, changes, since };
+}
+
 /** The pinned version "latest" points to. */
 export function resolveVersion(id: string, version: string): string {
   return getManifest(id, version).version;
