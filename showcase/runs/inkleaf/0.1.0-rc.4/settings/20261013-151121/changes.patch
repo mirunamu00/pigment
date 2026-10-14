@@ -1,0 +1,2637 @@
+diff --git a/index.html b/index.html
+index 6285f3e..1c44a76 100644
+--- a/index.html
++++ b/index.html
+@@ -3,7 +3,14 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <meta name="color-scheme" content="light dark" />
+     <link rel="icon" href="data:," />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500&family=JetBrains+Mono:wght@400&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&display=swap"
++    />
+     <title>Account Settings</title>
+   </head>
+   <body>
+diff --git a/src/App.tsx b/src/App.tsx
+index 3f09961..cd83fc6 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -5,10 +5,13 @@ import NotificationsPage from './pages/NotificationsPage';
+ import SecurityPage from './pages/SecurityPage';
+ import BillingPage from './pages/BillingPage';
+ import NotFoundPage from './pages/NotFoundPage';
++import BrushDefs from './components/ink/BrushDefs';
+ 
+ export default function App() {
+   return (
+-    <Routes>
++    <>
++      <BrushDefs />
++      <Routes>
+       <Route index element={<Navigate to="/settings/profile" replace />} />
+       <Route path="settings" element={<Layout />}>
+         <Route index element={<Navigate to="/settings/profile" replace />} />
+@@ -21,6 +24,7 @@ export default function App() {
+       <Route element={<Layout />}>
+         <Route path="*" element={<NotFoundPage />} />
+       </Route>
+-    </Routes>
++      </Routes>
++    </>
+   );
+ }
+diff --git a/src/components/ConfirmDialog.tsx b/src/components/ConfirmDialog.tsx
+index 0ac9dd1..85d48a0 100644
+--- a/src/components/ConfirmDialog.tsx
++++ b/src/components/ConfirmDialog.tsx
+@@ -48,15 +48,23 @@ export default function ConfirmDialog({
+       }}
+       data-testid={testId}
+     >
+-      <h2 id={`${testId}-title`}>{title}</h2>
++      <h2 id={`${testId}-title`} className="dialog-title">
++        {title}
++      </h2>
+       <div id={`${testId}-body`} className="dialog-body">
+         {children}
+       </div>
+       <div className="dialog-actions">
+-        <button ref={cancelRef} type="button" className="button" onClick={onCancel} data-testid={`${testId}-cancel`}>
++        <button
++          ref={cancelRef}
++          type="button"
++          className="btn btn--secondary"
++          onClick={onCancel}
++          data-testid={`${testId}-cancel`}
++        >
+           Cancel
+         </button>
+-        <button type="button" className="button button-primary" onClick={onConfirm} data-testid={`${testId}-confirm`}>
++        <button type="button" className="btn btn--primary" onClick={onConfirm} data-testid={`${testId}-confirm`}>
+           {confirmLabel}
+         </button>
+       </div>
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 8802b51..4974ca0 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,14 +1,87 @@
+-import { NavLink, Outlet } from 'react-router';
++import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
++import { NavLink, Outlet, useLocation } from 'react-router';
+ import { currentUser } from '../data/account';
++import { prefersReducedMotion } from './ink/motion';
++import { avatarTone } from './avatar';
++
++function NavIcon({ children }: { children: ReactNode }) {
++  return (
++    <svg className="nav-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
++      {children}
++    </svg>
++  );
++}
+ 
+ const SECTIONS = [
+-  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile' },
+-  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications' },
+-  { to: '/settings/security', label: 'Security', testId: 'nav-security' },
+-  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing' },
++  {
++    to: '/settings/profile',
++    label: 'Profile',
++    testId: 'nav-profile',
++    icon: <path d="M8 7.75a2.75 2.75 0 1 0 0-5.5a2.75 2.75 0 0 0 0 5.5Z M2.75 13.75c.6-2.5 2.6-3.75 5.25-3.75s4.65 1.25 5.25 3.75" />,
++  },
++  {
++    to: '/settings/notifications',
++    label: 'Notifications',
++    testId: 'nav-notifications',
++    icon: <path d="M3.75 11.25V7a4.25 4.25 0 0 1 8.5 0v4.25l1.25 1.25h-11Z M6.5 14.25a1.6 1.6 0 0 0 3 0" />,
++  },
++  {
++    to: '/settings/security',
++    label: 'Security',
++    testId: 'nav-security',
++    icon: <path d="M3.75 7.25h8.5v6.5h-8.5Z M5.5 7.25V5a2.5 2.5 0 0 1 5 0v2.25" />,
++  },
++  {
++    to: '/settings/billing',
++    label: 'Billing',
++    testId: 'nav-billing',
++    icon: <path d="M1.75 3.75h12.5v8.5H1.75Z M1.75 6.75h12.5 M4.25 9.75h2.5" />,
++  },
+ ];
+ 
++const visitedRoutes = new Set<string>();
++
++/**
++ * Block rise on a route's first visit: blocks below the fold are hidden by script and rise
++ * when 15% enters view. Blocks in view on load are never hidden.
++ */
++function useBlockRise(main: RefObject<HTMLElement | null>, pathname: string) {
++  useEffect(() => {
++    const root = main.current;
++    if (!root || visitedRoutes.has(pathname) || prefersReducedMotion()) return;
++    visitedRoutes.add(pathname);
++    const below = Array.from(root.querySelectorAll<HTMLElement>('[data-rise]')).filter(
++      (block) => block.getBoundingClientRect().top > window.innerHeight,
++    );
++    if (below.length === 0) return;
++    below.forEach((block) => block.classList.add('is-rise-ready'));
++    const observer = new IntersectionObserver(
++      (entries) => {
++        let sibling = 0;
++        for (const entry of entries) {
++          if (!entry.isIntersecting) continue;
++          const block = entry.target as HTMLElement;
++          block.style.setProperty('--rise-delay', `${Math.min(sibling, 3) * 100}ms`);
++          sibling += 1;
++          block.classList.remove('is-rise-ready');
++          observer.unobserve(block);
++        }
++      },
++      { threshold: 0.15 },
++    );
++    below.forEach((block) => observer.observe(block));
++    return () => {
++      observer.disconnect();
++      below.forEach((block) => block.classList.remove('is-rise-ready'));
++    };
++  }, [main, pathname]);
++}
++
+ export default function Layout() {
++  const mainRef = useRef<HTMLElement>(null);
++  const { pathname } = useLocation();
++  useBlockRise(mainRef, pathname);
++
+   return (
+     <div className="app-shell">
+       <a className="skip-link" href="#main-content">
+@@ -17,10 +90,10 @@ export default function Layout() {
+       <header className="topbar">
+         <div className="brand">Account Settings</div>
+         <div className="person" data-testid="current-user">
+-          <span className="avatar avatar-small" aria-hidden="true">
++          <span className={`avatar avatar--sm avatar--${avatarTone(currentUser.name)}`} aria-hidden="true">
+             {currentUser.initials}
+           </span>
+-          <span>{currentUser.name}</span>
++          <span className="person-name">{currentUser.name}</span>
+         </div>
+       </header>
+ 
+@@ -31,6 +104,7 @@ export default function Layout() {
+               {SECTIONS.map((section) => (
+                 <li key={section.to}>
+                   <NavLink to={section.to} className="nav-link" data-testid={section.testId}>
++                    <NavIcon>{section.icon}</NavIcon>
+                     {section.label}
+                   </NavLink>
+                 </li>
+@@ -39,7 +113,7 @@ export default function Layout() {
+           </nav>
+         </aside>
+ 
+-        <main id="main-content" className="content" tabIndex={-1}>
++        <main id="main-content" className="content" tabIndex={-1} ref={mainRef}>
+           <Outlet />
+         </main>
+       </div>
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..623aa1a 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '../design-system/tokens.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/BillingPage.tsx b/src/pages/BillingPage.tsx
+index 54b10a4..ce8ece8 100644
+--- a/src/pages/BillingPage.tsx
++++ b/src/pages/BillingPage.tsx
+@@ -1,6 +1,13 @@
+ import { useState } from 'react';
+ import ConfirmDialog from '../components/ConfirmDialog';
+ import { initialPlanId, invoices, paymentMethod, plans, type Plan, type PlanId } from '../data/billing';
++import PageHeader from '../components/ink/PageHeader';
++import Pictogram from '../components/ink/Pictogram';
++import Stage, { STAGE_LINES } from '../components/ink/Stage';
++import { CheckCircle } from '../components/ink/Working';
++import { briefcase, hourglass, priceTag, thumbtack, type Drawing } from '../components/ink/drawings';
++
++const PLAN_DRAWINGS: Record<PlanId, Drawing> = { free: thumbtack, pro: hourglass, business: briefcase };
+ 
+ export default function BillingPage() {
+   const [currentPlanId, setCurrentPlanId] = useState<PlanId>(initialPlanId);
+@@ -18,81 +25,87 @@ export default function BillingPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Billing</h1>
+-        <p className="muted">
++      <PageHeader title="Billing" drawing={priceTag}>
++        <p className="lede">
+           You are on the <strong data-testid="current-plan-name">{currentPlan.name}</strong> plan.
+         </p>
+-      </div>
++      </PageHeader>
+ 
+-      <section className="panel" aria-labelledby="plans-heading">
+-        <h2 id="plans-heading">Plans</h2>
+-        <ul className="plan-grid">
+-          {plans.map((plan) => {
+-            const isCurrent = plan.id === currentPlanId;
+-            return (
+-              <li
+-                key={plan.id}
+-                className={isCurrent ? 'card plan-card plan-card-current' : 'card plan-card'}
+-                data-testid={`plan-card-${plan.id}`}
+-                data-current={isCurrent ? 'true' : 'false'}
+-                aria-current={isCurrent ? 'true' : undefined}
+-              >
+-                <h3>{plan.name}</h3>
+-                <p className="plan-price">
+-                  <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
+-                </p>
+-                <ul className="feature-list">
+-                  {plan.features.map((feature) => (
+-                    <li key={feature}>
+-                      <svg className="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+-                        <path d="M3 8.5l3 3l7-7" fill="none" stroke="currentColor" strokeWidth="2" />
+-                      </svg>
+-                      <span>{feature}</span>
+-                    </li>
+-                  ))}
+-                </ul>
+-                {isCurrent ? (
+-                  <p className="pill pill-current" data-testid="current-plan-badge">
+-                    Current plan
++      <section className="plans" aria-labelledby="plans-heading" data-rise>
++        <h2 id="plans-heading" className="group-title">
++          Plans
++        </h2>
++        <Stage tone="lilac" lines={STAGE_LINES.plans}>
++          <ul className="plan-grid">
++            {plans.map((plan, index) => {
++              const isCurrent = plan.id === currentPlanId;
++              return (
++                <li
++                  key={plan.id}
++                  className={isCurrent ? 'card plan-card plan-card-current' : 'card plan-card'}
++                  data-testid={`plan-card-${plan.id}`}
++                  data-current={isCurrent ? 'true' : 'false'}
++                  aria-current={isCurrent ? 'true' : undefined}
++                >
++                  <Pictogram drawing={PLAN_DRAWINGS[plan.id]} size="md" alt={index === 1} className="plan-picto" />
++                  <h3 className="plan-name">{plan.name}</h3>
++                  <p className="plan-price">
++                    <span className="plan-amount">{plan.price}</span> <span className="plan-period">{plan.period}</span>
+                   </p>
+-                ) : (
+-                  <button
+-                    type="button"
+-                    className="button"
+-                    onClick={() => setPendingPlan(plan)}
+-                    data-testid={`choose-plan-${plan.id}`}
+-                  >
+-                    Switch to {plan.name}
+-                  </button>
+-                )}
+-              </li>
+-            );
+-          })}
+-        </ul>
++                  <ul className="feature-list">
++                    {plan.features.map((feature) => (
++                      <li key={feature}>
++                        <CheckCircle />
++                        <span>{feature}</span>
++                      </li>
++                    ))}
++                  </ul>
++                  {isCurrent ? (
++                    <p className="badge plan-badge" data-testid="current-plan-badge">
++                      Current plan
++                    </p>
++                  ) : (
++                    <button
++                      type="button"
++                      className="btn btn--primary btn--block"
++                      onClick={() => setPendingPlan(plan)}
++                      data-testid={`choose-plan-${plan.id}`}
++                    >
++                      Switch to {plan.name}
++                    </button>
++                  )}
++                </li>
++              );
++            })}
++          </ul>
++        </Stage>
+         <p role="status" className="status-message" data-testid="plan-status">
++          {message && <CheckCircle />}
+           {message}
+         </p>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="payment-heading">
+-        <h2 id="payment-heading">Payment method</h2>
++      <section className="panel" aria-labelledby="payment-heading" data-rise>
++        <h2 id="payment-heading" className="panel-title">
++          Payment method
++        </h2>
+         <div className="payment-method" data-testid="payment-method">
+-          <svg className="card-icon" viewBox="0 0 32 22" width="32" height="22" aria-hidden="true" focusable="false">
+-            <rect x="1" y="1" width="30" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-            <rect x="1" y="6" width="30" height="4" fill="currentColor" />
++          <svg className="card-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
++            <path d="M2.25 4.75h15.5v10.5H2.25Z M2.25 8.25h15.5 M5 12.25h3" />
+           </svg>
+-          <span>
++          <span className="payment-card">
+             {paymentMethod.brand} ending in {paymentMethod.last4}
+           </span>
+-          <span className="muted small">Expires {paymentMethod.expires}</span>
++          <span className="payment-meta">Expires {paymentMethod.expires}</span>
+         </div>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="invoices-heading">
+-        <h2 id="invoices-heading">Invoices</h2>
++      <section className="panel panel--table" aria-labelledby="invoices-heading" data-rise>
++        <h2 id="invoices-heading" className="panel-title">
++          Invoices
++        </h2>
+         <div className="table-wrap">
+-          <table className="table" data-testid="invoices-table">
++          <table className="table table--stack" data-testid="invoices-table">
+             <thead>
+               <tr>
+                 <th scope="col">Invoice</th>
+@@ -106,11 +119,14 @@ export default function BillingPage() {
+             <tbody>
+               {invoices.map((invoice) => (
+                 <tr key={invoice.id} data-testid="invoice-row">
+-                  <td>{invoice.id}</td>
+-                  <td>{invoice.date}</td>
+-                  <td className="numeric">{invoice.amount}</td>
+-                  <td>
+-                    <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
++                  <td data-label="Invoice">{invoice.id}</td>
++                  <td data-label="Date">{invoice.date}</td>
++                  <td data-label="Amount" className="numeric">
++                    {invoice.amount}
++                  </td>
++                  <td data-label="Status">
++                    <span className={invoice.status === 'Paid' ? 'badge badge--success' : 'badge badge--warning'}>
++                      <span className="badge-dot" aria-hidden="true" />
+                       {invoice.status}
+                     </span>
+                   </td>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 9781ca6..31e7e86 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,26 @@
+-import { Link } from 'react-router';
++import { Link, useNavigate } from 'react-router';
++import Pictogram from '../components/ink/Pictogram';
++import Stage, { STAGE_LINES } from '../components/ink/Stage';
++import WriteIn from '../components/ink/WriteIn';
++import { pocketCompass } from '../components/ink/drawings';
+ 
+ export default function NotFoundPage() {
++  const navigate = useNavigate();
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The settings page you are looking for does not exist or has moved.</p>
+-      <Link to="/settings/profile">Go to profile settings</Link>
++    <section className="empty-state empty-state--error" data-testid="not-found">
++      <Stage tone="apricot" lines={STAGE_LINES.notFound} variant="drawing" className="empty-state-stage">
++        <Pictogram drawing={pocketCompass} size="xl" />
++      </Stage>
++      <WriteIn as="h1" text="Page not found" />
++      <p className="empty-state-line">The settings page you are looking for does not exist or has moved.</p>
++      <div className="empty-state-actions">
++        <Link to="/settings/profile" className="btn btn--primary">
++          Go to profile settings
++        </Link>
++        <button type="button" className="btn btn--secondary" onClick={() => navigate(-1)}>
++          Go back
++        </button>
++      </div>
+     </section>
+   );
+ }
+diff --git a/src/pages/NotificationsPage.tsx b/src/pages/NotificationsPage.tsx
+index 040835b..118fb96 100644
+--- a/src/pages/NotificationsPage.tsx
++++ b/src/pages/NotificationsPage.tsx
+@@ -1,5 +1,7 @@
+ import { useState } from 'react';
+ import { notificationGroups } from '../data/notifications';
++import PageHeader from '../components/ink/PageHeader';
++import { serviceBell } from '../components/ink/drawings';
+ 
+ function initialState(): Record<string, boolean> {
+   const state: Record<string, boolean> = {};
+@@ -21,18 +23,17 @@ export default function NotificationsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Notifications</h1>
+-        <p className="muted">Choose what you hear about and where. Changes apply right away.</p>
+-        <p className="small" data-testid="notifications-count">
++      <PageHeader title="Notifications" drawing={serviceBell}>
++        <p className="lede">Choose what you hear about and where. Changes apply right away.</p>
++        <p className="page-meta" data-testid="notifications-count">
+           {onCount} of {total} notifications on
+         </p>
+-      </div>
++      </PageHeader>
+ 
+       {notificationGroups.map((group) => (
+-        <fieldset key={group.id} className="panel fieldset" data-testid={`notification-group-${group.id}`}>
++        <fieldset key={group.id} className="panel fieldset" data-testid={`notification-group-${group.id}`} data-rise>
+           <legend className="legend">{group.title}</legend>
+-          <p className="muted small">{group.description}</p>
++          <p className="panel-description">{group.description}</p>
+           <ul className="switch-list">
+             {group.settings.map((setting) => {
+               const inputId = `switch-${setting.id}`;
+@@ -43,20 +44,23 @@ export default function NotificationsPage() {
+                     <label htmlFor={inputId} className="field-label">
+                       {setting.label}
+                     </label>
+-                    <p id={descriptionId} className="muted small">
++                    <p id={descriptionId} className="switch-description">
+                       {setting.description}
+                     </p>
+                   </div>
+-                  <input
+-                    id={inputId}
+-                    type="checkbox"
+-                    role="switch"
+-                    className="switch"
+-                    checked={enabled[setting.id] ?? false}
+-                    onChange={() => toggle(setting.id)}
+-                    aria-describedby={descriptionId}
+-                    data-testid={inputId}
+-                  />
++                  <span className="switch-control">
++                    <input
++                      id={inputId}
++                      type="checkbox"
++                      role="switch"
++                      className="switch"
++                      checked={enabled[setting.id] ?? false}
++                      onChange={() => toggle(setting.id)}
++                      aria-describedby={descriptionId}
++                      data-testid={inputId}
++                    />
++                    <span className="switch-thumb" aria-hidden="true" />
++                  </span>
+                 </li>
+               );
+             })}
+diff --git a/src/pages/ProfilePage.tsx b/src/pages/ProfilePage.tsx
+index 89f0a81..2faaf5d 100644
+--- a/src/pages/ProfilePage.tsx
++++ b/src/pages/ProfilePage.tsx
+@@ -1,5 +1,9 @@
+ import { useState, type ChangeEvent, type FormEvent } from 'react';
+ import { BIO_MAX_LENGTH, currentUser, initialProfile, timeZones, type Profile } from '../data/account';
++import { avatarTone } from '../components/avatar';
++import PageHeader from '../components/ink/PageHeader';
++import { CheckCircle } from '../components/ink/Working';
++import { fountainPen } from '../components/ink/drawings';
+ 
+ type ProfileErrors = Partial<Record<keyof Profile, string>>;
+ 
+@@ -55,30 +59,29 @@ export default function ProfilePage() {
+       .map((part) => part[0]?.toUpperCase())
+       .join('') || currentUser.initials;
+ 
++  const errorCount = Object.keys(errors).length;
++
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Profile</h1>
+-        <p className="muted">This information is shown to people in your workspace.</p>
+-      </div>
++      <PageHeader title="Profile" drawing={fountainPen}>
++        <p className="lede">This information is shown to people in your workspace.</p>
++      </PageHeader>
+ 
+-      <form className="panel form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
++      <form className="panel form" noValidate onSubmit={handleSubmit} data-testid="profile-form" data-rise>
+         <div className="avatar-row">
+-          <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
++          <span
++            className={`avatar avatar--lg avatar--${avatarTone(profile.fullName || currentUser.name)}`}
++            data-testid="profile-avatar"
++            aria-hidden="true"
++          >
+             {initials}
+           </span>
+-          <div>
++          <div className="avatar-row-text">
+             <p className="field-label">Profile photo</p>
+-            <p className="muted small">A placeholder with your initials is shown until you upload a photo.</p>
+-            <button type="button" className="button" data-testid="change-photo">
+-              <svg className="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+-                <path
+-                  d="M4 7h3l2-2h6l2 2h3v12H4z M12 10a3 3 0 1 0 0 6a3 3 0 0 0 0-6"
+-                  fill="none"
+-                  stroke="currentColor"
+-                  strokeWidth="2"
+-                  strokeLinejoin="round"
+-                />
++            <p className="hint">A placeholder with your initials is shown until you upload a photo.</p>
++            <button type="button" className="btn btn--secondary btn--sm" data-testid="change-photo">
++              <svg className="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
++                <path d="M2 5.25h2.25l1.5-1.75h4.5l1.5 1.75H14v7.5H2Z M8 6.75a2 2 0 1 0 0 4a2 2 0 0 0 0-4" />
+               </svg>
+               <span>Change photo</span>
+             </button>
+@@ -132,7 +135,7 @@ export default function ProfilePage() {
+ 
+           <div className="field">
+             <label htmlFor="profile-jobTitle" className="field-label">
+-              Job title <span className="muted small">(optional)</span>
++              Job title <span className="optional">(optional)</span>
+             </label>
+             <input
+               id="profile-jobTitle"
+@@ -149,22 +152,27 @@ export default function ProfilePage() {
+             <label htmlFor="profile-timeZone" className="field-label">
+               Time zone
+             </label>
+-            <select
+-              id="profile-timeZone"
+-              className="input"
+-              value={profile.timeZone}
+-              onChange={update('timeZone')}
+-              aria-invalid={errors.timeZone ? true : undefined}
+-              aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
+-              data-testid="profile-timezone"
+-            >
+-              <option value="">Select a time zone</option>
+-              {timeZones.map((zone) => (
+-                <option key={zone.value} value={zone.value}>
+-                  {zone.label}
+-                </option>
+-              ))}
+-            </select>
++            <span className="select">
++              <select
++                id="profile-timeZone"
++                className="input"
++                value={profile.timeZone}
++                onChange={update('timeZone')}
++                aria-invalid={errors.timeZone ? true : undefined}
++                aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
++                data-testid="profile-timezone"
++              >
++                <option value="">Select a time zone</option>
++                {timeZones.map((zone) => (
++                  <option key={zone.value} value={zone.value}>
++                    {zone.label}
++                  </option>
++                ))}
++              </select>
++              <svg className="select-chevron" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
++                <path d="M4 6l4 4l4-4" />
++              </svg>
++            </span>
+             {errors.timeZone && (
+               <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
+                 {errors.timeZone}
+@@ -186,7 +194,7 @@ export default function ProfilePage() {
+               aria-describedby={errors.bio ? 'profile-bio-hint profile-bio-error' : 'profile-bio-hint'}
+               data-testid="profile-bio"
+             />
+-            <p id="profile-bio-hint" className="muted small" data-testid="bio-count">
++            <p id="profile-bio-hint" className="hint numeric-inline" data-testid="bio-count">
+               {profile.bio.length} / {BIO_MAX_LENGTH} characters
+             </p>
+             {errors.bio && (
+@@ -197,14 +205,21 @@ export default function ProfilePage() {
+           </div>
+         </div>
+ 
++        {errorCount > 0 && (
++          <p role="alert" className="form-alert">
++            {errorCount === 1 ? '1 field needs attention' : `${errorCount} fields need attention`}
++          </p>
++        )}
++
+         <div className="form-actions">
+-          <button type="submit" className="button button-primary" data-testid="profile-save">
++          <button type="submit" className="btn btn--primary" data-testid="profile-save">
+             Save changes
+           </button>
+-          <button type="button" className="button" onClick={handleReset} data-testid="profile-reset">
++          <button type="button" className="btn btn--secondary" onClick={handleReset} data-testid="profile-reset">
+             Reset
+           </button>
+           <p role="status" className="status-message" data-testid="profile-status">
++            {saved && <CheckCircle />}
+             {saved ? 'Saved' : ''}
+           </p>
+         </div>
+diff --git a/src/pages/SecurityPage.tsx b/src/pages/SecurityPage.tsx
+index 3498f5d..9cc72d6 100644
+--- a/src/pages/SecurityPage.tsx
++++ b/src/pages/SecurityPage.tsx
+@@ -1,5 +1,8 @@
+ import { useState, type FormEvent } from 'react';
+ import { initialSessions, type Session } from '../data/sessions';
++import PageHeader from '../components/ink/PageHeader';
++import { BreathingDot, CheckCircle } from '../components/ink/Working';
++import { doorKey } from '../components/ink/drawings';
+ 
+ interface PasswordForm {
+   current: string;
+@@ -49,6 +52,7 @@ export default function SecurityPage() {
+   const [sessionMessage, setSessionMessage] = useState('');
+ 
+   const strength = strengthOf(form.next);
++  const errorCount = Object.keys(errors).length;
+ 
+   function handleSubmit(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+@@ -71,13 +75,14 @@ export default function SecurityPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Security</h1>
+-        <p className="muted">Manage your password and the devices signed in to your account.</p>
+-      </div>
++      <PageHeader title="Security" drawing={doorKey}>
++        <p className="lede">Manage your password and the devices signed in to your account.</p>
++      </PageHeader>
+ 
+-      <section className="panel" aria-labelledby="password-heading">
+-        <h2 id="password-heading">Change password</h2>
++      <section className="panel" aria-labelledby="password-heading" data-rise>
++        <h2 id="password-heading" className="panel-title">
++          Change password
++        </h2>
+         <form className="form" noValidate onSubmit={handleSubmit} data-testid="password-form">
+           <div className="form-stack">
+             {FIELDS.map((field) => {
+@@ -110,7 +115,7 @@ export default function SecurityPage() {
+                   {field.key === 'next' && (
+                     <p
+                       id="password-strength"
+-                      className={`strength strength-${strength.level} small`}
++                      className={`hint strength strength-${strength.level}`}
+                       data-testid="password-strength"
+                       data-level={strength.level}
+                     >
+@@ -126,28 +131,38 @@ export default function SecurityPage() {
+               );
+             })}
+           </div>
++          {errorCount > 0 && (
++            <p role="alert" className="form-alert">
++              {errorCount === 1 ? '1 field needs attention' : `${errorCount} fields need attention`}
++            </p>
++          )}
+           <div className="form-actions">
+-            <button type="submit" className="button button-primary" data-testid="password-submit">
++            <button type="submit" className="btn btn--primary" data-testid="password-submit">
+               Update password
+             </button>
+             <p role="status" className="status-message" data-testid="password-status">
++              {updated && <CheckCircle />}
+               {updated ? 'Password updated' : ''}
+             </p>
+           </div>
+         </form>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="sessions-heading">
+-        <h2 id="sessions-heading">Active sessions</h2>
+-        <p className="muted small">Revoke a session to sign that device out immediately.</p>
++      <section className="panel panel--table" aria-labelledby="sessions-heading" data-rise>
++        <h2 id="sessions-heading" className="panel-title">
++          Active sessions
++        </h2>
++        <p className="panel-description">Revoke a session to sign that device out immediately.</p>
+         <div className="table-wrap">
+-          <table className="table" data-testid="sessions-table">
++          <table className="table table--stack" data-testid="sessions-table">
+             <thead>
+               <tr>
+-                <th scope="col">Device</th>
++                <th scope="col" className="col-wide">
++                  Device
++                </th>
+                 <th scope="col">Location</th>
+                 <th scope="col">Last active</th>
+-                <th scope="col">
++                <th scope="col" className="col-actions">
+                   <span className="visually-hidden">Actions</span>
+                 </th>
+               </tr>
+@@ -155,21 +170,32 @@ export default function SecurityPage() {
+             <tbody>
+               {sessions.map((session) => (
+                 <tr key={session.id} data-testid="session-row">
+-                  <td>
+-                    {session.device}
+-                    {session.current && (
+-                      <span className="pill pill-neutral small" data-testid="current-session">
+-                        This device
++                  <td data-label="Device">
++                    <span className="cell-device">
++                      {session.device}
++                      {session.current && (
++                        <span className="badge" data-testid="current-session">
++                          This device
++                        </span>
++                      )}
++                    </span>
++                  </td>
++                  <td data-label="Location">{session.location}</td>
++                  <td data-label="Last active">
++                    {session.current ? (
++                      <span className="badge badge--success">
++                        <BreathingDot />
++                        {session.lastActive}
+                       </span>
++                    ) : (
++                      session.lastActive
+                     )}
+                   </td>
+-                  <td>{session.location}</td>
+-                  <td>{session.lastActive}</td>
+                   <td className="cell-actions">
+                     {!session.current && (
+                       <button
+                         type="button"
+-                        className="button button-danger"
++                        className="btn btn--secondary btn--sm"
+                         onClick={() => revoke(session)}
+                         data-testid={`revoke-${session.id}`}
+                       >
+@@ -183,11 +209,11 @@ export default function SecurityPage() {
+           </table>
+         </div>
+         {sessions.length === 1 && (
+-          <p className="muted small" data-testid="sessions-empty">
++          <p className="table-note" data-testid="sessions-empty">
+             No other devices are signed in.
+           </p>
+         )}
+-        <p role="status" className="status-message" data-testid="sessions-status">
++        <p role="status" className="status-message status-message--table" data-testid="sessions-status">
+           {sessionMessage}
+         </p>
+       </section>
+diff --git a/src/styles/base.css b/src/styles/base.css
+index bfb6f76..ff0a743 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,60 +1,31 @@
+ /*
+- * Base styles for the Account Settings app.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Account Settings — Inkleaf 0.1.0-rc.4.
++ * Every value comes from design-system/tokens.css (imported before this file).
++ * Media queries use the breakpoint token values literally (md 834px, lg 992px, xl 1200px),
++ * because custom properties cannot be read inside @media.
+  */
++
++/* ---------- App-level aliases (built only from tokens) ---------- */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-danger-bg: #fdecee;
+-  --color-switch-off: #bbbbbb;
+-  --color-switch-on: #0645ad;
+-  --color-switch-thumb: #ffffff;
+-  --color-strength-weak: #b00020;
+-  --color-strength-fair: #7a5a00;
+-  --color-strength-strong: #2e7d32;
+-  --color-pill-neutral-bg: #e8e8e8;
+-  --color-pill-neutral-text: #444444;
+-  --color-pill-current-bg: #e3f2e5;
+-  --color-pill-current-text: #1b5e20;
+-  --color-pill-due-bg: #fff4d6;
+-  --color-pill-due-text: #7a5a00;
+-  --color-backdrop: rgba(0, 0, 0, 0.4);
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
+-  --content-max-width: 880px;
+-  --avatar-size-large: 72px;
+-  --switch-width: 40px;
+-  --switch-height: 22px;
++  color-scheme: light dark;
++  --gutter: clamp(var(--space-20), 4vw, var(--space-64));
++  --shadow-overlay-current: var(--shadow-overlay);
++  --ring-hairline: inset 0 0 0 var(--border-width-hairline);
++}
++[data-theme='light'] {
++  color-scheme: light;
++}
++[data-theme='dark'] {
++  color-scheme: dark;
++  --shadow-overlay-current: var(--shadow-overlay-night), 0 0 0 var(--border-width-hairline) var(--color-border-default);
++}
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) {
++    --shadow-overlay-current: var(--shadow-overlay-night), 0 0 0 var(--border-width-hairline) var(--color-border-default);
++  }
+ }
+ 
++/* ---------- Root ---------- */
+ *,
+ *::before,
+ *::after {
+@@ -64,48 +35,60 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
+-}
+-
+-h1 {
+-  font-size: var(--font-size-h1);
++  margin: 0;
++  font-family: var(--font-family-serif);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++  text-wrap: balance;
++  max-width: var(--size-measure-heading);
+ }
+ 
+-h2 {
+-  font-size: var(--font-size-h2);
++p {
++  margin: 0;
+ }
+ 
+-h3 {
+-  font-size: var(--font-size-base);
++strong {
++  font-weight: var(--font-weight-medium);
+ }
+ 
+-p {
+-  margin: 0 0 var(--space-2);
++a {
++  color: var(--color-text-primary);
++  text-decoration: underline;
++  text-decoration-thickness: var(--border-width-hairline);
++  text-decoration-color: var(--color-border-strong);
++  text-underline-offset: 3px;
++  transition: text-decoration-color var(--motion-duration-press) var(--motion-easing-hover);
+ }
+ 
+-a {
+-  color: var(--color-link);
++a:hover {
++  text-decoration-color: var(--color-text-primary);
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-ring) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
++.brush-defs {
++  position: absolute;
++}
++
+ .visually-hidden {
+   position: absolute;
+   width: 1px;
+@@ -120,35 +103,372 @@ a {
+ 
+ .skip-link {
+   position: absolute;
+-  left: -9999px;
++  left: var(--space-16);
++  top: var(--space-16);
++  z-index: 20;
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-16);
++  border-radius: var(--radius-control);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-size: var(--font-size-ui);
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
++  transform: translateY(calc(-1 * (var(--size-control) + var(--space-32))));
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  transform: none;
++}
++
++.numeric,
++.numeric-inline {
++  font-variant-numeric: tabular-nums;
+ }
+ 
+-.muted {
+-  color: var(--color-text-muted);
++.icon,
++.nav-icon,
++.select-chevron {
++  width: var(--size-icon);
++  height: var(--size-icon);
++  flex-shrink: 0;
++  fill: none;
++  stroke: currentColor;
++  stroke-width: 1.5;
++  stroke-linecap: round;
++  stroke-linejoin: round;
+ }
+ 
+-.small {
+-  font-size: var(--font-size-small);
++.check-circle {
++  width: var(--size-icon);
++  height: var(--size-icon);
++  flex-shrink: 0;
+ }
+ 
+-.numeric {
+-  font-variant-numeric: tabular-nums;
+-  text-align: right;
++.check-circle circle {
++  fill: var(--color-text-primary);
++}
++
++.check-circle path {
++  fill: none;
++  stroke: var(--color-surface-raised);
++  stroke-width: 1.75;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++}
++
++/* ---------- Signature: cel-drawn ink pictogram ---------- */
++.picto {
++  display: block;
++  width: var(--size-picto-lg);
++  aspect-ratio: 1;
++  overflow: hidden;
++  flex-shrink: 0;
++  color: var(--color-pictogram-ink);
++}
++.picto-ink {
++  fill: none;
++  stroke: currentColor;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++}
++.picto-fill {
++  fill: var(--picto-fill, var(--color-pictogram-fill));
++  transform: translate(3px, 2px);
++}
++.picto--alt {
++  --picto-fill: var(--color-pictogram-fill-alt);
++}
++.picto--sm {
++  width: var(--size-picto-sm);
++}
++.picto--sm .picto-fill {
++  transform: translate(6px, 5px);
++}
++.picto--md {
++  width: var(--size-picto-md);
++}
++.picto--xl {
++  width: var(--size-picto-xl);
++}
++.cel-strip {
++  transform: translateX(calc((1 - var(--n)) * 120px));
++} /* final frame: no script, reduced motion */
++.picto.is-ready .cel-strip {
++  transform: translateX(0);
++} /* first stroke, never blank */
++.picto.is-playing .cel-strip {
++  animation: cel-run calc(var(--n) * var(--motion-duration-frame)) steps(var(--n), jump-none) forwards;
++}
++.picto.is-boiling .cel-strip {
++  animation: cel-boil calc(3 * var(--motion-duration-frame)) steps(3, jump-none) infinite;
++}
++@keyframes cel-run {
++  from {
++    transform: translateX(0);
++  }
++  to {
++    transform: translateX(calc((1 - var(--n)) * 120px));
++  }
++}
++@keyframes cel-boil {
++  from {
++    transform: translateX(calc((3 - var(--n)) * 120px));
++  }
++  to {
++    transform: translateX(calc((1 - var(--n)) * 120px));
++  }
++}
++@media (prefers-reduced-motion: reduce) {
++  .picto:is(.is-ready, .is-playing, .is-boiling) .cel-strip {
++    animation: none;
++    transform: translateX(calc((1 - var(--n)) * 120px));
++  }
++}
++
++/* ---------- Signature: pastel stage with wandering lines ---------- */
++.stage {
++  position: relative;
++  isolation: isolate;
++  overflow: hidden;
++  display: grid;
++  align-items: center;
++  margin: 0;
++  padding: var(--space-48);
++  border-radius: var(--radius-stage);
++  background: var(--stage);
++}
++.stage--sage {
++  --stage: var(--color-stage-sage);
++}
++.stage--lilac {
++  --stage: var(--color-stage-lilac);
++}
++.stage--apricot {
++  --stage: var(--color-stage-apricot);
++}
++.stage--lake {
++  --stage: var(--color-stage-lake);
++}
++.stage--media {
++  aspect-ratio: 16 / 9;
++}
++.stage-lines {
++  position: absolute;
++  inset: 0;
++  width: 100%;
++  height: 100%;
++  z-index: -1;
++  pointer-events: none;
++}
++.stage-lines path {
++  fill: none;
++  stroke: color-mix(in srgb, var(--stage) 70%, var(--color-stage-line-mix));
++  stroke-width: 8;
++  stroke-linecap: round;
++  vector-effect: non-scaling-stroke;
++  opacity: var(--opacity-stage-line);
++}
++.stage-content > .card,
++.stage-content .card {
++  box-shadow: var(--ring-hairline) var(--color-border-default), var(--shadow-float);
++}
++.stage--drawing {
++  aspect-ratio: 4 / 3;
++}
++.stage--drawing .picto,
++.plate .picto {
++  position: absolute;
++  left: 10%;
++  top: 50%;
++  width: 80%;
++  translate: 0 -50%;
++}
++@media (max-width: 833px) {
++  .stage {
++    padding: var(--space-24);
++    border-radius: var(--radius-card);
++  }
+ }
+ 
+-.icon {
++/* ---------- Signature: serif headline that writes itself in ---------- */
++.write-in .w {
++  opacity: 0;
++  transition: opacity var(--motion-duration-reveal) var(--motion-easing-settle)
++    calc(var(--i) * var(--motion-duration-stagger));
++}
++.write-in.is-in .w {
++  opacity: 1;
++}
++@media (prefers-reduced-motion: reduce) {
++  .write-in .w {
++    opacity: 1;
++    transition: none;
++  }
++}
++
++/* ---------- Signature: written-loop working glyph and breathing dot ---------- */
++.working {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-8);
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
++}
++.btn .working {
++  font-size: inherit;
++  color: inherit;
++}
++.glyph {
++  width: calc(var(--size-icon) * 1.5);
++  height: var(--size-icon);
++  overflow: visible;
++}
++.glyph path {
++  fill: none;
++  stroke: var(--color-accent-glyph);
++  stroke-width: 1.75;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++  stroke-dasharray: 1;
++  stroke-dashoffset: 1;
++  animation: glyph-write var(--motion-duration-glyph) linear infinite;
++}
++@keyframes glyph-write {
++  0% {
++    stroke-dashoffset: 1;
++    animation-timing-function: steps(12, jump-start);
++  }
++  75%,
++  87.5% {
++    stroke-dashoffset: 0;
++    animation-timing-function: steps(2, jump-start);
++  }
++  100% {
++    stroke-dashoffset: -1;
++  }
++}
++.dot-breathe {
++  display: inline-block;
+   flex-shrink: 0;
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: currentColor;
++  animation: breathe var(--motion-duration-breathe) var(--motion-easing-hover) infinite;
++}
++@keyframes breathe {
++  0%,
++  100% {
++    opacity: var(--opacity-breathe-low);
++  }
++  50% {
++    opacity: 1;
++  }
++}
++@media (prefers-reduced-motion: reduce) {
++  .glyph path {
++    animation: none;
++    stroke-dashoffset: 0;
++  }
++  .dot-breathe {
++    animation: none;
++  }
+ }
+ 
+-/* Layout */
++/* ---------- Signature: ink-and-paper ring controls ---------- */
++.btn {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-8);
++  height: var(--size-control);
++  padding: 0 var(--space-16);
++  border: 0;
++  border-radius: var(--radius-control);
++  font: var(--font-weight-medium) var(--font-size-ui) / 1 var(--font-family-sans);
++  white-space: nowrap;
++  text-decoration: none;
++  cursor: pointer;
++  transition:
++    box-shadow var(--motion-duration-hover) var(--motion-easing-hover),
++    color var(--motion-duration-press) var(--motion-easing-hover),
++    background-color var(--motion-duration-press) var(--motion-easing-hover),
++    transform var(--motion-duration-press) var(--motion-easing-hover);
++}
++.btn--primary {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  box-shadow: 0 0 0 0 var(--color-action-primary-hover);
++}
++.btn--primary:hover {
++  box-shadow: 0 0 0 var(--border-width-ring) var(--color-action-primary-hover);
++}
++.btn--secondary {
++  background: var(--color-action-secondary);
++  color: var(--color-text-secondary);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-control);
++}
++.btn--secondary:hover {
++  color: var(--color-text-primary);
++  box-shadow: inset 0 0 0 var(--border-width-ring) var(--color-border-strong);
++}
++.btn--tertiary {
++  background: var(--color-action-tertiary);
++  color: var(--color-text-primary);
++}
++.btn--tertiary:hover {
++  background: var(--color-action-tertiary-hover);
++}
++.btn--danger {
++  background: var(--color-action-danger);
++  color: var(--color-text-on-action);
++  box-shadow: 0 0 0 0 var(--color-action-danger);
++}
++.btn--danger:hover {
++  box-shadow: 0 0 0 var(--border-width-ring) var(--color-action-danger);
++}
++.btn--sm {
++  height: var(--size-control-sm);
++  padding: 0 var(--space-12);
++  font-size: var(--font-size-small);
++}
++.btn--lg {
++  height: var(--size-control-lg);
++  padding: 0 var(--space-24);
++  font-size: var(--font-size-body);
++}
++.btn--block {
++  display: flex;
++  width: 100%;
++}
++.btn:active:not(:disabled) {
++  transform: scale(0.985);
++}
++.btn:focus-visible {
++  outline-offset: 4px;
++}
++.btn:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-disabled);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-default);
++  cursor: not-allowed;
++}
++.send {
++  width: var(--size-control);
++  padding: 0;
++  background: var(--color-action-send);
++  color: var(--color-text-inverse);
++}
++@media (prefers-reduced-motion: reduce) {
++  .btn:active:not(:disabled) {
++    transform: none;
++  }
++}
++
++/* ---------- Shell: header ---------- */
+ .app-shell {
+   min-height: 100vh;
+   display: flex;
+@@ -156,29 +476,90 @@ a {
+ }
+ 
+ .topbar {
++  position: sticky;
++  top: 0;
++  z-index: 10;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  height: var(--size-header);
++  padding: 0 var(--gutter);
++  background: var(--color-surface-default);
++  box-shadow: inset 0 calc(-1 * var(--border-width-hairline)) 0 var(--color-border-default);
++  animation: header-in var(--motion-duration-reveal) var(--motion-easing-settle) both;
++}
++
++@keyframes header-in {
++  from {
++    opacity: 0;
++    transform: translateY(calc(-1 * var(--motion-distance-rise)));
++  }
+ }
+ 
+ .brand {
+-  font-weight: bold;
++  font-family: var(--font-family-serif);
++  font-size: var(--font-size-h5);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-title);
++  white-space: nowrap;
+ }
+ 
+-.settings-layout {
+-  flex: 1;
++.person {
+   display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  min-width: 0;
++  font-size: var(--font-size-ui);
++  color: var(--color-text-secondary);
++}
++
++.person-name {
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
+ }
+ 
+-.sidebar {
+-  width: var(--sidebar-width);
++/* ---------- Avatar ---------- */
++.avatar {
++  display: inline-grid;
++  place-items: center;
+   flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  width: var(--size-control);
++  height: var(--size-control);
++  border-radius: var(--radius-tile);
++  background: var(--avatar-tone);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-serif);
++  font-size: var(--font-size-h5);
++  font-weight: var(--font-weight-regular);
++  line-height: 1;
++}
++.avatar--sage {
++  --avatar-tone: var(--color-stage-sage);
++}
++.avatar--lilac {
++  --avatar-tone: var(--color-stage-lilac);
++}
++.avatar--apricot {
++  --avatar-tone: var(--color-stage-apricot);
++}
++.avatar--sm {
++  width: var(--size-control-sm);
++  height: var(--size-control-sm);
++  font-size: var(--font-size-ui);
++}
++.avatar--lg {
++  width: var(--size-picto-md);
++  height: var(--size-picto-md);
++  font-size: var(--font-size-h4);
++}
++
++/* ---------- Shell: sidebar and content ---------- */
++.settings-layout {
++  flex: 1;
++  display: grid;
++  grid-template-columns: minmax(0, 1fr);
+ }
+ 
+ .nav-list {
+@@ -188,98 +569,262 @@ a {
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border: var(--border-width) solid transparent;
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-control);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-ui);
+   text-decoration: none;
++  white-space: nowrap;
++  transition:
++    color var(--motion-duration-nav) var(--motion-easing-expo),
++    background-color var(--motion-duration-press) var(--motion-easing-hover);
++}
++
++.nav-link:hover {
++  color: var(--color-text-primary);
+ }
+ 
+ .nav-link.active {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  font-weight: bold;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .content {
+-  flex: 1;
+   min-width: 0;
+-  max-width: var(--content-max-width);
+-  padding: var(--space-6);
++  width: 100%;
++  max-width: calc(var(--size-container) - var(--size-sidebar));
++  padding: 0 var(--gutter) var(--space-96);
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-6);
++  gap: var(--space-24);
+ }
+ 
+-.person {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++.content:focus {
++  outline: none;
+ }
+ 
+-.avatar {
+-  display: inline-flex;
++/* From breakpoint.lg: the sidebar. */
++@media (min-width: 992px) {
++  .topbar {
++    padding-left: calc(var(--space-16) + var(--space-12));
++  }
++
++  .settings-layout {
++    grid-template-columns: var(--size-sidebar) minmax(0, 1fr);
++  }
++
++  .sidebar {
++    padding: var(--space-16);
++    box-shadow: inset calc(-1 * var(--border-width-hairline)) 0 0 var(--color-border-default);
++  }
++
++  .sidebar nav {
++    position: sticky;
++    top: calc(var(--size-header) + var(--space-16));
++  }
++
++  .nav-list {
++    display: grid;
++    gap: var(--space-4);
++  }
++
++  .nav-link:hover {
++    background: var(--color-surface-hover);
++  }
++
++  .nav-link.active {
++    background: var(--color-surface-subtle);
++  }
++}
++
++/* Below breakpoint.lg: the four sections become underline tabs in their own scrolling strip. */
++@media (max-width: 991px) {
++  .sidebar {
++    overflow-x: auto;
++    padding: 0 var(--gutter);
++    box-shadow: inset 0 calc(-1 * var(--border-width-hairline)) 0 var(--color-border-default);
++    scrollbar-width: none;
++  }
++
++  .nav-list {
++    display: flex;
++    gap: var(--space-24);
++  }
++
++  .nav-link {
++    height: var(--size-touch);
++    padding: 0;
++    border-radius: 0;
++  }
++
++  .nav-link.active {
++    box-shadow: inset 0 calc(-1 * var(--border-width-ring)) 0 var(--color-action-primary);
++  }
++
++  .nav-link:focus-visible {
++    outline-offset: -2px;
++  }
++
++  .nav-icon {
++    display: none;
++  }
++}
++
++/* ---------- Product screen header ---------- */
++.page-header {
++  display: grid;
++  grid-template-columns: var(--size-picto-sm) minmax(0, 1fr) auto;
+   align-items: center;
+-  justify-content: center;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-weight: bold;
+-  flex-shrink: 0;
++  column-gap: var(--space-16);
++  /* space.32 below = space.8 here + the space.24 gap between blocks */
++  padding: var(--space-48) 0 var(--space-8);
++}
++
++.page-header h1 {
++  font-family: var(--font-family-serif);
++  font-size: var(--font-size-h3);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-heading);
++}
++
++.page-header-actions {
++  display: flex;
++  gap: var(--space-12);
+ }
+ 
+-.avatar-small {
+-  width: 28px;
+-  height: 28px;
++.page-header-lede {
++  grid-column: 1 / -1;
++  margin-top: var(--space-8);
++  display: grid;
++  gap: var(--space-4);
++}
++
++.lede {
++  max-width: var(--size-measure);
++  font-size: var(--font-size-body);
++  color: var(--color-text-secondary);
++}
++
++.page-meta {
+   font-size: var(--font-size-small);
++  color: var(--color-text-tertiary);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+-.avatar-large {
+-  width: var(--avatar-size-large);
+-  height: var(--avatar-size-large);
+-  font-size: var(--font-size-h2);
++@media (max-width: 833px) {
++  .page-header {
++    grid-template-columns: minmax(0, 1fr);
++    row-gap: var(--space-16);
++  }
++
++  .page-header h1 {
++    font-size: var(--font-size-h4);
++  }
++
++  .page-header-lede {
++    margin-top: calc(var(--space-8) - var(--space-16));
++  }
+ }
+ 
+-/* Panels */
++/* ---------- Cards and panels ---------- */
+ .panel,
+ .card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++  background: var(--color-surface-raised);
++  border-radius: var(--radius-card);
++  box-shadow: var(--ring-hairline) var(--color-border-default);
++  padding: var(--space-24);
++  min-width: 0;
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.panel-title,
++.legend {
++  font-family: var(--font-family-serif);
++  font-size: var(--font-size-h4);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++  color: var(--color-text-primary);
++}
++
++.panel-title + .form,
++.panel-title + .payment-method {
++  margin-top: var(--space-24);
++}
++
++.panel-description {
++  margin-top: var(--space-6);
++  font-size: var(--font-size-ui);
++  color: var(--color-text-secondary);
+ }
+ 
+-/* Forms */
++.group-title {
++  font-family: var(--font-family-serif);
++  font-size: var(--font-size-h4);
++  font-weight: var(--font-weight-medium);
++  margin-bottom: var(--space-16);
++}
++
++/* ---------- Block rise ---------- */
++[data-rise] {
++  transition:
++    opacity var(--motion-duration-rise) var(--motion-easing-settle) var(--rise-delay, 0ms),
++    transform var(--motion-duration-rise) var(--motion-easing-settle) var(--rise-delay, 0ms);
++}
++
++[data-rise].is-rise-ready {
++  opacity: 0;
++  transform: translateY(var(--motion-distance-rise));
++}
++
++/* ---------- Forms ---------- */
+ .form {
++  display: grid;
++  gap: var(--space-24);
++}
++
++.avatar-row {
+   display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
++  align-items: flex-start;
++  gap: var(--space-16);
++}
++
++.avatar-row-text {
++  display: grid;
++  justify-items: start;
++  gap: var(--space-6);
++  min-width: 0;
++}
++
++.avatar-row-text .btn {
++  margin-top: var(--space-6);
+ }
+ 
+ .form-grid {
+   display: grid;
+-  grid-template-columns: repeat(2, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: minmax(0, 1fr);
++  gap: var(--space-24) var(--space-16);
++  max-width: var(--size-form);
+ }
+ 
+ .form-stack {
+   display: grid;
+-  gap: var(--space-4);
+-  max-width: 400px;
++  gap: var(--space-24);
++  max-width: var(--size-form);
++}
++
++@media (min-width: 834px) {
++  .form-grid {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
+ }
+ 
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
+-}
+-
+-.field p {
+-  margin: 0;
++  min-width: 0;
+ }
+ 
+ .field-wide {
+@@ -287,98 +832,162 @@ a {
+ }
+ 
+ .field-label {
+-  font-weight: bold;
+-  margin: 0;
++  margin-bottom: var(--space-8);
++  font-size: var(--font-size-ui);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-title);
++  color: var(--color-text-primary);
++}
++
++.avatar-row-text .field-label {
++  margin-bottom: 0;
++}
++
++.optional {
++  font-weight: var(--font-weight-regular);
++  font-size: var(--font-size-small);
++  color: var(--color-text-tertiary);
++}
++
++.hint {
++  margin-top: var(--space-6);
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-lede);
++  color: var(--color-text-secondary);
++}
++
++.avatar-row-text .hint {
++  margin-top: 0;
+ }
+ 
+ .field-error {
+-  color: var(--color-negative);
++  margin-top: var(--space-6);
+   font-size: var(--font-size-small);
++  line-height: var(--font-line-height-lede);
++  color: var(--color-status-danger);
+ }
+ 
+ .input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  width: 100%;
+   min-width: 0;
++  height: var(--size-control);
++  flex-shrink: 0;
++  padding: 0 var(--space-12);
++  border: 0;
++  border-radius: var(--radius-control);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font: var(--font-weight-regular) var(--font-size-ui) / var(--font-line-height-title) var(--font-family-sans);
++  box-shadow: var(--ring-hairline) var(--color-border-strong);
++  transition: box-shadow var(--motion-duration-hover) var(--motion-easing-hover);
++}
++
++.input::placeholder {
++  color: var(--color-text-tertiary);
++}
++
++.input:hover {
++  box-shadow: var(--ring-hairline) var(--color-border-check);
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-negative);
++  box-shadow: var(--ring-hairline) var(--color-status-danger);
++}
++
++.input:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-disabled);
++  box-shadow: var(--ring-hairline) var(--color-border-default);
++  cursor: not-allowed;
+ }
+ 
+ .textarea {
++  height: auto;
++  min-height: calc(3lh + 2 * var(--space-12));
++  padding: var(--space-12);
++  line-height: var(--font-line-height-lede);
+   resize: vertical;
+ }
+ 
+-.form-actions {
+-  display: flex;
+-  align-items: center;
+-  flex-wrap: wrap;
+-  gap: var(--space-3);
++.select {
++  position: relative;
++  display: block;
+ }
+ 
+-.status-message {
+-  margin: 0;
+-  color: var(--color-positive);
++.select .input {
++  appearance: none;
++  padding-right: var(--space-40);
++  cursor: pointer;
+ }
+ 
+-.avatar-row {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-4);
++.select-chevron {
++  position: absolute;
++  right: var(--space-12);
++  top: 50%;
++  translate: 0 -50%;
++  color: var(--color-text-secondary);
++  pointer-events: none;
+ }
+ 
+-.avatar-row p {
+-  margin: 0 0 var(--space-1);
++.form-alert {
++  font-size: var(--font-size-ui);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-status-danger);
+ }
+ 
+-/* Buttons */
+-.button {
+-  font: inherit;
+-  display: inline-flex;
++.form-actions {
++  display: flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
++  flex-wrap: wrap;
++  gap: var(--space-12);
++  /* space.32 above the actions = this + the form's space.24 gap */
++  margin-top: var(--space-8);
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.status-message {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  min-height: 1lh;
++  font-size: var(--font-size-ui);
++  color: var(--color-text-primary);
+ }
+ 
+-.button-danger {
+-  color: var(--color-negative);
++.status-message:empty {
++  min-height: 0;
+ }
+ 
+-.button-danger:hover {
+-  background: var(--color-danger-bg);
++@media (max-width: 833px) {
++  .form-actions {
++    flex-direction: column;
++    align-items: stretch;
++  }
++
++  .form-actions .btn {
++    width: 100%;
++  }
+ }
+ 
+-/* Fieldsets and switches */
++/* ---------- Switch ---------- */
+ .fieldset {
+   margin: 0;
++  border: 0;
+   min-width: 0;
+ }
+ 
+-.legend {
+-  font-weight: bold;
+-  font-size: var(--font-size-h2);
+-  padding: 0 var(--space-1);
++.fieldset .legend {
++  float: left;
++  width: 100%;
++  padding: 0;
++}
++
++.fieldset .legend + * {
++  clear: both;
+ }
+ 
+ .switch-list {
+   list-style: none;
+-  margin: 0;
++  margin: var(--space-16) 0 0;
+   padding: 0;
+ }
+ 
+@@ -386,213 +995,550 @@ a {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-top: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  min-height: var(--size-touch);
++  padding: var(--space-16) 0;
++  box-shadow: inset 0 calc(-1 * var(--border-width-hairline)) 0 var(--color-border-default);
+ }
+ 
+-.switch-text p {
+-  margin: 0;
++.switch-row:last-child {
++  box-shadow: none;
++  padding-bottom: 0;
++}
++
++.switch-text {
++  min-width: 0;
++}
++
++.switch-text .field-label {
++  display: block;
++  margin-bottom: var(--space-4);
++  cursor: pointer;
++}
++
++.switch-description {
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-lede);
++  color: var(--color-text-secondary);
++}
++
++.switch-control {
++  position: relative;
++  display: inline-flex;
++  flex-shrink: 0;
+ }
+ 
+ .switch {
+   appearance: none;
+-  position: relative;
+-  width: var(--switch-width);
+-  height: var(--switch-height);
+   margin: 0;
+-  flex-shrink: 0;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-switch-off);
++  width: var(--size-control);
++  height: var(--space-24);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
++  box-shadow: var(--ring-hairline) var(--color-border-check);
+   cursor: pointer;
++  transition:
++    background-color var(--motion-duration-press) var(--motion-easing-hover),
++    box-shadow var(--motion-duration-hover) var(--motion-easing-hover);
+ }
+ 
+-.switch::after {
+-  content: '';
+-  position: absolute;
+-  top: 3px;
+-  left: 3px;
+-  width: calc(var(--switch-height) - 6px);
+-  height: calc(var(--switch-height) - 6px);
+-  border-radius: 50%;
+-  background: var(--color-switch-thumb);
++.switch:hover {
++  box-shadow: var(--ring-hairline) var(--color-text-primary);
+ }
+ 
+ .switch:checked {
+-  background: var(--color-switch-on);
++  background: var(--color-action-primary);
++  box-shadow: var(--ring-hairline) var(--color-action-primary);
+ }
+ 
+-.switch:checked::after {
+-  left: calc(var(--switch-width) - var(--switch-height) + 3px);
++.switch-thumb {
++  position: absolute;
++  top: var(--space-4);
++  left: var(--space-4);
++  width: var(--space-16);
++  height: var(--space-16);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-raised);
++  box-shadow: var(--ring-hairline) var(--color-border-check);
++  pointer-events: none;
++  transition:
++    transform var(--motion-duration-hover) var(--motion-easing-settle),
++    background-color var(--motion-duration-press) var(--motion-easing-hover);
+ }
+ 
+-/* Password strength */
+-.strength-none {
+-  color: var(--color-text-muted);
++.switch:checked + .switch-thumb {
++  transform: translateX(var(--space-16));
++  background: var(--color-text-on-action);
++  box-shadow: none;
+ }
+ 
+-.strength-weak {
+-  color: var(--color-strength-weak);
++.switch:disabled {
++  box-shadow: var(--ring-hairline) var(--color-border-default);
++  cursor: not-allowed;
+ }
+ 
++/* ---------- Password strength hint ---------- */
++.strength-none {
++  color: var(--color-text-secondary);
++}
++.strength-weak {
++  color: var(--color-status-danger);
++}
+ .strength-fair {
+-  color: var(--color-strength-fair);
++  color: var(--color-status-warning);
+ }
+-
+ .strength-strong {
+-  color: var(--color-strength-strong);
++  color: var(--color-status-success);
+ }
+ 
+-/* Tables */
+-.table-wrap {
+-  overflow-x: auto;
++/* ---------- Badge ---------- */
++.badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  height: var(--space-24);
++  padding: 0 var(--space-8);
++  border-radius: var(--radius-badge);
++  box-shadow: var(--ring-hairline) var(--color-border-control);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-caption);
++  line-height: 1;
++  white-space: nowrap;
++}
++.badge--success {
++  color: var(--color-status-success);
++}
++.badge--warning {
++  color: var(--color-status-warning);
++}
++.badge-dot {
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: currentColor;
++  flex-shrink: 0;
++}
++
++/* ---------- Table ---------- */
++.panel--table .table-wrap {
++  margin: var(--space-16) calc(-1 * var(--space-24)) 0;
+ }
+ 
+ .table {
+   width: 100%;
+   border-collapse: collapse;
++  table-layout: fixed;
++  font-size: var(--font-size-dense);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ .table th,
+ .table td {
++  height: var(--size-row-dense);
++  padding: 0 var(--space-16);
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+   vertical-align: middle;
++  box-shadow: inset 0 calc(-1 * var(--border-width-hairline)) 0 var(--color-border-default);
++  color: var(--color-text-secondary);
++}
++
++.table th:first-child,
++.table td:first-child {
++  padding-left: var(--space-24);
++}
++
++.table th:last-child,
++.table td:last-child {
++  padding-right: var(--space-24);
++}
++
++.table tbody tr:last-child td {
++  box-shadow: none;
+ }
+ 
+ .table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  font-size: var(--font-size-micro);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-micro);
++  text-transform: uppercase;
++  color: var(--color-text-tertiary);
++}
++
++.table td:first-child {
++  color: var(--color-text-primary);
++}
++
++.table tbody tr {
++  transition: background-color var(--motion-duration-press) var(--motion-easing-hover);
++}
++
++.table tbody tr:hover {
++  background: var(--color-surface-hover);
+ }
+ 
+ .table .numeric {
+   text-align: right;
++  font-variant-numeric: tabular-nums;
++}
++
++.table .col-wide {
++  width: 36%;
++}
++
++.table .col-actions {
++  width: calc(var(--size-control-sm) * 3);
+ }
+ 
+ .cell-actions {
+   text-align: right;
+ }
+ 
+-.pill {
+-  display: inline-block;
+-  margin: 0 0 0 var(--space-2);
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.cell-device {
++  display: inline-flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: var(--space-4) var(--space-8);
+ }
+ 
+-.pill-neutral {
+-  background: var(--color-pill-neutral-bg);
+-  color: var(--color-pill-neutral-text);
++.table-note {
++  margin-top: var(--space-16);
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
+ 
+-.pill-paid,
+-.pill-current {
+-  background: var(--color-pill-current-bg);
+-  color: var(--color-pill-current-text);
++.status-message--table:not(:empty) {
++  margin-top: var(--space-12);
+ }
+ 
+-.pill-due {
+-  background: var(--color-pill-due-bg);
+-  color: var(--color-pill-due-text);
++/* Under breakpoint.md, tables with status or actions stack and hide the header row. */
++@media (max-width: 833px) {
++  .table--stack,
++  .table--stack tbody,
++  .table--stack tr,
++  .table--stack td {
++    display: block;
++  }
++
++  .table--stack thead {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    overflow: hidden;
++    clip: rect(0, 0, 0, 0);
++    white-space: nowrap;
++  }
++
++  .table--stack tr {
++    display: grid;
++    gap: var(--space-8);
++    padding: var(--space-12) var(--space-16);
++    box-shadow: inset 0 calc(-1 * var(--border-width-hairline)) 0 var(--color-border-default);
++  }
++
++  .table--stack tbody tr:last-child {
++    box-shadow: none;
++  }
++
++  .table--stack td,
++  .table--stack td:first-child,
++  .table--stack td:last-child {
++    display: grid;
++    grid-template-columns: minmax(96px, 38%) minmax(0, 1fr);
++    gap: var(--space-12);
++    align-items: center;
++    height: auto;
++    min-height: var(--size-icon-lg);
++    padding: 0;
++    box-shadow: none;
++    text-align: left;
++  }
++
++  .table--stack td::before {
++    content: attr(data-label);
++    font-size: var(--font-size-caption);
++    color: var(--color-text-tertiary);
++  }
++
++  .table--stack td.numeric {
++    text-align: left;
++  }
++
++  .table--stack td.cell-actions {
++    display: flex;
++  }
++
++  .table--stack td.cell-actions:empty {
++    display: none;
++  }
++
++  .table--stack td.cell-actions::before {
++    content: none;
++  }
++
++  .table--stack .cell-actions .btn {
++    height: var(--size-touch);
++    width: 100%;
++  }
++
++  .table--stack td > * {
++    justify-self: start;
++  }
++
++  .panel--table .table-wrap {
++    margin-inline: calc(-1 * var(--space-16));
++  }
++
++  .panel,
++  .card {
++    padding: var(--space-24) var(--space-16);
++  }
++
++  .panel--table .table--stack tr {
++    padding-inline: var(--space-16);
++  }
+ }
+ 
+-.table .pill,
+-.plan-card .pill {
+-  margin-left: 0;
++/* ---------- Billing ---------- */
++.plans {
++  min-width: 0;
+ }
+ 
+-/* Billing */
+ .plan-grid {
+   list-style: none;
+-  margin: 0 0 var(--space-3);
++  margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: minmax(0, 1fr);
++  align-items: stretch;
++  gap: var(--space-24);
++}
++
++@media (min-width: 1200px) {
++  .plan-grid {
++    grid-template-columns: repeat(3, minmax(0, 1fr));
++  }
+ }
+ 
+ .plan-card {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+-  gap: var(--space-2);
+ }
+ 
+-.plan-card-current {
+-  border-color: var(--color-primary);
++.plan-card-current.card {
++  box-shadow:
++    inset 0 0 0 var(--border-width-ring) var(--color-action-primary),
++    var(--shadow-float);
++}
++
++.plan-picto {
++  margin-bottom: var(--space-16);
++}
++
++.plan-name {
++  font-size: var(--font-size-plan);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-tight);
+ }
+ 
+ .plan-price {
+-  margin: 0;
++  display: flex;
++  flex-wrap: wrap;
++  align-items: baseline;
++  gap: var(--space-8);
++  margin-top: var(--space-12);
+ }
+ 
+ .plan-amount {
+-  font-size: var(--font-size-h1);
+-  font-weight: bold;
++  font-size: var(--font-size-h3);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-tight);
++  font-variant-numeric: tabular-nums;
++}
++
++.plan-period {
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
+ 
+ .feature-list {
+   list-style: none;
+-  margin: 0;
++  margin: var(--space-24) 0;
+   padding: 0;
+   flex: 1;
++  display: grid;
++  align-content: start;
++  gap: var(--space-12);
++  font-size: var(--font-size-ui);
++  color: var(--color-text-secondary);
+ }
+ 
+ .feature-list li {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-8);
++}
++
++.plan-badge {
++  align-self: flex-start;
++  margin-top: auto;
++}
++
++.plans > .status-message:not(:empty) {
++  margin-top: var(--space-16);
+ }
+ 
+ .payment-method {
+   display: flex;
++  flex-wrap: wrap;
+   align-items: center;
+-  gap: var(--space-3);
++  gap: var(--space-8) var(--space-12);
++  font-size: var(--font-size-ui);
+ }
+ 
+-/* Dialog */
++.card-icon {
++  width: var(--size-icon-lg);
++  height: var(--size-icon-lg);
++  flex-shrink: 0;
++  fill: none;
++  stroke: var(--color-text-secondary);
++  stroke-width: 1.5;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++}
++
++.payment-card {
++  color: var(--color-text-primary);
++  font-variant-numeric: tabular-nums;
++}
++
++.payment-meta {
++  font-size: var(--font-size-caption);
++  color: var(--color-text-tertiary);
++  font-variant-numeric: tabular-nums;
++}
++
++/* ---------- Dialog ---------- */
+ .dialog {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  padding: var(--space-6);
+-  max-width: 440px;
+-  width: calc(100% - var(--space-8));
++  width: min(var(--size-dialog), 100% - 2 * var(--space-16));
++  max-width: none;
++  padding: var(--space-32);
++  border: 0;
++  border-radius: var(--radius-stage);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  box-shadow: var(--shadow-overlay-current);
++}
++
++.dialog[open] {
++  animation: dialog-in var(--motion-duration-open) var(--motion-easing-quart);
+ }
+ 
+ .dialog::backdrop {
+-  background: var(--color-backdrop);
++  background: var(--color-surface-overlay);
++  animation: scrim-in var(--motion-duration-open) var(--motion-easing-quart);
++}
++
++@keyframes dialog-in {
++  from {
++    opacity: 0;
++    transform: translateY(var(--motion-distance-overlay));
++  }
++}
++
++@keyframes scrim-in {
++  from {
++    opacity: 0;
++  }
++}
++
++.dialog-title {
++  font-size: var(--font-size-h4);
++  font-weight: var(--font-weight-medium);
++}
++
++.dialog-body {
++  margin-top: var(--space-12);
++  font-size: var(--font-size-ui);
++  color: var(--color-text-secondary);
+ }
+ 
+ .dialog-actions {
+   display: flex;
+   justify-content: flex-end;
+-  gap: var(--space-2);
+-  margin-top: var(--space-4);
++  gap: var(--space-12);
++  margin-top: var(--space-32);
+ }
+ 
+-@media (max-width: 900px) {
+-  .settings-layout {
+-    flex-direction: column;
++@media (max-width: 833px) {
++  .dialog-actions {
++    flex-direction: column-reverse;
+   }
+ 
+-  .sidebar {
+-    width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++  .dialog-actions .btn {
++    width: 100%;
+   }
++}
+ 
+-  .nav-list {
+-    display: flex;
+-    flex-wrap: wrap;
+-    gap: var(--space-2);
++/* ---------- Empty state, not found ---------- */
++.empty-state {
++  width: 100%;
++  max-width: var(--size-dialog);
++  margin: 0 auto;
++  padding: var(--space-64) var(--space-24);
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  text-align: center;
++}
++
++.empty-state-stage {
++  width: 100%;
++  margin-bottom: var(--space-24);
++}
++
++.empty-state h1 {
++  font-size: clamp(var(--font-size-h3), 5vw, var(--font-size-h1));
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-tight);
++}
++
++.empty-state-line {
++  margin-top: var(--space-8);
++  max-width: var(--size-measure);
++  color: var(--color-text-secondary);
++}
++
++.empty-state-actions {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: center;
++  gap: var(--space-12);
++  margin-top: var(--space-24);
++}
++
++@media (max-width: 833px) {
++  .empty-state {
++    padding-inline: 0;
+   }
+ 
+-  .form-grid,
+-  .plan-grid {
+-    grid-template-columns: 1fr;
++  .empty-state-actions {
++    flex-direction: column;
++    align-self: stretch;
++  }
++}
++
++/* ---------- Reduced motion, globally ---------- */
++@media (prefers-reduced-motion: reduce) {
++  *,
++  *::before,
++  *::after {
++    animation-duration: var(--motion-duration-instant) !important;
++    animation-delay: 0s !important;
++    animation-iteration-count: 1 !important;
++    transition-duration: var(--motion-duration-instant) !important;
++    transition-delay: 0s !important;
+   }
+ }
