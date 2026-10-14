@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { contrastRatio, getComponents, getHistory, getManifest, getTokens, listTemplates, type TemplateSummary } from "@pigment/content";
+import { contrastRatio, getComponents, getHistory, getManifest, getScreens, getTokens, listTemplates, type TemplateSummary } from "@pigment/content";
 import { ApplyPanel } from "@/components/apply-panel";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { DemoViewer } from "@/components/demo-viewer";
@@ -123,7 +123,7 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
         <div className="detail-body">
           <div className="detail-main">
             <section aria-labelledby="demos-h">
-              <DemoViewer id={id} shots={summary.shots} light={summary.swatches[1] ?? "#eeeeee"} dark={String(tokens.dark?.["color.surface.default"] ?? "#111111")} />
+              <DemoViewer id={id} shots={summary.shots} screens={getScreens(id, summary.version)} light={summary.swatches[1] ?? "#eeeeee"} dark={String(tokens.dark?.["color.surface.default"] ?? "#111111")} />
             </section>
 
             <section aria-labelledby="color-h">

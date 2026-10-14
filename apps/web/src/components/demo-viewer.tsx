@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Segmented } from "./controls";
 import { Tape } from "./details";
+import { PhoneRail } from "./phone-rail";
 import { APPS, Shot, type AppKey } from "./shot";
 
 function isDark(hex: string): boolean {
@@ -10,7 +11,24 @@ function isDark(hex: string): boolean {
   return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 128;
 }
 
-export function DemoViewer({ id, shots, light, dark }: { id: string; shots: Record<string, string>; light: string; dark: string }) {
+export interface DemoScreen {
+  name: string;
+  shots: Partial<Record<"desktopLight" | "desktopDark" | "mobileLight" | "mobileDark", string>>;
+}
+
+export function DemoViewer({
+  id,
+  shots,
+  screens = {},
+  light,
+  dark,
+}: {
+  id: string;
+  shots: Record<string, string>;
+  screens?: Record<string, DemoScreen[]>;
+  light: string;
+  dark: string;
+}) {
   const [app, setApp] = useState<AppKey>("dashboard");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const [scheme, setScheme] = useState<"light" | "dark">("light");
@@ -29,8 +47,20 @@ export function DemoViewer({ id, shots, light, dark }: { id: string; shots: Reco
         </div>
       </div>
       <div style={{ position: "relative", paddingTop: 6 }}>
-        <Tape style={{ top: -4, left: 48 }} width={96} rotate={-4} />
-        <Tape alt style={{ top: -3, right: 56 }} width={80} rotate={5} />
+        {/* Tape pins the single frame at its edge; phones have no edge to spare, so it stays off them. */}
+        {!mobile && (
+          <>
+            <Tape style={{ top: -4, left: 48 }} width={96} rotate={-4} />
+            <Tape alt style={{ top: -3, right: 56 }} width={80} rotate={5} />
+          </>
+        )}
+        {mobile && screens[app]?.length ? (
+          <PhoneRail
+            label={label}
+            bg={bg}
+            screens={screens[app]!.map((s) => ({ name: s.name, src: s.shots[scheme === "light" ? "mobileLight" : "mobileDark"] }))}
+          />
+        ) : (
         <Shot
           src={shots[key]}
           title={label}
@@ -41,6 +71,7 @@ export function DemoViewer({ id, shots, light, dark }: { id: string; shots: Reco
           ariaLabel={`${label} demo, ${viewport}, ${scheme}`}
           style={mobile && !shots[key] ? { width: "100%" } : undefined}
         />
+        )}
       </div>
       <div role="group" aria-label="Demo app" className="thumbs">
         {APPS.map(([k, name]) => {
