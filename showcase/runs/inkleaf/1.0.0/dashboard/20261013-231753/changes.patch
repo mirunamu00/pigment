@@ -1,0 +1,2906 @@
+diff --git a/package.json b/package.json
+index 6a7bf99..9255916 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,9 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource/instrument-sans": "^5.0.0",
++    "@fontsource/jetbrains-mono": "^5.0.0",
++    "@fontsource/source-serif-4": "^5.0.0",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/components/BarChart.tsx b/src/components/BarChart.tsx
+index 63f7c3f..a001d92 100644
+--- a/src/components/BarChart.tsx
++++ b/src/components/BarChart.tsx
+@@ -1,57 +1,70 @@
++import { useEffect, useRef, useState } from 'react';
+ import type { MonthlyValue } from '../data/metrics';
++import Stage from '../ink/Stage';
+ 
+ interface BarChartProps {
+   title: string;
+   data: MonthlyValue[];
+ }
+ 
+-const WIDTH = 600;
+-const HEIGHT = 240;
+ const PADDING_TOP = 24;
+ const PADDING_BOTTOM = 28;
+-const PADDING_X = 16;
++const GRIDLINES = 3;
+ 
++// Drawn at the stage's real pixel size so labels keep their type size at every width.
+ export default function BarChart({ title, data }: BarChartProps) {
++  const plotRef = useRef<HTMLDivElement>(null);
++  const [size, setSize] = useState({ width: 600, height: 240 });
++
++  useEffect(() => {
++    const plot = plotRef.current;
++    if (!plot) return;
++    const observer = new ResizeObserver(([entry]) => {
++      const { width, height } = entry.contentRect;
++      if (width > 0 && height > 0) setSize({ width: Math.round(width), height: Math.round(height) });
++    });
++    observer.observe(plot);
++    return () => observer.disconnect();
++  }, []);
++
++  const { width, height } = size;
+   const max = Math.max(...data.map((point) => point.value), 1);
+-  const plotHeight = HEIGHT - PADDING_TOP - PADDING_BOTTOM;
+-  const slot = (WIDTH - PADDING_X * 2) / data.length;
+-  const barWidth = slot * 0.6;
++  const plotHeight = height - PADDING_TOP - PADDING_BOTTOM;
++  const slot = width / data.length;
++  const barWidth = Math.min(slot * 0.56, 56);
++  const baseline = height - PADDING_BOTTOM;
+   const summary = data.map((point) => `${point.month}: ${point.value}`).join(', ');
+ 
+   return (
+     <figure className="chart" data-testid="bar-chart">
+       <figcaption className="chart-title">{title}</figcaption>
+-      <svg
+-        className="chart-svg"
+-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+-        role="img"
+-        aria-label={`${title}. ${summary}`}
+-        preserveAspectRatio="xMidYMid meet"
+-      >
+-        <line
+-          className="chart-axis"
+-          x1={PADDING_X}
+-          x2={WIDTH - PADDING_X}
+-          y1={HEIGHT - PADDING_BOTTOM}
+-          y2={HEIGHT - PADDING_BOTTOM}
+-        />
+-        {data.map((point, index) => {
+-          const barHeight = (point.value / max) * plotHeight;
+-          const x = PADDING_X + index * slot + (slot - barWidth) / 2;
+-          const y = HEIGHT - PADDING_BOTTOM - barHeight;
+-          return (
+-            <g key={point.month} data-testid="chart-bar">
+-              <rect className="chart-bar" x={x} y={y} width={barWidth} height={barHeight} />
+-              <text className="chart-value" x={x + barWidth / 2} y={y - 6} textAnchor="middle">
+-                {point.value}
+-              </text>
+-              <text className="chart-label" x={x + barWidth / 2} y={HEIGHT - 8} textAnchor="middle">
+-                {point.month}
+-              </text>
+-            </g>
+-          );
+-        })}
+-      </svg>
++      <Stage color="sage" lines={0} className="chart-stage">
++        <div className="chart-plot" ref={plotRef}>
++          <svg className="chart-svg" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title}. ${summary}`}>
++            {Array.from({ length: GRIDLINES }, (_, i) => {
++              const y = baseline - (plotHeight * i) / (GRIDLINES - 1);
++              return <line key={i} className={i === 0 ? 'chart-axis' : 'chart-grid'} x1={0} x2={width} y1={y} y2={y} />;
++            })}
++            {data.map((point, index) => {
++              const barHeight = (point.value / max) * plotHeight;
++              const x = index * slot + (slot - barWidth) / 2;
++              const y = baseline - barHeight;
++              const current = index === data.length - 1;
++              return (
++                <g key={point.month} data-testid="chart-bar">
++                  <rect className={current ? 'chart-bar chart-bar--current' : 'chart-bar'} x={x} y={y} width={barWidth} height={barHeight} />
++                  <text className="chart-value" x={x + barWidth / 2} y={y - 8} textAnchor="middle">
++                    {point.value}
++                  </text>
++                  <text className="chart-label" x={x + barWidth / 2} y={height - 6} textAnchor="middle">
++                    {point.month}
++                  </text>
++                </g>
++              );
++            })}
++          </svg>
++        </div>
++      </Stage>
+     </figure>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 2a82e37..bd64174 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,12 +1,16 @@
+ import { useEffect, useRef, useState, type FormEvent } from 'react';
+ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+ import { currentUser } from '../data/team';
++import { useBlockRise } from '../ink/useBlockRise';
++import Avatar from './Avatar';
++import Icon, { type IconName } from './Icon';
++import SearchField from './SearchField';
+ 
+-const NAV_ITEMS = [
+-  { to: '/', label: 'Overview', testId: 'nav-overview', end: true },
+-  { to: '/projects', label: 'Projects', testId: 'nav-projects', end: false },
+-  { to: '/team', label: 'Team', testId: 'nav-team', end: false },
+-  { to: '/settings', label: 'Settings', testId: 'nav-settings', end: false },
++const NAV_ITEMS: { to: string; label: string; testId: string; end: boolean; icon: IconName }[] = [
++  { to: '/', label: 'Overview', testId: 'nav-overview', end: true, icon: 'overview' },
++  { to: '/projects', label: 'Projects', testId: 'nav-projects', end: false, icon: 'projects' },
++  { to: '/team', label: 'Team', testId: 'nav-team', end: false, icon: 'team' },
++  { to: '/settings', label: 'Settings', testId: 'nav-settings', end: false, icon: 'settings' },
+ ];
+ 
+ export default function Layout() {
+@@ -14,11 +18,16 @@ export default function Layout() {
+   const location = useLocation();
+   const [query, setQuery] = useState('');
+   const [menuOpen, setMenuOpen] = useState(false);
++  const [navOpen, setNavOpen] = useState(false);
+   const menuRef = useRef<HTMLDivElement>(null);
++  const mainRef = useRef<HTMLElement>(null);
+ 
+-  // Close the user menu when the route changes.
++  useBlockRise(mainRef, location.pathname);
++
++  // Close the user menu and the navigation sheet when the route changes.
+   useEffect(() => {
+     setMenuOpen(false);
++    setNavOpen(false);
+   }, [location.pathname]);
+ 
+   useEffect(() => {
+@@ -37,6 +46,15 @@ export default function Layout() {
+     };
+   }, [menuOpen]);
+ 
++  useEffect(() => {
++    if (!navOpen) return;
++    function onKeyDown(event: KeyboardEvent) {
++      if (event.key === 'Escape') setNavOpen(false);
++    }
++    document.addEventListener('keydown', onKeyDown);
++    return () => document.removeEventListener('keydown', onKeyDown);
++  }, [navOpen]);
++
+   function handleSearch(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+     const term = query.trim();
+@@ -48,81 +66,90 @@ export default function Layout() {
+       <a className="skip-link" href="#main-content">
+         Skip to content
+       </a>
+-      <aside className="sidebar">
++      <header className={navOpen ? 'topbar is-nav-open' : 'topbar'}>
++        <button
++          type="button"
++          className="btn btn--tertiary btn--icon nav-toggle"
++          aria-expanded={navOpen}
++          aria-controls="primary-sidebar"
++          aria-label="Menu"
++          onClick={() => setNavOpen((open) => !open)}
++        >
++          <Icon name={navOpen ? 'close' : 'menu'} className="icon--lg" />
++        </button>
+         <div className="brand">Northwind Ops</div>
+-        <nav aria-label="Primary" data-testid="sidebar-nav">
+-          <ul className="nav-list">
+-            {NAV_ITEMS.map((item) => (
+-              <li key={item.to}>
+-                <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
+-                  {item.label}
+-                </NavLink>
+-              </li>
+-            ))}
+-          </ul>
+-        </nav>
+-      </aside>
+ 
+-      <div className="main-column">
+-        <header className="topbar">
+-          <form role="search" className="topbar-search" onSubmit={handleSearch}>
+-            <label htmlFor="global-search" className="visually-hidden">
+-              Search projects
+-            </label>
+-            <input
+-              id="global-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search projects…"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="global-search"
+-            />
+-            <button type="submit" className="button" data-testid="global-search-submit">
+-              Search
+-            </button>
+-          </form>
++        <form role="search" className="topbar-search" onSubmit={handleSearch}>
++          <label htmlFor="global-search" className="visually-hidden">
++            Search projects
++          </label>
++          <SearchField
++            id="global-search"
++            placeholder="Search projects…"
++            value={query}
++            onValueChange={setQuery}
++            data-testid="global-search"
++          />
++          <button type="submit" className="btn btn--secondary" data-testid="global-search-submit">
++            Search
++          </button>
++        </form>
++
++        <div className="user-menu" ref={menuRef}>
++          <button
++            type="button"
++            className="user-menu-button"
++            aria-expanded={menuOpen}
++            aria-controls="user-menu-panel"
++            onClick={() => setMenuOpen((open) => !open)}
++            data-testid="user-menu-button"
++          >
++            <Avatar name={currentUser.name} initials={currentUser.initials} small />
++            <span className="user-menu-name">{currentUser.name}</span>
++            <Icon name="chevron" className="user-menu-chevron" />
++          </button>
++          {menuOpen && (
++            <div id="user-menu-panel" className="user-menu-panel" data-testid="user-menu">
++              <p className="user-menu-email">{currentUser.email}</p>
++              <ul className="user-menu-list">
++                <li>
++                  <Link to="/settings" className="menu-item">
++                    Account settings
++                  </Link>
++                </li>
++                <li>
++                  <Link to="/team" className="menu-item">
++                    My team
++                  </Link>
++                </li>
++                <li className="menu-item-group-end">
++                  <button type="button" className="menu-item" onClick={() => setMenuOpen(false)}>
++                    Sign out
++                  </button>
++                </li>
++              </ul>
++            </div>
++          )}
++        </div>
++      </header>
+ 
+-          <div className="user-menu" ref={menuRef}>
+-            <button
+-              type="button"
+-              className="button user-menu-button"
+-              aria-expanded={menuOpen}
+-              aria-controls="user-menu-panel"
+-              onClick={() => setMenuOpen((open) => !open)}
+-              data-testid="user-menu-button"
+-            >
+-              <span className="avatar" aria-hidden="true">
+-                {currentUser.initials}
+-              </span>
+-              <span>{currentUser.name}</span>
+-            </button>
+-            {menuOpen && (
+-              <div id="user-menu-panel" className="user-menu-panel" data-testid="user-menu">
+-                <p className="user-menu-email">{currentUser.email}</p>
+-                <ul className="user-menu-list">
+-                  <li>
+-                    <Link to="/settings" className="user-menu-link">
+-                      Account settings
+-                    </Link>
+-                  </li>
+-                  <li>
+-                    <Link to="/team" className="user-menu-link">
+-                      My team
+-                    </Link>
+-                  </li>
+-                  <li>
+-                    <button type="button" className="link-button" onClick={() => setMenuOpen(false)}>
+-                      Sign out
+-                    </button>
+-                  </li>
+-                </ul>
+-              </div>
+-            )}
+-          </div>
+-        </header>
++      <div className="shell-body">
++        <aside id="primary-sidebar" className={navOpen ? 'sidebar is-open' : 'sidebar'}>
++          <nav aria-label="Primary" data-testid="sidebar-nav">
++            <ul className="nav-list">
++              {NAV_ITEMS.map((item) => (
++                <li key={item.to}>
++                  <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
++                    <Icon name={item.icon} />
++                    {item.label}
++                  </NavLink>
++                </li>
++              ))}
++            </ul>
++          </nav>
++        </aside>
+ 
+-        <main id="main-content" className="content" tabIndex={-1}>
++        <main id="main-content" className="content" tabIndex={-1} ref={mainRef}>
+           <Outlet />
+         </main>
+       </div>
+diff --git a/src/components/ProjectsTable.tsx b/src/components/ProjectsTable.tsx
+index 28169e4..61a9b62 100644
+--- a/src/components/ProjectsTable.tsx
++++ b/src/components/ProjectsTable.tsx
+@@ -1,6 +1,11 @@
+ import { useMemo, useState } from 'react';
+ import { Link } from 'react-router';
+ import { projects, type Project, type ProjectStatus } from '../data/projects';
++import { binoculars } from '../ink/drawings';
++import Pictogram from '../ink/Pictogram';
++import WriteIn from '../ink/WriteIn';
++import Icon from './Icon';
++import SearchField from './SearchField';
+ import StatusPill from './StatusPill';
+ 
+ type StatusFilter = 'all' | ProjectStatus;
+@@ -77,21 +82,23 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+   }
+ 
+   return (
+-    <section className="panel" aria-labelledby="projects-table-heading">
+-      <div className="panel-header">
+-        <h2 id="projects-table-heading">{heading}</h2>
+-        <p className="muted" data-testid="result-count" aria-live="polite">
++    <section className="card table-card" aria-labelledby="projects-table-heading" data-rise="">
++      <div className="card-head">
++        <h2 id="projects-table-heading" className="card-title">
++          {heading}
++        </h2>
++        <p className="card-count" data-testid="result-count" aria-live="polite">
+           Showing {rows.length} of {projects.length} projects
+         </p>
+       </div>
+ 
+       <div className="toolbar">
+-        <div className="segmented" role="group" aria-label="Filter by status">
++        <div className="chips" role="group" aria-label="Filter by status">
+           {FILTERS.map((filter) => (
+             <button
+               key={filter.value}
+               type="button"
+-              className="segmented-button"
++              className="btn btn--tertiary chip"
+               aria-pressed={status === filter.value}
+               onClick={() => setStatus(filter.value)}
+               data-testid={`status-filter-${filter.value}`}
+@@ -100,70 +107,113 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+             </button>
+           ))}
+         </div>
+-        <div className="field-inline">
+-          <label htmlFor="project-filter">Filter projects</label>
+-          <input
+-            id="project-filter"
+-            type="search"
+-            className="input"
+-            placeholder="Name, owner or team"
+-            value={query}
+-            onChange={(event) => setQuery(event.target.value)}
+-            data-testid="project-search"
+-          />
++        <div className="toolbar-end">
++          <div className="sort-select field-inline">
++            <label htmlFor="project-sort">Sort by</label>
++            <div className="select">
++              <select
++                id="project-sort"
++                className="input"
++                value={`${sortKey}:${sortDirection}`}
++                onChange={(event) => {
++                  const [key, direction] = event.target.value.split(':') as [SortKey, SortDirection];
++                  setSortKey(key);
++                  setSortDirection(direction);
++                }}
++              >
++                {COLUMNS.flatMap((column) => [
++                  <option key={`${column.key}:ascending`} value={`${column.key}:ascending`}>
++                    {column.label}, ascending
++                  </option>,
++                  <option key={`${column.key}:descending`} value={`${column.key}:descending`}>
++                    {column.label}, descending
++                  </option>,
++                ])}
++              </select>
++              <Icon name="chevron" className="select-chevron" />
++            </div>
++          </div>
++          <div className="field-inline">
++            <label htmlFor="project-filter" className="visually-hidden">
++              Filter projects
++            </label>
++            <SearchField
++              id="project-filter"
++              placeholder="Name, owner or team"
++              value={query}
++              onValueChange={setQuery}
++              data-testid="project-search"
++            />
++          </div>
+         </div>
+       </div>
+ 
+       {rows.length === 0 ? (
+-        <div className="empty-state" data-testid="projects-empty">
+-          <h3>No projects match your filters</h3>
+-          <p className="muted">Try a different search term or status.</p>
+-          <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++        <div className="empty-state empty-state--in-card" data-testid="projects-empty">
++          <Pictogram drawing={binoculars} size="md" />
++          <WriteIn as="h3" text="No projects match your filters" when="view" className="empty-state-title" />
++          <p className="empty-state-line">Try a different search term or status.</p>
++          <button type="button" className="btn btn--secondary" onClick={clearFilters} data-testid="clear-filters">
+             Clear filters
+           </button>
+         </div>
+       ) : (
+         <div className="table-wrap">
+-          <table className="table" data-testid="projects-table">
++          <table className="table table--stack" data-testid="projects-table">
++            <colgroup>
++              <col className="col-project" />
++              <col className="col-owner" />
++              <col className="col-status" />
++              <col className="col-budget" />
++              <col className="col-due" />
++            </colgroup>
+             <thead>
+               <tr>
+-                {COLUMNS.map((column) => (
+-                  <th
+-                    key={column.key}
+-                    scope="col"
+-                    aria-sort={sortKey === column.key ? sortDirection : 'none'}
+-                    data-testid={`column-${column.key}`}
+-                  >
+-                    <button
+-                      type="button"
+-                      className="sort-button"
+-                      onClick={() => toggleSort(column.key)}
+-                      data-testid={`sort-${column.key}`}
++                {COLUMNS.map((column) => {
++                  const sorted = sortKey === column.key;
++                  return (
++                    <th
++                      key={column.key}
++                      scope="col"
++                      className={column.key === 'budget' ? 'numeric' : undefined}
++                      aria-sort={sorted ? sortDirection : 'none'}
++                      data-testid={`column-${column.key}`}
+                     >
+-                      {column.label}
+-                      <span className="sort-indicator" aria-hidden="true">
+-                        {sortKey === column.key ? (sortDirection === 'ascending' ? '▲' : '▼') : ''}
+-                      </span>
+-                    </button>
+-                  </th>
+-                ))}
++                      <button
++                        type="button"
++                        className="sort-button"
++                        onClick={() => toggleSort(column.key)}
++                        data-testid={`sort-${column.key}`}
++                      >
++                        {column.label}
++                        <span className="sort-indicator" aria-hidden="true">
++                          {sorted && <Icon name={sortDirection === 'ascending' ? 'arrowUp' : 'arrowDown'} />}
++                        </span>
++                      </button>
++                    </th>
++                  );
++                })}
+               </tr>
+             </thead>
+             <tbody>
+               {rows.map((project) => (
+                 <tr key={project.id} data-testid="project-row">
+-                  <td>
+-                    <Link to={`/projects/${project.id}`} data-testid="project-link">
+-                      {project.name}
+-                    </Link>
+-                    <div className="muted small">{project.client}</div>
++                  <td data-label="Project">
++                    <div>
++                      <Link to={`/projects/${project.id}`} className="row-link" data-testid="project-link">
++                        {project.name}
++                      </Link>
++                      <div className="cell-meta">{project.client}</div>
++                    </div>
+                   </td>
+-                  <td>{project.owner}</td>
+-                  <td>
++                  <td data-label="Owner">{project.owner}</td>
++                  <td data-label="Status">
+                     <StatusPill status={project.status} />
+                   </td>
+-                  <td className="numeric">{currency.format(project.budget)}</td>
+-                  <td>{formatDate(project.dueDate)}</td>
++                  <td data-label="Budget" className="numeric">
++                    {currency.format(project.budget)}
++                  </td>
++                  <td data-label="Due date">{formatDate(project.dueDate)}</td>
+                 </tr>
+               ))}
+             </tbody>
+diff --git a/src/components/StatusPill.tsx b/src/components/StatusPill.tsx
+index 5abae07..9252e05 100644
+--- a/src/components/StatusPill.tsx
++++ b/src/components/StatusPill.tsx
+@@ -1,8 +1,10 @@
+ import { STATUS_LABELS, type ProjectStatus } from '../data/projects';
+ 
++// Status badge: outline, a dot and text in the status color; running (active) projects breathe.
+ export default function StatusPill({ status }: { status: ProjectStatus }) {
+   return (
+-    <span className={`pill pill-${status}`} data-testid="status-pill">
++    <span className={`badge badge--status pill pill-${status}`} data-testid="status-pill">
++      <span className={status === 'active' ? 'badge-dot dot-breathe' : 'badge-dot'} aria-hidden="true" />
+       {STATUS_LABELS[status]}
+     </span>
+   );
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..c040866 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -1,12 +1,22 @@
+ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
++import '@fontsource/source-serif-4/400.css';
++import '@fontsource/source-serif-4/500.css';
++import '@fontsource/instrument-sans/400.css';
++import '@fontsource/instrument-sans/500.css';
++import '@fontsource/jetbrains-mono/400.css';
+ import App from './App';
++import { installBrushDefs } from './ink/cel';
++import '../design-system/tokens.css';
++import './styles/ink.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+ if (!rootElement) throw new Error('Root element #root not found');
+ 
++installBrushDefs();
++
+ createRoot(rootElement).render(
+   <StrictMode>
+     <BrowserRouter>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index dde83ce..8f64083 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,22 @@
+ import { Link } from 'react-router';
++import NotFoundState from '../components/NotFoundState';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to overview</Link>
+-    </section>
++    <NotFoundState
++      testId="not-found"
++      title="Page not found"
++      line="The page you are looking for does not exist or has moved."
++      actions={
++        <>
++          <Link to="/" className="btn btn--primary">
++            Go to overview
++          </Link>
++          <Link to="/projects" className="btn btn--secondary">
++            View projects
++          </Link>
++        </>
++      }
++    />
+   );
+ }
+diff --git a/src/pages/OverviewPage.tsx b/src/pages/OverviewPage.tsx
+index 67fc003..c5fccc2 100644
+--- a/src/pages/OverviewPage.tsx
++++ b/src/pages/OverviewPage.tsx
+@@ -1,35 +1,44 @@
+ import { Link } from 'react-router';
+ import BarChart from '../components/BarChart';
++import PageHeader from '../components/PageHeader';
+ import ProjectsTable from '../components/ProjectsTable';
+ import { deploymentsByMonth, kpis, recentActivity } from '../data/metrics';
+ import { projects } from '../data/projects';
++import { flag } from '../ink/drawings';
++
++// Stat changes are colored by meaning, not sign: fewer incidents and shorter lead times are good news.
++const LOWER_IS_BETTER = new Set(['incidents', 'lead-time']);
+ 
+ export default function OverviewPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Overview</h1>
+-        <p className="muted">Delivery health across all teams for October 2026.</p>
+-      </div>
++      <PageHeader title="Overview" drawing={flag} lede="Delivery health across all teams for October 2026." />
+ 
+       <section aria-label="Key metrics" className="kpi-grid" data-testid="kpi-grid">
+-        {kpis.map((kpi) => (
+-          <article key={kpi.id} className="card kpi-card" data-testid="kpi-card">
+-            <h2 className="kpi-label">{kpi.label}</h2>
+-            <p className="kpi-value">{kpi.value}</p>
+-            <p className={`kpi-change kpi-change-${kpi.trend}`}>{kpi.change}</p>
+-          </article>
+-        ))}
++        {kpis.map((kpi) => {
++          const good = (kpi.trend === 'down') === LOWER_IS_BETTER.has(kpi.id);
++          return (
++            <article key={kpi.id} className="card kpi-card" data-testid="kpi-card" data-rise="">
++              <h2 className="kpi-label">{kpi.label}</h2>
++              <p className="kpi-value">{kpi.value}</p>
++              <p className={`kpi-change kpi-change-${kpi.trend} ${good ? 'is-good' : 'is-bad'}`}>{kpi.change}</p>
++            </article>
++          );
++        })}
+       </section>
+ 
+       <div className="two-column">
+-        <section className="panel" aria-labelledby="throughput-heading">
+-          <h2 id="throughput-heading">Deployment throughput</h2>
++        <section className="card panel panel--chart" aria-labelledby="throughput-heading" data-rise="">
++          <h2 id="throughput-heading" className="panel-title">
++            Deployment throughput
++          </h2>
+           <BarChart title="Production deployments per month" data={deploymentsByMonth} />
+         </section>
+ 
+-        <section className="panel" aria-labelledby="activity-heading">
+-          <h2 id="activity-heading">Recent activity</h2>
++        <section className="card panel" aria-labelledby="activity-heading" data-rise="">
++          <h2 id="activity-heading" className="panel-title">
++            Recent activity
++          </h2>
+           <ul className="activity-list" data-testid="activity-list">
+             {recentActivity.map((item) => {
+               const project = projects.find((p) => p.name === item.target);
+@@ -39,7 +48,7 @@ export default function OverviewPage() {
+                     <strong>{item.actor}</strong> {item.action}{' '}
+                     {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
+                   </p>
+-                  <p className="muted small">{item.time}</p>
++                  <p className="activity-time">{item.time}</p>
+                 </li>
+               );
+             })}
+diff --git a/src/pages/ProjectDetailPage.tsx b/src/pages/ProjectDetailPage.tsx
+index 3e13517..fcb3a02 100644
+--- a/src/pages/ProjectDetailPage.tsx
++++ b/src/pages/ProjectDetailPage.tsx
+@@ -1,6 +1,9 @@
+ import { useRef, useState, type KeyboardEvent } from 'react';
+ import { Link, useParams } from 'react-router';
++import NotFoundState from '../components/NotFoundState';
++import PageHeader from '../components/PageHeader';
+ import StatusPill from '../components/StatusPill';
++import { blueprint } from '../ink/drawings';
+ import { formatDate } from '../components/ProjectsTable';
+ import { findProject, type Project, type Task } from '../data/projects';
+ 
+@@ -20,11 +23,21 @@ export default function ProjectDetailPage() {
+ 
+   if (!project) {
+     return (
+-      <div className="empty-state" data-testid="project-not-found">
+-        <h1>Project not found</h1>
+-        <p className="muted">There is no project with the id “{id}”.</p>
+-        <Link to="/projects">Back to all projects</Link>
+-      </div>
++      <NotFoundState
++        testId="project-not-found"
++        title="Project not found"
++        line={<>There is no project with the id “{id}”.</>}
++        actions={
++          <>
++            <Link to="/projects" className="btn btn--primary">
++              Back to all projects
++            </Link>
++            <Link to="/" className="btn btn--secondary">
++              Go to overview
++            </Link>
++          </>
++        }
++      />
+     );
+   }
+ 
+@@ -66,15 +79,17 @@ function ProjectDetail({ project }: { project: Project }) {
+         </ol>
+       </nav>
+ 
+-      <div className="page-header page-header-row">
+-        <div>
+-          <h1 data-testid="project-title">{project.name}</h1>
+-          <p className="muted">
++      <PageHeader
++        title={project.name}
++        titleTestId="project-title"
++        drawing={blueprint}
++        actions={<StatusPill status={project.status} />}
++        lede={
++          <>
+             {project.client} · Owned by {project.owner}
+-          </p>
+-        </div>
+-        <StatusPill status={project.status} />
+-      </div>
++          </>
++        }
++      />
+ 
+       <div className="tabs" role="tablist" aria-label="Project sections">
+         {TABS.map((tab, index) => (
+@@ -100,8 +115,8 @@ function ProjectDetail({ project }: { project: Project }) {
+       </div>
+ 
+       {activeTab === 'overview' && (
+-        <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="panel" data-testid="panel-overview">
+-          <p>{project.description}</p>
++        <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="card panel tab-panel" data-testid="panel-overview">
++          <p className="panel-prose">{project.description}</p>
+           <dl className="details">
+             <div>
+               <dt>Budget</dt>
+@@ -126,7 +141,7 @@ function ProjectDetail({ project }: { project: Project }) {
+       )}
+ 
+       {activeTab === 'tasks' && (
+-        <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="panel" data-testid="panel-tasks">
++        <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="card panel tab-panel" data-testid="panel-tasks">
+           <div className="progress-row">
+             <p data-testid="task-progress" aria-live="polite">
+               {completed} of {tasks.length} tasks complete
+@@ -136,15 +151,20 @@ function ProjectDetail({ project }: { project: Project }) {
+           <ul className="task-list">
+             {tasks.map((task) => (
+               <li key={task.id} className={task.done ? 'task task-done' : 'task'} data-testid="task-item">
+-                <input
+-                  id={`task-${task.id}`}
+-                  type="checkbox"
+-                  checked={task.done}
+-                  onChange={() => toggleTask(task.id)}
+-                  data-testid={`task-checkbox-${task.id}`}
+-                />
++                <span className="check">
++                  <input
++                    id={`task-${task.id}`}
++                    type="checkbox"
++                    checked={task.done}
++                    onChange={() => toggleTask(task.id)}
++                    data-testid={`task-checkbox-${task.id}`}
++                  />
++                  <svg className="check-tick" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
++                    <path d="M2.5 6.25 5 8.5 9.5 3.75" />
++                  </svg>
++                </span>
+                 <label htmlFor={`task-${task.id}`}>{task.title}</label>
+-                <span className="muted small">{task.assignee}</span>
++                <span className="task-assignee">{task.assignee}</span>
+               </li>
+             ))}
+           </ul>
+@@ -152,25 +172,29 @@ function ProjectDetail({ project }: { project: Project }) {
+       )}
+ 
+       {activeTab === 'files' && (
+-        <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="panel" data-testid="panel-files">
+-          <table className="table">
+-            <thead>
+-              <tr>
+-                <th scope="col">File name</th>
+-                <th scope="col">Size</th>
+-                <th scope="col">Last updated</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {project.files.map((file) => (
+-                <tr key={file.id} data-testid="file-row">
+-                  <td>{file.name}</td>
+-                  <td>{file.size}</td>
+-                  <td>{formatDate(file.updated)}</td>
++        <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="card table-card tab-panel" data-testid="panel-files">
++          <div className="table-wrap table-wrap--scroll" role="region" aria-label="Project files" tabIndex={0}>
++            <table className="table table--files">
++              <thead>
++                <tr>
++                  <th scope="col">File name</th>
++                  <th scope="col" className="numeric">
++                    Size
++                  </th>
++                  <th scope="col">Last updated</th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
++              </thead>
++              <tbody>
++                {project.files.map((file) => (
++                  <tr key={file.id} data-testid="file-row">
++                    <td>{file.name}</td>
++                    <td className="numeric">{file.size}</td>
++                    <td>{formatDate(file.updated)}</td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
+         </section>
+       )}
+     </>
+diff --git a/src/pages/ProjectsPage.tsx b/src/pages/ProjectsPage.tsx
+index 9529547..c4faa66 100644
+--- a/src/pages/ProjectsPage.tsx
++++ b/src/pages/ProjectsPage.tsx
+@@ -1,5 +1,7 @@
+ import { useSearchParams } from 'react-router';
++import PageHeader from '../components/PageHeader';
+ import ProjectsTable from '../components/ProjectsTable';
++import { hourglass } from '../ink/drawings';
+ 
+ export default function ProjectsPage() {
+   const [searchParams] = useSearchParams();
+@@ -7,10 +9,7 @@ export default function ProjectsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Projects</h1>
+-        <p className="muted">Every initiative tracked by the operations team.</p>
+-      </div>
++      <PageHeader title="Projects" drawing={hourglass} lede="Every initiative tracked by the operations team." />
+       {/* Re-mount when the global search changes so the table picks up the new query. */}
+       <ProjectsTable key={initialQuery} heading="All projects" initialQuery={initialQuery} />
+     </>
+diff --git a/src/pages/SettingsPage.tsx b/src/pages/SettingsPage.tsx
+index 920db50..cfff53f 100644
+--- a/src/pages/SettingsPage.tsx
++++ b/src/pages/SettingsPage.tsx
+@@ -1,18 +1,39 @@
+ import { Link } from 'react-router';
++import PageHeader from '../components/PageHeader';
++import { key, plug } from '../ink/drawings';
++import Pictogram from '../ink/Pictogram';
++import Stage from '../ink/Stage';
++import WriteIn from '../ink/WriteIn';
+ 
+ export default function SettingsPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Settings</h1>
+-      </div>
+-      <section className="panel empty-state" data-testid="settings-placeholder">
+-        <h2>Workspace settings are coming soon</h2>
+-        <p className="muted">
++      <PageHeader title="Settings" drawing={key} />
++      <section className="card panel empty-state empty-state--first-run" data-testid="settings-placeholder" data-rise="">
++        <Stage color="lilac" lines={1} className="first-run-stage">
++          <div className="first-run">
++            <Pictogram drawing={plug} size="lg" alt />
++            <div className="ghost" aria-hidden="true">
++              <div className="ghost-card">
++                <span className="skeleton skeleton--title" />
++                <span className="skeleton" />
++                <span className="skeleton skeleton--short" />
++              </div>
++              <div className="ghost-card">
++                <span className="skeleton skeleton--title" />
++                <span className="skeleton skeleton--short" />
++              </div>
++            </div>
++          </div>
++        </Stage>
++        <WriteIn as="h2" text="Workspace settings are coming soon" when="view" className="empty-state-title" />
++        <p className="empty-state-line">
+           Notification rules, integrations and access control will live here. For now, ask a workspace admin to make
+           changes.
+         </p>
+-        <Link to="/">Back to overview</Link>
++        <Link to="/" className="btn btn--secondary">
++          Back to overview
++        </Link>
+       </section>
+     </>
+   );
+diff --git a/src/pages/TeamPage.tsx b/src/pages/TeamPage.tsx
+index c6c6245..9a45f1c 100644
+--- a/src/pages/TeamPage.tsx
++++ b/src/pages/TeamPage.tsx
+@@ -1,21 +1,29 @@
++import Avatar from '../components/Avatar';
++import PageHeader from '../components/PageHeader';
+ import { team } from '../data/team';
++import { bell } from '../ink/drawings';
+ 
+ export default function TeamPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Team</h1>
+-        <p className="muted">{team.length} people across engineering, design and operations.</p>
+-      </div>
+-      <section className="panel" aria-label="Team members">
+-        <div className="table-wrap">
+-          <table className="table" data-testid="team-table">
++      <PageHeader title="Team" drawing={bell} lede={`${team.length} people across engineering, design and operations.`} />
++      <section className="card table-card" aria-label="Team members" data-rise="">
++        <div className="table-wrap table-wrap--scroll" role="region" aria-label="Team members table" tabIndex={0}>
++          <table className="table table--team" data-testid="team-table">
++            <colgroup>
++              <col className="col-person" />
++              <col className="col-role" />
++              <col className="col-location" />
++              <col className="col-count" />
++            </colgroup>
+             <thead>
+               <tr>
+                 <th scope="col">Name</th>
+                 <th scope="col">Role</th>
+                 <th scope="col">Location</th>
+-                <th scope="col">Active projects</th>
++                <th scope="col" className="numeric">
++                  Active projects
++                </th>
+               </tr>
+             </thead>
+             <tbody>
+@@ -23,15 +31,10 @@ export default function TeamPage() {
+                 <tr key={member.id} data-testid="team-row">
+                   <td>
+                     <div className="person">
+-                      <span className="avatar" aria-hidden="true">
+-                        {member.name
+-                          .split(' ')
+-                          .map((part) => part[0])
+-                          .join('')}
+-                      </span>
+-                      <div>
++                      <Avatar name={member.name} />
++                      <div className="person-text">
+                         <div>{member.name}</div>
+-                        <a href={`mailto:${member.email}`} className="small">
++                        <a href={`mailto:${member.email}`} className="cell-meta">
+                           {member.email}
+                         </a>
+                       </div>
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 3eb965f..588c033 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,48 +1,21 @@
+ /*
+- * Base styles for the Northwind Ops dashboard.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Northwind Ops on Inkleaf 1.0.0. Every value comes from design-system/tokens.css;
++ * signature elements live in ink.css. Breakpoints: md 834px, lg 992px, xl 1200px.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-status-active-bg: #e3f2e5;
+-  --color-status-active-text: #1b5e20;
+-  --color-status-paused-bg: #fff4d6;
+-  --color-status-paused-text: #7a5a00;
+-  --color-status-done-bg: #e8e8e8;
+-  --color-status-done-text: #444444;
+-  --color-chart-bar: #6f8fbf;
+-  --color-chart-axis: #999999;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
++  color-scheme: light dark;
++  --page-gutter: clamp(var(--space-20), 4vw, var(--space-64));
++  --shadow-overlay-themed: var(--shadow-overlay);
++}
++[data-theme='light'] { color-scheme: light; }
++[data-theme='dark'] {
++  color-scheme: dark;
++  --shadow-overlay-themed: var(--shadow-overlay-night), 0 0 0 var(--border-width-hairline) var(--color-border-default);
++}
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) {
++    --shadow-overlay-themed: var(--shadow-overlay-night), 0 0 0 var(--border-width-hairline) var(--color-border-default);
++  }
+ }
+ 
+ *,
+@@ -54,46 +27,59 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  font-family: var(--font-family-serif);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++  text-wrap: balance;
+ }
+ 
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-weight: var(--font-weight-regular);
+ }
+ 
+-h2 {
+-  font-size: var(--font-size-h2);
++p {
++  margin: 0;
+ }
+ 
+-h3 {
+-  font-size: var(--font-size-base);
++pre,
++code,
++kbd,
++samp {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-small);
+ }
+ 
+-p {
+-  margin: 0 0 var(--space-2);
++a {
++  color: var(--color-text-primary);
++  text-decoration: underline;
++  text-decoration-color: var(--color-border-strong);
++  text-decoration-thickness: var(--border-width-hairline);
++  text-underline-offset: 3px;
++  transition: text-decoration-color var(--motion-duration-press) var(--motion-easing-hover);
+ }
+ 
+-a {
+-  color: var(--color-link);
++a:hover {
++  text-decoration-color: var(--color-text-primary);
+ }
+ 
+-:focus-visible {
+-  outline: 2px solid var(--color-focus);
+-  outline-offset: 2px;
++strong {
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .visually-hidden {
+@@ -114,507 +100,1448 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-8);
++  top: var(--space-8);
++  z-index: 50;
++  padding: var(--space-8) var(--space-12);
++  border-radius: var(--radius-control);
++  background: var(--color-surface-raised);
++  box-shadow: var(--shadow-overlay-themed);
++  font-size: var(--font-size-ui);
+ }
+ 
+-.muted {
+-  color: var(--color-text-muted);
++.numeric {
++  font-variant-numeric: tabular-nums;
+ }
+ 
+-.small {
+-  font-size: var(--font-size-small);
++.icon {
++  width: var(--size-icon);
++  height: var(--size-icon);
++  flex: none;
++  fill: none;
++  stroke: currentColor;
++  stroke-width: 1.5;
++  stroke-linecap: round;
++  stroke-linejoin: round;
+ }
+ 
+-.numeric {
+-  font-variant-numeric: tabular-nums;
++.icon--lg {
++  width: var(--size-icon-lg);
++  height: var(--size-icon-lg);
+ }
+ 
+-/* Layout */
++/* Shell: header, sidebar, content */
+ .app-shell {
+-  display: flex;
+   min-height: 100vh;
+ }
+ 
+-.sidebar {
+-  width: var(--sidebar-width);
+-  flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++.topbar {
++  position: sticky;
++  top: 0;
++  z-index: 20;
++  display: flex;
++  align-items: center;
++  gap: var(--space-16);
++  height: var(--size-header);
++  padding: 0 var(--space-24) 0 var(--space-16);
++  background: var(--color-surface-default);
++  box-shadow: inset 0 calc(var(--border-width-hairline) * -1) 0 var(--color-border-default);
++  animation: header-in var(--motion-duration-reveal) var(--motion-easing-settle) both;
++}
++
++@keyframes header-in {
++  from {
++    opacity: 0;
++    transform: translateY(calc(var(--motion-distance-rise) * -1));
++  }
++}
++
++.nav-toggle {
++  display: none;
+ }
+ 
+ .brand {
+-  font-weight: bold;
+-  margin-bottom: var(--space-4);
++  flex: none;
++  width: calc(var(--size-sidebar) - var(--space-16));
++  padding-left: var(--space-12);
++  font-family: var(--font-family-serif);
++  font-size: var(--font-size-h5);
++  line-height: var(--font-line-height-title);
++  white-space: nowrap;
+ }
+ 
+-.nav-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
++.topbar-search {
++  display: flex;
++  gap: var(--space-8);
++  flex: 1;
++  min-width: 0;
++  max-width: var(--size-dialog);
+ }
+ 
+-.nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
+-  text-decoration: none;
++.user-menu {
++  position: relative;
++  margin-left: auto;
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
++.user-menu-button {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-8);
++  height: var(--size-control);
++  padding: 0 var(--space-8) 0 var(--space-4);
++  border: 0;
++  border-radius: var(--radius-control);
++  background: transparent;
++  color: var(--color-text-primary);
++  font: var(--font-weight-medium) var(--font-size-ui) / 1 var(--font-family-sans);
++  cursor: pointer;
++  transition: background-color var(--motion-duration-press) var(--motion-easing-hover);
+ }
+ 
+-.main-column {
+-  flex: 1;
+-  min-width: 0;
+-  display: flex;
+-  flex-direction: column;
++.user-menu-button:hover {
++  background: var(--color-surface-hover);
+ }
+ 
+-.topbar {
+-  display: flex;
+-  align-items: center;
+-  justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++.user-menu-chevron {
++  color: var(--color-text-secondary);
++  transition: transform var(--motion-duration-open) var(--motion-easing-quart);
+ }
+ 
+-.topbar-search {
+-  display: flex;
+-  gap: var(--space-2);
+-  flex: 1;
+-  max-width: 420px;
++.user-menu-button[aria-expanded='true'] .user-menu-chevron {
++  transform: rotate(180deg);
+ }
+ 
+-.content {
++.user-menu-panel {
++  position: absolute;
++  right: 0;
++  top: calc(100% + var(--space-8));
++  z-index: 30;
++  min-width: var(--size-sidebar);
+   padding: var(--space-6);
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-6);
++  border-radius: var(--radius-tile);
++  background: var(--color-surface-raised);
++  box-shadow: var(--shadow-overlay-themed);
++  animation: menu-in var(--motion-duration-open) var(--motion-easing-quart) both;
+ }
+ 
+-.page-header-row {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: flex-start;
+-  gap: var(--space-4);
++@keyframes menu-in {
++  from {
++    opacity: 0;
++    transform: translateY(calc(var(--space-4) * -1));
++  }
+ }
+ 
+-.two-column {
+-  display: grid;
+-  grid-template-columns: 3fr 2fr;
+-  gap: var(--space-6);
++.user-menu-email {
++  padding: var(--space-6) var(--space-12) var(--space-8);
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
+ }
+ 
+-/* Controls */
+-.input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
+-  flex: 1;
++.user-menu-list {
++  list-style: none;
++  margin: 0;
++  padding: 0;
+ }
+ 
+-.button {
++.menu-item {
++  display: flex;
++  align-items: center;
++  width: 100%;
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border: 0;
++  border-radius: var(--radius-control);
++  background: transparent;
++  color: var(--color-text-primary);
+   font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
++  font-size: var(--font-size-ui);
++  text-align: start;
++  text-decoration: none;
+   cursor: pointer;
++  transition: background-color var(--motion-duration-press) var(--motion-easing-hover);
+ }
+ 
+-.link-button {
+-  font: inherit;
+-  background: none;
+-  border: none;
+-  padding: 0;
+-  color: var(--color-link);
+-  text-decoration: underline;
+-  cursor: pointer;
++.menu-item:hover {
++  background: var(--color-surface-subtle);
+ }
+ 
+-.field-inline {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++.menu-item:focus-visible {
++  outline-offset: -2px;
+ }
+ 
+-/* User menu */
+-.user-menu {
+-  position: relative;
++.menu-item-group-end {
++  margin-top: var(--space-6);
++  padding-top: var(--space-6);
++  box-shadow: inset 0 var(--border-width-hairline) 0 var(--color-border-default);
+ }
+ 
+-.user-menu-button {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++.shell-body {
++  display: grid;
++  grid-template-columns: var(--size-sidebar) minmax(0, 1fr);
+ }
+ 
+-.user-menu-panel {
+-  position: absolute;
+-  right: 0;
+-  top: calc(100% + var(--space-1));
+-  min-width: 220px;
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-3);
+-  z-index: 5;
++.sidebar {
++  position: sticky;
++  top: var(--size-header);
++  align-self: start;
++  height: calc(100vh - var(--size-header));
++  padding: var(--space-16);
++  box-shadow: inset calc(var(--border-width-hairline) * -1) 0 0 var(--color-border-default);
+ }
+ 
+-.user-menu-list {
++.nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+   display: grid;
+-  gap: var(--space-2);
++  gap: var(--space-4);
+ }
+ 
+-.avatar {
+-  display: inline-flex;
++.nav-link {
++  display: flex;
+   align-items: center;
+-  justify-content: center;
+-  width: 28px;
+-  height: 28px;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
++  gap: var(--space-12);
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-control);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-ui);
++  text-decoration: none;
++  transition: color var(--motion-duration-nav) var(--motion-easing-expo),
++    background-color var(--motion-duration-press) var(--motion-easing-hover);
+ }
+ 
+-.person {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++.nav-link:hover {
++  color: var(--color-text-primary);
+ }
+ 
+-/* Cards and panels */
+-.panel,
+-.card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++.nav-link.active {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+-.panel-header {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: baseline;
+-  gap: var(--space-4);
++.nav-link:focus-visible {
++  outline-offset: -2px;
+ }
+ 
+-.kpi-grid {
+-  display: grid;
+-  grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
++.content {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-24);
++  min-width: 0;
++  width: 100%;
++  max-width: calc(var(--size-container) + 2 * var(--page-gutter));
++  margin-inline: auto;
++  padding: 0 var(--page-gutter) var(--space-96);
+ }
+ 
+-.kpi-label {
+-  font-size: var(--font-size-small);
+-  font-weight: normal;
+-  color: var(--color-text-muted);
++.content:focus {
++  outline: none;
+ }
+ 
+-.kpi-value {
+-  font-size: 28px;
+-  font-weight: bold;
+-  margin: 0;
++.content > * {
++  min-width: 0;
+ }
+ 
+-.kpi-change {
+-  font-size: var(--font-size-small);
+-  margin: 0;
++/* Product screen header */
++.page-header {
++  display: grid;
++  grid-template-columns: var(--size-picto-sm) minmax(0, 1fr) auto;
++  column-gap: var(--space-16);
++  row-gap: var(--space-8);
++  align-items: center;
++  padding: var(--space-48) 0 var(--space-8);
+ }
+ 
+-.kpi-change-up {
+-  color: var(--color-positive);
++.page-header-picto {
++  grid-column: 1;
++  grid-row: 1;
+ }
+ 
+-.kpi-change-down {
+-  color: var(--color-negative);
++.page-header h1 {
++  grid-column: 2;
++  grid-row: 1;
++  max-width: var(--size-measure-heading);
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+-/* Chart */
+-.chart {
+-  margin: 0;
++.page-header-actions {
++  grid-column: 3;
++  grid-row: 1;
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
+ }
+ 
+-.chart-title {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
+-  margin-bottom: var(--space-2);
++.page-header-lede {
++  grid-column: 1 / -1;
++  max-width: var(--size-measure);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-body);
+ }
+ 
+-.chart-svg {
+-  width: 100%;
+-  height: auto;
+-  display: block;
++.page-header-lede,
++.page-header-actions {
++  animation: rise-sm var(--motion-duration-rise) var(--motion-easing-settle) 200ms both;
+ }
+ 
+-.chart-bar {
+-  fill: var(--color-chart-bar);
++@keyframes rise-sm {
++  from {
++    opacity: 0;
++    transform: translateY(var(--motion-distance-rise-sm));
++  }
+ }
+ 
+-.chart-axis {
+-  stroke: var(--color-chart-axis);
++.breadcrumb {
++  padding-top: var(--space-48);
+ }
+ 
+-.chart-value,
+-.chart-label {
+-  font-size: 12px;
+-  fill: var(--color-text);
++.breadcrumb + .page-header {
++  padding-top: 0;
++  margin-top: calc(var(--space-8) * -1);
+ }
+ 
+-/* Activity */
+-.activity-list {
++.breadcrumb ol {
+   list-style: none;
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-8);
+   margin: 0;
+   padding: 0;
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
+ 
+-.activity-item {
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
+-}
+-
+-.activity-item p {
+-  margin: 0;
+-}
+-
+-/* Toolbar & table */
+-.toolbar {
+-  display: flex;
+-  flex-wrap: wrap;
+-  justify-content: space-between;
+-  gap: var(--space-3);
+-  margin: var(--space-3) 0;
++.breadcrumb a {
++  color: var(--color-text-secondary);
+ }
+ 
+-.segmented {
+-  display: flex;
++.breadcrumb a:hover {
++  color: var(--color-text-primary);
+ }
+ 
+-.segmented-button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  cursor: pointer;
+-  margin-left: -1px;
++.breadcrumb li + li::before {
++  content: '/';
++  margin-right: var(--space-8);
++  color: var(--color-text-tertiary);
+ }
+ 
+-.segmented-button:first-child {
+-  border-radius: var(--radius) 0 0 var(--radius);
+-  margin-left: 0;
++/* Controls */
++.input {
++  width: 100%;
++  min-width: 0;
++  height: var(--size-control);
++  flex: none;
++  padding: 0 var(--space-12);
++  border: 0;
++  border-radius: var(--radius-control);
++  background: var(--color-surface-raised);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-strong);
++  color: var(--color-text-primary);
++  font: var(--font-weight-regular) var(--font-size-ui) / 1 var(--font-family-sans);
++  transition: box-shadow var(--motion-duration-hover) var(--motion-easing-hover);
+ }
+ 
+-.segmented-button:last-child {
+-  border-radius: 0 var(--radius) var(--radius) 0;
++.input::placeholder {
++  color: var(--color-text-tertiary);
+ }
+ 
+-.segmented-button[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.input:hover {
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-check);
+ }
+ 
+-.table-wrap {
+-  overflow-x: auto;
++.input::-webkit-search-cancel-button {
++  -webkit-appearance: none;
++  appearance: none;
+ }
+ 
+-.table {
+-  width: 100%;
+-  border-collapse: collapse;
++.search-field {
++  position: relative;
++  flex: 1;
++  min-width: 0;
+ }
+ 
+-.table th,
+-.table td {
+-  text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  vertical-align: top;
++.search-field .input {
++  padding-left: var(--space-40);
++  padding-right: var(--space-40);
+ }
+ 
+-.table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++.search-field-icon {
++  position: absolute;
++  left: var(--space-12);
++  top: 50%;
++  translate: 0 -50%;
++  color: var(--color-text-secondary);
++  pointer-events: none;
+ }
+ 
+-.sort-button {
+-  font: inherit;
+-  color: inherit;
+-  background: none;
+-  border: none;
++.search-field-clear {
++  position: absolute;
++  right: var(--space-4);
++  top: 50%;
++  translate: 0 -50%;
++  display: grid;
++  place-items: center;
++  width: var(--size-control-sm);
++  height: var(--size-control-sm);
+   padding: 0;
++  border: 0;
++  border-radius: var(--radius-chip);
++  background: transparent;
++  color: var(--color-text-secondary);
+   cursor: pointer;
+-  display: inline-flex;
+-  gap: var(--space-1);
++  transition: background-color var(--motion-duration-press) var(--motion-easing-hover),
++    color var(--motion-duration-press) var(--motion-easing-hover);
+ }
+ 
+-.sort-indicator {
+-  font-size: 10px;
++.search-field-clear:hover {
++  background: var(--color-surface-hover);
++  color: var(--color-text-primary);
+ }
+ 
+-.pill {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.select {
++  position: relative;
++  flex: 1;
++  min-width: 0;
+ }
+ 
+-.pill-active {
+-  background: var(--color-status-active-bg);
+-  color: var(--color-status-active-text);
++.select select.input {
++  appearance: none;
++  padding-right: var(--space-40);
++  cursor: pointer;
+ }
+ 
+-.pill-paused {
+-  background: var(--color-status-paused-bg);
+-  color: var(--color-status-paused-text);
++.select-chevron {
++  position: absolute;
++  right: var(--space-12);
++  top: 50%;
++  translate: 0 -50%;
++  color: var(--color-text-secondary);
++  pointer-events: none;
+ }
+ 
+-.pill-done {
+-  background: var(--color-status-done-bg);
+-  color: var(--color-status-done-text);
++.field-inline {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  min-width: 0;
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.field-inline > label {
++  font-size: var(--font-size-ui);
++  font-weight: var(--font-weight-medium);
++  white-space: nowrap;
+ }
+ 
+-/* Project detail */
+-.breadcrumb ol {
+-  list-style: none;
++/* Avatar tiles */
++.avatar {
++  display: inline-grid;
++  place-items: center;
++  flex: none;
++  width: var(--size-control);
++  height: var(--size-control);
++  border-radius: var(--radius-tile);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-serif);
++  font-size: var(--font-size-h5);
++  font-weight: var(--font-weight-regular);
++  line-height: 1;
++}
++
++.avatar--sm {
++  width: var(--size-control-sm);
++  height: var(--size-control-sm);
++  border-radius: var(--radius-control);
++  font-size: var(--font-size-ui);
++}
++
++.avatar--sage { background: var(--color-stage-sage); }
++.avatar--lilac { background: var(--color-stage-lilac); }
++.avatar--apricot { background: var(--color-stage-apricot); }
++
++.person {
+   display: flex;
+-  gap: var(--space-2);
+-  margin: 0;
+-  padding: 0;
+-  font-size: var(--font-size-small);
++  align-items: center;
++  gap: var(--space-12);
++  min-width: 0;
+ }
+ 
+-.breadcrumb li + li::before {
+-  content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
++.person-text {
++  min-width: 0;
+ }
+ 
+-.tabs {
+-  display: flex;
+-  gap: var(--space-1);
+-  border-bottom: var(--border-width) solid var(--color-border);
++.person-text > * {
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
+ }
+ 
+-.tab {
+-  font: inherit;
+-  background: none;
+-  border: var(--border-width) solid transparent;
+-  border-bottom: none;
+-  border-radius: var(--radius) var(--radius) 0 0;
+-  padding: var(--space-2) var(--space-4);
+-  color: var(--color-text);
+-  cursor: pointer;
+-  margin-bottom: -1px;
++/* Cards and panels */
++.card {
++  min-width: 0;
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-card);
++  background: var(--color-surface-raised);
++  padding: var(--space-24);
+ }
+ 
+-.tab[aria-selected='true'] {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  border-bottom: var(--border-width) solid var(--color-surface);
+-  font-weight: bold;
++.panel-title {
++  margin-bottom: var(--space-16);
++  font-size: var(--font-size-h4);
+ }
+ 
+-.details {
++.panel-prose {
++  max-width: var(--size-measure);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-ui);
++}
++
++.kpi-grid {
+   display: grid;
+-  grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 0;
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: var(--space-24);
++  align-items: stretch;
+ }
+ 
+-.details dt {
++.kpi-card {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-8);
++}
++
++.kpi-label {
++  font-family: var(--font-family-sans);
+   font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-title);
++  color: var(--color-text-secondary);
+ }
+ 
+-.details dd {
+-  margin: 0;
++.kpi-value {
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-tight);
++  font-variant-numeric: tabular-nums;
++  white-space: nowrap;
+ }
+ 
+-.progress-row {
++.kpi-change {
++  margin-top: auto;
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  font-variant-numeric: tabular-nums;
++  color: var(--color-text-secondary);
++}
++
++.kpi-change.is-good {
++  color: var(--color-status-success);
++}
++
++.kpi-change.is-bad {
++  color: var(--color-status-danger);
++}
++
++.two-column {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr);
++  gap: var(--space-24);
++  align-items: stretch;
++}
++
++/* Chart on its sage stage */
++.panel--chart {
++  display: flex;
++  flex-direction: column;
++}
++
++.chart {
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++  margin: 0;
++}
++
++.chart-title {
++  margin-bottom: var(--space-12);
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
++}
++
++.chart-stage {
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++  align-items: stretch;
++}
++
++.chart-stage .stage-content {
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++}
++
++.chart-plot {
++  position: relative;
++  flex: 1;
++  min-height: 240px;
++}
++
++.chart-svg {
++  position: absolute;
++  inset: 0;
++  display: block;
++  overflow: visible;
++}
++
++.chart-bar {
++  fill: var(--color-chart-rest);
++  rx: var(--radius-badge);
++}
++
++.chart-bar--current {
++  fill: var(--color-chart-ink);
++}
++
++.chart-grid,
++.chart-axis {
++  stroke: var(--color-border-default);
++  stroke-width: 1;
++  shape-rendering: crispEdges;
++}
++
++.chart-value,
++.chart-label {
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-caption);
++  font-variant-numeric: tabular-nums;
++  fill: var(--color-text-primary);
++}
++
++.chart-value {
++  font-weight: var(--font-weight-medium);
++}
++
++/* Activity */
++.activity-list {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++}
++
++.activity-item {
++  padding: var(--space-12) 0;
++  border-bottom: var(--border-width-hairline) solid var(--color-border-default);
++  font-size: var(--font-size-ui);
++  line-height: var(--font-line-height-lede);
++  color: var(--color-text-secondary);
++}
++
++.activity-item:first-child {
++  padding-top: 0;
++}
++
++.activity-item:last-child {
++  border-bottom: 0;
++  padding-bottom: 0;
++}
++
++.activity-item strong {
++  color: var(--color-text-primary);
++}
++
++.activity-time {
++  margin-top: var(--space-4);
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
++}
++
++/* Table card, toolbar and table */
++.table-card {
++  padding: 0;
++  overflow: hidden;
++}
++
++.card-head {
++  display: flex;
++  justify-content: space-between;
++  align-items: baseline;
++  gap: var(--space-16);
++  padding: var(--space-24) var(--space-24) 0;
++}
++
++.card-title {
++  font-size: var(--font-size-h5);
++  line-height: var(--font-line-height-title);
++}
++
++.card-count {
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
++  font-variant-numeric: tabular-nums;
++}
++
++.toolbar {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: space-between;
++  align-items: center;
++  gap: var(--space-12) var(--space-16);
++  padding: var(--space-16) var(--space-24);
++}
++
++.chips {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-8);
++}
++
++.chip {
++  border-radius: var(--radius-chip);
++}
++
++.chip[aria-pressed='true'],
++.chip[aria-pressed='true']:hover {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++}
++
++.toolbar-end {
+   display: flex;
+   align-items: center;
++  gap: var(--space-12);
++  min-width: 0;
++}
++
++.toolbar-end .search-field {
++  width: calc(var(--size-sidebar) + var(--space-48));
++}
++
++.sort-select {
++  display: none;
++}
++
++.table-wrap {
++  min-width: 0;
++}
++
++.table {
++  width: 100%;
++  border-collapse: collapse;
++  table-layout: fixed;
++  font-size: var(--font-size-dense);
++  line-height: var(--font-line-height-title);
++}
++
++.table th,
++.table td {
++  height: var(--size-row-dense);
++  padding: 0 var(--space-16);
++  text-align: start;
++  vertical-align: middle;
++  border-bottom: var(--border-width-hairline) solid var(--color-border-default);
++}
++
++.table th:first-child,
++.table td:first-child {
++  padding-left: var(--space-24);
++}
++
++.table th:last-child,
++.table td:last-child {
++  padding-right: var(--space-24);
++}
++
++.table thead th {
++  border-top: var(--border-width-hairline) solid var(--color-border-default);
++  font-size: var(--font-size-micro);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-micro);
++  text-transform: uppercase;
++  color: var(--color-text-tertiary);
++  white-space: nowrap;
++}
++
++.table td {
++  padding-block: var(--space-8);
++  color: var(--color-text-secondary);
++}
++
++.table td:first-child {
++  color: var(--color-text-primary);
++}
++
++.table .numeric {
++  text-align: right;
++  font-variant-numeric: tabular-nums;
++}
++
++.table tbody tr:last-child td {
++  border-bottom: 0;
++}
++
++.table tbody tr:hover {
++  background: var(--color-surface-subtle);
++}
++
++.table thead th[aria-sort='ascending'],
++.table thead th[aria-sort='descending'] {
++  color: var(--color-text-primary);
++}
++
++.sort-button {
++  display: inline-flex;
++  align-items: center;
+   gap: var(--space-4);
++  height: var(--size-row-dense);
++  padding: 0;
++  border: 0;
++  background: none;
++  color: inherit;
++  font: inherit;
++  letter-spacing: inherit;
++  text-transform: inherit;
++  cursor: pointer;
++  transition: color var(--motion-duration-press) var(--motion-easing-hover);
+ }
+ 
+-.progress-row p {
+-  margin: 0;
++.sort-button:hover {
++  color: var(--color-text-primary);
++}
++
++.sort-indicator {
++  display: inline-flex;
++  width: var(--space-12);
++}
++
++.sort-indicator .icon {
++  width: var(--space-12);
++  height: var(--space-12);
++}
++
++.row-link {
++  font-weight: var(--font-weight-medium);
++  text-decoration-color: transparent;
++}
++
++.row-link:hover {
++  text-decoration-color: var(--color-text-primary);
++}
++
++.cell-meta {
++  display: block;
++  margin-top: 2px;
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
++}
++
++a.cell-meta {
++  text-decoration-color: transparent;
++}
++
++a.cell-meta:hover {
++  color: var(--color-text-primary);
++  text-decoration-color: var(--color-border-strong);
++}
++
++.col-project { width: 30%; }
++.col-owner { width: 20%; }
++.col-status { width: 15%; }
++.col-budget { width: 15%; }
++.col-due { width: 20%; }
++.col-person { width: 36%; }
++.col-role { width: 26%; }
++.col-location { width: 18%; }
++.col-count { width: 20%; }
++
++.table-wrap--scroll {
++  overflow-x: auto;
++}
++
++.table-wrap--scroll:focus-visible {
++  outline-offset: -2px;
++}
++
++/* Badges */
++.badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  height: var(--space-24);
++  padding: 0 var(--space-8);
++  border-radius: var(--radius-badge);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-control);
++  color: var(--color-text-secondary);
++  font: var(--font-weight-medium) var(--font-size-caption) / 1 var(--font-family-sans);
++  letter-spacing: var(--font-tracking-caption);
++  white-space: nowrap;
++}
++
++.badge-dot {
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: currentColor;
++}
++
++.pill-active { color: var(--color-status-info); }
++.pill-paused { color: var(--color-status-warning); }
++.pill-done { color: var(--color-status-success); }
++
++/* Empty, first-run and not-found states */
++.empty-state {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  text-align: center;
++  padding: var(--space-64) var(--space-24);
++}
++
++.empty-state > * {
++  max-width: var(--size-dialog);
++}
++
++.empty-state--in-card {
++  border-top: var(--border-width-hairline) solid var(--color-border-default);
++}
++
++.empty-state .write-in,
++.empty-state-title {
++  margin-top: var(--space-24);
++  font-size: var(--font-size-h4);
++}
++
++.empty-state--page h1 {
++  font-size: var(--font-size-h3);
++  font-weight: var(--font-weight-regular);
++}
++
++.empty-state-line {
++  margin-top: var(--space-8);
++  font-size: var(--font-size-ui);
++  color: var(--color-text-secondary);
++}
++
++.empty-state > .btn,
++.empty-state-actions {
++  margin-top: var(--space-24);
++}
++
++.empty-state-actions {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: center;
++  gap: var(--space-12);
++}
++
++.empty-state--page {
++  padding-top: var(--space-96);
++}
++
++.stage--not-found {
++  width: calc(var(--size-picto-xl) * 1.45);
++  padding: 0;
++  border-radius: var(--radius-tile);
++}
++
++.empty-state--first-run {
++  padding: var(--space-24) var(--space-24) var(--space-48);
++}
++
++.first-run-stage {
++  width: 100%;
++  padding: var(--space-24);
++}
++
++.first-run {
++  display: flex;
++  align-items: center;
++  gap: var(--space-24);
++}
++
++.ghost {
++  flex: 1;
++  display: grid;
++  gap: var(--space-12);
++}
++
++.ghost-card {
++  display: grid;
++  gap: var(--space-8);
++  padding: var(--space-16);
++  border-radius: var(--radius-tile);
++  background: var(--color-surface-raised);
++  box-shadow: var(--shadow-float);
++  opacity: 0.6;
++}
++
++.skeleton {
++  display: block;
++  height: var(--space-8);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
++}
++
++.skeleton--title {
++  width: 60%;
++  height: var(--space-12);
++}
++
++.skeleton--short {
++  width: 40%;
++}
++
++/* Project detail */
++.tabs {
++  display: flex;
++  gap: var(--space-24);
++  overflow-x: auto;
++  scrollbar-width: none;
++  box-shadow: inset 0 calc(var(--border-width-hairline) * -1) 0 var(--color-border-default);
++}
++
++.tab {
++  flex: none;
++  height: var(--size-control);
++  padding: 0;
++  border: 0;
++  background: none;
++  color: var(--color-text-secondary);
++  font: var(--font-weight-regular) var(--font-size-ui) / 1 var(--font-family-sans);
++  cursor: pointer;
++  transition: color var(--motion-duration-press) var(--motion-easing-hover);
++}
++
++.tab:hover {
++  color: var(--color-text-primary);
++}
++
++.tab[aria-selected='true'] {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  box-shadow: inset 0 calc(var(--border-width-ring) * -1) 0 var(--color-action-primary);
++}
++
++.tab:focus-visible {
++  outline-offset: -2px;
++}
++
++.tab-panel {
++  animation: content-swap var(--motion-duration-raise) var(--motion-easing-settle) both;
++}
++
++@keyframes content-swap {
++  from {
++    opacity: 0;
++    transform: translateY(var(--motion-distance-raise));
++  }
++}
++
++.details {
++  display: grid;
++  grid-template-columns: repeat(4, minmax(0, 1fr));
++  gap: var(--space-24);
++  margin: var(--space-24) 0 0;
++  padding-top: var(--space-24);
++  border-top: var(--border-width-hairline) solid var(--color-border-default);
++}
++
++.details dt {
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
++}
++
++.details dd {
++  margin: var(--space-4) 0 0;
++  font-size: var(--font-size-body);
++  font-variant-numeric: tabular-nums;
++}
++
++.progress-row {
++  display: flex;
++  align-items: center;
++  gap: var(--space-16);
++  font-size: var(--font-size-ui);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+ .progress {
+   flex: 1;
+-  max-width: 240px;
++  max-width: var(--size-sidebar);
++  height: var(--space-6);
++  border: 0;
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
++  overflow: hidden;
++  appearance: none;
++}
++
++.progress::-webkit-progress-bar {
++  background: var(--color-surface-subtle);
++}
++
++.progress::-webkit-progress-value {
++  background: var(--color-action-primary);
++  border-radius: var(--radius-full);
++}
++
++.progress::-moz-progress-bar {
++  background: var(--color-action-primary);
++  border-radius: var(--radius-full);
+ }
+ 
+ .task-list {
+   list-style: none;
+-  margin: var(--space-3) 0 0;
++  margin: var(--space-16) 0 0;
+   padding: 0;
+ }
+ 
+ .task {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-12);
++  min-height: var(--size-touch);
++  padding: var(--space-8) 0;
++  border-bottom: var(--border-width-hairline) solid var(--color-border-default);
++}
++
++.task:last-child {
++  border-bottom: 0;
+ }
+ 
+ .task label {
+   flex: 1;
++  min-width: 0;
++  font-size: var(--font-size-ui);
++  cursor: pointer;
++}
++
++.task-assignee {
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
+ }
+ 
+ .task-done label {
+   text-decoration: line-through;
+-  color: var(--color-text-muted);
++  text-decoration-color: var(--color-border-strong);
++  color: var(--color-text-tertiary);
+ }
+ 
+-@media (max-width: 900px) {
+-  .app-shell {
+-    flex-direction: column;
++.check {
++  position: relative;
++  display: grid;
++  place-items: center;
++  flex: none;
++  width: var(--size-icon-lg);
++  height: var(--size-icon-lg);
++}
++
++.check input {
++  appearance: none;
++  width: var(--size-icon-lg);
++  height: var(--size-icon-lg);
++  margin: 0;
++  border-radius: var(--radius-badge);
++  background: var(--color-surface-raised);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-check);
++  cursor: pointer;
++  transition: background-color var(--motion-duration-press) var(--motion-easing-hover),
++    box-shadow var(--motion-duration-press) var(--motion-easing-hover);
++}
++
++.check input:hover {
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-text-primary);
++}
++
++.check input:checked {
++  background: var(--color-action-primary);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-action-primary);
++}
++
++.check-tick {
++  position: absolute;
++  width: var(--space-12);
++  height: var(--space-12);
++  fill: none;
++  stroke: var(--color-text-on-action);
++  stroke-width: 1.75;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++  pointer-events: none;
++  opacity: 0;
++}
++
++.check input:checked + .check-tick {
++  opacity: 1;
++}
++
++/* From xl: four stats in a row, chart and activity side by side */
++@media (min-width: 1200px) {
++  .kpi-grid {
++    grid-template-columns: repeat(4, minmax(0, 1fr));
+   }
+ 
+-  .sidebar {
++  .two-column {
++    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
++  }
++}
++
++/* Below lg: the sidebar collapses into the header's menu button and a sheet */
++@media (max-width: 991px) {
++  .shell-body {
++    display: block;
++  }
++
++  .nav-toggle {
++    display: inline-flex;
++    width: var(--size-touch);
++    height: var(--size-touch);
++    background: transparent;
++  }
++
++  .brand {
+     width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    padding-left: 0;
++  }
++
++  .sidebar {
++    display: none;
++  }
++
++  .sidebar.is-open {
++    display: block;
++    position: fixed;
++    top: var(--size-header);
++    left: 0;
++    right: 0;
++    z-index: 19;
++    height: auto;
++    max-height: calc(100dvh - var(--size-header));
++    overflow-y: auto;
++    padding: var(--space-8) var(--space-16) var(--space-16);
++    background: var(--color-surface-default);
++    box-shadow: var(--shadow-overlay-themed);
++    animation: menu-in var(--motion-duration-open) var(--motion-easing-quart) both;
+   }
+ 
+   .nav-list {
+-    display: flex;
++    gap: 0;
++  }
++
++  .nav-link {
++    height: var(--size-touch);
++    border-radius: 0;
++    border-bottom: var(--border-width-hairline) solid var(--color-border-default);
++  }
++
++  .nav-list li:last-child .nav-link {
++    border-bottom: 0;
++  }
++}
++
++/* Below md: one-column header, search inside the menu sheet, stacked tables */
++@media (max-width: 833px) {
++  .topbar {
+     flex-wrap: wrap;
+-    gap: var(--space-2);
++    height: auto;
++    min-height: var(--size-header);
++    padding: 14px var(--space-16);
++    row-gap: var(--space-16);
++  }
++
++  .brand {
++    flex: 1;
++    min-width: 0;
++  }
++
++  .topbar-search {
++    display: none;
++    order: 3;
++    flex-basis: 100%;
++    max-width: none;
++  }
++
++  .topbar.is-nav-open .topbar-search {
++    display: flex;
++  }
++
++  .sidebar.is-open {
++    top: calc(var(--size-header) + var(--size-control) + var(--space-16));
++    max-height: calc(100dvh - var(--size-header) - var(--size-control) - var(--space-16));
++  }
++
++  .user-menu-button {
++    height: var(--size-touch);
++    padding: 0 var(--space-6);
++  }
++
++  .user-menu-name,
++  .user-menu-chevron {
++    display: none;
++  }
++
++  .content {
++    padding-bottom: var(--space-64);
++  }
++
++  .page-header {
++    grid-template-columns: minmax(0, 1fr);
++    padding-top: var(--space-32);
++  }
++
++  .page-header-picto,
++  .page-header h1,
++  .page-header-actions,
++  .page-header-lede {
++    grid-column: 1;
++    grid-row: auto;
++  }
++
++  .page-header h1 {
++    font-size: var(--font-size-h4);
++  }
++
++  .breadcrumb {
++    padding-top: var(--space-32);
++  }
++
++  .kpi-grid {
++    gap: var(--space-16);
++  }
++
++  .kpi-card {
++    padding: var(--space-16);
++  }
++
++  .kpi-value {
++    font-size: var(--font-size-h4);
++  }
++
++  .card-head {
++    padding: var(--space-16) var(--space-16) 0;
++  }
++
++  .toolbar {
++    padding: var(--space-16);
++  }
++
++  .toolbar-end {
++    flex-direction: column;
++    align-items: stretch;
++    width: 100%;
++  }
++
++  .toolbar-end .search-field {
++    width: 100%;
++  }
++
++  .sort-select {
++    display: flex;
++  }
++
++  .sort-select > label {
++    font-size: var(--font-size-small);
++    font-weight: var(--font-weight-regular);
++    color: var(--color-text-secondary);
++  }
++
++  /* Tables with status: rows stack, labels from data-label */
++  .table--stack thead {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    overflow: hidden;
++    clip: rect(0, 0, 0, 0);
++    white-space: nowrap;
++  }
++
++  .table--stack,
++  .table--stack tbody,
++  .table--stack tr,
++  .table--stack td {
++    display: block;
++  }
++
++  .table--stack tr {
++    padding: var(--space-12) var(--space-16);
++    border-top: var(--border-width-hairline) solid var(--color-border-default);
++  }
++
++  .table--stack td,
++  .table--stack td:first-child,
++  .table--stack td:last-child {
++    display: grid;
++    grid-template-columns: minmax(96px, 38%) minmax(0, 1fr);
++    gap: var(--space-12);
++    align-items: center;
++    height: auto;
++    min-height: var(--space-32);
++    padding: var(--space-4) 0;
++    border: 0;
++  }
++
++  .table--stack td::before {
++    content: attr(data-label);
++    font-size: var(--font-size-caption);
++    letter-spacing: var(--font-tracking-caption);
++    color: var(--color-text-tertiary);
++  }
++
++  .table--stack td.numeric {
++    text-align: start;
++  }
++
++  .table--stack td > .badge {
++    justify-self: start;
++  }
++
++  /* Tables without status or actions scroll in their labelled region */
++  .table-wrap--scroll .table {
++    min-width: calc(var(--size-form) + var(--space-40));
++  }
++
++  .table-wrap--scroll .table--files {
++    min-width: calc(var(--size-dialog) + var(--space-20));
+   }
+ 
+-  .kpi-grid,
+   .details {
+-    grid-template-columns: repeat(2, 1fr);
++    grid-template-columns: repeat(2, minmax(0, 1fr));
+   }
+ 
+-  .two-column {
+-    grid-template-columns: 1fr;
++  .task {
++    flex-wrap: wrap;
++  }
++
++  .task-assignee {
++    flex-basis: 100%;
++    padding-left: calc(var(--size-icon-lg) + var(--space-12));
++  }
++
++  .empty-state--page {
++    padding-top: var(--space-64);
++  }
++
++  .empty-state-actions {
++    flex-direction: column;
++    align-self: stretch;
++  }
++
++  .empty-state-actions .btn {
++    display: flex;
++    width: 100%;
++  }
++
++  .first-run {
++    flex-direction: column;
++    align-items: stretch;
++  }
++
++  .first-run .picto {
++    align-self: center;
+   }
+ }
