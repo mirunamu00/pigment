@@ -14,8 +14,20 @@ export type Agent = "claude" | "codex";
  * Passed on the command line: headless runs do not pick up a project settings file in a fresh, untrusted
  * folder. On Windows the agent may use PowerShell instead of Bash, so both are listed.
  */
-const SHELL_COMMANDS = ["npm run build:*", "npm run typecheck:*", "npm install:*", "npx tsc:*", "node pigment-snap.mjs"];
-const CLAUDE_ALLOWED = ["Read", "Edit", "Write", "Glob", "Grep", ...SHELL_COMMANDS.flatMap((c) => [`Bash(${c})`, `PowerShell(${c})`])];
+const SHELL_COMMANDS = ["npm run build:*", "npm run typecheck:*", "npm install:*", "npx tsc:*", "node pigment-snap.mjs:*"];
+// Output filters people's agents use all the time (`npm run build 2>&1 | Select-Object -Last 25`). Without
+// them a piped command is denied as a whole, and the run's agent never sees its own screenshots — a handicap
+// a real user's agent doesn't have, which made the lab judge the prompt on blind output.
+const OUTPUT_FILTERS = ["Bash(head:*)", "Bash(tail:*)", "Bash(grep:*)", "PowerShell(Select-Object:*)", "PowerShell(Select-String:*)"];
+const CLAUDE_ALLOWED = [
+  "Read",
+  "Edit",
+  "Write",
+  "Glob",
+  "Grep",
+  ...SHELL_COMMANDS.flatMap((c) => [`Bash(${c})`, `PowerShell(${c})`]),
+  ...OUTPUT_FILTERS,
+];
 const CLAUDE_DENIED = ["WebFetch", "WebSearch", "Bash(git push:*)", "PowerShell(git push:*)"];
 
 async function runAgent(agent: Agent, cwd: string, prompt: string, timeoutMs: number) {
