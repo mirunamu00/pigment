@@ -1,9 +1,9 @@
-import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { EvalReport, Registry } from "@pigment/schema";
 import { paths, rel, runsDir, templateDir } from "../paths.ts";
 import { loadTemplate } from "../template.ts";
-import { fail, hashDir, ok, readJson, timestamp, writeJson } from "../util.ts";
+import { fail, hashDir, listFiles, ok, readJson, timestamp, writeJson } from "../util.ts";
 import type { ShotResult } from "./shoot.ts";
 import { bundle } from "./bundle.ts";
 import { validateTemplate } from "./validate.ts";
@@ -23,34 +23,81 @@ function latestEval(id: string, version: string): EvalReport | null {
   return evals.length ? EvalReport.parse(readJson(join(dir, evals[evals.length - 1]!))) : null;
 }
 
+/** Manifest fields that describe a system without changing what an agent builds from it. */
+const METADATA_FIELDS = ["name", "description", "version", "status"] as const;
+
+/**
+ * Differences between two versions of a package beyond metadata: every file except the changelog and the
+ * generated bundle must be identical, and the manifests may differ only in METADATA_FIELDS.
+ */
+export function designDifferences(id: string, from: string, to: string): string[] {
+  const a = templateDir(id, from);
+  const b = templateDir(id, to);
+  const files = (dir: string) =>
+    listFiles(dir, (f) => !/[\\/]dist[\\/]/.test(f.slice(dir.length)))
+      .map((f) => f.slice(dir.length + 1).replaceAll("\\", "/"))
+      .filter((f) => f !== "CHANGELOG.md" && f !== "manifest.json");
+  const left = files(a);
+  const right = files(b);
+  const out: string[] = [];
+  for (const f of new Set([...left, ...right])) {
+    if (!left.includes(f) || !right.includes(f)) out.push(`${f} (added or removed)`);
+    else if (!readFileSync(join(a, f)).equals(readFileSync(join(b, f)))) out.push(f);
+  }
+  const strip = (dir: string) => {
+    const m = readJson<Record<string, unknown>>(join(dir, "manifest.json"));
+    for (const k of METADATA_FIELDS) delete m[k];
+    return JSON.stringify(m);
+  };
+  if (strip(a) !== strip(b)) out.push("manifest.json (beyond name, description, version, status)");
+  return out;
+}
+
 /**
  * Freezes a version. Requires a passing evaluation (gates + critic) and the name of the human who approved
  * it. After this the folder hash is recorded and `check-all` fails if anything in it changes.
+ *
+ * `carryFrom` (a published version of the same system) publishes a metadata-only change — a new name or
+ * description — on that version's evaluation and screenshots, without generating the apps again. It is
+ * refused when anything an agent builds from (tokens, principles, components, instructions) differs.
  */
-export function publish(id: string, version: string, approvedBy: string): void {
+export function publish(id: string, version: string, approvedBy: string, carryFrom?: string): void {
   if (!approvedBy) fail("publishing needs --approved-by <name>: a person must approve the evaluation first");
   const published = readPublished();
   if (published[`${id}@${version}`]) fail(`${id}@${version} is already published and immutable — publish a new version`);
   if (/-/.test(version)) fail("pre-release versions (with -rc) cannot be published; scaffold the final version from the last candidate");
+  if (carryFrom) {
+    if (!published[`${id}@${carryFrom}`]) fail(`--carry-from ${id}@${carryFrom}: not a published version`);
+    const diff = designDifferences(id, carryFrom, version);
+    if (diff.length) {
+      const list = diff.map((d) => `  ${d}`).join("\n");
+      fail(`--carry-from needs a metadata-only change, but these differ from ${carryFrom}:\n${list}\nGenerate and evaluate ${version} instead.`);
+    }
+  }
 
-  const report = latestEval(id, version);
-  if (!report) fail(`no evaluation for ${id}@${version}`);
+  // The evaluation (and the screenshots it covers) comes from this version, or the version it carries.
+  const evaluated = carryFrom ?? version;
+  const report = latestEval(id, evaluated);
+  if (!report) fail(`no evaluation for ${id}@${evaluated}`);
   if (report.verdict !== "pass") fail(`latest evaluation is "${report.verdict}" — it must be "pass" (gates and critic)`);
 
+  // Flip status and rebuild the bundle with the final manifest, then validate what will actually be frozen —
+  // a stale bundle (e.g. one copied by scaffold before a rename) can pass while the final one doesn't.
   const tpl = loadTemplate(id, version);
-  const errors = validateTemplate(tpl).filter((f) => f.level === "error");
-  if (errors.length) fail(`validation errors:\n${errors.map((e) => `  [${e.rule}] ${e.message}`).join("\n")}`);
-
-  // Flip status, rebuild the bundle with the final manifest, then hash.
-  const manifest = { ...tpl.manifest, status: "published" as const };
-  writeJson(join(tpl.dir, "manifest.json"), manifest);
+  writeJson(join(tpl.dir, "manifest.json"), { ...tpl.manifest, status: "published" as const });
   bundle(id, version);
+  const errors = validateTemplate(loadTemplate(id, version)).filter((f) => f.level === "error");
+  if (errors.length) {
+    writeJson(join(tpl.dir, "manifest.json"), tpl.manifest);
+    bundle(id, version);
+    fail(`validation errors:\n${errors.map((e) => `  [${e.rule}] ${e.message}`).join("\n")}`);
+  }
   const sha = hashDir(templateDir(id, version));
 
   // Gallery assets: the screenshots of the evaluated runs.
   const assets = join(paths.webPublic, id, version);
   for (const run of report.runs) {
-    const runDir = join(runsDir(id, version), run.app, run.runId);
+    const runDir = join(runsDir(id, evaluated), run.app, run.runId);
     const shots = readJson<ShotResult>(join(runDir, "shots.json"));
     // Gallery assets are page captures; interaction-state captures stay in the review only.
     const pages = shots.screenshots.filter((x) => !x.route.startsWith("state:"));
@@ -84,7 +131,13 @@ export function publish(id: string, version: string, approvedBy: string): void {
   entry.latest = version;
   writeJson(paths.registry, Registry.parse(registry));
   writeJson(paths.published, { ...published, [`${id}@${version}`]: sha });
-  writeJson(join(runsDir(id, version), "approval.json"), { approvedBy, approvedAt: timestamp(), evaluation: report.iteration, sha256: sha });
+  writeJson(join(runsDir(id, version), "approval.json"), {
+    approvedBy,
+    approvedAt: timestamp(),
+    evaluation: report.iteration,
+    ...(carryFrom ? { carriedFrom: carryFrom } : {}),
+    sha256: sha,
+  });
   const mcpVersion = bumpMcpPackage();
   ok(`published ${id}@${version} (sha256 ${sha.slice(0, 12)}…) — assets in ${rel(assets)}`);
   ok(`pigment-mcp (npm) → ${mcpVersion}: the npm package bundles published content, so CI releases it with this version`);

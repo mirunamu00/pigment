@@ -58,6 +58,22 @@ Candidates are `<next>-rc.1`, `-rc.2`, …; only the final version is published.
    - `publish` bumped `packages/mcp/package.json`, so CI releases a new `pigment-mcp` with the update
      bundled (npm trusted publishing; see `docs/deploy.md`).
 
+### Metadata only: a new name or description
+
+When only the manifest's `name` or `description` changes, nothing an agent builds from has changed, so
+the apps are not generated again:
+
+1. `pnpm harness scaffold <id>@<next> --name "<New name>" --from <id>@<current>` (edit `description` in the
+   manifest if that is what changes) and write the public `## <next>` entry.
+2. Validate, then after the person's yes:
+   `pnpm harness publish <id>@<next> --approved-by "<name>" --carry-from <current>`. It reuses the current
+   version's evaluation and screenshots, and refuses if any token, principle, component or instruction
+   file differs — then it is a design change and takes the full steps above.
+
+The `id` never changes: shared links, spec URLs and MCP calls keep working. A system made from this
+platform's own design may carry its brand in the name (`ownBrand: true` in its `intake.json`); its prose
+still never mentions it.
+
 ## Changelog
 
 `CHANGELOG.md` accumulates: the newest entry on top, older ones kept below. The entry of a final version
