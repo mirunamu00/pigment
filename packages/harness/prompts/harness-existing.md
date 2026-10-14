@@ -22,7 +22,10 @@ You may run exactly these commands, from the project root and without a `cd` pre
 `npm run build`, `npm run typecheck`, `node pigment-snap.mjs`.
 
 `node pigment-snap.mjs` builds the app and writes screenshots of every page to `.snaps/` at 1440px and
-390px wide, light and dark, and lists any page that scrolls sideways. Use it: after the main restyle,
+390px wide, light and dark, and lists any page that scrolls sideways. `node pigment-snap.mjs /some/path`
+screenshots only the paths you name, which need not be existing pages: when the specification asks you to
+look at a piece on its own (larger, or on a blank page), add a temporary route for it, snap it, and remove the
+route before you finish. Use it: after the main restyle,
 run it, open every PNG, compare what you see with the specification (especially mobile and dark), fix
 what is wrong, and run it again. Finish only when the build passes, nothing scrolls sideways and the
 screenshots match the specification. End with a short report: what you changed,
