@@ -13,6 +13,8 @@ export interface Intake {
   discovered?: string[];
   /** Brand names, product names and marks found on the reference. The validator blocks them from the template. */
   brandTerms: string[];
+  /** The reference is this platform itself: its brand may name the template. Prose still never mentions it. */
+  ownBrand?: boolean;
   notes: string;
   status: "submitted" | "captured" | "analyzed" | "authored" | "evaluating" | "approved" | "published" | "rejected";
   template?: { id: string; version: string };

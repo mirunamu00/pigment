@@ -101,8 +101,10 @@ export function validateTemplate(tpl: LoadedTemplate): Finding[] {
     for (const term of VENDOR_TERMS) {
       if (term.test(text)) err("prose.agent-neutral", `${name}: vendor-specific wording matches ${term}`);
     }
+    // A system's own name may carry the platform's brand (ownBrand); naming itself is not a mention.
+    const unnamed = text.split(manifest.name).join("");
     for (const brand of intake?.brandTerms ?? []) {
-      if (brand && new RegExp(`\\b${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text)) {
+      if (brand && new RegExp(`\\b${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(unnamed)) {
         err("provenance.brand", `${name}: mentions reference brand term "${brand}"`);
       }
     }
@@ -110,7 +112,7 @@ export function validateTemplate(tpl: LoadedTemplate): Finding[] {
       warn("prose.adjectives", `${name}: vague adjectives — replace with measurable rules`);
     }
   }
-  for (const brand of intake?.brandTerms ?? []) {
+  for (const brand of intake?.ownBrand ? [] : (intake?.brandTerms ?? [])) {
     if (brand && manifest.name.toLowerCase().includes(brand.toLowerCase())) err("provenance.name", `template name contains reference brand "${brand}"`);
   }
 
