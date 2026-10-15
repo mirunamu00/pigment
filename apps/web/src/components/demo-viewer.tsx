@@ -22,16 +22,19 @@ export function DemoViewer({
   screens = {},
   light,
   dark,
+  appearance = ["light", "dark"],
 }: {
   id: string;
   shots: Record<string, string>;
   screens?: Record<string, DemoScreen[]>;
   light: string;
   dark: string;
+  /** The modes the system has; a single-mode system shows no theme switch. */
+  appearance?: Array<"light" | "dark">;
 }) {
   const [app, setApp] = useState<AppKey>("dashboard");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
-  const [scheme, setScheme] = useState<"light" | "dark">("light");
+  const [scheme, setScheme] = useState<"light" | "dark">(appearance.includes("light") ? "light" : "dark");
   const key = `${app}.${viewport}${scheme === "light" ? "Light" : "Dark"}`;
   const label = APPS.find(([k]) => k === app)![1];
   const bg = scheme === "dark" ? dark : light;
@@ -43,7 +46,9 @@ export function DemoViewer({
         <h2 id="demos-h">Built with this system</h2>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           <Segmented label="Viewport" options={[["desktop", "Desktop"], ["mobile", "Mobile"]] as const} value={viewport} onChange={setViewport} />
-          <Segmented label="Theme" options={[["light", "Light"], ["dark", "Dark"]] as const} value={scheme} onChange={setScheme} />
+          {appearance.length > 1 && (
+            <Segmented label="Theme" options={[["light", "Light"], ["dark", "Dark"]] as const} value={scheme} onChange={setScheme} />
+          )}
         </div>
       </div>
       <div style={{ position: "relative", paddingTop: 6 }}>
@@ -75,10 +80,11 @@ export function DemoViewer({
       </div>
       <div role="group" aria-label="Demo app" className="thumbs">
         {APPS.map(([k, name]) => {
-          const thumb = shots[`${k}.desktopLight`];
+          // Thumbnails follow the chosen theme, so switching to dark doesn't leave four light previews.
+          const thumb = shots[`${k}.desktop${scheme === "light" ? "Light" : "Dark"}`];
           return (
             <button key={k} type="button" aria-pressed={app === k} onClick={() => setApp(k)}>
-              <span className="thumbs__img" style={{ ["--shot-bg" as string]: light, backgroundImage: thumb ? `url(${thumb})` : undefined }} />
+              <span className="thumbs__img" style={{ ["--shot-bg" as string]: bg, backgroundImage: thumb ? `url(${thumb})` : undefined }} />
               <span className="thumbs__caption">
                 <span className="thumbs__name">{name}</span>
                 <span className="mono meta">/{k}</span>

@@ -123,7 +123,7 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
         <div className="detail-body">
           <div className="detail-main">
             <section aria-labelledby="demos-h">
-              <DemoViewer id={id} shots={summary.shots} screens={getScreens(id, summary.version)} light={summary.swatches[1] ?? "#eeeeee"} dark={String(tokens.dark?.["color.surface.default"] ?? "#111111")} />
+              <DemoViewer id={id} shots={summary.shots} screens={getScreens(id, summary.version)} light={summary.swatches[1] ?? "#eeeeee"} dark={String(tokens.dark?.["color.surface.default"] ?? "#111111")} appearance={manifest.tags.appearance} />
             </section>
 
             <section aria-labelledby="color-h">
