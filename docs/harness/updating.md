@@ -49,9 +49,11 @@ Candidates are `<next>-rc.1`, `-rc.2`, …; only the final version is published.
    - `pnpm harness scaffold <id>@<next> --name "<Name>" --from <id>@<last-rc>`
    - Write the `## <next>` entry in the public format below. It covers **everything since the current
      published version**, not just the last candidate.
-   - `generate` + `evaluate` + critic on the final version — the gallery screenshots must come from the
-     published version itself.
-   - `pnpm harness publish <id>@<next> --approved-by "<name>"`
+   - `pnpm harness publish <id>@<next> --approved-by "<name>" --carry-from <last-rc>`. The final version
+     differs from its last candidate only in version, status and changelog, so it is published on that
+     candidate's passing evaluation and screenshots — produced by the same design the user gets. Publish
+     refuses if any token, principle, component or instruction file differs; then generate, evaluate and
+     critic the final version itself and publish without `--carry-from`.
 9. **Open a pull request** from a `fix/<id>-<topic>` branch (`CONTRIBUTING.md`) and merge it once CI is
    green. The rest is automatic:
    - Vercel deploys the site: the new date, changelog entry and screenshots appear.

@@ -57,9 +57,10 @@ export function designDifferences(id: string, from: string, to: string): string[
  * Freezes a version. Requires a passing evaluation (gates + critic) and the name of the human who approved
  * it. After this the folder hash is recorded and `check-all` fails if anything in it changes.
  *
- * `carryFrom` (a published version of the same system) publishes a metadata-only change — a new name or
- * description — on that version's evaluation and screenshots, without generating the apps again. It is
- * refused when anything an agent builds from (tokens, principles, components, instructions) differs.
+ * `carryFrom` publishes on another version's evaluation and screenshots, without generating the apps again:
+ * a published version for a metadata-only change (a new name or description), or the passing candidate a
+ * final version was scaffolded from. It is refused when anything an agent builds from (tokens, principles,
+ * components, instructions) differs: the screenshots must come from the same design the user gets.
  */
 export function publish(id: string, version: string, approvedBy: string, carryFrom?: string): void {
   if (!approvedBy) fail("publishing needs --approved-by <name>: a person must approve the evaluation first");
@@ -67,7 +68,9 @@ export function publish(id: string, version: string, approvedBy: string, carryFr
   if (published[`${id}@${version}`]) fail(`${id}@${version} is already published and immutable — publish a new version`);
   if (/-/.test(version)) fail("pre-release versions (with -rc) cannot be published; scaffold the final version from the last candidate");
   if (carryFrom) {
-    if (!published[`${id}@${carryFrom}`]) fail(`--carry-from ${id}@${carryFrom}: not a published version`);
+    // A published version (a rename) or the candidate the final version was scaffolded from: either way the
+    // evaluation below must pass, and the design files must be identical.
+    if (!published[`${id}@${carryFrom}`] && !/-/.test(carryFrom)) fail(`--carry-from ${id}@${carryFrom}: not a published version or a candidate`);
     const diff = designDifferences(id, carryFrom, version);
     if (diff.length) {
       const list = diff.map((d) => `  ${d}`).join("\n");

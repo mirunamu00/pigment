@@ -1,0 +1,2045 @@
+diff --git a/index.html b/index.html
+index 5602a04..9997ea4 100644
+--- a/index.html
++++ b/index.html
+@@ -5,6 +5,10 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <link rel="icon" href="data:," />
+     <title>Northwind Ops</title>
++    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/neodgm/neodgm-webfont@latest/neodgm/style.css" />
++    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/neodgm/neodgm-webfont@latest/neodgm_code/style.css" />
++    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
++    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono&display=swap" />
+   </head>
+   <body>
+     <div id="root"></div>
+diff --git a/src/App.tsx b/src/App.tsx
+index bd70616..95a30cc 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -6,7 +6,6 @@ import ProjectDetailPage from './pages/ProjectDetailPage';
+ import TeamPage from './pages/TeamPage';
+ import SettingsPage from './pages/SettingsPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <Routes>
+diff --git a/src/components/BarChart.tsx b/src/components/BarChart.tsx
+index 63f7c3f..a3c0c87 100644
+--- a/src/components/BarChart.tsx
++++ b/src/components/BarChart.tsx
+@@ -1,57 +1,39 @@
++import type { CSSProperties } from 'react';
+ import type { MonthlyValue } from '../data/metrics';
+ 
+ interface BarChartProps {
+   title: string;
+   data: MonthlyValue[];
++  /** Hue of the series' category. */
++  hue?: string;
+ }
+ 
+-const WIDTH = 600;
+-const HEIGHT = 240;
+-const PADDING_TOP = 24;
+-const PADDING_BOTTOM = 28;
+-const PADDING_X = 16;
+-
+-export default function BarChart({ title, data }: BarChartProps) {
++export default function BarChart({ title, data, hue = 'var(--color-hue-cyan)' }: BarChartProps) {
+   const max = Math.max(...data.map((point) => point.value), 1);
+-  const plotHeight = HEIGHT - PADDING_TOP - PADDING_BOTTOM;
+-  const slot = (WIDTH - PADDING_X * 2) / data.length;
+-  const barWidth = slot * 0.6;
+   const summary = data.map((point) => `${point.month}: ${point.value}`).join(', ');
++  const style = { '--cols': data.length, '--hue': hue } as CSSProperties;
+ 
+   return (
+-    <figure className="chart" data-testid="bar-chart">
+-      <figcaption className="chart-title">{title}</figcaption>
+-      <svg
+-        className="chart-svg"
+-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+-        role="img"
+-        aria-label={`${title}. ${summary}`}
+-        preserveAspectRatio="xMidYMid meet"
+-      >
+-        <line
+-          className="chart-axis"
+-          x1={PADDING_X}
+-          x2={WIDTH - PADDING_X}
+-          y1={HEIGHT - PADDING_BOTTOM}
+-          y2={HEIGHT - PADDING_BOTTOM}
+-        />
+-        {data.map((point, index) => {
+-          const barHeight = (point.value / max) * plotHeight;
+-          const x = PADDING_X + index * slot + (slot - barWidth) / 2;
+-          const y = HEIGHT - PADDING_BOTTOM - barHeight;
+-          return (
+-            <g key={point.month} data-testid="chart-bar">
+-              <rect className="chart-bar" x={x} y={y} width={barWidth} height={barHeight} />
+-              <text className="chart-value" x={x + barWidth / 2} y={y - 6} textAnchor="middle">
+-                {point.value}
+-              </text>
+-              <text className="chart-label" x={x + barWidth / 2} y={HEIGHT - 8} textAnchor="middle">
+-                {point.month}
+-              </text>
+-            </g>
+-          );
+-        })}
+-      </svg>
++    <figure className="chart" data-testid="bar-chart" style={style}>
++      <figcaption className="chart-title">
++        <span className="bullet" aria-hidden="true" />
++        {title}
++      </figcaption>
++      <div className="chart-body" role="img" aria-label={`${title}. ${summary}`}>
++        <div className="chart-plot">
++          {data.map((point) => (
++            <div key={point.month} className="chart-col" data-testid="chart-bar">
++              <span className="chart-value">{point.value}</span>
++              <span className="chart-bar" style={{ '--p': point.value / max } as CSSProperties} />
++            </div>
++          ))}
++        </div>
++        <div className="chart-labels" aria-hidden="true">
++          {data.map((point) => (
++            <span key={point.month}>{point.month}</span>
++          ))}
++        </div>
++      </div>
+     </figure>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 2a82e37..2bc1993 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,20 +1,40 @@
+-import { useEffect, useRef, useState, type FormEvent } from 'react';
++import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+ import { currentUser } from '../data/team';
++import type { IconName } from '../art/icons';
++import { Avatar, DitherRule, GroundStrip, Icon, Marker } from './pixel';
++import { writePreference } from '../preferences';
+ 
+-const NAV_ITEMS = [
+-  { to: '/', label: 'Overview', testId: 'nav-overview', end: true },
+-  { to: '/projects', label: 'Projects', testId: 'nav-projects', end: false },
+-  { to: '/team', label: 'Team', testId: 'nav-team', end: false },
+-  { to: '/settings', label: 'Settings', testId: 'nav-settings', end: false },
++const NAV_ITEMS: { to: string; label: string; testId: string; end: boolean; icon: IconName }[] = [
++  { to: '/', label: 'Overview', testId: 'nav-overview', end: true, icon: 'overview' },
++  { to: '/projects', label: 'Projects', testId: 'nav-projects', end: false, icon: 'projects' },
++  { to: '/team', label: 'Team', testId: 'nav-team', end: false, icon: 'team' },
++  { to: '/settings', label: 'Settings', testId: 'nav-settings', end: false, icon: 'settings' },
+ ];
+ 
++/** Header switch that mirrors a `data-*` attribute on <html>, persisted. */
++function useRootSwitch(attribute: 'motion' | 'body', offValue: string) {
++  const [on, setOn] = useState(() => document.documentElement.dataset[attribute] !== offValue);
++  function toggle() {
++    const next = !on;
++    setOn(next);
++    if (next) delete document.documentElement.dataset[attribute];
++    else document.documentElement.dataset[attribute] = offValue;
++    writePreference(attribute, next ? null : offValue);
++  }
++  return [on, toggle] as const;
++}
++
+ export default function Layout() {
+   const navigate = useNavigate();
+   const location = useLocation();
+   const [query, setQuery] = useState('');
+   const [menuOpen, setMenuOpen] = useState(false);
+   const menuRef = useRef<HTMLDivElement>(null);
++  const menuButtonRef = useRef<HTMLButtonElement>(null);
++  const menuPanelRef = useRef<HTMLDivElement>(null);
++  const [motionOn, toggleMotion] = useRootSwitch('motion', 'off');
++  const [pixelBodyOn, togglePixelBody] = useRootSwitch('body', 'readable');
+ 
+   // Close the user menu when the route changes.
+   useEffect(() => {
+@@ -23,8 +43,13 @@ export default function Layout() {
+ 
+   useEffect(() => {
+     if (!menuOpen) return;
++    // The menu opens with its first option highlighted, in the same frame.
++    menuPanelRef.current?.querySelector<HTMLElement>('.item')?.focus();
+     function onKeyDown(event: KeyboardEvent) {
+-      if (event.key === 'Escape') setMenuOpen(false);
++      if (event.key === 'Escape') {
++        setMenuOpen(false);
++        menuButtonRef.current?.focus();
++      }
+     }
+     function onPointerDown(event: PointerEvent) {
+       if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
+@@ -37,6 +62,20 @@ export default function Layout() {
+     };
+   }, [menuOpen]);
+ 
++  function onMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
++    const items = Array.from(menuPanelRef.current?.querySelectorAll<HTMLElement>('.item') ?? []);
++    if (!items.length) return;
++    const index = items.indexOf(document.activeElement as HTMLElement);
++    let next = index;
++    if (event.key === 'ArrowDown') next = (index + 1) % items.length;
++    else if (event.key === 'ArrowUp') next = (index - 1 + items.length) % items.length;
++    else if (event.key === 'Home') next = 0;
++    else if (event.key === 'End') next = items.length - 1;
++    else return;
++    event.preventDefault();
++    items[next].focus();
++  }
++
+   function handleSearch(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+     const term = query.trim();
+@@ -48,84 +87,122 @@ export default function Layout() {
+       <a className="skip-link" href="#main-content">
+         Skip to content
+       </a>
+-      <aside className="sidebar">
+-        <div className="brand">Northwind Ops</div>
+-        <nav aria-label="Primary" data-testid="sidebar-nav">
+-          <ul className="nav-list">
+-            {NAV_ITEMS.map((item) => (
+-              <li key={item.to}>
+-                <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
+-                  {item.label}
+-                </NavLink>
+-              </li>
+-            ))}
+-          </ul>
+-        </nav>
+-      </aside>
+ 
+-      <div className="main-column">
+-        <header className="topbar">
++      <header className="site-header">
++        <div className="topbar">
++          <div className="brand">
++            <Icon name="mark" />
++            <span>Northwind Ops</span>
++          </div>
++
+           <form role="search" className="topbar-search" onSubmit={handleSearch}>
+             <label htmlFor="global-search" className="visually-hidden">
+               Search projects
+             </label>
+-            <input
+-              id="global-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search projects…"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="global-search"
+-            />
+-            <button type="submit" className="button" data-testid="global-search-submit">
++            <span className="search-field">
++              <Icon name="search" className="search-field__icon" />
++              <input
++                id="global-search"
++                type="search"
++                className="input input--search"
++                placeholder="Search projects…"
++                value={query}
++                onChange={(event) => setQuery(event.target.value)}
++                data-testid="global-search"
++              />
++            </span>
++            <button type="submit" className="btn press" data-testid="global-search-submit">
+               Search
+             </button>
+           </form>
+ 
+-          <div className="user-menu" ref={menuRef}>
+-            <button
+-              type="button"
+-              className="button user-menu-button"
+-              aria-expanded={menuOpen}
+-              aria-controls="user-menu-panel"
+-              onClick={() => setMenuOpen((open) => !open)}
+-              data-testid="user-menu-button"
+-            >
+-              <span className="avatar" aria-hidden="true">
+-                {currentUser.initials}
+-              </span>
+-              <span>{currentUser.name}</span>
++          <div className="header-tools">
++            <button type="button" className="tool" aria-pressed={motionOn} onClick={toggleMotion}>
++              <Icon name={motionOn ? 'pause' : 'play'} size={12} />
++              <span className="tool__label">Animation {motionOn ? 'on' : 'off'}</span>
++            </button>
++            <button type="button" className="tool" aria-pressed={pixelBodyOn} onClick={togglePixelBody}>
++              <Icon name="letter" size={12} />
++              <span className="tool__label">Pixel body {pixelBodyOn ? 'on' : 'off'}</span>
+             </button>
+-            {menuOpen && (
+-              <div id="user-menu-panel" className="user-menu-panel" data-testid="user-menu">
+-                <p className="user-menu-email">{currentUser.email}</p>
+-                <ul className="user-menu-list">
+-                  <li>
+-                    <Link to="/settings" className="user-menu-link">
+-                      Account settings
+-                    </Link>
+-                  </li>
+-                  <li>
+-                    <Link to="/team" className="user-menu-link">
+-                      My team
+-                    </Link>
+-                  </li>
+-                  <li>
+-                    <button type="button" className="link-button" onClick={() => setMenuOpen(false)}>
+-                      Sign out
+-                    </button>
+-                  </li>
+-                </ul>
+-              </div>
+-            )}
++
++            <div className="user-menu" ref={menuRef}>
++              <button
++                ref={menuButtonRef}
++                type="button"
++                className="btn press user-menu-button"
++                aria-expanded={menuOpen}
++                aria-controls="user-menu-panel"
++                onClick={() => setMenuOpen((open) => !open)}
++                data-testid="user-menu-button"
++              >
++                <Avatar name={currentUser.name} size="small" />
++                <span className="user-menu-name">{currentUser.name}</span>
++                <Marker dir={menuOpen ? 'u' : 'd'} className="user-menu-chevron" />
++              </button>
++              {menuOpen && (
++                <div
++                  id="user-menu-panel"
++                  ref={menuPanelRef}
++                  className="menu user-menu-panel"
++                  data-testid="user-menu"
++                  onKeyDown={onMenuKeyDown}
++                >
++                  <p className="user-menu-email">{currentUser.email}</p>
++                  <ul className="user-menu-list">
++                    <li>
++                      <Link to="/settings" className="item user-menu-link">
++                        <Marker />
++                        Account settings
++                      </Link>
++                    </li>
++                    <li>
++                      <Link to="/team" className="item user-menu-link">
++                        <Marker />
++                        My team
++                      </Link>
++                    </li>
++                    <li>
++                      <button type="button" className="item item--button" onClick={() => setMenuOpen(false)}>
++                        <Marker />
++                        Sign out
++                      </button>
++                    </li>
++                  </ul>
++                </div>
++              )}
++            </div>
+           </div>
+-        </header>
++        </div>
++        <DitherRule />
++      </header>
++
++      <div className="shell">
++        <aside className="sidebar">
++          <nav aria-label="Primary" data-testid="sidebar-nav">
++            <p className="sidebar-title" aria-hidden="true">
++              Workspace
++            </p>
++            <ul className="nav-list">
++              {NAV_ITEMS.map((item) => (
++                <li key={item.to}>
++                  <NavLink to={item.to} end={item.end} className="item nav-link" data-testid={item.testId}>
++                    <Marker />
++                    <Icon name={item.icon} className="nav-icon" />
++                    {item.label}
++                  </NavLink>
++                </li>
++              ))}
++            </ul>
++          </nav>
++        </aside>
+ 
+         <main id="main-content" className="content" tabIndex={-1}>
+           <Outlet />
+         </main>
+       </div>
++
++      <GroundStrip />
+     </div>
+   );
+ }
+diff --git a/src/components/ProjectsTable.tsx b/src/components/ProjectsTable.tsx
+index 28169e4..7c5afe9 100644
+--- a/src/components/ProjectsTable.tsx
++++ b/src/components/ProjectsTable.tsx
+@@ -1,32 +1,33 @@
+-import { useMemo, useState } from 'react';
++import { useMemo, useState, type CSSProperties } from 'react';
+ import { Link } from 'react-router';
+ import { projects, type Project, type ProjectStatus } from '../data/projects';
+ import StatusPill from './StatusPill';
++import { Icon, Marker, Vignette } from './pixel';
+ 
+ type StatusFilter = 'all' | ProjectStatus;
+ type SortKey = 'name' | 'owner' | 'status' | 'budget' | 'dueDate';
+ type SortDirection = 'ascending' | 'descending';
+ 
+-const FILTERS: { value: StatusFilter; label: string }[] = [
+-  { value: 'all', label: 'All' },
+-  { value: 'active', label: 'Active' },
+-  { value: 'paused', label: 'Paused' },
+-  { value: 'done', label: 'Done' },
++const FILTERS: { value: StatusFilter; label: string; tone: string }[] = [
++  { value: 'all', label: 'All', tone: 'var(--color-border-control)' },
++  { value: 'active', label: 'Active', tone: 'var(--color-status-success)' },
++  { value: 'paused', label: 'Paused', tone: 'var(--color-status-warning)' },
++  { value: 'done', label: 'Done', tone: 'var(--color-status-info)' },
+ ];
+ 
+-const COLUMNS: { key: SortKey; label: string }[] = [
++const COLUMNS: { key: SortKey; label: string; numeric?: boolean }[] = [
+   { key: 'name', label: 'Project' },
+   { key: 'owner', label: 'Owner' },
+   { key: 'status', label: 'Status' },
+-  { key: 'budget', label: 'Budget' },
++  { key: 'budget', label: 'Budget', numeric: true },
+   { key: 'dueDate', label: 'Due date' },
+ ];
+ 
+ const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+-const dateFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+ 
++/** Dates read YYYY.MM.DD. */
+ export function formatDate(iso: string): string {
+-  return dateFormat.format(new Date(`${iso}T00:00:00Z`));
++  return iso.slice(0, 10).replace(/-/g, '.');
+ }
+ 
+ function compare(a: Project, b: Project, key: SortKey): number {
+@@ -77,48 +78,63 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+   }
+ 
+   return (
+-    <section className="panel" aria-labelledby="projects-table-heading">
+-      <div className="panel-header">
++    <section className="group" aria-labelledby="projects-table-heading">
++      <div className="group-head">
+         <h2 id="projects-table-heading">{heading}</h2>
+-        <p className="muted" data-testid="result-count" aria-live="polite">
++        <p data-testid="result-count" aria-live="polite">
+           Showing {rows.length} of {projects.length} projects
+         </p>
+       </div>
+ 
+       <div className="toolbar">
+-        <div className="segmented" role="group" aria-label="Filter by status">
+-          {FILTERS.map((filter) => (
+-            <button
+-              key={filter.value}
+-              type="button"
+-              className="segmented-button"
+-              aria-pressed={status === filter.value}
+-              onClick={() => setStatus(filter.value)}
+-              data-testid={`status-filter-${filter.value}`}
+-            >
+-              {filter.label}
+-            </button>
+-          ))}
++        <div className="chips" role="group" aria-label="Filter by status">
++          {FILTERS.map((filter) => {
++            const pressed = status === filter.value;
++            return (
++              <button
++                key={filter.value}
++                type="button"
++                className="chip press"
++                aria-pressed={pressed}
++                onClick={() => setStatus(filter.value)}
++                data-testid={`status-filter-${filter.value}`}
++              >
++                <span className="chip__slot" aria-hidden="true">
++                  {pressed ? (
++                    <Marker />
++                  ) : (
++                    <span className="bullet" style={{ '--hue': filter.tone } as CSSProperties} />
++                  )}
++                </span>
++                {filter.label}
++              </button>
++            );
++          })}
+         </div>
+-        <div className="field-inline">
++        <div className="field">
+           <label htmlFor="project-filter">Filter projects</label>
+-          <input
+-            id="project-filter"
+-            type="search"
+-            className="input"
+-            placeholder="Name, owner or team"
+-            value={query}
+-            onChange={(event) => setQuery(event.target.value)}
+-            data-testid="project-search"
+-          />
++          <span className="search-field">
++            <Icon name="search" className="search-field__icon" />
++            <input
++              id="project-filter"
++              type="search"
++              className="input input--search"
++              placeholder="Name, owner or team"
++              value={query}
++              onChange={(event) => setQuery(event.target.value)}
++              data-testid="project-search"
++            />
++          </span>
+         </div>
+       </div>
+ 
+       {rows.length === 0 ? (
+         <div className="empty-state" data-testid="projects-empty">
++          <Vignette />
+           <h3>No projects match your filters</h3>
+           <p className="muted">Try a different search term or status.</p>
+-          <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++          <button type="button" className="btn btn--marker press" onClick={clearFilters} data-testid="clear-filters">
++            <Marker />
+             Clear filters
+           </button>
+         </div>
+@@ -131,6 +147,7 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+                   <th
+                     key={column.key}
+                     scope="col"
++                    className={column.numeric ? 'num' : undefined}
+                     aria-sort={sortKey === column.key ? sortDirection : 'none'}
+                     data-testid={`column-${column.key}`}
+                   >
+@@ -142,7 +159,7 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+                     >
+                       {column.label}
+                       <span className="sort-indicator" aria-hidden="true">
+-                        {sortKey === column.key ? (sortDirection === 'ascending' ? '▲' : '▼') : ''}
++                        {sortKey === column.key && <Marker dir={sortDirection === 'ascending' ? 'u' : 'd'} />}
+                       </span>
+                     </button>
+                   </th>
+@@ -153,10 +170,11 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+               {rows.map((project) => (
+                 <tr key={project.id} data-testid="project-row">
+                   <td>
++                    <Marker className="row-cur" />
+                     <Link to={`/projects/${project.id}`} data-testid="project-link">
+                       {project.name}
+                     </Link>
+-                    <div className="muted small">{project.client}</div>
++                    <div className="cell-sub">{project.client}</div>
+                   </td>
+                   <td>{project.owner}</td>
+                   <td>
+diff --git a/src/components/StatusPill.tsx b/src/components/StatusPill.tsx
+index 5abae07..71237a1 100644
+--- a/src/components/StatusPill.tsx
++++ b/src/components/StatusPill.tsx
+@@ -2,7 +2,8 @@ import { STATUS_LABELS, type ProjectStatus } from '../data/projects';
+ 
+ export default function StatusPill({ status }: { status: ProjectStatus }) {
+   return (
+-    <span className={`pill pill-${status}`} data-testid="status-pill">
++    <span className={`badge badge--${status}`} data-testid="status-pill">
++      <span className="bullet" aria-hidden="true" />
+       {STATUS_LABELS[status]}
+     </span>
+   );
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..b8dc938 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,7 +2,12 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import { applyStoredPreferences } from './preferences';
++import '../design-system/tokens.css';
+ import './styles/base.css';
++import './styles/art.css';
++
++applyStoredPreferences();
+ 
+ const rootElement = document.getElementById('root');
+ if (!rootElement) throw new Error('Root element #root not found');
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index dde83ce..043e84b 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,17 @@
+ import { Link } from 'react-router';
++import { Vignette, Window } from '../components/pixel';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to overview</Link>
+-    </section>
++    <Window className="error-window">
++      <section className="empty-state" data-testid="not-found">
++        <Vignette error />
++        <h1>Page not found</h1>
++        <p className="muted">The page you are looking for does not exist or has moved.</p>
++        <Link to="/" className="btn-gold">
++          Go to overview
++        </Link>
++      </section>
++    </Window>
+   );
+ }
+diff --git a/src/pages/OverviewPage.tsx b/src/pages/OverviewPage.tsx
+index 67fc003..ccca35e 100644
+--- a/src/pages/OverviewPage.tsx
++++ b/src/pages/OverviewPage.tsx
+@@ -1,49 +1,90 @@
++import type { CSSProperties } from 'react';
+ import { Link } from 'react-router';
+ import BarChart from '../components/BarChart';
+ import ProjectsTable from '../components/ProjectsTable';
++import { BlockMeter, Marker, SceneWindow } from '../components/pixel';
+ import { deploymentsByMonth, kpis, recentActivity } from '../data/metrics';
+ import { projects } from '../data/projects';
+ 
++/** Each metric owns one hue, in the fixed order, on every screen. */
++const KPI_HUES: Record<string, string> = {
++  deployments: 'var(--color-hue-cyan)',
++  uptime: 'var(--color-hue-violet)',
++  incidents: 'var(--color-hue-blue)',
++  'lead-time': 'var(--color-hue-amber)',
++};
++/** Metrics where a fall is an improvement. */
++const LOWER_IS_BETTER = new Set(['incidents', 'lead-time']);
++
+ export default function OverviewPage() {
+   return (
+     <>
+-      <div className="page-header">
++      <SceneWindow strip={{ shift: 16 }}>
+         <h1>Overview</h1>
+         <p className="muted">Delivery health across all teams for October 2026.</p>
+-      </div>
++      </SceneWindow>
+ 
+-      <section aria-label="Key metrics" className="kpi-grid" data-testid="kpi-grid">
+-        {kpis.map((kpi) => (
+-          <article key={kpi.id} className="card kpi-card" data-testid="kpi-card">
+-            <h2 className="kpi-label">{kpi.label}</h2>
+-            <p className="kpi-value">{kpi.value}</p>
+-            <p className={`kpi-change kpi-change-${kpi.trend}`}>{kpi.change}</p>
+-          </article>
+-        ))}
++      <section aria-label="Key metrics" className="group" data-testid="kpi-grid">
++        <h2 className="ruled">Key metrics</h2>
++        <div className="kpi-grid">
++          {kpis.map((kpi) => {
++            const improving = (kpi.trend === 'down') === LOWER_IS_BETTER.has(kpi.id);
++            const tone = improving ? 'var(--color-status-success)' : 'var(--color-status-danger)';
++            return (
++              <article
++                key={kpi.id}
++                className="kpi-card"
++                data-testid="kpi-card"
++                style={{ '--hue': KPI_HUES[kpi.id], '--tone': tone } as CSSProperties}
++              >
++                <h3 className="kpi-label">
++                  <span className="bullet" aria-hidden="true" />
++                  {kpi.label}
++                </h3>
++                <p className="kpi-value">{kpi.value}</p>
++                <p className={`kpi-change kpi-change-${kpi.trend}`}>
++                  <Marker dir={kpi.trend === 'up' ? 'u' : 'd'} small />
++                  {kpi.change}
++                </p>
++                {kpi.id === 'uptime' && (
++                  <BlockMeter value={parseFloat(kpi.value)} max={100} blocks={10} label="Service uptime, percent" />
++                )}
++              </article>
++            );
++          })}
++        </div>
+       </section>
+ 
+       <div className="two-column">
+-        <section className="panel" aria-labelledby="throughput-heading">
+-          <h2 id="throughput-heading">Deployment throughput</h2>
+-          <BarChart title="Production deployments per month" data={deploymentsByMonth} />
++        <section className="group" aria-labelledby="throughput-heading">
++          <h2 id="throughput-heading" className="ruled">
++            Deployment throughput
++          </h2>
++          <div className="panel">
++            <BarChart title="Production deployments per month" data={deploymentsByMonth} hue={KPI_HUES.deployments} />
++          </div>
+         </section>
+ 
+-        <section className="panel" aria-labelledby="activity-heading">
+-          <h2 id="activity-heading">Recent activity</h2>
+-          <ul className="activity-list" data-testid="activity-list">
+-            {recentActivity.map((item) => {
+-              const project = projects.find((p) => p.name === item.target);
+-              return (
+-                <li key={item.id} className="activity-item" data-testid="activity-item">
+-                  <p>
+-                    <strong>{item.actor}</strong> {item.action}{' '}
+-                    {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
+-                  </p>
+-                  <p className="muted small">{item.time}</p>
+-                </li>
+-              );
+-            })}
+-          </ul>
++        <section className="group" aria-labelledby="activity-heading">
++          <h2 id="activity-heading" className="ruled">
++            Recent activity
++          </h2>
++          <div className="panel">
++            <ul className="activity-list" data-testid="activity-list">
++              {recentActivity.map((item) => {
++                const project = projects.find((p) => p.name === item.target);
++                return (
++                  <li key={item.id} className="activity-item" data-testid="activity-item">
++                    <p>
++                      <strong>{item.actor}</strong> {item.action}{' '}
++                      {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
++                    </p>
++                    <p className="muted small">{item.time}</p>
++                  </li>
++                );
++              })}
++            </ul>
++          </div>
+         </section>
+       </div>
+ 
+diff --git a/src/pages/ProjectDetailPage.tsx b/src/pages/ProjectDetailPage.tsx
+index 3e13517..8e6f8c8 100644
+--- a/src/pages/ProjectDetailPage.tsx
++++ b/src/pages/ProjectDetailPage.tsx
+@@ -2,6 +2,7 @@ import { useRef, useState, type KeyboardEvent } from 'react';
+ import { Link, useParams } from 'react-router';
+ import StatusPill from '../components/StatusPill';
+ import { formatDate } from '../components/ProjectsTable';
++import { BlockMeter, Marker, SceneWindow, Vignette, Window } from '../components/pixel';
+ import { findProject, type Project, type Task } from '../data/projects';
+ 
+ type TabId = 'overview' | 'tasks' | 'files';
+@@ -20,11 +21,16 @@ export default function ProjectDetailPage() {
+ 
+   if (!project) {
+     return (
+-      <div className="empty-state" data-testid="project-not-found">
+-        <h1>Project not found</h1>
+-        <p className="muted">There is no project with the id “{id}”.</p>
+-        <Link to="/projects">Back to all projects</Link>
+-      </div>
++      <Window className="error-window">
++        <div className="empty-state" data-testid="project-not-found">
++          <Vignette error />
++          <h1>Project not found</h1>
++          <p className="muted">There is no project with the id “{id}”.</p>
++          <Link to="/projects" className="btn-gold">
++            Back to all projects
++          </Link>
++        </div>
++      </Window>
+     );
+   }
+ 
+@@ -57,122 +63,137 @@ function ProjectDetail({ project }: { project: Project }) {
+ 
+   return (
+     <>
+-      <nav aria-label="Breadcrumb" className="breadcrumb">
+-        <ol>
+-          <li>
+-            <Link to="/projects">Projects</Link>
+-          </li>
+-          <li aria-current="page">{project.name}</li>
+-        </ol>
+-      </nav>
+-
+-      <div className="page-header page-header-row">
+-        <div>
+-          <h1 data-testid="project-title">{project.name}</h1>
++      <div className="stack">
++        <nav aria-label="Breadcrumb" className="breadcrumb">
++          <ol>
++            <li>
++              <Link to="/projects">Projects</Link>
++            </li>
++            <li aria-current="page">{project.name}</li>
++          </ol>
++        </nav>
++
++        <SceneWindow strip={{ shift: 24, lamp: project.status === 'active', shedLit: project.status !== 'done' }}>
++          <div className="title-row">
++            <h1 data-testid="project-title">{project.name}</h1>
++            <StatusPill status={project.status} />
++          </div>
+           <p className="muted">
+             {project.client} · Owned by {project.owner}
+           </p>
+-        </div>
+-        <StatusPill status={project.status} />
++        </SceneWindow>
+       </div>
+ 
+-      <div className="tabs" role="tablist" aria-label="Project sections">
+-        {TABS.map((tab, index) => (
+-          <button
+-            key={tab.id}
+-            ref={(element) => {
+-              tabRefs.current[tab.id] = element;
+-            }}
+-            type="button"
+-            role="tab"
+-            id={`tab-${tab.id}`}
+-            className="tab"
+-            aria-selected={activeTab === tab.id}
+-            aria-controls={`panel-${tab.id}`}
+-            tabIndex={activeTab === tab.id ? 0 : -1}
+-            onClick={() => setActiveTab(tab.id)}
+-            onKeyDown={(event) => onTabKeyDown(event, index)}
+-            data-testid={`tab-${tab.id}`}
+-          >
+-            {tab.label}
+-          </button>
+-        ))}
+-      </div>
++      <div>
++        <div className="tabs" role="tablist" aria-label="Project sections">
++          {TABS.map((tab, index) => (
++            <button
++              key={tab.id}
++              ref={(element) => {
++                tabRefs.current[tab.id] = element;
++              }}
++              type="button"
++              role="tab"
++              id={`tab-${tab.id}`}
++              className="tab"
++              aria-selected={activeTab === tab.id}
++              aria-controls={`panel-${tab.id}`}
++              tabIndex={activeTab === tab.id ? 0 : -1}
++              onClick={() => setActiveTab(tab.id)}
++              onKeyDown={(event) => onTabKeyDown(event, index)}
++              data-testid={`tab-${tab.id}`}
++            >
++              <Marker />
++              {tab.label}
++            </button>
++          ))}
++        </div>
+ 
+-      {activeTab === 'overview' && (
+-        <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="panel" data-testid="panel-overview">
+-          <p>{project.description}</p>
+-          <dl className="details">
+-            <div>
+-              <dt>Budget</dt>
+-              <dd>{currency.format(project.budget)}</dd>
++        {activeTab === 'overview' && (
++          <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="tabpanel" data-testid="panel-overview">
++            <p className="prose">{project.description}</p>
++            <dl className="details">
++              <div>
++                <dt>Budget</dt>
++                <dd>{currency.format(project.budget)}</dd>
++              </div>
++              <div>
++                <dt>Due date</dt>
++                <dd>{formatDate(project.dueDate)}</dd>
++              </div>
++              <div>
++                <dt>Tasks</dt>
++                <dd>
++                  <span>
++                    {completed} of {tasks.length} complete
++                  </span>
++                  <BlockMeter value={completed} max={tasks.length} label="Tasks complete" />
++                </dd>
++              </div>
++              <div>
++                <dt>Files</dt>
++                <dd>{project.files.length}</dd>
++              </div>
++            </dl>
++          </section>
++        )}
++
++        {activeTab === 'tasks' && (
++          <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="tabpanel" data-testid="panel-tasks">
++            <div className="progress-row">
++              <p data-testid="task-progress" aria-live="polite">
++                {completed} of {tasks.length} tasks complete
++              </p>
++              <BlockMeter value={completed} max={tasks.length} label="Task completion" />
+             </div>
+-            <div>
+-              <dt>Due date</dt>
+-              <dd>{formatDate(project.dueDate)}</dd>
+-            </div>
+-            <div>
+-              <dt>Tasks</dt>
+-              <dd>
+-                {completed} of {tasks.length} complete
+-              </dd>
+-            </div>
+-            <div>
+-              <dt>Files</dt>
+-              <dd>{project.files.length}</dd>
+-            </div>
+-          </dl>
+-        </section>
+-      )}
+-
+-      {activeTab === 'tasks' && (
+-        <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="panel" data-testid="panel-tasks">
+-          <div className="progress-row">
+-            <p data-testid="task-progress" aria-live="polite">
+-              {completed} of {tasks.length} tasks complete
+-            </p>
+-            <progress className="progress" max={tasks.length} value={completed} aria-label="Task completion" />
+-          </div>
+-          <ul className="task-list">
+-            {tasks.map((task) => (
+-              <li key={task.id} className={task.done ? 'task task-done' : 'task'} data-testid="task-item">
+-                <input
+-                  id={`task-${task.id}`}
+-                  type="checkbox"
+-                  checked={task.done}
+-                  onChange={() => toggleTask(task.id)}
+-                  data-testid={`task-checkbox-${task.id}`}
+-                />
+-                <label htmlFor={`task-${task.id}`}>{task.title}</label>
+-                <span className="muted small">{task.assignee}</span>
+-              </li>
+-            ))}
+-          </ul>
+-        </section>
+-      )}
+-
+-      {activeTab === 'files' && (
+-        <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="panel" data-testid="panel-files">
+-          <table className="table">
+-            <thead>
+-              <tr>
+-                <th scope="col">File name</th>
+-                <th scope="col">Size</th>
+-                <th scope="col">Last updated</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {project.files.map((file) => (
+-                <tr key={file.id} data-testid="file-row">
+-                  <td>{file.name}</td>
+-                  <td>{file.size}</td>
+-                  <td>{formatDate(file.updated)}</td>
+-                </tr>
++            <ul className="task-list">
++              {tasks.map((task) => (
++                <li key={task.id} className={task.done ? 'task task-done' : 'task'} data-testid="task-item">
++                  <input
++                    id={`task-${task.id}`}
++                    type="checkbox"
++                    checked={task.done}
++                    onChange={() => toggleTask(task.id)}
++                    data-testid={`task-checkbox-${task.id}`}
++                  />
++                  <label htmlFor={`task-${task.id}`}>{task.title}</label>
++                  <span className="muted small">{task.assignee}</span>
++                </li>
+               ))}
+-            </tbody>
+-          </table>
+-        </section>
+-      )}
++            </ul>
++          </section>
++        )}
++
++        {activeTab === 'files' && (
++          <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="tabpanel" data-testid="panel-files">
++            <div className="table-wrap">
++              <table className="table">
++                <thead>
++                  <tr>
++                    <th scope="col">File name</th>
++                    <th scope="col" className="num">
++                      Size
++                    </th>
++                    <th scope="col">Last updated</th>
++                  </tr>
++                </thead>
++                <tbody>
++                  {project.files.map((file) => (
++                    <tr key={file.id} data-testid="file-row">
++                      <td>
++                        <Marker className="row-cur" />
++                        {file.name}
++                      </td>
++                      <td className="numeric">{file.size}</td>
++                      <td>{formatDate(file.updated)}</td>
++                    </tr>
++                  ))}
++                </tbody>
++              </table>
++            </div>
++          </section>
++        )}
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProjectsPage.tsx b/src/pages/ProjectsPage.tsx
+index 9529547..afd1bb1 100644
+--- a/src/pages/ProjectsPage.tsx
++++ b/src/pages/ProjectsPage.tsx
+@@ -1,5 +1,6 @@
+ import { useSearchParams } from 'react-router';
+ import ProjectsTable from '../components/ProjectsTable';
++import { SceneWindow } from '../components/pixel';
+ 
+ export default function ProjectsPage() {
+   const [searchParams] = useSearchParams();
+@@ -7,10 +8,10 @@ export default function ProjectsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
++      <SceneWindow strip={{ shift: 32, lamp: false }}>
+         <h1>Projects</h1>
+         <p className="muted">Every initiative tracked by the operations team.</p>
+-      </div>
++      </SceneWindow>
+       {/* Re-mount when the global search changes so the table picks up the new query. */}
+       <ProjectsTable key={initialQuery} heading="All projects" initialQuery={initialQuery} />
+     </>
+diff --git a/src/pages/SettingsPage.tsx b/src/pages/SettingsPage.tsx
+index 920db50..3fa725b 100644
+--- a/src/pages/SettingsPage.tsx
++++ b/src/pages/SettingsPage.tsx
+@@ -1,18 +1,29 @@
+ import { Link } from 'react-router';
++import { Callout, Icon, SceneWindow, Window } from '../components/pixel';
+ 
+ export default function SettingsPage() {
+   return (
+     <>
+-      <div className="page-header">
++      <SceneWindow strip={{ shift: 40, lamp: false, shedLit: true }}>
+         <h1>Settings</h1>
+-      </div>
+-      <section className="panel empty-state" data-testid="settings-placeholder">
+-        <h2>Workspace settings are coming soon</h2>
+-        <p className="muted">
+-          Notification rules, integrations and access control will live here. For now, ask a workspace admin to make
+-          changes.
+-        </p>
+-        <Link to="/">Back to overview</Link>
++      </SceneWindow>
++      <section className="settings-group" data-testid="settings-placeholder">
++        <Window
++          title={
++            <>
++              <Icon name="settings" className="nav-icon" />
++              <h2>Workspace settings are coming soon</h2>
++            </>
++          }
++        >
++          <Callout>
++            <p className="muted">
++              Notification rules, integrations and access control will live here. For now, ask a workspace admin to
++              make changes.
++            </p>
++          </Callout>
++          <Link to="/">Back to overview</Link>
++        </Window>
+       </section>
+     </>
+   );
+diff --git a/src/pages/TeamPage.tsx b/src/pages/TeamPage.tsx
+index c6c6245..baf4073 100644
+--- a/src/pages/TeamPage.tsx
++++ b/src/pages/TeamPage.tsx
+@@ -1,13 +1,14 @@
+ import { team } from '../data/team';
++import { Avatar, Marker, SceneWindow } from '../components/pixel';
+ 
+ export default function TeamPage() {
+   return (
+     <>
+-      <div className="page-header">
++      <SceneWindow strip={{ shift: 48, shedLit: false }}>
+         <h1>Team</h1>
+         <p className="muted">{team.length} people across engineering, design and operations.</p>
+-      </div>
+-      <section className="panel" aria-label="Team members">
++      </SceneWindow>
++      <section className="group" aria-label="Team members">
+         <div className="table-wrap">
+           <table className="table" data-testid="team-table">
+             <thead>
+@@ -15,20 +16,18 @@ export default function TeamPage() {
+                 <th scope="col">Name</th>
+                 <th scope="col">Role</th>
+                 <th scope="col">Location</th>
+-                <th scope="col">Active projects</th>
++                <th scope="col" className="num">
++                  Active projects
++                </th>
+               </tr>
+             </thead>
+             <tbody>
+               {team.map((member) => (
+                 <tr key={member.id} data-testid="team-row">
+                   <td>
++                    <Marker className="row-cur" />
+                     <div className="person">
+-                      <span className="avatar" aria-hidden="true">
+-                        {member.name
+-                          .split(' ')
+-                          .map((part) => part[0])
+-                          .join('')}
+-                      </span>
++                      <Avatar name={member.name} />
+                       <div>
+                         <div>{member.name}</div>
+                         <a href={`mailto:${member.email}`} className="small">
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 3eb965f..b2f301e 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,620 +1,294 @@
+ /*
+- * Base styles for the Northwind Ops dashboard.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Northwind Ops on Night Cartridge 0.1.0-rc.5.
++ * Every value comes from design-system/tokens.css; art and motion live in art.css.
+  */
+-:root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-status-active-bg: #e3f2e5;
+-  --color-status-active-text: #1b5e20;
+-  --color-status-paused-bg: #fff4d6;
+-  --color-status-paused-text: #7a5a00;
+-  --color-status-done-bg: #e8e8e8;
+-  --color-status-done-text: #444444;
+-  --color-chart-bar: #6f8fbf;
+-  --color-chart-axis: #999999;
+ 
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
+-}
+-
+-*,
+-*::before,
+-*::after {
+-  box-sizing: border-box;
+-}
+-
+-html,
+-body {
+-  margin: 0;
+-}
+-
+-body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
+-}
+-
+-h1,
+-h2,
+-h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
+-}
+-
+-h1 {
+-  font-size: var(--font-size-h1);
+-}
+-
+-h2 {
+-  font-size: var(--font-size-h2);
+-}
+-
+-h3 {
+-  font-size: var(--font-size-base);
+-}
+-
+-p {
+-  margin: 0 0 var(--space-2);
+-}
+-
+-a {
+-  color: var(--color-link);
+-}
+-
+-:focus-visible {
+-  outline: 2px solid var(--color-focus);
+-  outline-offset: 2px;
+-}
+-
+-.visually-hidden {
+-  position: absolute;
+-  width: 1px;
+-  height: 1px;
+-  padding: 0;
+-  margin: -1px;
+-  overflow: hidden;
+-  clip: rect(0, 0, 0, 0);
+-  white-space: nowrap;
+-  border: 0;
+-}
+-
+-.skip-link {
+-  position: absolute;
+-  left: -9999px;
+-}
+-
+-.skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
+-}
+-
+-.muted {
+-  color: var(--color-text-muted);
+-}
+-
+-.small {
+-  font-size: var(--font-size-small);
+-}
+-
+-.numeric {
+-  font-variant-numeric: tabular-nums;
+-}
+-
+-/* Layout */
+-.app-shell {
+-  display: flex;
+-  min-height: 100vh;
+-}
+-
+-.sidebar {
+-  width: var(--sidebar-width);
+-  flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
+-}
+-
+-.brand {
+-  font-weight: bold;
+-  margin-bottom: var(--space-4);
+-}
+-
+-.nav-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-}
+-
+-.nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
+-  text-decoration: none;
+-}
+-
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
+-}
+-
+-.main-column {
+-  flex: 1;
+-  min-width: 0;
+-  display: flex;
+-  flex-direction: column;
+-}
+-
+-.topbar {
+-  display: flex;
+-  align-items: center;
+-  justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-}
+-
+-.topbar-search {
+-  display: flex;
+-  gap: var(--space-2);
+-  flex: 1;
+-  max-width: 420px;
+-}
+-
+-.content {
+-  padding: var(--space-6);
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-6);
+-}
+-
+-.page-header-row {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: flex-start;
+-  gap: var(--space-4);
+-}
+-
+-.two-column {
+-  display: grid;
+-  grid-template-columns: 3fr 2fr;
+-  gap: var(--space-6);
+-}
+-
+-/* Controls */
+-.input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
+-  flex: 1;
+-}
+-
+-.button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
+-}
+-
+-.link-button {
+-  font: inherit;
+-  background: none;
+-  border: none;
+-  padding: 0;
+-  color: var(--color-link);
+-  text-decoration: underline;
+-  cursor: pointer;
+-}
+-
+-.field-inline {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-}
+-
+-/* User menu */
+-.user-menu {
+-  position: relative;
+-}
+-
+-.user-menu-button {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-}
+-
+-.user-menu-panel {
+-  position: absolute;
+-  right: 0;
+-  top: calc(100% + var(--space-1));
+-  min-width: 220px;
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-3);
+-  z-index: 5;
+-}
+-
+-.user-menu-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  display: grid;
+-  gap: var(--space-2);
+-}
+-
+-.avatar {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  width: 28px;
+-  height: 28px;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
+-}
+-
+-.person {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-}
+-
+-/* Cards and panels */
+-.panel,
+-.card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
+-}
+-
+-.panel-header {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: baseline;
+-  gap: var(--space-4);
+-}
+-
+-.kpi-grid {
+-  display: grid;
+-  grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
+-}
+-
+-.kpi-label {
+-  font-size: var(--font-size-small);
+-  font-weight: normal;
+-  color: var(--color-text-muted);
+-}
+-
+-.kpi-value {
+-  font-size: 28px;
+-  font-weight: bold;
+-  margin: 0;
+-}
+-
+-.kpi-change {
+-  font-size: var(--font-size-small);
+-  margin: 0;
+-}
+-
+-.kpi-change-up {
+-  color: var(--color-positive);
+-}
+-
+-.kpi-change-down {
+-  color: var(--color-negative);
+-}
+-
+-/* Chart */
+-.chart {
+-  margin: 0;
+-}
+-
+-.chart-title {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
+-  margin-bottom: var(--space-2);
+-}
+-
+-.chart-svg {
+-  width: 100%;
+-  height: auto;
+-  display: block;
+-}
+-
+-.chart-bar {
+-  fill: var(--color-chart-bar);
+-}
+-
+-.chart-axis {
+-  stroke: var(--color-chart-axis);
+-}
+-
+-.chart-value,
+-.chart-label {
+-  font-size: 12px;
+-  fill: var(--color-text);
+-}
++/* ---------- Root and pixel type ---------- */
++html{font:var(--font-weight-regular) var(--font-size-body)/var(--font-line-height-ui) var(--font-family-pixel);color:var(--color-text-primary);background:var(--color-surface-default);
++  -webkit-font-smoothing:none;font-smooth:never;font-synthesis:none;letter-spacing:normal;text-transform:none;word-break:keep-all;line-break:strict;overflow-wrap:break-word;font-variant-numeric:slashed-zero tabular-nums}
++:is(h1,h2,h3,h4,h5,h6,b,strong,th,label,button,legend,dt){font-weight:var(--font-weight-regular)}
++:is(h1,h2,h3,h4,strong,b,em,i){color:var(--color-text-strong);font-style:normal}
++.prose{max-width:var(--size-prose);line-height:var(--font-line-height-prose)}
++:is(code,pre,kbd,samp){font-family:var(--font-family-pixel-mono)}
++:not(pre)>code{padding:0 var(--space-4);background:var(--color-surface-code);color:var(--color-text-strong)}
++:root[data-body="readable"] :is(.prose p,.prose li,.prose blockquote,td){font-family:var(--font-family-readable)}
++:root[data-body="readable"] :is(pre,code){font-family:var(--font-family-readable-mono)}
++
++*,*::before,*::after{box-sizing:border-box}
++body{margin:0;background:var(--color-surface-default);color:var(--color-text-primary)}
++h1,h2{margin:0;font-size:var(--font-size-title);line-height:var(--font-line-height-title)}
++h3{margin:0;font-size:var(--font-size-body);line-height:var(--font-line-height-ui)}
++p{margin:0}
++button,input,select,textarea{font:inherit;color:inherit;letter-spacing:normal}
++
++a{color:var(--color-text-link);text-decoration:underline;text-decoration-thickness:var(--border-width-control);text-decoration-color:var(--color-border-control);text-underline-offset:var(--space-4)}
++a:hover{color:var(--color-text-strong);text-decoration-color:var(--color-text-strong)}
++
++:focus-visible{outline:var(--border-width-window) solid var(--color-focus-ring);outline-offset:3px}
++:is(.item,tr,summary,[role="option"],.tab):focus-visible{outline-offset:-4px}
++
++.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
++.skip-link{position:absolute;left:-9999px;z-index:40}
++.skip-link:focus{left:var(--space-8);top:var(--space-8);padding:var(--space-8) var(--space-12);background:var(--color-surface-raised);border:var(--border-width-control) solid var(--color-border-strong);color:var(--color-text-strong)}
++
++.muted{color:var(--color-text-secondary)}
++.small{font-size:var(--font-size-caption);line-height:var(--font-line-height-caption)}
++.numeric,.num{text-align:right;font-variant-numeric:slashed-zero tabular-nums}
++.icon{flex:none;display:block}
++
++/* ---------- RPG marker and physical response ---------- */
++:root{
++--cur-r:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7'%3E%3Cpath d='M0 0h1v1h1v1h1v1h1v1h-1v1h-1v1h-1v1h-1z'/%3E%3C/svg%3E");
++--cur-l:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7'%3E%3Cpath d='M4 0v7h-1v-1h-1v-1h-1v-1h-1v-1h1v-1h1v-1h1v-1z'/%3E%3C/svg%3E");
++--cur-d:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4'%3E%3Cpath d='M0 0h7v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1z'/%3E%3C/svg%3E");
++--cur-u:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4'%3E%3Cpath d='M3 0h1v1h1v1h1v1h1v1h-7v-1h1v-1h1v-1h1z'/%3E%3C/svg%3E");
++--cur-bevel:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath fill='white' fill-opacity='.45' d='M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3z'/%3E%3Cpath fill-opacity='.4' d='M2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z'/%3E%3C/svg%3E");
++--check:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 5' shape-rendering='crispEdges'%3E%3Cpath d='M5 0h1v1H5zM4 1h2v1H4zM0 2h1v1H0zM3 2h2v1H3zM0 3h4v1H0zM1 4h2v1H1z'/%3E%3C/svg%3E");}
++.cur{flex:none;display:inline-block;width:var(--size-marker-w);height:var(--size-marker-h);color:var(--color-text-accent);
++  background:var(--cur-bevel) 0 0/100% 100% no-repeat currentColor;-webkit-mask:var(--cur-r) 0 0/100% 100% no-repeat;mask:var(--cur-r) 0 0/100% 100% no-repeat}
++.cur--l{-webkit-mask-image:var(--cur-l);mask-image:var(--cur-l);background-image:none}
++.cur--d,.cur--u{width:var(--size-marker-h);height:var(--size-marker-w);background-image:none;-webkit-mask-image:var(--cur-d);mask-image:var(--cur-d)}.cur--u{-webkit-mask-image:var(--cur-u);mask-image:var(--cur-u)}
++.cur--sm{width:6px;height:10px}
++.cur--d.cur--sm,.cur--u.cur--sm{width:10px;height:6px}
++.item{display:flex;align-items:center;gap:var(--space-8);min-height:var(--size-row);padding-inline:var(--space-8) var(--space-12)}
++.item>.cur{visibility:hidden}
++.item:is([aria-current],[aria-selected="true"],.is-current)>.cur{visibility:visible}
++.item:hover{background:var(--color-surface-hover)}
++.item:is([aria-current],[aria-selected="true"]){color:var(--color-text-strong)}
++.card-title{position:relative}
++.card-title>.cur{position:absolute;right:calc(100% + var(--space-4));top:50%;translate:0 -50%;visibility:hidden}
++.card-link:is(:hover,:focus-visible) .card-title>.cur{visibility:visible;color:var(--color-text-strong)}
++.press:active:not(:disabled){translate:2px 2px}
++
++/* ---------- Buttons ---------- */
++.btn,.btn-gold{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-8);font:inherit;cursor:pointer;white-space:nowrap;text-decoration:none}
++.btn{height:var(--size-control);padding-inline:var(--space-12);background:transparent;border:var(--border-width-control) solid var(--color-border-control);color:var(--color-text-primary)}
++.btn:hover{background:var(--color-surface-hover);color:var(--color-text-strong)}
++.btn:disabled{background:var(--color-surface-hover);color:var(--color-text-disabled);border-color:var(--color-border-default);cursor:default}
++.btn--marker>.cur{margin-left:calc(var(--space-4) * -1)}
++.btn-gold{height:var(--size-control-lg);padding-inline:var(--space-20);background:var(--color-action-primary);color:var(--color-text-on-action);border:var(--border-width-control) solid var(--color-action-primary-edge);box-shadow:var(--shadow-hard)}
++.btn-gold:hover{color:var(--color-text-on-action)}
++.btn-gold:active:not(:disabled){translate:4px 4px;box-shadow:var(--shadow-none)}
++.btn-gold .cur{color:currentColor;background-image:none}
++.tool{display:inline-flex;align-items:center;gap:var(--space-8);height:var(--size-control);padding-inline:var(--space-8);background:transparent;border:0;color:var(--color-text-secondary);cursor:pointer;white-space:nowrap}
++.tool:hover{background:var(--color-surface-hover);color:var(--color-text-primary)}
++
++/* ---------- Fields ---------- */
++.field{display:grid;gap:var(--space-8);min-width:0}
++.field>label{color:var(--color-text-strong)}
++.input{width:100%;min-width:0;height:var(--size-control);padding:0 var(--space-12);background:var(--color-surface-raised);border:var(--border-width-control) solid var(--color-border-control);color:var(--color-text-primary)}
++.input::placeholder{color:var(--color-text-secondary);opacity:1}
++.input:hover{border-color:var(--color-border-strong)}
++.input[type="search"]{-webkit-appearance:none;appearance:none}
++.input[type="search"]::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
++.search-field{position:relative;display:flex;flex:1;min-width:0}
++.search-field__icon{position:absolute;left:var(--space-8);top:50%;translate:0 -50%;color:var(--color-text-secondary);pointer-events:none}
++.input--search{padding-left:var(--space-40)}
++
++input[type="checkbox"]{-webkit-appearance:none;appearance:none;flex:none;display:inline-grid;place-content:center;width:16px;height:16px;margin:0;background:var(--color-surface-raised);border:var(--border-width-control) solid var(--color-border-control);cursor:pointer}
++input[type="checkbox"]::before{content:"";width:12px;height:10px;background:var(--color-text-accent);-webkit-mask:var(--check) 0 0/100% 100% no-repeat;mask:var(--check) 0 0/100% 100% no-repeat;visibility:hidden}
++input[type="checkbox"]:checked::before{visibility:visible}
++input[type="checkbox"]:hover{border-color:var(--color-border-strong)}
++
++/* ---------- Game-window chrome ---------- */
++.window{border:var(--border-width-window) solid var(--color-border-strong);background:var(--color-surface-raised)}
++.window__bar{display:flex;align-items:center;gap:var(--space-8);height:var(--size-title-bar);padding-inline:var(--space-12);background:var(--color-surface-subtle);border-bottom:var(--border-width-control) solid var(--color-border-default)}
++.window__body{padding:var(--space-16) var(--space-20)}
++.window--danger{border-color:var(--color-status-danger)}
++.dither{height:var(--size-rule);background:repeating-conic-gradient(var(--dc,var(--color-border-default)) 0 25%,transparent 0 50%) 0 0/4px 4px}
++h2.ruled,.group-head{padding-bottom:var(--space-12);margin-bottom:var(--space-16);background:repeating-conic-gradient(var(--color-border-control) 0 25%,transparent 0 50%) bottom left/4px 4px repeat-x}
++.sep-dots{height:2px;background:linear-gradient(90deg,var(--color-border-control) 2px,transparent 0) 0 0/6px 2px repeat-x}
++.hue-bar{border-top:var(--border-width-window) solid var(--hue)}
++.bullet{flex:none;width:var(--size-bullet);height:var(--size-bullet);background:var(--hue)}
++.meter{display:flex;gap:var(--space-4)}
++.meter>i{width:var(--size-meter-w);height:var(--size-meter-h);background:var(--color-surface-hover)}
++.meter>i.on{background:var(--tone,var(--color-status-success));animation:nc-on var(--motion-duration-meter-step) var(--motion-easing-frame) calc(var(--i) * var(--motion-duration-meter-step)) backwards}
++@keyframes nc-on{from{background:var(--color-surface-hover)}}
++.callout{display:grid;grid-template-columns:var(--size-icon) 1fr;gap:var(--space-4) var(--space-12);padding:var(--space-16) var(--space-20);background:var(--color-surface-subtle);border-left:var(--border-width-window) solid var(--tone)}
++.callout__icon{color:var(--tone)}
++
++/* ---------- Shell ---------- */
++.app-shell{display:flex;flex-direction:column;min-height:100vh}
++.app-shell>.ground{margin-top:0}
++.site-header{position:sticky;top:0;z-index:20;background:var(--color-surface-default)}
++.topbar{display:flex;align-items:center;gap:var(--space-16);height:var(--size-header);padding-inline:var(--space-24)}
++.brand{display:flex;align-items:center;gap:var(--space-8);flex:none;width:calc(var(--size-sidebar) - var(--space-24) - var(--space-16));color:var(--color-text-strong)}
++.topbar-search{display:flex;gap:var(--space-8);flex:1;min-width:0;max-width:480px}
++.header-tools{display:flex;align-items:center;gap:var(--space-8);margin-left:auto}
++.user-menu{position:relative}
++.user-menu-button{padding-inline:var(--space-8) var(--space-12)}
++.user-menu-chevron{color:var(--color-text-secondary)}
++.menu{position:absolute;right:0;top:calc(100% + var(--space-4));z-index:30;min-width:240px;padding-block:var(--space-8);background:var(--color-surface-raised);border:var(--border-width-control) solid var(--color-border-strong)}
++.user-menu-email{padding:var(--space-4) var(--space-12) var(--space-8);font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.user-menu-list{list-style:none;margin:0;padding:0}
++.menu .item{width:100%;color:var(--color-text-primary);text-decoration:none}
++.menu .item:focus{background:var(--color-surface-hover);color:var(--color-text-strong)}
++.menu .item:focus>.cur{visibility:visible}
++.item--button{background:none;border:0;cursor:pointer;text-align:left}
++
++.shell{flex:1;display:grid;grid-template-columns:var(--size-sidebar) minmax(0,1fr)}
++.sidebar{min-height:100%;padding:var(--space-40) var(--space-12) calc(var(--space-64) + var(--size-ground-sprite));background:var(--color-surface-subtle);border-right:var(--border-width-control) solid var(--color-border-default)}
++.sidebar-title{padding:0 var(--space-8) var(--space-8);font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.nav-list{list-style:none;margin:0;padding:0}
++.nav-list>li+li::before{content:"";display:block;height:2px;margin:var(--space-4) var(--space-8);background:linear-gradient(90deg,var(--color-border-control) 2px,transparent 0) 0 0/6px 2px repeat-x}
++.nav-link{color:var(--color-text-secondary);text-decoration:none}
++.nav-link:hover{color:var(--color-text-strong)}
++.nav-link[aria-current]{background:var(--color-surface-hover)}
++.nav-icon{color:var(--color-text-secondary)}
++
++.content{display:flex;flex-direction:column;gap:var(--space-64);width:100%;max-width:calc(var(--size-container) + 2 * var(--space-24));min-width:0;padding:var(--space-40) var(--space-24) calc(var(--space-64) + var(--size-ground-sprite))}
++.stack{display:flex;flex-direction:column;gap:var(--space-16);min-width:0}
++
++/* ---------- Scene window and title block ---------- */
++.scene-window .stage{border-bottom:var(--border-width-control) solid var(--color-border-default)}
++.title-block{display:grid;gap:var(--space-8);padding:var(--space-24)}
++.title-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-8) var(--space-16)}
++.meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-12);font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++
++/* ---------- Panel groups (h2 on the dither rule, outside the panel) ---------- */
++.group{display:flex;flex-direction:column;min-width:0}
++.group-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-4) var(--space-16)}
++.group-head>p{color:var(--color-text-secondary)}
++.panel{display:flex;flex-direction:column;flex:1;padding:var(--space-16) var(--space-20);background:var(--color-surface-subtle);border-top:var(--border-width-control) solid var(--color-border-default)}
++.panel-caption{display:flex;align-items:center;gap:var(--space-8);font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.two-column{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:var(--space-16)}
++
++/* KPI tiles */
++.kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-16)}
++.kpi-card{display:flex;flex-direction:column;gap:var(--space-8);padding:var(--space-16) var(--space-20);background:var(--color-surface-subtle);border-top:var(--border-width-window) solid var(--hue)}
++.kpi-label{display:flex;align-items:center;gap:var(--space-8);margin:0;font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.kpi-value{margin:0;font-size:var(--font-size-display);line-height:var(--font-line-height-display);color:var(--color-text-strong);white-space:nowrap}
++.kpi-change{display:flex;align-items:center;gap:var(--space-8);margin:0;font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--tone)}
++.kpi-change>.cur{color:currentColor}
++.kpi-card>.meter{margin-top:var(--space-4)}
++
++/* Bar chart: flat square bars in the series hue, 12px axis */
++.chart{display:flex;flex-direction:column;flex:1;gap:var(--space-12);margin:0}
++.chart-title{display:flex;align-items:center;gap:var(--space-8);font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.chart-body{display:flex;flex-direction:column;flex:1;min-height:224px}
++.chart-plot{display:grid;flex:1;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:var(--space-16);padding-inline:var(--space-8);border-bottom:var(--border-width-control) solid var(--color-border-control)}
++.chart-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:var(--space-4)}
++.chart-value{font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-strong)}
++.chart-bar{width:100%;max-width:56px;height:calc((100% - var(--space-24)) * var(--p));background:var(--hue)}
++.chart-labels{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:var(--space-16);padding:var(--space-4) var(--space-8) 0;font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary);text-align:center}
+ 
+ /* Activity */
+-.activity-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-}
+-
+-.activity-item {
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
+-}
+-
+-.activity-item p {
+-  margin: 0;
+-}
+-
+-/* Toolbar & table */
+-.toolbar {
+-  display: flex;
+-  flex-wrap: wrap;
+-  justify-content: space-between;
+-  gap: var(--space-3);
+-  margin: var(--space-3) 0;
+-}
+-
+-.segmented {
+-  display: flex;
+-}
+-
+-.segmented-button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  cursor: pointer;
+-  margin-left: -1px;
+-}
+-
+-.segmented-button:first-child {
+-  border-radius: var(--radius) 0 0 var(--radius);
+-  margin-left: 0;
+-}
+-
+-.segmented-button:last-child {
+-  border-radius: 0 var(--radius) var(--radius) 0;
+-}
+-
+-.segmented-button[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
+-}
+-
+-.table-wrap {
+-  overflow-x: auto;
+-}
+-
+-.table {
+-  width: 100%;
+-  border-collapse: collapse;
+-}
+-
+-.table th,
+-.table td {
+-  text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  vertical-align: top;
+-}
+-
+-.table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
+-}
+-
+-.sort-button {
+-  font: inherit;
+-  color: inherit;
+-  background: none;
+-  border: none;
+-  padding: 0;
+-  cursor: pointer;
+-  display: inline-flex;
+-  gap: var(--space-1);
+-}
+-
+-.sort-indicator {
+-  font-size: 10px;
+-}
+-
+-.pill {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
+-}
+-
+-.pill-active {
+-  background: var(--color-status-active-bg);
+-  color: var(--color-status-active-text);
+-}
+-
+-.pill-paused {
+-  background: var(--color-status-paused-bg);
+-  color: var(--color-status-paused-text);
+-}
+-
+-.pill-done {
+-  background: var(--color-status-done-bg);
+-  color: var(--color-status-done-text);
+-}
+-
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
+-}
+-
+-/* Project detail */
+-.breadcrumb ol {
+-  list-style: none;
+-  display: flex;
+-  gap: var(--space-2);
+-  margin: 0;
+-  padding: 0;
+-  font-size: var(--font-size-small);
+-}
+-
+-.breadcrumb li + li::before {
+-  content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
+-}
+-
+-.tabs {
+-  display: flex;
+-  gap: var(--space-1);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-}
+-
+-.tab {
+-  font: inherit;
+-  background: none;
+-  border: var(--border-width) solid transparent;
+-  border-bottom: none;
+-  border-radius: var(--radius) var(--radius) 0 0;
+-  padding: var(--space-2) var(--space-4);
+-  color: var(--color-text);
+-  cursor: pointer;
+-  margin-bottom: -1px;
+-}
+-
+-.tab[aria-selected='true'] {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  border-bottom: var(--border-width) solid var(--color-surface);
+-  font-weight: bold;
+-}
+-
+-.details {
+-  display: grid;
+-  grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 0;
+-}
+-
+-.details dt {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
+-}
+-
+-.details dd {
+-  margin: 0;
+-}
+-
+-.progress-row {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-4);
+-}
+-
+-.progress-row p {
+-  margin: 0;
+-}
+-
+-.progress {
+-  flex: 1;
+-  max-width: 240px;
+-}
+-
+-.task-list {
+-  list-style: none;
+-  margin: var(--space-3) 0 0;
+-  padding: 0;
+-}
+-
+-.task {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
+-}
+-
+-.task label {
+-  flex: 1;
+-}
+-
+-.task-done label {
+-  text-decoration: line-through;
+-  color: var(--color-text-muted);
+-}
+-
+-@media (max-width: 900px) {
+-  .app-shell {
+-    flex-direction: column;
+-  }
+-
+-  .sidebar {
+-    width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
+-  }
+-
+-  .nav-list {
+-    display: flex;
+-    flex-wrap: wrap;
+-    gap: var(--space-2);
+-  }
+-
+-  .kpi-grid,
+-  .details {
+-    grid-template-columns: repeat(2, 1fr);
+-  }
+-
+-  .two-column {
+-    grid-template-columns: 1fr;
+-  }
++.activity-list{list-style:none;margin:0;padding:0}
++.activity-item{display:grid;gap:var(--space-4);padding-block:var(--space-12)}
++.activity-item:first-child{padding-top:0}
++.activity-item:last-child{padding-bottom:0}
++.activity-item+.activity-item{background:linear-gradient(90deg,var(--color-border-control) 2px,transparent 0) 0 0/6px 2px repeat-x}
++
++/* Toolbar, filter chips */
++.toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-16);margin-bottom:var(--space-16)}
++.chips{display:flex;flex-wrap:wrap;gap:var(--space-8)}
++.chip{display:inline-flex;align-items:center;gap:var(--space-8);height:var(--size-control);padding-inline:var(--space-12);background:transparent;border:var(--border-width-control) solid var(--color-border-default);color:var(--color-text-primary);cursor:pointer;white-space:nowrap}
++.chip:hover{background:var(--color-surface-hover);color:var(--color-text-strong)}
++.chip[aria-pressed="true"]{color:var(--color-text-strong)}
++.chip__slot{display:inline-grid;place-items:center;width:var(--size-marker-w);height:var(--size-marker-h)}
++.toolbar .field{width:min(100%,320px)}
++
++/* Table */
++.table-wrap{overflow-x:auto}
++.table{width:100%;border-collapse:collapse}
++.table th{height:var(--size-row);padding:0 var(--space-12);background:var(--color-surface-subtle);color:var(--color-text-strong);text-align:left;white-space:nowrap;border-bottom:var(--border-width-control) solid var(--color-border-strong)}
++.table td{height:var(--size-row);padding:var(--space-8) var(--space-12);border-bottom:var(--border-width-control) solid var(--color-border-default);vertical-align:middle}
++.table :is(th,td):first-child{position:relative;padding-left:calc(var(--space-16) + var(--space-12))}
++.table th.num{text-align:right}
++.table tbody tr:hover{background:var(--color-surface-hover)}
++.row-cur{position:absolute;left:var(--space-4);top:50%;translate:0 -50%;visibility:hidden}
++.table tbody tr:is(:hover,:focus-within) .row-cur{visibility:visible}
++.table td{white-space:nowrap}
++.cell-sub{font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.sort-button{display:inline-flex;align-items:center;gap:var(--space-8);height:var(--size-row);padding:0;background:none;border:0;color:inherit;cursor:pointer;white-space:nowrap}
++.sort-button:hover{color:var(--color-text-strong)}
++.table th:has(.sort-button):hover{background:var(--color-surface-hover)}
++.sort-indicator{display:inline-grid;place-items:center;width:var(--size-marker-h);height:var(--size-marker-w)}
++.sort-indicator>.cur{color:var(--color-text-accent)}
++
++/* Status badge */
++.badge{display:inline-flex;align-items:center;gap:var(--space-8);padding:0 var(--space-8);color:var(--color-text-primary);white-space:nowrap}
++.badge--active{--hue:var(--color-status-success)}
++.badge--paused{--hue:var(--color-status-warning)}
++.badge--done{--hue:var(--color-status-info)}
++
++/* Empty and error states */
++.empty-state{display:flex;flex-direction:column;align-items:center;gap:var(--space-16);max-width:400px;margin-inline:auto;padding-block:var(--space-40);text-align:center}
++.empty-state p{line-height:var(--font-line-height-prose)}
++.error-window .window__body{padding:var(--space-20)}
++.error-window .btn-gold{margin-top:var(--space-8)}
++
++/* Breadcrumbs */
++.breadcrumb ol{list-style:none;display:flex;flex-wrap:wrap;gap:var(--space-8);margin:0;padding:0;color:var(--color-text-secondary)}
++.breadcrumb li+li::before{content:"/";margin-right:var(--space-8)}
++.breadcrumb a{color:var(--color-text-secondary);text-decoration:none}
++.breadcrumb a:hover{color:var(--color-text-strong);text-decoration:underline;text-decoration-color:var(--color-text-strong)}
++
++/* Tabs */
++.tabs{display:flex;overflow-x:auto;border-bottom:var(--border-width-control) solid var(--color-border-strong)}
++.tab{display:inline-flex;align-items:center;gap:var(--space-8);flex:none;height:calc(var(--size-control) + var(--border-width-control));margin-bottom:calc(var(--border-width-control) * -1);padding:0 var(--space-12);background:none;border:var(--border-width-control) solid transparent;color:var(--color-text-secondary);cursor:pointer}
++.tab>.cur{visibility:hidden}
++.tab:hover{background:var(--color-surface-hover);color:var(--color-text-primary)}
++.tab[aria-selected="true"]{background:var(--color-surface-subtle);border-color:var(--color-border-strong);border-bottom-color:var(--color-surface-subtle);color:var(--color-text-strong)}
++.tab[aria-selected="true"]>.cur{visibility:visible}
++.tabpanel{display:flex;flex-direction:column;gap:var(--space-20);padding:var(--space-20);background:var(--color-surface-subtle);border:var(--border-width-control) solid var(--color-border-strong);border-top:0}
++
++/* Project details */
++.details{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-16);margin:0}
++.details>div{display:grid;align-content:start;gap:var(--space-4);padding:var(--space-12) var(--space-16);background:var(--color-surface-raised)}
++.details dt{font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.details dd{display:grid;gap:var(--space-8);margin:0;color:var(--color-text-strong)}
++.progress-row{display:grid;gap:var(--space-8)}
++.progress-row p{font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.task-list{list-style:none;margin:0;padding:0}
++.task{display:flex;align-items:center;gap:var(--space-8);min-height:var(--size-row);padding-block:var(--space-8)}
++.task+.task{background:linear-gradient(90deg,var(--color-border-control) 2px,transparent 0) 0 0/6px 2px repeat-x}
++.task label{flex:1;cursor:pointer}
++.task-done label{color:var(--color-text-secondary);text-decoration:line-through}
++
++/* People */
++.person{display:flex;align-items:center;gap:var(--space-12)}
++.person a{font-size:var(--font-size-caption);line-height:var(--font-line-height-caption)}
++.avatar{flex:none;display:inline-grid;place-items:center;background:var(--color-surface-hover)}
++.avatar svg{display:block;fill:var(--color-hue-green)}
++.avatar--list{width:40px;height:40px}.avatar--list svg{width:32px;height:32px}
++.avatar--small{width:24px;height:24px}.avatar--small svg{width:16px;height:16px}
++
++/* Settings */
++.settings-group{max-width:var(--size-form)}
++.settings-group .window__body{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-16)}
++.settings-group .window__bar h2{font-size:var(--font-size-body);line-height:var(--font-line-height-ui)}
++
++/* ---------- Layout adaptation ---------- */
++@media (max-width:1279.98px){
++  .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
++}
++@media (max-width:1023.98px){
++  .brand{width:auto}
++  .tool__label{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
++  .shell{grid-template-columns:minmax(0,1fr)}
++  .sidebar{min-height:0;padding:var(--space-8) var(--space-16);border-right:0;border-bottom:var(--border-width-control) solid var(--color-border-default)}
++  .sidebar-title{display:none}
++  .nav-list{display:flex;flex-wrap:wrap;gap:var(--space-4) var(--space-8)}
++  .nav-list>li+li::before{display:none}
++  .two-column{grid-template-columns:minmax(0,1fr);gap:var(--space-64)}
++  .details{grid-template-columns:repeat(2,minmax(0,1fr))}
++}
++@media (max-width:599.98px){
++  .site-header{position:static}
++  .topbar{flex-wrap:wrap;height:auto;padding:var(--space-12) var(--space-16);gap:var(--space-12) var(--space-8)}
++  .topbar-search{order:3;flex-basis:100%;max-width:none}
++  .user-menu-name{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
++  .header-tools{gap:var(--space-4)}
++  .content{gap:var(--space-40);padding-inline:var(--space-16)}
++  .two-column{gap:var(--space-40)}
++  .kpi-grid{grid-template-columns:minmax(0,1fr)}
++  .nav-icon{display:none}
++  .title-block{padding:var(--space-20) var(--space-16)}
++  .toolbar .field{width:100%}
++  .tabpanel{padding:var(--space-16)}
++  .error-window .btn-gold{width:100%}
++}
++@media (pointer:coarse){
++  .item,.task{min-height:var(--size-touch)}
+ }
