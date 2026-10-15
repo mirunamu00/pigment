@@ -37,9 +37,10 @@ an opening paragraph of what people will notice plus concrete bullets. Wait for 
 1. `pnpm harness scaffold <id>@<next> --name "<Name>" --from <id>@<last-rc>`
 2. Write the final `## <next>` entry in the public format, covering everything since the published
    version; `pnpm harness validate` must pass (it lints the entry).
-3. `pnpm harness generate` + `evaluate` + critic on the final version.
-4. `pnpm harness publish <id>@<next> --approved-by "<user's name>"` — this also bumps the MCP package.
-5. Work on a `fix/<id>-<topic>` branch and open a PR (`CONTRIBUTING.md`); merge when the user asks and CI
+3. `pnpm harness publish <id>@<next> --approved-by "<user's name>" --carry-from <last-rc>` — it reuses the
+   last candidate's passing evaluation and screenshots and refuses if any design file differs (then
+   generate, evaluate and critic the final version and publish without it). This also bumps the MCP package.
+4. Work on a `fix/<id>-<topic>` branch and open a PR (`CONTRIBUTING.md`); merge when the user asks and CI
    is green. Merging deploys the site; CI releases `pigment-mcp`.
 
 Report in plain words: what changed, the date it will show, and that projects already using the system

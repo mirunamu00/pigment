@@ -132,7 +132,7 @@ program
   .description("10. freeze a passing, human-approved version and export gallery assets")
   .argument("<ref>")
   .requiredOption("--approved-by <name>", "the person who approved the evaluation")
-  .option("--carry-from <version>", "metadata-only change (name, description): reuse this published version's evaluation and screenshots")
+  .option("--carry-from <version>", "reuse the evaluation and screenshots of the passing candidate this version was scaffolded from, or of a published version for a name/description change; refused if any design file differs")
   .action((ref: string, opts) => {
     const { id, version } = parseRef(ref);
     publish(id, version, opts.approvedBy, opts.carryFrom);

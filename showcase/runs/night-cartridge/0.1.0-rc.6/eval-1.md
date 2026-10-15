@@ -1,0 +1,103 @@
+# night-cartridge@0.1.0-rc.6 — evaluation 1
+
+Verdict: **pass** · 2026-10-15T02:12:49.794Z
+
+## blog (20261015-012753)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## commerce (20261015-012753)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 10 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## dashboard (20261015-012753)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## settings (20261015-012753)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 8 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## Cross-app and reference
+
+| Check | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| palette-consistency | pass | 0.938 | 0.75 |
+| type-consistency | pass | 1 | 0.7 |
+| reference-palette-distance | pass | 0 | reported |
+
+## Critic
+
+```json
+{
+  "referenceFidelity": 4,
+  "crossAppConsistency": 4,
+  "hierarchy": 4,
+  "spacingRhythm": 4,
+  "componentStates": 4,
+  "polish": 4,
+  "signature": 4,
+  "notes": [
+    "Overall: rc.6 passes every gate (eval-1.md). The chrome from rc.4/rc.5 holds in all four apps: pixel face, night ground, cream type, 4px windows with darker interiors, dither rules, gold marker, hue bars, block meters and the checkered grass strip (blog/home-desktop-dark.png, commerce/home-desktop-dark.png, dashboard/home-desktop-dark.png, settings/settings-profile-desktop-dark.png vs reference/screenshots/p1-desktop-light.png). All four rc.5 signature issues are fixed in the output, and the banners now read as the reference's banners. Scores: 4, 4, 4, 4, 4, 4, 4, which averages 4.00. Nothing is below 4. This meets the bar but has no margin. The remaining gaps are listed below as non-blocking fixes.",
+    "rc.5 issues, one by one. (a) Banner scale: FIXED. In blog/drawings/posts-shipping-a-design-system-d1.png and about-d1.png, the post-office lead is about 130px tall in a 256px banner (about 50%). It stands well above the haze line. A cypress (x≈310) and a clock tower (x≈912) cross the far ridge. This matches reference/illustrations/p2-i2.png and p2-i3.png, where the figure and trees fill about 40–50% of the height and cross the ridges. The commerce product banner is at the same scale (commerce/drawings/products-canvas-field-tote-d1.png: an apartment block about 110px tall, a tree and a mast crossing the ridge). (b) Clusters: FIXED. The blog banner now has a left cluster (kiosk, house, cypress), the focal group (cart, post office, mailbox), a right cluster (apartment, shop, tower), and open ground with a fence and a mast between them. The commerce strips (commerce/drawings/home-d1.png, products-canvas-field-tote-d1.png), dashboard strips (dashboard/drawings/home-d1.png, team-d1.png) and the settings strip (settings/drawings/settings-profile-d1.png) all group their props with open ground between. This is the rhythm of the tree groups and open snowfield in p2-i2.png. (c) Hero foreground: FIXED. blog/drawings/home-d1.png and blog/home-desktop-dark.png now show a stepped rise under the post office, a path of 2-unit steps running down-left toward the viewer, and scattered tufts and stones. This is the hill-and-path construction of the reference hero (p1-desktop-light.png, cabin on a hill with a path). (d) Identical copies in settings: FIXED in the output. The workbench and the switch panel each appear once (settings/drawings/settings-profile-d1.png, settings-billing-d1.png). The process step was skipped: settings/agent-report.md contains no variant table and no gap list, though Verification now requires them. The scene is correct, so nothing is deducted, but the report check did not bite.",
+    "Regressions against rc.5: none found in the chrome, layout or states. The rc.5 'dashboard strips identical across screens' observation is also improved: home and team now use different arrangements (dashboard/drawings/home-d1.png vs team-d1.png). Settings profile and billing still differ only by one prop at x≈1110 (settings/drawings/settings-profile-d1.png vs settings-billing-d1.png). The spec allows that.",
+    "Signature (4). Placement is complete: hero on the blog home; banners on article, about and product pages; strips on store, cart, dashboard and settings; vignettes on empty states (blog/state-search-empty-desktop-dark.png, dashboard/state-empty-filter-desktop-dark.png, commerce/cart-desktop-dark.png); a prose figure (blog/posts-shipping-a-design-system-desktop-dark.png); the ground strip everywhere. Motion: blog/motion/motion-m1.png shows nc-drift with steps(440) moving the cloud in whole units, and reduced motion passes. Not a 5, with evidence: (1) Strip props are less legible than the reference's subjects at 1x in dark. The dashboard dish reads as a purple blob and the pink object at the far left is unidentifiable (dashboard/home-desktop-dark.png, dashboard/drawings/home-d1.png). The settings reel and compressor are about 30px, low-contrast shapes (settings/settings-profile-desktop-dark.png). The reference's figure and snow trees read at a glance at a similar pixel height (p2-i2.png) because each has one clear silhouette plus a light rim. (2) The hero has no tall vertical. The spec now asks for 2+ in a hero or banner. The reference hero's tall cypress crossing the sky is its strongest vertical (p1-desktop-light.png, right). The blog hero has only a lamp, a flagpole and a cropped building (blog/drawings/home-d1.png). (3) Motion frames exist for the blog only (harness gap, not penalized).",
+    "Cross-app consistency (4): one family in light and dark. The world split holds: post office, market, server yard, workshop. The blog's 128-unit banners vs the 48-unit strips elsewhere is the spec's split, not drift.",
+    "Hierarchy (4): each screen leads with the scene window and h1, then dither-ruled section titles, then content, as in reference/screenshots/p1-desktop-light.png. Gold appears only on the commit actions (Read the featured post, Add to cart, Place order, Save changes, Confirm change). The minor issue from rc.5 is unchanged: the solid blue chart bars are the heaviest mass on dashboard home (dashboard/home-desktop-dark.png), heavier than the KPI numbers. The reference has no equivalent mass.",
+    "Spacing (4): the 4px scale and the 64px section rhythm hold, and product detail is balanced (commerce/products-canvas-field-tote-desktop-dark.png). Unchanged and still not deducted: settings form windows are about 600px wide while the strip window spans about 960px in the same column, leaving a void about 350px wide (settings/settings-profile-desktop-dark.png). On mobile, the dashboard projects table cuts 'Priya Natarajan' at the right edge (dashboard/home-mobile-light.png). The scroll box keeps the horizontal-scroll gate passing, but no affordance signals that the table scrolls.",
+    "Component states (4): designed throughout. A gold 4px focus frame (blog/state-search-empty-desktop-dark.png, dashboard/state-empty-filter-desktop-dark.png). Danger frames with pixel '!' messages, with the focused field showing both gold and danger frames (commerce/state-checkout-errors-desktop-dark.png). A disabled stepper arrow. A window dialog with title bar, framed close, framed Cancel and gold Confirm (settings/state-plan-dialog-desktop-dark.png). Empty states with a scene vignette, a sentence and a framed Clear filters. Not a 5: loading and pending states are never captured (harness gap, not penalized).",
+    "Polish (4): no default-browser leftovers. Radius is 0 and borders are 2/4px. The hard shadow appears only on gold buttons and the dialog. Scene craft is scored only under signature.",
+    "Not penalized (known harness gaps): the sticky header captured mid-page in state shots (commerce/state-checkout-errors-desktop-dark.png, dashboard/state-empty-filter-desktop-dark.png, blog/state-search-empty-desktop-dark.png); the dialog scrim ending at about 900px in the full-page capture (settings/state-plan-dialog-desktop-dark.png); no pending request; motion frames for the blog only. The light theme is derived: blue day sky and mint ridges are accepted. Agent-side note: settings/agent-report.md says the Playwright smoke tests and the axe/keyboard checks were not run by the agent. The harness gates ran them and they pass."
+  ],
+  "promptFixes": [
+    "Non-blocking (signature, strip legibility, spec gap): in Pixel stage step 8, add: 'At 1x in dark, each strip prop must be identifiable by silhouette alone. Give every prop one 1-unit light rim on its sky-facing edge (color.scene.rim) and avoid organic blobs: a dish is a bowl on a mast, not an ellipse. If a reviewer cannot name the prop from the 1x crop, redraw it.' Evidence: dashboard/drawings/home-d1.png (purple dish reads as a blob, the leftmost pink prop is unidentifiable) and settings/settings-profile-desktop-dark.png (reel and compressor read as dark specks) vs reference/illustrations/p2-i2.png (figure and trees read at a glance at a similar pixel height).",
+    "Non-blocking (signature, hero vertical, agent miss of an existing rule): in the Hero placement, repeat the step 4 rule explicitly: 'the hero has at least one tall vertical (tree, mast or tower) to the right of the focal group, 40+ units tall, crossing the far ridge and reaching into the sky band'. Add the hero to the step 8 tall-vertical check. Evidence: blog/drawings/home-d1.png (only a lamp, a flagpole and a cropped building) vs reference/screenshots/p1-desktop-light.png (tall cypress crossing the sky at right).",
+    "Non-blocking (process): the variant table and gap list in Verification were skipped (settings/agent-report.md has neither). Move 'the agent report lists, per scene, variant | x positions | what differs and the gaps left to right' into the report template at the top of Verification, so that the report is incomplete without it.",
+    "Non-blocking (spacing, carried from rc.5): in Spacing or the Settings row of Applying the concept, add: 'form windows and the page's scene window share one content width; if forms cap at 600px, cap the scene window to the same column, or set a two-column layout with a helper aside.' Evidence: settings/settings-profile-desktop-dark.png (600px form under a 960px strip window, about 350px void)."
+  ]
+}
+```
