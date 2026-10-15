@@ -1,0 +1,2063 @@
+diff --git a/index.html b/index.html
+index 65315b6..26812df 100644
+--- a/index.html
++++ b/index.html
+@@ -3,7 +3,12 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <meta name="color-scheme" content="dark" />
+     <link rel="icon" href="data:," />
++    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/neodgm/neodgm-webfont@latest/neodgm/style.css" />
++    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/neodgm/neodgm-webfont@latest/neodgm_code/style.css" />
++    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
++    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono&display=swap" />
+     <title>Field Notes</title>
+   </head>
+   <body>
+diff --git a/src/App.tsx b/src/App.tsx
+index c258f61..4c2be77 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -4,15 +4,13 @@ import HomePage from './pages/HomePage';
+ import PostPage from './pages/PostPage';
+ import AboutPage from './pages/AboutPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <Routes>
+       <Route element={<Layout />}>
+         <Route index element={<HomePage />} />
+         <Route path="posts/:slug" element={<PostPage />} />
+-        <Route path="about" element={<AboutPage />} />
+-        <Route path="*" element={<NotFoundPage />} />
++        <Route path="about" element={<AboutPage />} />        <Route path="*" element={<NotFoundPage />} />
+       </Route>
+     </Routes>
+   );
+diff --git a/src/components/ArticleBody.tsx b/src/components/ArticleBody.tsx
+index e696cf8..4ea7520 100644
+--- a/src/components/ArticleBody.tsx
++++ b/src/components/ArticleBody.tsx
+@@ -1,11 +1,41 @@
++import { useState, type CSSProperties } from 'react';
+ import type { Block } from '../data/posts';
+ import ImagePlaceholder from './ImagePlaceholder';
++import Icon from './pixel/Icon';
+ 
+-function renderBlock(block: Block, index: number) {
++const calloutTone = (tone: string) => ({ '--tone': tone }) as CSSProperties;
++
++function CodeWindow({ language, code }: { language: string; code: string }) {
++  const [copied, setCopied] = useState(false);
++  async function copy() {
++    try {
++      await navigator.clipboard.writeText(code);
++      setCopied(true);
++      window.setTimeout(() => setCopied(false), 2000);
++    } catch {
++      /* clipboard unavailable: nothing to report */
++    }
++  }
++  return (
++    <div className="window code-window">
++      <div className="window__bar">
++        <span className="code-lang">{language}</span>
++        <button type="button" className="button button--sm press" onClick={copy}>
++          {copied ? 'Copied' : 'Copy'}
++        </button>
++      </div>
++      <pre className="code-block" data-testid="body-code" data-language={language}>
++        <code>{code}</code>
++      </pre>
++    </div>
++  );
++}
++
++function renderBlock(block: Block, index: number, figureIndex: number) {
+   switch (block.type) {
+     case 'heading':
+       return block.level === 2 ? (
+-        <h2 key={index} id={block.id} className="body-heading" data-testid="body-heading">
++        <h2 key={index} id={block.id} className="body-heading ruled" data-testid="body-heading">
+           {block.text}
+         </h2>
+       ) : (
+@@ -21,7 +51,10 @@ function renderBlock(block: Block, index: number) {
+       );
+     case 'quote':
+       return (
+-        <figure key={index} className="body-quote">
++        <figure key={index} className="body-quote callout" style={calloutTone('var(--color-status-info)')}>
++          <span className="callout__icon">
++            <Icon name="quote" />
++          </span>
+           <blockquote data-testid="body-quote">
+             <p>{block.text}</p>
+           </blockquote>
+@@ -29,11 +62,7 @@ function renderBlock(block: Block, index: number) {
+         </figure>
+       );
+     case 'code':
+-      return (
+-        <pre key={index} className="code-block" data-testid="body-code" data-language={block.language}>
+-          <code>{block.code}</code>
+-        </pre>
+-      );
++      return <CodeWindow key={index} language={block.language} code={block.code} />;
+     case 'list': {
+       const items = block.items.map((item) => <li key={item}>{item}</li>);
+       return block.ordered ? (
+@@ -49,7 +78,7 @@ function renderBlock(block: Block, index: number) {
+     case 'figure':
+       return (
+         <figure key={index} className="body-figure" data-testid="body-figure">
+-          <ImagePlaceholder alt={block.alt} />
++          <ImagePlaceholder alt={block.alt} seed={figureIndex} />
+           <figcaption className="muted small" data-testid="figure-caption">
+             {block.caption}
+           </figcaption>
+@@ -58,10 +87,10 @@ function renderBlock(block: Block, index: number) {
+   }
+ }
+ 
+-export default function ArticleBody({ blocks }: { blocks: Block[] }) {
++export default function ArticleBody({ blocks, seed = 0 }: { blocks: Block[]; seed?: number }) {
+   return (
+-    <div className="article-body" data-testid="article-body">
+-      {blocks.map(renderBlock)}
++    <div className="article-body prose" data-testid="article-body">
++      {blocks.map((block, index) => renderBlock(block, index, seed))}
+     </div>
+   );
+ }
+diff --git a/src/components/ImagePlaceholder.tsx b/src/components/ImagePlaceholder.tsx
+index d2c3e71..2b6cc97 100644
+--- a/src/components/ImagePlaceholder.tsx
++++ b/src/components/ImagePlaceholder.tsx
+@@ -1,9 +1,12 @@
+-export default function ImagePlaceholder({ alt }: { alt: string }) {
++import { useMemo } from 'react';
++import { figureScene } from '../pixel/scenes';
++
++/** A missing image becomes a small prose scene in a 2px frame; the alt text names it. */
++export default function ImagePlaceholder({ alt, seed = 0 }: { alt: string; seed?: number }) {
++  const scene = useMemo(() => figureScene(seed), [seed]);
+   return (
+-    <svg className="image-placeholder" viewBox="0 0 640 320" role="img" aria-label={alt}>
+-      <rect className="image-placeholder-bg" x="0" y="0" width="640" height="320" />
+-      <circle className="image-placeholder-shape" cx="220" cy="120" r="36" />
+-      <path className="image-placeholder-shape" d="M120 260 L260 150 L360 230 L440 170 L540 260 Z" />
+-    </svg>
++    <div className="figure-frame">
++      <div className="stage stage--figure" role="img" aria-label={alt} dangerouslySetInnerHTML={{ __html: scene.svg }} />
++    </div>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 968c47e..7cf2179 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,6 +1,8 @@
+-import { useEffect } from 'react';
++import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+ import { Link, NavLink, Outlet, useLocation } from 'react-router';
+ import NewsletterForm from './NewsletterForm';
++import Icon from './pixel/Icon';
++import { AnimationSwitch, DitherRule, GroundStrip, Marker, PixelBodySwitch, useMedia } from './pixel';
+ 
+ const NAV_ITEMS = [
+   { to: '/', label: 'Home', testId: 'nav-home', end: true },
+@@ -9,6 +11,12 @@ const NAV_ITEMS = [
+ 
+ export default function Layout() {
+   const location = useLocation();
++  const wide = useMedia('(min-width: 1024px)');
++  const [menuOpen, setMenuOpen] = useState(false);
++  const menuRef = useRef<HTMLDivElement>(null);
++  const menuButtonRef = useRef<HTMLButtonElement>(null);
++  // Screens with long prose get the Pixel body switch.
++  const longProse = location.pathname.startsWith('/posts/') || location.pathname === '/about';
+ 
+   // When the page changes, jump to the requested heading (if any) or to the top.
+   // In-page hash links (table of contents) scroll natively and are not affected.
+@@ -19,6 +27,53 @@ export default function Layout() {
+     else window.scrollTo(0, 0);
+   }, [location.pathname]);
+ 
++  useEffect(() => setMenuOpen(false), [location.pathname, wide]);
++
++  // On open, focus moves to the current (or first) item in the same frame.
++  useEffect(() => {
++    if (!menuOpen) return;
++    const items = menuRef.current?.querySelectorAll<HTMLElement>('a, button');
++    const current = menuRef.current?.querySelector<HTMLElement>('[aria-current]');
++    (current ?? items?.[0])?.focus();
++  }, [menuOpen]);
++
++  function onMenuKey(event: KeyboardEvent<HTMLDivElement>) {
++    if (!menuOpen) return;
++    const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('a, button') ?? []);
++    const index = items.indexOf(document.activeElement as HTMLElement);
++    if (event.key === 'Escape') {
++      setMenuOpen(false);
++      menuButtonRef.current?.focus();
++    } else if (event.key === 'ArrowDown' || (event.key === 'Tab' && !event.shiftKey && index === items.length - 1)) {
++      event.preventDefault();
++      items[(index + 1) % items.length]?.focus();
++    } else if (event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey && index <= 0)) {
++      event.preventDefault();
++      items[(index - 1 + items.length) % items.length]?.focus();
++    }
++  }
++
++  const navAndTools = (
++    <>
++      <nav aria-label="Primary" data-testid="primary-nav">
++        <ul className="nav-list">
++          {NAV_ITEMS.map((item) => (
++            <li key={item.to}>
++              <NavLink to={item.to} end={item.end} className="nav-link item press" data-testid={item.testId}>
++                <Marker className="cur--live" />
++                {item.label}
++              </NavLink>
++            </li>
++          ))}
++        </ul>
++      </nav>
++      <div className="header-tools">
++        {longProse && <PixelBodySwitch />}
++        <AnimationSwitch />
++      </div>
++    </>
++  );
++
+   return (
+     <div className="site-shell">
+       <a className="skip-link" href="#main-content">
+@@ -27,31 +82,39 @@ export default function Layout() {
+       <header className="site-header">
+         <div className="container site-header-inner">
+           <Link to="/" className="brand" data-testid="brand-link">
+-            <svg className="brand-mark" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+-              <path d="M4 4h12l4 4v12H4z" fill="none" stroke="currentColor" strokeWidth="2" />
+-              <path d="M8 11h8M8 15h6" stroke="currentColor" strokeWidth="2" />
+-            </svg>
++            <Icon name="brand" className="brand-mark" />
+             <span>Field Notes</span>
+           </Link>
+-          <nav aria-label="Primary" data-testid="primary-nav">
+-            <ul className="nav-list">
+-              {NAV_ITEMS.map((item) => (
+-                <li key={item.to}>
+-                  <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
+-                    {item.label}
+-                  </NavLink>
+-                </li>
+-              ))}
+-            </ul>
+-          </nav>
++          {wide ? (
++            <div className="header-nav">{navAndTools}</div>
++          ) : (
++            <div className="header-menu" onKeyDown={onMenuKey}>
++              <button
++                ref={menuButtonRef}
++                type="button"
++                className="tool menu-button press"
++                aria-expanded={menuOpen}
++                aria-controls="site-menu"
++                onClick={() => setMenuOpen(!menuOpen)}
++              >
++                <Icon name="menu" />
++                Menu
++              </button>
++              <div id="site-menu" ref={menuRef} className="menu-window" hidden={!menuOpen}>
++                {navAndTools}
++              </div>
++            </div>
++          )}
+         </div>
++        <DitherRule />
+       </header>
+ 
+-      <main id="main-content" className="container content" tabIndex={-1}>
++      <main id="main-content" className="content" tabIndex={-1}>
+         <Outlet />
+       </main>
+ 
+       <footer className="site-footer">
++        <GroundStrip />
+         <div className="container site-footer-inner">
+           <NewsletterForm />
+           <p className="muted small">
+diff --git a/src/components/NewsletterForm.tsx b/src/components/NewsletterForm.tsx
+index ed061f8..f94867b 100644
+--- a/src/components/NewsletterForm.tsx
++++ b/src/components/NewsletterForm.tsx
+@@ -1,4 +1,5 @@
+-import { useId, useState, type FormEvent } from 'react';
++import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
++import Icon from './pixel/Icon';
+ 
+ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+ 
+@@ -7,19 +8,34 @@ export default function NewsletterForm() {
+   const headingId = `${baseId}-heading`;
+   const inputId = `${baseId}-email`;
+   const errorId = `${baseId}-error`;
++  const helperId = `${baseId}-helper`;
++  const inputRef = useRef<HTMLInputElement>(null);
+   const [email, setEmail] = useState('');
+   const [error, setError] = useState<string | null>(null);
++  const [attempt, setAttempt] = useState(0);
+   const [subscribedEmail, setSubscribedEmail] = useState<string | null>(null);
+ 
++  // A failed submit nudges the field once and moves focus to it.
++  useEffect(() => {
++    const input = inputRef.current;
++    if (!attempt || !input) return;
++    input.classList.remove('nudge');
++    void input.offsetWidth;
++    input.classList.add('nudge');
++    input.focus();
++  }, [attempt]);
++
+   function handleSubmit(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+     const value = email.trim();
+     if (!value) {
+       setError('Enter your email address.');
++      setAttempt((n) => n + 1);
+       return;
+     }
+     if (!EMAIL_PATTERN.test(value)) {
+       setError('Enter a valid email address, like name@example.com.');
++      setAttempt((n) => n + 1);
+       return;
+     }
+     setError(null);
+@@ -33,7 +49,8 @@ export default function NewsletterForm() {
+       <p className="muted">One email when a new post goes up. Never more than twice a month.</p>
+       {subscribedEmail ? (
+         <p className="form-success" role="status" data-testid="newsletter-success">
+-          Thanks for subscribing. New posts will arrive at {subscribedEmail}.
++          <Icon name="check" />
++          <span>Thanks for subscribing. New posts will arrive at {subscribedEmail}.</span>
+         </p>
+       ) : (
+         <form className="newsletter-form" noValidate onSubmit={handleSubmit} data-testid="newsletter-form">
+@@ -42,6 +59,7 @@ export default function NewsletterForm() {
+           </label>
+           <div className="field-row">
+             <input
++              ref={inputRef}
+               id={inputId}
+               type="email"
+               name="email"
+@@ -51,17 +69,22 @@ export default function NewsletterForm() {
+               value={email}
+               onChange={(event) => setEmail(event.target.value)}
+               aria-invalid={error ? true : undefined}
+-              aria-describedby={error ? errorId : undefined}
++              aria-describedby={error ? errorId : helperId}
+               data-testid="newsletter-email"
+             />
+-            <button type="submit" className="button button-primary" data-testid="newsletter-submit">
++            <button type="submit" className="button btn-gold" data-testid="newsletter-submit">
+               Subscribe
+             </button>
+           </div>
+-          {error && (
++          {error ? (
+             <p id={errorId} className="form-error" role="alert" data-testid="newsletter-error">
++              <Icon name="warning" />
+               {error}
+             </p>
++          ) : (
++            <p id={helperId} className="helper">
++              Required. We only use it to send new posts.
++            </p>
+           )}
+         </form>
+       )}
+diff --git a/src/components/PostCard.tsx b/src/components/PostCard.tsx
+index 1a013b4..b9b17a8 100644
+--- a/src/components/PostCard.tsx
++++ b/src/components/PostCard.tsx
+@@ -2,6 +2,9 @@ import { Link } from 'react-router';
+ import type { Post } from '../data/posts';
+ import PostMeta from './PostMeta';
+ import TagChip from './TagChip';
++import Icon from './pixel/Icon';
++import { Marker } from './pixel';
++import { hueStyle, TAG_HUE } from './pixel/hues';
+ 
+ interface PostCardProps {
+   post: Post;
+@@ -10,15 +13,18 @@ interface PostCardProps {
+ }
+ 
+ export default function PostCard({ post, testId = 'post-card', linkTestId = 'post-link' }: PostCardProps) {
++  const category = post.tags[0];
+   return (
+-    <article className="post-card" data-testid={testId}>
+-      <h3 className="post-card-title">
+-        <Link to={`/posts/${post.slug}`} data-testid={linkTestId}>
++    <article className="post-card card hue-bar press" data-testid={testId} style={hueStyle(TAG_HUE[category])}>
++      <Icon name={category} className="card-icon" />
++      <h3 className="post-card-title card-title">
++        <Marker />
++        <Link to={`/posts/${post.slug}`} className="card-link" data-testid={linkTestId}>
+           {post.title}
+         </Link>
+       </h3>
++      <p className="card-desc">{post.excerpt}</p>
+       <PostMeta post={post} />
+-      <p>{post.excerpt}</p>
+       <ul className="tag-list" aria-label="Tags">
+         {post.tags.map((tag) => (
+           <li key={tag}>
+diff --git a/src/components/TableOfContents.tsx b/src/components/TableOfContents.tsx
+index 8c45cab..9f15487 100644
+--- a/src/components/TableOfContents.tsx
++++ b/src/components/TableOfContents.tsx
+@@ -1,25 +1,81 @@
++import { useEffect, useState } from 'react';
+ import type { Block } from '../data/posts';
++import { Marker, useMedia } from './pixel';
+ 
+ type Heading = Extract<Block, { type: 'heading' }>;
+ 
++/** The heading under the sticky header is current; the first heading until the reader scrolls past it. */
++function useCurrentHeading(ids: string[]) {
++  const [current, setCurrent] = useState(ids[0]);
++  useEffect(() => {
++    setCurrent(ids[0]);
++    function update() {
++      const line = 64 + 48;
++      let next = ids[0];
++      for (const id of ids) {
++        const el = document.getElementById(id);
++        if (el && el.getBoundingClientRect().top <= line) next = id;
++      }
++      setCurrent(next);
++    }
++    update();
++    window.addEventListener('scroll', update, { passive: true });
++    window.addEventListener('hashchange', update);
++    return () => {
++      window.removeEventListener('scroll', update);
++      window.removeEventListener('hashchange', update);
++    };
++  }, [ids.join('|')]);
++  return current;
++}
++
+ export default function TableOfContents({ blocks }: { blocks: Block[] }) {
+   const headings = blocks.filter((block): block is Heading => block.type === 'heading');
++  const current = useCurrentHeading(headings.map((heading) => heading.id));
++  const wide = useMedia('(min-width: 1024px)');
+   if (headings.length === 0) return null;
+ 
+-  return (
+-    <nav className="toc" aria-labelledby="toc-heading" data-testid="toc">
+-      <h2 id="toc-heading" className="toc-heading">
+-        On this page
+-      </h2>
+-      <ol className="toc-list">
+-        {headings.map((heading) => (
++  const list = (
++    <ol className="toc-list">
++      {headings.map((heading) => {
++        const isCurrent = heading.id === current;
++        return (
+           <li key={heading.id} className={heading.level === 3 ? 'toc-item toc-item-nested' : 'toc-item'}>
+-            <a href={`#${heading.id}`} className="toc-link" data-testid="toc-link">
+-              {heading.text}
++            <a
++              href={`#${heading.id}`}
++              className="toc-link item"
++              aria-current={isCurrent ? 'location' : undefined}
++              data-testid="toc-link"
++            >
++              <Marker />
++              <span>{heading.text}</span>
+             </a>
+           </li>
+-        ))}
+-      </ol>
++        );
++      })}
++    </ol>
++  );
++
++  return (
++    <nav className="toc" aria-labelledby="toc-heading" data-testid="toc">
++      {wide ? (
++        <>
++          <h2 id="toc-heading" className="toc-heading">
++            On this page
++          </h2>
++          {list}
++        </>
++      ) : (
++        <details className="disclosure toc-disclosure">
++          <summary>
++            <Marker className="disclosure__marker" />
++            <h2 id="toc-heading" className="toc-heading">
++              On this page
++            </h2>
++          </summary>
++          {list}
++        </details>
++      )}
+     </nav>
+   );
+ }
+diff --git a/src/components/TagChip.tsx b/src/components/TagChip.tsx
+index ef5314f..1dc4d29 100644
+--- a/src/components/TagChip.tsx
++++ b/src/components/TagChip.tsx
+@@ -1,8 +1,10 @@
+ import { TAG_LABELS, type TagId } from '../data/posts';
++import { hueStyle, TAG_HUE } from './pixel/hues';
+ 
+ export default function TagChip({ tag }: { tag: TagId }) {
+   return (
+-    <span className="tag-chip" data-testid="post-tag">
++    <span className="tag-chip" data-testid="post-tag" style={hueStyle(TAG_HUE[tag])}>
++      <span className="bullet" aria-hidden="true" />
+       {TAG_LABELS[tag]}
+     </span>
+   );
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..2cf7ba7 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,11 +2,15 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import { applyStoredPrefs } from './components/pixel';
++import '../design-packages/night-cartridge-1.1.0-rc.1/dist/tokens.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+ if (!rootElement) throw new Error('Root element #root not found');
+ 
++applyStoredPrefs();
++
+ createRoot(rootElement).render(
+   <StrictMode>
+     <BrowserRouter>
+diff --git a/src/pages/AboutPage.tsx b/src/pages/AboutPage.tsx
+index 173a48c..467c987 100644
+--- a/src/pages/AboutPage.tsx
++++ b/src/pages/AboutPage.tsx
+@@ -1,17 +1,34 @@
++import { useMemo } from 'react';
+ import { Link } from 'react-router';
++import { Avatar, PixelStage } from '../components/pixel';
++import { AUTHOR_HUE, hueStyle } from '../components/pixel/hues';
+ import { authors } from '../data/authors';
+ import { posts } from '../data/posts';
++import { aboutBanner } from '../pixel/scenes';
+ 
+ export default function AboutPage() {
++  const banner = useMemo(aboutBanner, []);
+   return (
+-    <>
+-      <div className="page-header">
+-        <h1>About Field Notes</h1>
+-        <p className="muted">A small publication about the unglamorous parts of making software.</p>
+-      </div>
++    <div className="container page-body page-body--article">
++      <header className="window banner-window page-header">
++        <PixelStage scene={banner} placement="banner" focus={278} width={720} />
++        <div className="title-block">
++          <p className="category" style={hueStyle(AUTHOR_HUE)}>
++            <span className="bullet" aria-hidden="true" />
++            The publication
++          </p>
++          <h1>About Field Notes</h1>
++          <p className="muted lede">A small publication about the unglamorous parts of making software.</p>
++          <p className="post-meta muted small">
++            {posts.length} posts · {authors.length} authors · about twice a month
++          </p>
++        </div>
++      </header>
+ 
+-      <section className="prose" aria-labelledby="about-why-heading">
+-        <h2 id="about-why-heading">Why we write</h2>
++      <section className="prose about-prose" aria-labelledby="about-why-heading">
++        <h2 id="about-why-heading" className="ruled">
++          Why we write
++        </h2>
+         <p>
+           Field Notes started as an internal wiki page where we collected things we wished someone had told us sooner.
+           Over time the page grew long enough that colleagues at other companies started asking for the link, so we
+@@ -28,14 +45,14 @@ export default function AboutPage() {
+       </section>
+ 
+       <section className="authors" aria-labelledby="about-authors-heading">
+-        <h2 id="about-authors-heading">The authors</h2>
++        <h2 id="about-authors-heading" className="ruled">
++          The authors
++        </h2>
+         <ul className="author-list">
+           {authors.map((author) => (
+             <li key={author.id}>
+-              <article className="author-card" data-testid="author-card">
+-                <span className="avatar" aria-hidden="true">
+-                  {author.initials}
+-                </span>
++              <article className="author-card card hue-bar" data-testid="author-card" style={hueStyle(AUTHOR_HUE)}>
++                <Avatar name={author.name} />
+                 <div>
+                   <h3>{author.name}</h3>
+                   <p className="muted small">{author.role}</p>
+@@ -46,6 +63,6 @@ export default function AboutPage() {
+           ))}
+         </ul>
+       </section>
+-    </>
++    </div>
+   );
+ }
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index 4e9f0fb..1e6231a 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -1,9 +1,14 @@
+-import { useState } from 'react';
++import { useEffect, useMemo, useRef, useState } from 'react';
+ import { Link } from 'react-router';
+ import PostCard from '../components/PostCard';
+ import PostMeta from '../components/PostMeta';
+ import TagChip from '../components/TagChip';
++import Icon from '../components/pixel/Icon';
++import { BlockMeter, Marker, PixelStage } from '../components/pixel';
++import { hueStyle, TAG_HUE } from '../components/pixel/hues';
++import { authors } from '../data/authors';
+ import { getFeaturedPost, posts, TAGS, type TagId } from '../data/posts';
++import { heroScene, vignette } from '../pixel/scenes';
+ 
+ type TagFilter = TagId | 'all';
+ 
+@@ -12,6 +17,21 @@ export default function HomePage() {
+   const listPosts = posts.filter((post) => post.slug !== featured.slug);
+   const [activeTag, setActiveTag] = useState<TagFilter>('all');
+   const [query, setQuery] = useState('');
++  const searchRef = useRef<HTMLInputElement>(null);
++  const hero = useMemo(heroScene, []);
++  const emptyScene = useMemo(() => vignette(false), []);
++
++  // "/" focuses the post search, as the kbd hint in the field says.
++  useEffect(() => {
++    function onKey(event: KeyboardEvent) {
++      const target = event.target as HTMLElement;
++      if (event.key !== '/' || target.closest('input, textarea, select, [contenteditable]')) return;
++      event.preventDefault();
++      searchRef.current?.focus();
++    }
++    window.addEventListener('keydown', onKey);
++    return () => window.removeEventListener('keydown', onKey);
++  }, []);
+ 
+   const term = query.trim().toLowerCase();
+   const visible = listPosts.filter(
+@@ -26,92 +46,131 @@ export default function HomePage() {
+   }
+ 
+   const filterOptions: { id: TagFilter; label: string }[] = [{ id: 'all', label: 'All' }, ...TAGS];
++  const featuredHue = TAG_HUE[featured.tags[0]];
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Field Notes</h1>
+-        <p className="muted">Essays on building software, writing clearly and working well together.</p>
+-      </div>
+-
+-      <section className="featured" aria-labelledby="featured-heading">
+-        <h2 id="featured-heading" className="section-label">
+-          Featured
+-        </h2>
+-        <article className="featured-post" data-testid="featured-post">
+-          <h3 className="featured-title">
+-            <Link to={`/posts/${featured.slug}`} data-testid="featured-post-link">
+-              {featured.title}
++      <section className="hero" aria-labelledby="home-title">
++        <PixelStage scene={hero} placement="hero" focus={292} width={480} unit={4} />
++        <div className="container hero-container">
++          <div className="window hero-window page-header">
++            <p className="eyebrow">A field journal from a small product team</p>
++            <h1 id="home-title">Field Notes</h1>
++            <p className="lede">Essays on building software, writing clearly and working well together.</p>
++            <Link to={`/posts/${featured.slug}`} className="button press">
++              Read the featured post
++              <Marker className="cur--plain" />
+             </Link>
+-          </h3>
+-          <PostMeta post={featured} />
+-          <p className="featured-excerpt">{featured.excerpt}</p>
+-          <ul className="tag-list" aria-label="Tags">
+-            {featured.tags.map((tag) => (
+-              <li key={tag}>
+-                <TagChip tag={tag} />
+-              </li>
+-            ))}
+-          </ul>
+-        </article>
++            <p className="meta">
++              {posts.length} posts · {authors.length} authors · new posts twice a month
++            </p>
++          </div>
++        </div>
+       </section>
+ 
+-      <section className="post-list-section" aria-labelledby="posts-heading">
+-        <h2 id="posts-heading">More posts</h2>
++      <div className="container page-body">
++        <section className="featured" aria-labelledby="featured-heading">
++          <h2 id="featured-heading" className="section-label ruled">
++            Featured
++          </h2>
++          <article className="featured-post card hue-bar press" data-testid="featured-post" style={hueStyle(featuredHue)}>
++            <Icon name={featured.tags[0]} className="card-icon" />
++            <h3 className="featured-title card-title">
++              <Marker />
++              <Link to={`/posts/${featured.slug}`} className="card-link" data-testid="featured-post-link">
++                {featured.title}
++              </Link>
++            </h3>
++            <p className="featured-excerpt">{featured.excerpt}</p>
++            <PostMeta post={featured} />
++            <ul className="tag-list" aria-label="Tags">
++              {featured.tags.map((tag) => (
++                <li key={tag}>
++                  <TagChip tag={tag} />
++                </li>
++              ))}
++            </ul>
++          </article>
++        </section>
+ 
+-        <div className="filter-bar">
+-          <div className="field">
+-            <label htmlFor="post-search" className="field-label">
+-              Search posts
+-            </label>
+-            <input
+-              id="post-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search by title or summary"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="post-search"
+-            />
+-          </div>
+-          <div role="group" aria-label="Filter by tag" className="tag-filter" data-testid="tag-filter">
+-            {filterOptions.map((option) => (
+-              <button
+-                key={option.id}
+-                type="button"
+-                className="button tag-filter-button"
+-                aria-pressed={activeTag === option.id}
+-                onClick={() => setActiveTag(option.id)}
+-                data-testid={`tag-filter-${option.id}`}
+-              >
+-                {option.label}
+-              </button>
+-            ))}
+-          </div>
+-        </div>
++        <section className="post-list-section" aria-labelledby="posts-heading">
++          <h2 id="posts-heading" className="ruled">
++            More posts
++          </h2>
+ 
+-        <p className="muted small" aria-live="polite" data-testid="result-count">
+-          Showing {visible.length} of {listPosts.length} posts
+-        </p>
++          <div className="filter-bar">
++            <div className="field field--search">
++              <label htmlFor="post-search" className="field-label">
++                Search posts
++              </label>
++              <div className="search-box">
++                <Icon name="search" className="search-icon" />
++                <input
++                  ref={searchRef}
++                  id="post-search"
++                  type="search"
++                  className="input input--search"
++                  placeholder="Search by title or summary"
++                  value={query}
++                  onChange={(event) => setQuery(event.target.value)}
++                  data-testid="post-search"
++                />
++                <kbd className="kbd-hint" aria-hidden="true">
++                  /
++                </kbd>
++              </div>
++            </div>
++            <div role="group" aria-label="Filter by tag" className="tag-filter" data-testid="tag-filter">
++              {filterOptions.map((option) => {
++                const pressed = activeTag === option.id;
++                return (
++                  <button
++                    key={option.id}
++                    type="button"
++                    className="button tag-filter-button chip press"
++                    aria-pressed={pressed}
++                    onClick={() => setActiveTag(option.id)}
++                    data-testid={`tag-filter-${option.id}`}
++                    style={option.id === 'all' ? undefined : hueStyle(TAG_HUE[option.id])}
++                  >
++                    <span className="chip-slot" aria-hidden="true">
++                      {pressed ? <Marker /> : option.id !== 'all' && <span className="bullet" />}
++                    </span>
++                    {option.label}
++                  </button>
++                );
++              })}
++            </div>
++          </div>
+ 
+-        {visible.length > 0 ? (
+-          <ul className="post-list">
+-            {visible.map((post) => (
+-              <li key={post.slug}>
+-                <PostCard post={post} />
+-              </li>
+-            ))}
+-          </ul>
+-        ) : (
+-          <div className="empty-state" data-testid="posts-empty">
+-            <h3>No posts match these filters</h3>
+-            <p className="muted">Try a different tag or a shorter search.</p>
+-            <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
+-              Clear filters
+-            </button>
++          <div className="result-row">
++            <p className="muted small" aria-live="polite" data-testid="result-count">
++              Showing {visible.length} of {listPosts.length} posts
++            </p>
++            <BlockMeter value={visible.length} max={listPosts.length} label="Posts shown" />
+           </div>
+-        )}
+-      </section>
++
++          {visible.length > 0 ? (
++            <ul className="post-list card-grid">
++              {visible.map((post) => (
++                <li key={post.slug}>
++                  <PostCard post={post} />
++                </li>
++              ))}
++            </ul>
++          ) : (
++            <div className="empty-state" data-testid="posts-empty">
++              <PixelStage scene={emptyScene} placement="vignette" />
++              <h3>No posts match these filters</h3>
++              <p className="muted">Try a different tag or a shorter search.</p>
++              <button type="button" className="button press" onClick={clearFilters} data-testid="clear-filters">
++                <Marker className="cur--plain" />
++                Clear filters
++              </button>
++            </div>
++          )}
++        </section>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index d0cb7f0..cc17868 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,9 @@
+-import { Link } from 'react-router';
++import NotFoundPanel from '../components/NotFoundPanel';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to the home page</Link>
+-    </section>
++    <NotFoundPanel testId="not-found" title="Page not found" linkLabel="Go to the home page">
++      The page you are looking for does not exist or has moved.
++    </NotFoundPanel>
+   );
+ }
+diff --git a/src/pages/PostPage.tsx b/src/pages/PostPage.tsx
+index 2976cb4..f51cbd3 100644
+--- a/src/pages/PostPage.tsx
++++ b/src/pages/PostPage.tsx
+@@ -1,29 +1,37 @@
++import { useMemo } from 'react';
+ import { Link, useParams } from 'react-router';
+ import ArticleBody from '../components/ArticleBody';
+ import PostCard from '../components/PostCard';
+ import PostMeta from '../components/PostMeta';
+ import TableOfContents from '../components/TableOfContents';
+ import TagChip from '../components/TagChip';
+-import { findPost, getRelatedPosts } from '../data/posts';
++import { Marker, PixelStage } from '../components/pixel';
++import { hueStyle, TAG_HUE } from '../components/pixel/hues';
++import { findPost, getRelatedPosts, posts, TAG_LABELS } from '../data/posts';
++import { articleBanner } from '../pixel/scenes';
++import NotFoundPanel from '../components/NotFoundPanel';
+ 
+ export default function PostPage() {
+   const { slug } = useParams();
+   const post = findPost(slug);
++  const index = posts.findIndex((item) => item.slug === slug);
++  const banner = useMemo(() => articleBanner(Math.max(0, index)), [index]);
+ 
+   if (!post) {
+     return (
+-      <div className="empty-state" data-testid="post-not-found">
+-        <h1>Post not found</h1>
+-        <p className="muted">There is no post at “{slug}”. It may have been renamed.</p>
+-        <Link to="/">Back to all posts</Link>
+-      </div>
++      <NotFoundPanel testId="post-not-found" title="Post not found" linkLabel="Back to all posts">
++        There is no post at “{slug}”. It may have been renamed.
++      </NotFoundPanel>
+     );
+   }
+ 
+   const related = getRelatedPosts(post);
++  const category = post.tags[0];
++  const previous = posts[index - 1];
++  const next = posts[index + 1];
+ 
+   return (
+-    <>
++    <div className="container page-body page-body--article">
+       <nav aria-label="Breadcrumb" className="breadcrumb">
+         <ol>
+           <li>
+@@ -33,10 +41,16 @@ export default function PostPage() {
+         </ol>
+       </nav>
+ 
+-      <div className="article-layout">
+-        <article className="article" data-testid="article">
+-          <header className="article-header">
++      <article className="article" data-testid="article">
++        <header className="window banner-window article-header">
++          <PixelStage scene={banner} placement="banner" focus={430} width={720} />
++          <div className="title-block">
++            <p className="category" style={hueStyle(TAG_HUE[category])}>
++              <span className="bullet" aria-hidden="true" />
++              {TAG_LABELS[category]}
++            </p>
+             <h1 data-testid="article-title">{post.title}</h1>
++            <p className="lede">{post.excerpt}</p>
+             <PostMeta post={post} detailed />
+             <ul className="tag-list" aria-label="Tags">
+               {post.tags.map((tag) => (
+@@ -45,19 +59,48 @@ export default function PostPage() {
+                 </li>
+               ))}
+             </ul>
+-          </header>
+-          <ArticleBody blocks={post.body} />
+-        </article>
++          </div>
++        </header>
+ 
+-        <aside className="article-aside">
+-          <TableOfContents blocks={post.body} />
+-        </aside>
+-      </div>
++        <div className="article-layout">
++          <aside className="article-aside">
++            <TableOfContents blocks={post.body} />
++          </aside>
++          <div className="article-main">
++            <ArticleBody blocks={post.body} seed={Math.max(0, index)} />
++
++            <nav className="prev-next" aria-label="More posts">
++              {previous ? (
++                <Link to={`/posts/${previous.slug}`} className="prev-next__link press">
++                  <span className="prev-next__label">
++                    <Marker dir="l" small />
++                    Previous post
++                  </span>
++                  <span className="prev-next__title">{previous.title}</span>
++                </Link>
++              ) : (
++                <span />
++              )}
++              {next && (
++                <Link to={`/posts/${next.slug}`} className="prev-next__link prev-next__link--next press">
++                  <span className="prev-next__label">
++                    Next post
++                    <Marker small />
++                  </span>
++                  <span className="prev-next__title">{next.title}</span>
++                </Link>
++              )}
++            </nav>
++          </div>
++        </div>
++      </article>
+ 
+       {related.length > 0 && (
+         <section className="related" aria-labelledby="related-heading" data-testid="related-posts">
+-          <h2 id="related-heading">Related posts</h2>
+-          <ul className="post-list post-list-grid">
++          <h2 id="related-heading" className="ruled">
++            Related posts
++          </h2>
++          <ul className="post-list post-list-grid card-grid">
+             {related.map((item) => (
+               <li key={item.slug}>
+                 <PostCard post={item} testId="related-post" linkTestId="related-post-link" />
+@@ -66,6 +109,6 @@ export default function PostPage() {
+           </ul>
+         </section>
+       )}
+-    </>
++    </div>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 7b07d1b..b4e2a06 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,562 +1,503 @@
+ /*
+- * Base styles for the Field Notes blog.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Field Notes on Night Cartridge 1.1.0-rc.1.
++ * Token values come from design-packages/night-cartridge-1.1.0-rc.1/dist/tokens.css (imported in main.tsx);
++ * this file only refers to them. Dark only: the night values are the only theme.
+  */
+-:root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-header-bg: #ffffff;
+-  --color-footer-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-error: #b00020;
+-  --color-success: #2e7d32;
+-  --color-success-bg: #e8f5e9;
+-  --color-tag-bg: #eeeeee;
+-  --color-tag-text: #444444;
+-  --color-pressed-bg: #dde6f5;
+-  --color-quote-border: #cccccc;
+-  --color-code-bg: #f5f5f5;
+-  --color-code-text: #222222;
+-  --color-placeholder-bg: #eeeeee;
+-  --color-placeholder-shape: #cccccc;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-heading: var(--font-body);
+-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+-  --font-size-base: 16px;
+-  --font-size-small: 13px;
+-  --font-size-code: 14px;
+-  --font-size-h1: 28px;
+-  --font-size-h2: 21px;
+-  --font-size-h3: 17px;
+-  --line-height: 1.6;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --space-12: 48px;
+-  --container-width: 960px;
+-  --measure: 680px;
+-  --toc-width: 220px;
+-}
+-
+-*,
+-*::before,
+-*::after {
+-  box-sizing: border-box;
+-}
+-
+-html,
+-body {
+-  margin: 0;
+-}
+-
+-html {
+-  scroll-padding-top: var(--space-4);
+-}
+-
+-body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
+-}
+-
+-h1,
+-h2,
+-h3 {
+-  font-family: var(--font-heading);
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
+-}
+ 
+-h1 {
+-  font-size: var(--font-size-h1);
+-}
++/* ------------------------------------------------------------ root: motion, shape, type */
+ 
+-h2 {
+-  font-size: var(--font-size-h2);
++@media (prefers-reduced-motion: reduce) {
++  *, *::before, *::after { animation: none !important; transition: none !important; }
+ }
++:root[data-motion='off'] *, :root[data-motion='off'] *::before, :root[data-motion='off'] *::after { animation: none !important; }
++*, *::before, *::after { transition: none !important; border-radius: 0 !important; box-sizing: border-box; }
+ 
+-h3 {
+-  font-size: var(--font-size-h3);
++:root {
++  color-scheme: dark;
++  --cur-r: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7'%3E%3Cpath d='M0 0h1v1h1v1h1v1h1v1h-1v1h-1v1h-1v1h-1z'/%3E%3C/svg%3E");
++  --cur-l: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7'%3E%3Cpath d='M4 0v7h-1v-1h-1v-1h-1v-1h-1v-1h1v-1h1v-1h1v-1z'/%3E%3C/svg%3E");
++  --cur-d: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4'%3E%3Cpath d='M0 0h7v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1z'/%3E%3C/svg%3E");
++  --cur-u: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4'%3E%3Cpath d='M3 0h1v1h1v1h1v1h1v1h-7v-1h1v-1h1v-1h1z'/%3E%3C/svg%3E");
++  --cur-bevel: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath fill='white' fill-opacity='.45' d='M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3z'/%3E%3Cpath fill-opacity='.4' d='M2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z'/%3E%3C/svg%3E");
+ }
+ 
+-p {
+-  margin: 0 0 var(--space-3);
+-}
++html {
++  font: var(--font-weight-regular) var(--font-size-body) / var(--font-line-height-ui) var(--font-family-pixel);
++  color: var(--color-text-primary);
++  background: var(--color-surface-default);
++  -webkit-font-smoothing: none;
++  font-smooth: never;
++  font-synthesis: none;
++  letter-spacing: normal;
++  text-transform: none;
++  word-break: keep-all;
++  line-break: strict;
++  overflow-wrap: break-word;
++  font-variant-numeric: slashed-zero tabular-nums;
++  scroll-padding-top: calc(var(--size-header) + var(--space-24));
++}
++body { margin: 0; background: var(--color-surface-default); }
++:is(h1, h2, h3, h4, h5, h6, b, strong, th, label, button, legend, dt) { font-weight: var(--font-weight-regular); }
++:is(h1, h2, h3, h4, strong, b, em, i) { color: var(--color-text-strong); font-style: normal; }
++:is(code, pre, kbd, samp) { font-family: var(--font-family-pixel-mono); }
++:not(pre) > code { padding: 0 var(--space-4); background: var(--color-surface-code); color: var(--color-text-strong); }
++:root[data-body='readable'] :is(.prose p, .prose li, .prose blockquote, td) { font-family: var(--font-family-readable); }
++:root[data-body='readable'] :is(pre, code) { font-family: var(--font-family-readable-mono); }
++[hidden] { display: none !important; }
++
++h1, h2, h3 { margin: 0 0 var(--space-8); }
++h1, h2 { font-size: var(--font-size-title); line-height: var(--font-line-height-title); }
++h3 { font-size: var(--font-size-body); line-height: var(--font-line-height-ui); }
++p { margin: 0 0 var(--space-16); }
++button, input { font: inherit; color: inherit; }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-link);
++  text-decoration: underline var(--border-width-control) var(--color-border-control);
++  text-underline-offset: 4px;
+ }
++a:hover { color: var(--color-text-strong); text-decoration-color: var(--color-text-strong); }
+ 
+-:focus-visible {
+-  outline: 2px solid var(--color-focus);
+-  outline-offset: 2px;
+-}
++:focus-visible { outline: var(--border-width-window) solid var(--color-focus-ring); outline-offset: 3px; }
++:is(.item, tr, summary, [role='option']):focus-visible { outline-offset: -4px; }
++.press:active:not(:disabled) { translate: 2px 2px; }
+ 
++.muted { color: var(--color-text-secondary); }
++.small { font-size: var(--font-size-caption); line-height: var(--font-line-height-caption); }
+ .visually-hidden {
+-  position: absolute;
+-  width: 1px;
+-  height: 1px;
+-  padding: 0;
+-  margin: -1px;
+-  overflow: hidden;
+-  clip: rect(0, 0, 0, 0);
+-  white-space: nowrap;
+-  border: 0;
++  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
++  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+ }
+-
+-.skip-link {
+-  position: absolute;
+-  left: -9999px;
+-}
+-
++.skip-link { position: absolute; left: -9999px; }
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
+-}
+-
+-.muted {
+-  color: var(--color-text-muted);
+-}
+-
+-.small {
+-  font-size: var(--font-size-small);
+-}
+-
+-/* Layout */
+-.site-shell {
+-  display: flex;
+-  flex-direction: column;
+-  min-height: 100vh;
+-}
+-
+-.container {
+-  width: 100%;
+-  max-width: var(--container-width);
+-  margin: 0 auto;
+-  padding: 0 var(--space-4);
+-}
+-
+-.site-header {
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-}
+-
+-.site-header-inner {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: center;
+-  gap: var(--space-4);
+-  padding-top: var(--space-3);
+-  padding-bottom: var(--space-3);
+-}
+-
+-.brand {
+-  display: inline-flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-  font-weight: 700;
+-  color: var(--color-text);
+-  text-decoration: none;
+-}
+-
+-.brand-mark {
+-  flex-shrink: 0;
+-}
+-
+-.nav-list {
+-  list-style: none;
+-  display: flex;
+-  gap: var(--space-4);
+-  margin: 0;
+-  padding: 0;
+-}
++  left: var(--space-8); top: var(--space-8); z-index: 50; padding: var(--space-8) var(--space-12);
++  background: var(--color-surface-raised); color: var(--color-text-strong);
++  border: var(--border-width-control) solid var(--color-border-strong);
++}
++
++/* ------------------------------------------------------------ stepped motion */
++
++@keyframes nc-blink { 50% { opacity: var(--opacity-dim); } }
++@keyframes nc-twinkle { 60% { opacity: var(--opacity-twinkle); } 80% { opacity: 1; } }
++@keyframes nc-sparkle { 70% { transform: scale(.34); } 85% { transform: scale(1); } }
++@keyframes nc-bob { 50% { transform: translateY(var(--bob, -4px)); } }
++@keyframes nc-swap { 50% { opacity: 0; } }
++@keyframes nc-beacon { 50% { fill: var(--color-art-beacon-off); } }
++@keyframes nc-drift { from { transform: translateX(var(--from)); } to { transform: translateX(var(--to)); } }
++@keyframes nc-rare {
++  0%, 95% { opacity: 0; transform: none; animation-timing-function: steps(1); }
++  95.1% { opacity: 1; transform: none; animation-timing-function: steps(5); }
++  100% { opacity: 1; transform: translate(var(--dx), var(--dy)); }
++}
++@keyframes nc-nudge { 50% { transform: translateX(2px); } }
++@keyframes nc-on { from { background: var(--color-surface-hover); } }
++@keyframes nc-dots { from { width: 1ch; } to { width: 3ch; } }
++.blink { animation: nc-blink var(--d, var(--motion-duration-led-a)) var(--motion-easing-frame) var(--o, 0ms) infinite; }
++.blink:nth-of-type(3n+2) { --d: var(--motion-duration-led-b); --o: -500ms; }
++.blink:nth-of-type(3n) { --d: var(--motion-duration-led-c); }
++.twinkle { animation: nc-twinkle var(--motion-duration-twinkle) var(--motion-easing-frame) var(--o, 0ms) infinite; }
++.bob { animation: nc-bob var(--motion-duration-bob) var(--motion-easing-frame) infinite; }
++.frame-b { animation: nc-swap var(--motion-duration-fan) var(--motion-easing-frame) infinite; }
++.frame-a { animation: nc-swap var(--motion-duration-fan) var(--motion-easing-frame) calc(var(--motion-duration-fan) / -2) infinite; }
++.beacon { animation: nc-beacon var(--motion-duration-beacon) var(--motion-easing-frame) infinite; }
++.drift { animation: nc-drift var(--motion-duration-drift) steps(var(--n)) var(--o, 0ms) infinite; }
++.rare { opacity: 0; animation: nc-rare var(--motion-duration-rare) var(--motion-easing-frame) infinite; }
++.nudge { animation: nc-nudge calc(var(--motion-duration-nudge) * 2) var(--motion-easing-frame) 1; }
++.sparkle { transform-box: fill-box; transform-origin: center; animation: nc-sparkle var(--motion-duration-sparkle) var(--motion-easing-frame) -600ms infinite; }
++.ellipsis { display: inline-block; width: 3ch; overflow: hidden; vertical-align: bottom; white-space: nowrap; }
++.ellipsis::before { content: '...'; }
++.is-loading .ellipsis { animation: nc-dots var(--motion-duration-dots) var(--motion-easing-dots) infinite; }
++
++/* ------------------------------------------------------------ pixel stage */
++
++.stage { position: relative; overflow: hidden; height: var(--size-banner); background: var(--color-art-sky1); }
++.stage--hero { height: var(--size-hero); max-width: 1920px; margin-inline: auto; }
++.stage--strip { height: var(--size-banner-sm); }
++.stage > .scene {
++  position: absolute; left: 50%; bottom: 0; translate: -50% 0; max-width: none;
++  shape-rendering: crispEdges; pointer-events: none;
++}
++.sky-1 { fill: var(--color-art-sky1); } .sky-2 { fill: var(--color-art-sky2); } .sky-3 { fill: var(--color-art-sky3); }
++.sky-4 { fill: var(--color-art-sky4); } .sky-5 { fill: var(--color-art-sky5); } .sky-6 { fill: var(--color-art-sky6); }
++.haze { fill: color-mix(in srgb, var(--color-art-far) 50%, var(--color-art-sky6)); }
++.far { fill: var(--color-art-far); } .near { fill: var(--color-art-near); } .ol { fill: var(--color-art-outline); }
++.base { fill: color-mix(in srgb, var(--base) 55%, var(--color-art-sky1)); }
++.hi { fill: color-mix(in srgb, color-mix(in srgb, var(--base) 55%, var(--color-art-sky1)) 60%, var(--color-art-glint)); }
++.shade { fill: color-mix(in srgb, color-mix(in srgb, var(--base) 55%, var(--color-art-sky1)) 60%, var(--color-art-outline)); }
++.warm { fill: var(--color-art-light-warm); } .cold { fill: var(--color-art-light-cold); }
++.star { fill: var(--color-art-star); } .star-dim { fill: color-mix(in srgb, var(--color-art-star) 50%, var(--color-art-sky1)); }
++.beacon { fill: var(--color-art-beacon); } .glint { fill: var(--color-art-glint); }
++
++.ground {
++  position: relative; overflow-x: clip;
++  height: calc(var(--size-ground) + var(--size-ground-edge));
++  margin-top: calc(var(--space-64) + var(--size-ground-sprite));
++  pointer-events: none;
++  background:
++    linear-gradient(90deg, var(--color-art-edge-hi) 2px, transparent 0) 0 calc(100% - 2px) / 6px 2px repeat-x,
++    linear-gradient(var(--color-art-edge) 0 0) bottom / 100% var(--size-ground-edge) no-repeat,
++    repeating-conic-gradient(var(--color-art-ground-hi) 0 25%, transparent 0 50%) 0 0 / 8px 8px,
++    var(--color-art-ground);
++}
++.ground > svg {
++  position: absolute; bottom: 100%; left: 50%; translate: -50% 0; width: 1440px; max-width: none;
++  height: var(--size-ground-sprite); shape-rendering: crispEdges;
++}
++
++/* Vignette: 48x48 units in a 2px frame. */
++.stage--vignette {
++  box-sizing: content-box; width: var(--size-vignette); height: var(--size-vignette); margin-inline: auto;
++  border: var(--border-width-control) solid var(--color-border-control);
++}
++
++/* Prose figure: 4px units where the column allows, 2px below. */
++.figure-frame {
++  width: fit-content; max-width: 100%;
++  border: var(--border-width-control) solid var(--color-border-control);
++}
++.stage--figure { height: auto; }
++.stage--figure > .scene { position: static; translate: none; display: block; width: 704px; height: 352px; }
++@media (max-width: 759px) {
++  .stage--figure > .scene { width: 352px; height: 176px; }
++}
++
++/* Narrower than the scene: the crop centres on the focal group. */
++@media (max-width: 1023px) {
++  .stage[style*='--fx'] > .scene { translate: calc(-1 * var(--fx)) 0; }
++}
++
++/* ------------------------------------------------------------ RPG marker */
++
++.cur {
++  flex: none; display: inline-block; width: var(--size-marker-w); height: var(--size-marker-h);
++  color: var(--color-text-accent);
++  background: var(--cur-bevel) 0 0 / 100% 100% no-repeat currentColor;
++  -webkit-mask: var(--cur-r) 0 0 / 100% 100% no-repeat; mask: var(--cur-r) 0 0 / 100% 100% no-repeat;
++}
++.cur--l { -webkit-mask-image: var(--cur-l); mask-image: var(--cur-l); background-image: none; }
++.cur--d, .cur--u { width: var(--size-marker-h); height: var(--size-marker-w); background-image: none; -webkit-mask-image: var(--cur-d); mask-image: var(--cur-d); }
++.cur--u { -webkit-mask-image: var(--cur-u); mask-image: var(--cur-u); }
++.cur--sm { width: 6px; height: 10px; }
++/* Trailing / leading marker on buttons: no bevel, the label's colour. */
++.cur--plain { background-image: none; color: currentColor; }
++
++.item {
++  display: flex; align-items: center; gap: var(--space-8); min-height: var(--size-row);
++  padding-inline: var(--space-8) var(--space-12);
++}
++.item > .cur { visibility: hidden; }
++.item:is([aria-current], [aria-selected='true'], .is-current) > .cur { visibility: visible; }
++.item:hover { background: var(--color-surface-hover); }
++.item:is([aria-current], [aria-selected='true']) { color: var(--color-text-strong); }
++/* The main navigation's "you are here" marker blinks. */
++.item[aria-current] > .cur--live { animation: nc-swap var(--motion-duration-bob) var(--motion-easing-frame) infinite; }
++
++.card-title { position: relative; }
++.card-title > .cur { position: absolute; right: calc(100% + var(--space-4)); top: 50%; translate: 0 -50%; visibility: hidden; }
++
++/* ------------------------------------------------------------ game-window chrome */
++
++.window { border: var(--border-width-window) solid var(--color-border-strong); background: var(--color-surface-raised); }
++.window__bar {
++  display: flex; align-items: center; gap: var(--space-8); height: var(--size-title-bar); padding-inline: var(--space-12);
++  background: var(--color-surface-subtle); border-bottom: var(--border-width-control) solid var(--color-border-default);
++}
++.dither { height: var(--size-rule); background: repeating-conic-gradient(var(--dc, var(--color-border-default)) 0 25%, transparent 0 50%) 0 0 / 4px 4px; }
++h2.ruled {
++  padding-bottom: var(--space-12); margin-bottom: var(--space-16);
++  background: repeating-conic-gradient(var(--color-border-control) 0 25%, transparent 0 50%) bottom left / 4px 4px repeat-x;
++}
++.sep-dots { height: 2px; background: linear-gradient(90deg, var(--color-border-control) 2px, transparent 0) 0 0 / 6px 2px repeat-x; }
++.hue-bar { border-top: var(--border-width-window) solid var(--hue); }
++.bullet { flex: none; display: inline-block; width: var(--size-bullet); height: var(--size-bullet); background: var(--hue); }
++.meter { display: flex; gap: var(--space-4); }
++.meter > i { width: var(--size-meter-w); height: var(--size-meter-h); background: var(--color-surface-hover); }
++.meter > i.on {
++  background: var(--tone, var(--color-status-success));
++  animation: nc-on var(--motion-duration-meter-step) var(--motion-easing-frame) calc(var(--i) * var(--motion-duration-meter-step)) backwards;
++}
++.callout {
++  display: grid; grid-template-columns: var(--size-icon) 1fr; gap: var(--space-4) var(--space-12);
++  padding: var(--space-16) var(--space-20); background: var(--color-surface-subtle);
++  border-left: var(--border-width-window) solid var(--tone);
++}
++.callout__icon { grid-row: 1 / span 2; color: var(--color-text-secondary); }
++
++.icon { flex: none; display: inline-block; shape-rendering: crispEdges; fill: currentColor; }
++.icon rect { fill: currentColor; }
+ 
+-.nav-link {
+-  color: var(--color-link);
+-}
+-
+-.nav-link.active {
+-  font-weight: 700;
+-  color: var(--color-text);
+-}
+-
+-.content {
+-  flex: 1;
+-  padding-top: var(--space-6);
+-  padding-bottom: var(--space-12);
+-}
+-
+-.content:focus {
+-  outline: none;
+-}
+-
+-.site-footer {
+-  background: var(--color-footer-bg);
+-  border-top: var(--border-width) solid var(--color-border);
+-}
+-
+-.site-footer-inner {
+-  padding-top: var(--space-6);
+-  padding-bottom: var(--space-6);
+-}
+-
+-.page-header {
+-  margin-bottom: var(--space-6);
+-}
+-
+-/* Controls */
+-.field {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
+-}
+-
+-.field-label {
+-  display: block;
+-  font-weight: 600;
+-  margin-bottom: var(--space-1);
+-}
+-
+-.field-row {
+-  display: flex;
+-  gap: var(--space-2);
+-  max-width: 480px;
+-}
+-
+-.input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
+-  flex: 1;
+-}
+-
+-.input[aria-invalid='true'] {
+-  border-color: var(--color-error);
+-}
++/* ------------------------------------------------------------ controls */
+ 
+ .button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
+-}
+-
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
+-}
+-
+-.form-error {
+-  color: var(--color-error);
+-  font-size: var(--font-size-small);
+-  margin: var(--space-2) 0 0;
+-}
+-
++  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-8);
++  height: var(--size-control); padding: 0 var(--space-12);
++  background: transparent; color: var(--color-text-primary);
++  border: var(--border-width-control) solid var(--color-border-control);
++  font-size: var(--font-size-body); line-height: var(--font-line-height-ui);
++  text-decoration: none; white-space: nowrap; cursor: pointer;
++}
++.button:hover { background: var(--color-surface-hover); color: var(--color-text-strong); }
++.button--sm { height: var(--size-control-sm); padding: 0 var(--space-8); }
++.button:disabled { background: var(--color-surface-hover); color: var(--color-text-disabled); border-color: var(--color-border-default); cursor: default; }
++.btn-gold {
++  height: var(--size-control-lg); padding-inline: var(--space-20);
++  background: var(--color-action-primary); color: var(--color-text-on-action);
++  border: var(--border-width-control) solid var(--color-action-primary-edge, var(--color-action-primary));
++  box-shadow: var(--shadow-hard);
++}
++.btn-gold:hover { background: var(--color-action-primary); color: var(--color-text-on-action); }
++.btn-gold:active:not(:disabled) { translate: 4px 4px; box-shadow: var(--shadow-none); }
++
++.tool {
++  display: inline-flex; align-items: center; gap: var(--space-8); height: var(--size-control); padding-inline: var(--space-8);
++  background: transparent; border: 0; color: var(--color-text-secondary); cursor: pointer; white-space: nowrap;
++}
++.tool:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
++
++.field { display: flex; flex-direction: column; }
++.field-label { display: block; margin-bottom: var(--space-8); color: var(--color-text-strong); }
++.input {
++  height: var(--size-control); padding: 0 var(--space-12); min-width: 0; width: 100%;
++  background: var(--color-surface-raised); color: var(--color-text-primary);
++  border: var(--border-width-control) solid var(--color-border-control);
++  font-size: var(--font-size-body);
++}
++.input::placeholder { color: var(--color-text-secondary); opacity: 1; }
++.input:hover { border-color: var(--color-border-strong); }
++.input[aria-invalid='true'] { border-color: var(--color-status-danger); }
++.input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
++.helper, .form-error {
++  display: flex; align-items: center; gap: var(--space-4); margin: var(--space-4) 0 0;
++  font-size: var(--font-size-caption); line-height: var(--font-line-height-caption); color: var(--color-text-secondary);
++}
++.form-error { color: var(--color-status-danger); }
+ .form-success {
+-  background: var(--color-success-bg);
+-  color: var(--color-success);
+-  border-radius: var(--radius);
+-  padding: var(--space-2) var(--space-3);
+-  max-width: 480px;
++  display: flex; align-items: center; gap: var(--space-12); margin: 0;
++  padding: var(--space-12) var(--space-16); background: var(--color-surface-raised);
++  border-left: var(--border-width-window) solid var(--color-status-success);
+ }
++.form-success > .icon { color: var(--color-status-success); }
+ 
+-.newsletter {
+-  margin-bottom: var(--space-4);
+-}
+-
+-/* Tags */
+-.tag-list {
+-  list-style: none;
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin: 0;
+-  padding: 0;
++kbd, .kbd-hint {
++  display: inline-block; padding: 0 var(--space-4); font-size: var(--font-size-caption); line-height: var(--font-line-height-caption);
++  color: var(--color-text-secondary); border: var(--border-width-control) solid var(--color-border-default);
+ }
++.search-box { position: relative; }
++.search-icon { position: absolute; left: var(--space-8); top: var(--space-8); color: var(--color-text-secondary); pointer-events: none; }
++.input--search { padding-left: var(--space-40); padding-right: var(--space-40); }
++.search-box > .kbd-hint { position: absolute; right: var(--space-8); top: 9px; }
+ 
++/* Badges and filter chips */
++.tag-list { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-4) var(--space-12); margin: 0; padding: 0; }
+ .tag-chip {
+-  display: inline-block;
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-  border-radius: var(--radius-pill);
+-  padding: 0 var(--space-2);
+-  font-size: var(--font-size-small);
+-}
+-
+-/* Home */
+-.section-label {
+-  font-size: var(--font-size-small);
+-  text-transform: uppercase;
+-  color: var(--color-text-muted);
+-}
+-
+-.featured {
+-  margin-bottom: var(--space-8);
+-}
+-
+-.featured-post {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-6);
+-  background: var(--color-surface);
+-}
+-
+-.featured-title {
+-  font-size: var(--font-size-h1);
+-}
+-
+-.featured-excerpt {
+-  max-width: var(--measure);
+-}
+-
+-.filter-bar {
+-  display: flex;
+-  flex-wrap: wrap;
+-  align-items: flex-end;
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 var(--space-3);
+-}
+-
+-.tag-filter {
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-}
+-
+-.tag-filter-button[aria-pressed='true'] {
+-  background: var(--color-pressed-bg);
+-  border-color: var(--color-primary);
+-  font-weight: 600;
++  display: inline-flex; align-items: center; gap: var(--space-8); padding: 0 var(--space-8) 0 0;
++  font-size: var(--font-size-caption); line-height: var(--font-line-height-caption); color: var(--color-text-primary);
++}
++.chip { border-color: var(--color-border-default); color: var(--color-text-secondary); padding-inline: var(--space-8) var(--space-12); }
++.chip[aria-pressed='true'] { color: var(--color-text-strong); }
++.chip-slot { display: inline-flex; align-items: center; justify-content: center; width: var(--size-marker-w); }
++
++/* ------------------------------------------------------------ cards */
++
++.card { position: relative; padding: var(--space-16) var(--space-20); background: var(--color-surface-subtle); }
++.card:not(.hue-bar) { border-top: var(--border-width-control) solid var(--color-border-default); }
++.card:has(.card-link):hover { background: var(--color-surface-hover); }
++.card:has(.card-link):is(:hover, :focus-within) .card-title > .cur { visibility: visible; color: var(--color-text-strong); }
++.card:has(.card-link:focus-visible) { outline: var(--border-width-window) solid var(--color-focus-ring); outline-offset: 3px; }
++.card-link { color: var(--color-text-strong); text-decoration: none; }
++.card-link:hover { color: var(--color-text-strong); }
++.card-link:focus-visible { outline: none; }
++.card-link::after { content: ''; position: absolute; inset: 0; }
++.card-icon { display: block; margin-bottom: var(--space-12); color: var(--hue); }
++.card-title { margin: 0 0 var(--space-8); }
++.card-desc {
++  color: var(--color-text-secondary); margin-bottom: var(--space-8);
++  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
++}
++.post-meta { margin: 0 0 var(--space-8); }
++.card .tag-list { position: relative; }
++.card-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-16); grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }
++.card-grid > li { display: flex; }
++.card-grid > li > .card { flex: 1; }
++
++/* ------------------------------------------------------------ shell */
++
++.site-shell { display: flex; flex-direction: column; min-height: 100vh; }
++.container { width: 100%; max-width: var(--size-container); margin: 0 auto; padding-inline: var(--space-24); }
++
++.site-header { position: sticky; top: 0; z-index: 20; background: var(--color-surface-default); }
++.site-header-inner { display: flex; align-items: center; gap: var(--space-24); height: var(--size-header); }
++.brand { display: inline-flex; align-items: center; gap: var(--space-8); color: var(--color-text-strong); text-decoration: none; white-space: nowrap; }
++.brand:hover { color: var(--color-text-strong); }
++.brand-mark { color: var(--color-text-strong); }
++.header-nav { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-16); }
++.nav-list { list-style: none; display: flex; gap: var(--space-4); margin: 0; padding: 0; }
++.nav-link { color: var(--color-text-secondary); text-decoration: none; }
++.nav-link:hover, .nav-link[aria-current] { color: var(--color-text-strong); }
++.header-tools { display: flex; align-items: center; gap: var(--space-4); }
++.header-menu { position: relative; margin-left: auto; }
++.menu-window {
++  position: absolute; right: 0; top: calc(100% + var(--space-12)); z-index: 30; min-width: 240px;
++  display: flex; flex-direction: column; gap: var(--space-8); padding: var(--space-8);
++  background: var(--color-surface-raised); border: var(--border-width-control) solid var(--color-border-strong);
++}
++.menu-window .nav-list { flex-direction: column; }
++.menu-window .header-tools { flex-direction: column; align-items: stretch; border-top: var(--border-width-control) solid var(--color-border-default); padding-top: var(--space-8); }
++
++.content { flex: 1; }
++.content:focus { outline: none; }
++.page-body { padding-top: var(--space-40); }
++.page-body > section, .page-body > .featured { margin-top: var(--space-64); }
++.page-body > section:first-child { margin-top: 0; }
++
++.site-footer { background: var(--color-surface-default); }
++.site-footer-inner { padding-top: var(--space-24); padding-bottom: var(--space-40); }
++.newsletter {
++  max-width: var(--size-form); margin-bottom: var(--space-24); padding: var(--space-20);
++  background: var(--color-surface-subtle); border: var(--border-width-control) solid var(--color-border-control);
+ }
++.field-row { display: flex; gap: var(--space-12); align-items: center; }
+ 
+-.post-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
+-}
++/* ------------------------------------------------------------ home */
+ 
+-.post-list-grid {
+-  display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+-}
++.hero { position: relative; }
++.hero-container { position: absolute; inset: 0; display: flex; align-items: center; pointer-events: none; }
++.hero-window { width: 432px; padding: var(--space-24); pointer-events: auto; }
++.hero-window h1 { font-size: var(--font-size-display); line-height: var(--font-line-height-display); margin-bottom: var(--space-12); }
++.eyebrow, .meta { font-size: var(--font-size-caption); line-height: var(--font-line-height-caption); color: var(--color-text-secondary); margin-bottom: var(--space-8); }
++.lede { line-height: var(--font-line-height-prose); }
++.hero-window .button { margin-bottom: var(--space-16); }
++.hero-window .meta { margin: 0; }
+ 
+-.post-card {
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  padding-bottom: var(--space-4);
+-}
++.featured-post { padding: var(--space-20); }
++.featured-title { font-size: var(--font-size-title); line-height: var(--font-line-height-title); }
++.featured-excerpt { max-width: var(--size-prose); line-height: var(--font-line-height-prose); }
+ 
+-.post-card-title {
+-  margin-bottom: var(--space-1);
+-}
++.filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-16) var(--space-24); margin: 0 0 var(--space-20); }
++.field--search { width: 360px; max-width: 100%; }
++.tag-filter { display: flex; flex-wrap: wrap; gap: var(--space-8); }
++.result-row { display: flex; flex-direction: column; gap: var(--space-4); margin-bottom: var(--space-20); }
++.result-row p { margin: 0; }
+ 
+-.post-meta {
+-  margin-bottom: var(--space-2);
+-}
++.empty-state { max-width: 400px; margin: 0 auto; padding: var(--space-40) 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--space-16); }
++.empty-state > * { margin: 0; }
++.empty-state p { line-height: var(--font-line-height-prose); }
++.not-found { max-width: var(--size-form); }
++.not-found-window { width: 100%; padding: var(--space-20); display: flex; flex-direction: column; align-items: center; gap: var(--space-16); }
++.not-found-window > * { margin: 0; }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
+-}
++/* ------------------------------------------------------------ article */
+ 
+-/* Article */
+ .breadcrumb ol {
+-  list-style: none;
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin: 0 0 var(--space-4);
+-  padding: 0;
+-  font-size: var(--font-size-small);
++  list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-8); margin: 0 0 var(--space-16); padding: 0;
++  font-size: var(--font-size-caption); line-height: var(--font-line-height-caption); color: var(--color-text-secondary);
+ }
++.breadcrumb li + li::before { content: '/'; margin-right: var(--space-8); }
++.breadcrumb a { color: var(--color-text-secondary); text-decoration: none; }
++.breadcrumb a:hover { color: var(--color-text-strong); text-decoration: underline var(--border-width-control) var(--color-text-strong); }
+ 
+-.breadcrumb li + li::before {
+-  content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
+-}
++.banner-window { padding: 0; }
++.title-block { padding: var(--space-24); border-top: var(--border-width-control) solid var(--color-border-default); }
++.title-block h1 { margin-bottom: var(--space-12); }
++.title-block .lede { max-width: var(--size-prose); }
++.category { display: flex; align-items: center; gap: var(--space-8); margin-bottom: var(--space-8); }
+ 
+ .article-layout {
+-  display: grid;
+-  grid-template-columns: minmax(0, var(--measure)) var(--toc-width);
+-  gap: var(--space-8);
+-  align-items: start;
+-}
+-
+-.article-header {
+-  margin-bottom: var(--space-6);
+-}
+-
+-.article-body h2,
+-.article-body h3 {
+-  margin-top: var(--space-6);
+-}
+-
+-.body-quote {
+-  margin: var(--space-4) 0;
+-}
+-
+-.body-quote blockquote {
+-  margin: 0;
+-  padding-left: var(--space-4);
+-  border-left: 3px solid var(--color-quote-border);
+-  font-style: italic;
+-}
+-
+-.code-block {
+-  background: var(--color-code-bg);
+-  color: var(--color-code-text);
+-  font-family: var(--font-mono);
+-  font-size: var(--font-size-code);
+-  border-radius: var(--radius);
+-  padding: var(--space-3) var(--space-4);
+-  overflow-x: auto;
+-  margin: 0 0 var(--space-4);
+-}
+-
+-.body-list {
+-  margin: 0 0 var(--space-4);
+-  padding-left: var(--space-6);
+-}
+-
+-.body-list li + li {
+-  margin-top: var(--space-1);
+-}
+-
+-.body-figure {
+-  margin: var(--space-4) 0;
+-}
+-
+-.image-placeholder {
+-  display: block;
+-  width: 100%;
+-  height: auto;
+-  border-radius: var(--radius);
+-}
+-
+-.image-placeholder-bg {
+-  fill: var(--color-placeholder-bg);
+-}
+-
+-.image-placeholder-shape {
+-  fill: var(--color-placeholder-shape);
+-}
+-
+-.body-figure figcaption {
+-  margin-top: var(--space-2);
+-}
+-
+-.article-aside {
+-  position: sticky;
+-  top: var(--space-4);
+-}
+-
+-.toc {
+-  border-left: var(--border-width) solid var(--color-border);
+-  padding-left: var(--space-4);
+-}
+-
++  display: grid; grid-template-columns: minmax(0, var(--size-prose)) var(--size-toc);
++  grid-template-areas: 'main toc'; gap: var(--space-64); align-items: start; margin-top: var(--space-40);
++}
++.article-main { grid-area: main; min-width: 0; }
++.article-aside { grid-area: toc; position: sticky; top: calc(var(--size-header) + var(--space-24)); }
++
++.prose { max-width: var(--size-prose); line-height: var(--font-line-height-prose); }
++.article-body > h2 { margin-top: var(--space-40); }
++.article-body > h2:first-child { margin-top: 0; }
++.article-body > h3 { margin-top: var(--space-32); }
++.body-quote { margin: var(--space-24) 0; }
++.body-quote blockquote { margin: 0; }
++.body-quote blockquote p { margin: 0; color: var(--color-text-strong); }
++.body-quote figcaption { grid-column: 2; }
++.code-window { margin: var(--space-24) 0; }
++.code-lang { flex: 1; font-size: var(--font-size-caption); line-height: var(--font-line-height-caption); color: var(--color-text-secondary); }
++.code-block { margin: 0; padding: var(--space-16) var(--space-20); overflow-x: auto; line-height: var(--font-line-height-ui); color: var(--color-text-primary); }
++.body-list { margin: 0 0 var(--space-16); padding-left: var(--space-24); }
++.body-list li + li { margin-top: var(--space-4); }
++.body-list li::marker { color: var(--color-text-secondary); }
++.body-figure { margin: var(--space-24) 0; }
++.body-figure figcaption { margin-top: var(--space-8); }
++
++.toc { border-left: var(--border-width-control) solid var(--color-border-default); }
+ .toc-heading {
+-  font-size: var(--font-size-small);
+-  text-transform: uppercase;
+-  color: var(--color-text-muted);
+-}
+-
+-.toc-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  font-size: var(--font-size-small);
+-}
+-
+-.toc-item + .toc-item {
+-  margin-top: var(--space-1);
+-}
+-
+-.toc-item-nested {
+-  padding-left: var(--space-3);
+-}
+-
+-.related {
+-  margin-top: var(--space-12);
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding-top: var(--space-6);
+-}
+-
+-/* About */
+-.prose {
+-  max-width: var(--measure);
+-  margin-bottom: var(--space-8);
+-}
+-
+-.author-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
+-  max-width: var(--measure);
+-}
+-
+-.author-card {
+-  display: flex;
+-  gap: var(--space-4);
+-  align-items: flex-start;
+-}
+-
+-.avatar {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  flex-shrink: 0;
+-  width: 44px;
+-  height: 44px;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-  font-weight: 700;
+-  font-size: var(--font-size-small);
+-}
+-
+-@media (max-width: 760px) {
+-  .article-layout {
+-    grid-template-columns: minmax(0, 1fr);
+-  }
+-
+-  .article-aside {
+-    position: static;
+-    grid-row: 1;
+-  }
++  font-size: var(--font-size-caption); line-height: var(--font-line-height-caption); color: var(--color-text-secondary);
++  margin: 0 0 var(--space-8); padding-left: var(--space-12);
++}
++.toc-list { list-style: none; margin: 0; padding: 0; }
++.toc-link { color: var(--color-text-primary); text-decoration: none; padding-block: var(--space-8); line-height: var(--font-line-height-ui); }
++.toc-link:hover { color: var(--color-text-strong); }
++.toc-item-nested .toc-link { padding-left: var(--space-24); }
++
++.disclosure { background: var(--color-surface-subtle); border-left: var(--border-width-window) solid var(--color-border-control); }
++.disclosure:hover { background: var(--color-surface-hover); border-left-color: var(--color-hue-cyan); }
++.disclosure > summary { display: flex; align-items: center; gap: var(--space-8); min-height: var(--size-row); padding-inline: var(--space-12); cursor: pointer; list-style: none; }
++.disclosure > summary::-webkit-details-marker { display: none; }
++.disclosure > summary .toc-heading { margin: 0; padding: 0; font-size: var(--font-size-body); line-height: var(--font-line-height-ui); color: var(--color-text-strong); }
++.disclosure > summary > .cur { color: var(--color-text-accent); }
++.disclosure[open] > summary > .cur { width: var(--size-marker-h); height: var(--size-marker-w); background-image: none; -webkit-mask-image: var(--cur-d); mask-image: var(--cur-d); }
++.toc:has(.disclosure) { border-left: 0; }
++.disclosure .toc-list { padding-bottom: var(--space-8); }
++
++.prev-next {
++  display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-16); margin-top: var(--space-64);
++  padding-top: var(--space-16); border-top: var(--border-width-control) solid var(--color-border-strong);
++}
++.prev-next__link { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-8) var(--space-12); color: var(--color-text-strong); text-decoration: none; }
++.prev-next__link:hover { background: var(--color-surface-hover); color: var(--color-text-strong); }
++.prev-next__link--next { text-align: right; align-items: flex-end; grid-column: 2; }
++.prev-next__label {
++  display: inline-flex; align-items: center; gap: var(--space-8);
++  font-size: var(--font-size-caption); line-height: var(--font-line-height-caption); color: var(--color-text-secondary);
++}
++.prev-next__label > .cur { color: var(--color-text-accent); }
++
++/* ------------------------------------------------------------ about */
++
++.about-prose p { margin-bottom: var(--space-16); }
++.author-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-16); grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); }
++.author-list > li { display: flex; }
++.author-card { flex: 1; display: flex; gap: var(--space-16); align-items: flex-start; }
++.author-card h3 { margin: 0; }
++.author-card .small { margin-bottom: var(--space-8); }
++.author-card p:last-child { margin: 0; line-height: var(--font-line-height-prose); }
++.avatar { flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; background: var(--color-surface-hover); color: var(--hue); }
++.avatar svg { width: 32px; height: 32px; fill: currentColor; shape-rendering: crispEdges; }
++.avatar--profile { width: 80px; height: 80px; }
++.avatar--profile svg { width: 64px; height: 64px; }
++
++/* ------------------------------------------------------------ adaptation */
++
++@media (max-width: 1023px) {
++  .stage--hero { height: var(--size-hero-sm); }
++  .hero-container { position: static; display: block; pointer-events: auto; padding-top: var(--space-24); }
++  .hero-window { width: 100%; }
++  .article-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'toc' 'main'; gap: var(--space-24); }
++  .article-aside { position: static; }
++}
++
++@media (max-width: 599px) {
++  .container { padding-inline: var(--space-16); }
++  .page-body > section, .page-body > .featured { margin-top: var(--space-40); }
++  .hero-window h1 { font-size: var(--font-size-title); line-height: var(--font-line-height-title); }
++  .hero-window .button { width: 100%; }
++  .field--search { width: 100%; }
++  .search-box > .kbd-hint { display: none; }
++  .input--search { padding-right: var(--space-12); }
++  .field-row { flex-direction: column; align-items: stretch; }
++  .field-row .button { width: 100%; }
++  .title-block { padding: var(--space-16); }
++  .prev-next { grid-template-columns: 1fr; }
++  .prev-next__link--next { grid-column: 1; }
++}
++
++@media (pointer: coarse) {
++  .item, .toc-link { min-height: var(--size-touch); }
+ }

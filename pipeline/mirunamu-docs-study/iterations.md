@@ -91,3 +91,18 @@ Sixth iteration, approved by the user beyond rc.5. Answers critic-1 on rc.5 (all
 - Hero landform (signature, spec gap; rc.5 regression): Hero placement: a rise 8–16 units under the focal group built with a new `rise(t,x0,x1,h)` helper (tested in node: plateau lifted 12 units with 2-unit steps, tops 88–94 over near tops 100–106), 1.5–3× the group's width, the group standing on it; a path of 2-unit steps in `.far` runs; 25+ hand-placed tufts and stones counted in the hero's 120 detail entries (the rc.4 density is kept, not reduced).
 - No identical copies (agent mistake the spec already forbade): "two identical props in one scene" in Never; Verification requires a per-scene variant table `variant | x positions | what differs (4+ units)`; a scene that repeats a variant without the table fails. Verification also asks for the gaps between props left to right, the lead's height and margin, tall verticals and the hero's rise and path.
 - Budget: agent.md 7,489 words (validate's count), from 7,789 after the additions. Verification's scene report refers to the Pixel stage numbers instead of repeating them; Button and Card states point to Interaction; RPG marker What/Where, the Applying rows for dashboard, store and empty state, the Empty state anatomy, the meter `dl` example (only the `dd`), the world list, step 2's y-value line, step 8's examples, rule 1, 3, 5 and 8 wording, code comments, and the New project VERSION example shortened. No earlier fix dropped: each removed phrase is still stated in its component spec, Spacing or the Pixel stage. Validate: 0 errors, 0 warnings.
+
+## 2026-10-15 — update: dark only (1.1.0)
+
+Goal: Night Cartridge becomes a dark-only system. The light "day" theme was derived (the reference is
+dark-only) from the reference's cream text color, was never judged against anything, and its yellowish
+parchment ground doesn't suit pixel art. The user also wants one dark-only system in the catalogue.
+Change: remove semantic.light.json, the day palette and day scene ramp, and every mention of the day theme;
+`tags.appearance: ["dark"]`; tokens.css then sets the night values on :root with no OS switch.
+
+1.1.0-rc.2: answers critic-1 on rc.1 (all 4, signature 3; 3.86; regression from generation variance and a spec gap, not the
+dark-only change). Strip limited to store grid, cart, dashboard and settings; product detail, article and about take the
+Banner (Pixel stage + Store row); Never: the same scene on two screens; product sprites 40–50% of the picture window and
+recognisable by outline; charts: bars ≤40% of slot, 12px y-axis with 3–5 values, never outweighing KPIs; hero rise gets a
+1-unit `.haze` rim (no new token: the critic's `color.scene.rim` does not exist); settings form and scene window share
+one content width. Theme untouched.
