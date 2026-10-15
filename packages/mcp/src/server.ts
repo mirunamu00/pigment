@@ -17,6 +17,7 @@ const mode = z.enum(["new", "existing", "ongoing"]);
 const INSTRUCTIONS = [
   "Pigment serves design systems for coding agents. Every tool returns the current system; there is nothing to choose or pin.",
   "Applying a system copies it into the project's design-system/ folder (tokens, component notes and a VERSION file naming the system and its update date).",
+  "If the system offers both light and dark, ask the user which their product supports (light only, dark only, or both) before applying it: with one, fix that mode; with both, follow the system setting and connect an existing theme switch, adding one only if asked.",
   "From then on design-system/ is the project's source of truth: build new screens from it and don't re-fetch tokens unless the user asks to update.",
   "To update, call get_changelog, apply only the entries dated after the date in design-system/VERSION, and then write the new date.",
 ].join("\n");

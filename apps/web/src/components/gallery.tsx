@@ -84,7 +84,7 @@ function Card({ t, angles, onStatus }: { t: TemplateSummary; angles: readonly [n
       <Tape style={{ top: -10, left: 36 }} rotate={angles[0]} />
       <Tape alt width={72} style={{ top: -9, right: 40 }} rotate={angles[1]} />
       <Shot
-        src={t.shots[`${app}.desktopLight`]}
+        src={t.shots[`${app}.desktopLight`] ?? t.shots[`${app}.desktopDark`]}
         title={label}
         meta={`${t.id} · ${app}`}
         bg={bg}

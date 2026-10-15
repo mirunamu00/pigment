@@ -15,6 +15,13 @@ export function specRef(id: string, delivery: Delivery): string {
   return "Read the spec with the Pigment MCP tools (get_design_system, get_component_spec).";
 }
 
+/**
+ * A system may ship light and dark; a product may support only one. Without asking, tokens.css follows the
+ * operating system and a light-only product turns dark for some of its users.
+ */
+const APPEARANCE =
+  "If the system offers both light and dark, ask which my product supports (light only, dark only, or both) as part of the plan: with one, fix that mode; with both, follow the system setting and connect an existing theme switch, adding one only if I ask.";
+
 export function buildPrompt(id: string, mode: Mode, delivery: Delivery): string {
   const spec = specRef(id, delivery);
   if (mode === "new") {
@@ -22,6 +29,7 @@ export function buildPrompt(id: string, mode: Mode, delivery: Delivery): string 
       `Set up design system ${id} in this codebase.`,
       spec,
       "First inspect the framework, styling approach and component structure, then propose an installation plan and wait for my approval.",
+      APPEARANCE,
       "Don't add libraries that don't fit the existing stack. Leave an AGENTS.md / CLAUDE.md pointer so future screens reuse the system.",
       "Report build results, visual checks and anything left unimplemented.",
     ].join("\n");
@@ -32,6 +40,7 @@ export function buildPrompt(id: string, mode: Mode, delivery: Delivery): string 
       spec,
       "Preserve features, routes, business logic, API contracts, tests and accessibility.",
       "Audit styles and components first, then propose a migration plan and wait for my approval. Restyle one screen as a sample and wait again.",
+      APPEARANCE,
       "Report build results, visual checks and anything left unimplemented.",
     ].join("\n");
   }

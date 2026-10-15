@@ -103,7 +103,9 @@ export function publish(id: string, version: string, approvedBy: string, carryFr
     const runDir = join(runsDir(id, evaluated), run.app, run.runId);
     const shots = readJson<ShotResult>(join(runDir, "shots.json"));
     // Gallery assets are page captures; interaction-state captures stay in the review only.
-    const pages = shots.screenshots.filter((x) => !x.route.startsWith("state:"));
+    // Only the appearances the system has: a dark-only system's "light" captures look the same and would
+    // offer a toggle that changes nothing.
+    const pages = shots.screenshots.filter((x) => !x.route.startsWith("state:") && tpl.manifest.tags.appearance.includes(x.scheme));
     for (const s of pages) {
       const dest = join(assets, run.app, s.file.replace(/^screenshots\//, ""));
       mkdirSync(join(dest, ".."), { recursive: true });
