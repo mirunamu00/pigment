@@ -29,12 +29,12 @@ export function DemoViewer({
   screens?: Record<string, DemoScreen[]>;
   light: string;
   dark: string;
-  /** The modes the system has; a single-mode system shows no theme switch. */
+  /** The modes the system has, its default first; a single-mode system shows no theme switch. */
   appearance?: Array<"light" | "dark">;
 }) {
   const [app, setApp] = useState<AppKey>("dashboard");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
-  const [scheme, setScheme] = useState<"light" | "dark">(appearance.includes("light") ? "light" : "dark");
+  const [scheme, setScheme] = useState<"light" | "dark">(appearance[0] ?? "light");
   const key = `${app}.${viewport}${scheme === "light" ? "Light" : "Dark"}`;
   const label = APPS.find(([k]) => k === app)![1];
   const bg = scheme === "dark" ? dark : light;
