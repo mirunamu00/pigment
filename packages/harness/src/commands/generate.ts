@@ -14,7 +14,9 @@ export type Agent = "claude" | "codex";
  * Passed on the command line: headless runs do not pick up a project settings file in a fresh, untrusted
  * folder. On Windows the agent may use PowerShell instead of Bash, so both are listed.
  */
-const SHELL_COMMANDS = ["npm run build:*", "npm run typecheck:*", "npm install:*", "npx tsc:*", "node pigment-snap.mjs:*"];
+// The project's own smoke tests too: a user's agent runs a project's tests, and without them the run's agent
+// only learned at evaluation that a restyle broke a click.
+const SHELL_COMMANDS = ["npm run build:*", "npm run typecheck:*", "npm run test:e2e:*", "npm install:*", "npx tsc:*", "node pigment-snap.mjs:*"];
 // Output filters people's agents use all the time (`npm run build 2>&1 | Select-Object -Last 25`). Without
 // them a piped command is denied as a whole, and the run's agent never sees its own screenshots — a handicap
 // a real user's agent doesn't have, which made the lab judge the prompt on blind output.
