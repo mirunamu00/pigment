@@ -79,6 +79,20 @@ generic idea of good UI:
 prompt fix ("add `color.surface.raised` usage rule for cards on subtle backgrounds") and the evidence
 behind it.
 
+### Samples: judge the prompt, not one run
+
+Every user's agent builds a different result from the same prompt, so one run is one sample. Fixing the
+small flaws of one sample and running again only draws a new sample with new small flaws. Candidates are
+generated and evaluated with several samples (`generate --samples 3`, `evaluate --samples 3`):
+
+- **Gates** must pass in every sample.
+- **Scores** describe what a user can expect: the typical sample, not the best or the worst.
+- **A flaw counts against the prompt when it recurs** — in two or more samples, or in every app of one
+  sample — or when the spec itself causes it (a missing, ambiguous or contradictory rule). Those get prompt
+  fixes. A flaw seen once, in one app of one sample, is variance: list it, but it neither lowers a score nor
+  gets a prompt fix, unless it breaks something for people (a broken layout, unreadable text, a failed task).
+- The critic file says, for each finding, in how many samples it appears.
+
 ## Iteration
 
 1. Failing gate or score → the critic's `promptFixes` + gate details go to the prompt-author.

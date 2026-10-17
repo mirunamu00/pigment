@@ -5,6 +5,7 @@ import { contrast } from "../color.ts";
 import { paths } from "../paths.ts";
 import { loadTemplate, resolveTokens, type LoadedTemplate } from "../template.ts";
 import { listFiles, readJson } from "../util.ts";
+import { cssName } from "./bundle.ts";
 import type { Intake } from "./intake.ts";
 
 export interface Finding {
@@ -55,8 +56,10 @@ export function validateTemplate(tpl: LoadedTemplate): Finding[] {
   for (const group of REQUIRED_PRIMITIVE_GROUPS) {
     if (![...primitivesOnly.keys()].some((p) => p === group || p.startsWith(`${group}.`))) err("tokens.primitives", `missing primitive group "${group}"`);
   }
+  const tokenVars = new Set([...primitivesOnly.keys()].map(cssName));
   for (const [mode, tree] of Object.entries(tpl.modes)) {
     const resolved = resolveTokensSafe(tpl, tree, err);
+    for (const path of resolved.keys()) tokenVars.add(cssName(path));
     for (const name of REQUIRED_SEMANTIC_TOKENS) {
       if (!resolved.has(name)) err("tokens.semantic", `[${mode}] missing ${name}`);
     }
@@ -114,6 +117,21 @@ export function validateTemplate(tpl: LoadedTemplate): Finding[] {
   }
   for (const brand of intake?.ownBrand ? [] : (intake?.brandTerms ?? [])) {
     if (brand && manifest.name.toLowerCase().includes(brand.toLowerCase())) err("provenance.name", `template name contains reference brand "${brand}"`);
+  }
+
+  // Recipe code may only read custom properties that tokens.css defines or that the recipes set themselves:
+  // an agent copying `var(--color-x)` for a removed token gets a silently missing colour.
+  // The changelog quotes old recipes; a var() with a fallback is safe; any other mention of a name (a
+  // declaration, a style object, a sentence saying what to set) counts as defining it.
+  const code = markdownFiles
+    .filter((f) => !f.endsWith("CHANGELOG.md"))
+    .map((f) => readFileSync(f, "utf8").match(/```[\s\S]*?```|`[^`\n]*`/g)?.join("\n") ?? "")
+    .join("\n");
+  const read = new Set([...code.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)].map((m) => m[1]!));
+  const mentioned = new Set([...code.replace(/var\(\s*--[\w-]+\s*[,)]/g, "").matchAll(/--[a-z][\w-]*/gi)].map((m) => m[0]));
+  const undefinedVars = [...read].filter((v) => !tokenVars.has(v) && !mentioned.has(v));
+  if (undefinedVars.length) {
+    warn("tokens.undefined-var", `recipes read custom properties nothing defines: ${undefinedVars.slice(0, 6).join(", ")}${undefinedVars.length > 6 ? "…" : ""}`);
   }
 
   // Changelog: the entry of a final version is public — the system page and the MCP get_changelog tool show its

@@ -22,7 +22,7 @@ numbers — those are internal.
 - `pnpm harness scaffold <id>@<next>-rc.1 --name "<Name>" --from <id>@<current>`
 - Delegate to `prompt-author` with the goal; it edits, adds a `## <next>-rc.1` changelog entry and loops
   on `pnpm harness validate` / `bundle`.
-- `pnpm harness generate <id>@<next>-rc.1` (background, report progress), `pnpm harness evaluate`, then
+- `pnpm harness generate <id>@<next>-rc.1 --samples 3 --concurrency 3` (background, report progress), `pnpm harness evaluate --samples 3`, then
   the `design-critic` agent with the published version's runs for comparison, then `pnpm harness critic`.
 - On `fail`, iterate from the last candidate (`--from <id>@<next>-rc.<n-1>`), at most three times.
 

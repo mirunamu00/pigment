@@ -6,7 +6,7 @@ import { rel } from "../paths.ts";
 import { loadTemplate, resolveTokens, type LoadedTemplate } from "../template.ts";
 import { listFiles, ok, writeJson, writeText } from "../util.ts";
 
-function cssName(path: string): string {
+export function cssName(path: string): string {
   return `--${path.replaceAll(".", "-").replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`;
 }
 

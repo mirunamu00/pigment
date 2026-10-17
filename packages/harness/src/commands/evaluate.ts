@@ -20,11 +20,12 @@ const THRESHOLDS = {
   colorDelta: 3,
 };
 
-function latestRun(id: string, version: string, app: string): string | null {
+/** The latest n runs of an app, newest first. */
+function latestRuns(id: string, version: string, app: string, n: number): string[] {
   const dir = join(runsDir(id, version), app);
-  if (!existsSync(dir)) return null;
-  const runs = readdirSync(dir).filter((d) => existsSync(join(dir, d, "run.json"))).sort();
-  return runs.length ? join(dir, runs[runs.length - 1]!) : null;
+  if (!existsSync(dir)) return [];
+  const runs = readdirSync(dir).filter((d) => existsSync(join(dir, d, "run.json"))).sort().reverse();
+  return runs.slice(0, n).map((r) => join(dir, r));
 }
 
 /** Share of weight whose color is within ΔE of the palette. Translucent overlays are ignored. */
@@ -70,7 +71,8 @@ function fontSizes(samples: StyleSample[]): Set<string> {
   return new Set(samples.flatMap((s) => Object.keys(s.fontSize)));
 }
 
-export async function evaluate(id: string, version: string, options: { skipE2e?: boolean }): Promise<EvalReport> {
+export async function evaluate(id: string, version: string, options: { skipE2e?: boolean; samples?: number }): Promise<EvalReport> {
+  const samples = Math.max(1, options.samples ?? 1);
   const tpl = loadTemplate(id, version);
   const palette = colorPalette(tpl);
   const radii = radiusSet(tpl);
@@ -78,15 +80,19 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
   const dir = runsDir(id, version);
   const iteration = existsSync(dir) ? readdirSync(dir).filter((f) => /^eval-\d+\.json$/.test(f)).length + 1 : 1;
   const report: EvalReport = { template: id, version, iteration, evaluatedAt: timestamp(), runs: [], crossApp: [], verdict: "pending-review", reasons: [] };
-  const perApp: Record<string, StyleSample[]> = {};
+  // Style samples per sample index and app, for cross-app consistency within each sample.
+  const perSample: Array<Record<string, StyleSample[]>> = Array.from({ length: samples }, () => ({}));
 
   const apps = readdirSync(paths.baseApps).filter((a) => existsSync(join(paths.baseApps, a, "pigment.app.json"))) as AppId[];
+  const pending: Array<{ app: AppId; runDir: string; k: number }> = [];
   for (const app of apps) {
-    const runDir = latestRun(id, version, app);
-    if (!runDir) {
-      report.reasons.push(`no run for ${app}`);
-      continue;
-    }
+    const runDirs = latestRuns(id, version, app, samples);
+    if (runDirs.length < samples) report.reasons.push(`${app}: ${runDirs.length} of ${samples} sample(s)`);
+    runDirs.forEach((runDir, k) => pending.push({ app, runDir, k }));
+  }
+  // Each app's newest run first: publishing takes an app's first listed run as its gallery capture.
+  pending.sort((a, b) => a.k - b.k);
+  for (const { app, runDir, k } of pending) {
     const run = readJson<{ runId: string; agentExitCode?: number | null; build?: { ok: boolean }; workDir: string }>(join(runDir, "run.json"));
     const gates: Gate[] = [];
     const metrics: Record<string, number> = {};
@@ -95,8 +101,8 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
 
     if (run.build?.ok && existsSync(join(runDir, "shots.json"))) {
       const shots = readJson<ShotResult>(join(runDir, "shots.json"));
-      const samples = readJson<StyleSample[]>(join(runDir, "samples.json"));
-      perApp[app] = samples;
+      const styleSamples = readJson<StyleSample[]>(join(runDir, "samples.json"));
+      perSample[k]![app] = styleSamples;
 
       if (!options.skipE2e) {
         info(`[${app}] running smoke tests`);
@@ -140,13 +146,13 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
         metrics.lineDrawings = shots.motion.lineDrawings;
       }
 
-      const color = colorShare(samples.flatMap((s) => [s.backgroundArea, s.textColor]), palette);
+      const color = colorShare(styleSamples.flatMap((s) => [s.backgroundArea, s.textColor]), palette);
       metrics.colorAdherence = Math.round(color * 1000) / 1000;
       gates.push({ name: "color-adherence", pass: color >= THRESHOLDS.colorAdherence, value: metrics.colorAdherence, threshold: THRESHOLDS.colorAdherence });
 
       let chars = 0;
       let matched = 0;
-      for (const s of samples) for (const [stack, n] of Object.entries(s.fontFamily)) {
+      for (const s of styleSamples) for (const [stack, n] of Object.entries(s.fontFamily)) {
         chars += n;
         if (families.has(firstFamily(stack))) matched += n;
       }
@@ -155,7 +161,7 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
 
       let rounded = 0;
       let onScale = 0;
-      for (const s of samples) for (const [value, n] of Object.entries(s.radius)) {
+      for (const s of styleSamples) for (const [value, n] of Object.entries(s.radius)) {
         rounded += n;
         const px = parseFloat(value);
         if (value.endsWith("%") || px >= 999 || radii.some((r) => Math.abs(r - px) <= 1 || (r >= 999 && px >= 100))) onScale += n;
@@ -166,26 +172,29 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
     report.runs.push({ runId: run.runId, app, gates, metrics });
   }
 
-  // Cross-app consistency: the four apps should look like one family.
-  const appIds = Object.keys(perApp);
-  if (appIds.length > 1) {
-    const tops = appIds.map((a) => topColors(perApp[a]!));
-    const sizes = appIds.map((a) => fontSizes(perApp[a]!));
-    let paletteSum = 0;
-    let typeSum = 0;
-    let pairs = 0;
-    for (let i = 0; i < appIds.length; i++)
-      for (let j = i + 1; j < appIds.length; j++) {
-        paletteSum += (matchShare(tops[i]!, tops[j]!) + matchShare(tops[j]!, tops[i]!)) / 2;
-        const a = sizes[i]!;
-        const b = sizes[j]!;
-        typeSum += [...a].filter((x) => b.has(x)).length / Math.max(1, Math.min(a.size, b.size));
-        pairs++;
-      }
-    const palette = Math.round((paletteSum / pairs) * 1000) / 1000;
-    const type = Math.round((typeSum / pairs) * 1000) / 1000;
-    report.crossApp.push({ name: "palette-consistency", pass: palette >= THRESHOLDS.paletteConsistency, value: palette, threshold: THRESHOLDS.paletteConsistency });
-    report.crossApp.push({ name: "type-consistency", pass: type >= THRESHOLDS.typeConsistency, value: type, threshold: THRESHOLDS.typeConsistency });
+  // Cross-app consistency: the four apps should look like one family — in every sample.
+  for (const [k, perApp] of perSample.entries()) {
+    const appIds = Object.keys(perApp);
+    const suffix = samples > 1 ? ` (sample ${k + 1})` : "";
+    if (appIds.length > 1) {
+      const tops = appIds.map((a) => topColors(perApp[a]!));
+      const sizes = appIds.map((a) => fontSizes(perApp[a]!));
+      let paletteSum = 0;
+      let typeSum = 0;
+      let pairs = 0;
+      for (let i = 0; i < appIds.length; i++)
+        for (let j = i + 1; j < appIds.length; j++) {
+          paletteSum += (matchShare(tops[i]!, tops[j]!) + matchShare(tops[j]!, tops[i]!)) / 2;
+          const a = sizes[i]!;
+          const b = sizes[j]!;
+          typeSum += [...a].filter((x) => b.has(x)).length / Math.max(1, Math.min(a.size, b.size));
+          pairs++;
+        }
+      const palette = Math.round((paletteSum / pairs) * 1000) / 1000;
+      const type = Math.round((typeSum / pairs) * 1000) / 1000;
+      report.crossApp.push({ name: `palette-consistency${suffix}`, pass: palette >= THRESHOLDS.paletteConsistency, value: palette, threshold: THRESHOLDS.paletteConsistency });
+      report.crossApp.push({ name: `type-consistency${suffix}`, pass: type >= THRESHOLDS.typeConsistency, value: type, threshold: THRESHOLDS.typeConsistency });
+    }
   }
 
   // Reference similarity is reported, never gated: a derived language should resemble, not match.
@@ -199,7 +208,7 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
 
   const failed = [...report.runs.flatMap((r) => r.gates.map((g) => ({ ...g, app: r.app }))), ...report.crossApp.map((g) => ({ ...g, app: "cross-app" }))].filter((g) => !g.pass);
   for (const g of failed) report.reasons.push(`${g.app}: ${g.name} = ${g.value} (needs ${g.threshold ?? "pass"})`);
-  report.verdict = failed.length || report.runs.length < apps.length ? "fail" : "pending-review";
+  report.verdict = failed.length || report.runs.length < apps.length * samples ? "fail" : "pending-review";
 
   const parsed = EvalReport.parse(report);
   writeJson(join(dir, `eval-${iteration}.json`), parsed);

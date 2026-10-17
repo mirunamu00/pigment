@@ -86,6 +86,7 @@ program
   .option("--agent <agent>", "claude | codex (experimental)", "claude")
   .option("--concurrency <n>", "apps in parallel", "2")
   .option("--timeout <minutes>", "per-app agent timeout", "45")
+  .option("--samples <n>", "independent runs per app (judge the prompt, not one lucky or unlucky run)", "1")
   .action(async (ref: string, opts) => {
     const { id, version } = parseRef(ref);
     await generate(id, version, {
@@ -93,6 +94,7 @@ program
       agent: opts.agent as Agent,
       concurrency: Number(opts.concurrency),
       timeoutMinutes: Number(opts.timeout),
+      samples: Number(opts.samples),
     });
   });
 
@@ -111,9 +113,10 @@ program
   .description("7. hard gates, cross-app consistency and reference similarity for the latest runs")
   .argument("<ref>")
   .option("--skip-e2e", "skip the smoke tests (faster, not valid for publishing)")
+  .option("--samples <n>", "evaluate the latest n runs of each app; every gate must pass in every sample", "1")
   .action(async (ref: string, opts) => {
     const { id, version } = parseRef(ref);
-    const report = await evaluate(id, version, { skipE2e: !!opts.skipE2e });
+    const report = await evaluate(id, version, { skipE2e: !!opts.skipE2e, samples: Number(opts.samples) });
     process.exitCode = report.verdict === "fail" ? 1 : 0;
   });
 
