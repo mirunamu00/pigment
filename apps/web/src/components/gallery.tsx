@@ -84,7 +84,8 @@ function Card({ t, angles, onStatus }: { t: TemplateSummary; angles: readonly [n
       <Tape style={{ top: -10, left: 36 }} rotate={angles[0]} />
       <Tape alt width={72} style={{ top: -9, right: 40 }} rotate={angles[1]} />
       <Shot
-        src={t.shots[`${app}.desktopLight`] ?? t.shots[`${app}.desktopDark`]}
+        // The system's default mode (listed first) is how it introduces itself.
+        src={t.tags.appearance[0] === "dark" ? (t.shots[`${app}.desktopDark`] ?? t.shots[`${app}.desktopLight`]) : (t.shots[`${app}.desktopLight`] ?? t.shots[`${app}.desktopDark`])}
         title={label}
         meta={`${t.id} · ${app}`}
         bg={bg}
