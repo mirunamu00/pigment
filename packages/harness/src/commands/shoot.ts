@@ -1,6 +1,6 @@
 import { join, relative } from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 import { appMeta, preview } from "../appdir.ts";
 import { extractStyles, mergeSamples, settle, type StyleSample } from "../extract.ts";
 import { drawingCrops, motionEvidence } from "../probe.ts";
@@ -19,6 +19,19 @@ export interface ShotResult {
   motion?: Awaited<ReturnType<typeof motionEvidence>>;
   /** Native-resolution crops of every drawing per route (desktop, light, final frames). */
   drawings?: Array<{ route: string; file: string; w: number; h: number }>;
+}
+
+/**
+ * Opens a page and waits for the network to go quiet. A slow third-party request (a font CDN) can keep it
+ * from ever going quiet; then the page is taken as loaded once its load event fires, plus a moment for fonts.
+ */
+async function open(page: Page, url: string): Promise<void> {
+  try {
+    await page.goto(url, { waitUntil: "networkidle", timeout: 20_000 });
+  } catch {
+    await page.goto(url, { waitUntil: "load", timeout: 30_000 });
+    await page.waitForTimeout(1500);
+  }
 }
 
 /**
@@ -48,7 +61,7 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
             if (msg.type() === "error") result.consoleErrors.push({ route: route.path, message: msg.text() });
           });
           page.on("pageerror", (e) => result.consoleErrors.push({ route: route.path, message: e.message }));
-          await page.goto(server.url + route.path, { waitUntil: "networkidle" });
+          await open(page, server.url + route.path);
           await settle(page);
           // Compare against the requested viewport, not clientWidth: on emulated mobile, content that is too
           // wide widens the layout viewport itself, so scrollWidth and clientWidth grow together.
@@ -82,7 +95,7 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
       const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "light", reducedMotion: "no-preference" });
       const page = await context.newPage();
       try {
-        await page.goto(server.url + first.path, { waitUntil: "networkidle" });
+        await open(page, server.url + first.path);
         await page.waitForTimeout(600);
         result.motion = await motionEvidence(page, outDir, "motion");
         result.motion.frames = result.motion.frames.map((f) => relative(outDir, f).replaceAll("\\", "/"));
@@ -111,10 +124,10 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
         });
         const page = await context.newPage();
         try {
-          await page.goto(server.url + state.route, { waitUntil: "networkidle" });
+          await open(page, server.url + state.route);
           for (const step of state.steps) {
             const target = step.testid ? page.getByTestId(step.testid).first() : null;
-            if (step.action === "goto") await page.goto(server.url + (step.value ?? "/"), { waitUntil: "networkidle" });
+            if (step.action === "goto") await open(page, server.url + (step.value ?? "/"));
             else if (step.action === "press") await page.keyboard.press(step.value ?? "Tab");
             else if (!target) continue;
             else if (step.action === "click") await target.click();

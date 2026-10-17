@@ -46,6 +46,9 @@ export interface GenerateOptions {
   agent: Agent;
   concurrency: number;
   timeoutMinutes: number;
+  /** Independent runs per app. One run is one sample of what a user's agent might build; several show which
+   *  problems the prompt causes (they recur) and which are chance (they don't). */
+  samples?: number;
   label?: string;
 }
 
@@ -77,17 +80,20 @@ export async function generate(id: string, version: string, options: GenerateOpt
 async function generateLocked(id: string, version: string, options: GenerateOptions): Promise<RunRecord[]> {
   bundle(id, version);
   const apps = (options.apps ?? (baseApps() as AppId[])).filter((a) => baseApps().includes(a));
-  const id_ = newRunId();
+  const samples = Math.max(1, options.samples ?? 1);
+  // One run id per sample; ids sort in sample order, so the newest run is the last sample.
+  const base = newRunId();
+  const ids = Array.from({ length: samples }, (_, i) => (samples === 1 ? base : `${base}-s${i + 1}`));
   const template = readFileSync(join(paths.prompts, "harness-existing.md"), "utf8");
   const prompt = template.replaceAll("{{id}}", id).replaceAll("{{version}}", version);
-  info(`generating ${id}@${version} on ${apps.join(", ")} with ${options.agent} (run ${id_})`);
+  info(`generating ${id}@${version} on ${apps.join(", ")} with ${options.agent} (run ${base}${samples > 1 ? `, ${samples} samples` : ""})`);
 
-  const queue = [...apps];
+  const queue = ids.flatMap((runId) => apps.map((app) => ({ app, runId })));
   const records: RunRecord[] = [];
   const worker = async () => {
     while (queue.length) {
-      const app = queue.shift()!;
-      records.push(await generateOne(id, version, app, id_, prompt, options));
+      const { app, runId } = queue.shift()!;
+      records.push(await generateOne(id, version, app, runId, prompt, options));
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, options.concurrency) }, worker));
@@ -156,8 +162,14 @@ async function generateOne(id: string, version: string, app: AppId, runId: strin
 
   if (built.ok) {
     info(`[${app}] capturing`);
-    const shots = await shootApp(work, out);
-    record.screenshots = shots.screenshots;
+    // A capture failure is this app's problem, not the run's: record it and let the other apps finish.
+    try {
+      const shots = await shootApp(work, out);
+      record.screenshots = shots.screenshots;
+    } catch (e) {
+      writeText(join(out, "capture.log"), String((e as Error).stack ?? e));
+      info(`[${app}] CAPTURE FAILED — see capture.log; \`pnpm harness reshoot ${id}@${version} --apps ${app}\` retries it`);
+    }
   }
   record.finishedAt = timestamp();
   writeJson(join(out, "run.json"), { ...record, workDir: work });

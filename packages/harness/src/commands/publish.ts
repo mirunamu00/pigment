@@ -99,7 +99,9 @@ export function publish(id: string, version: string, approvedBy: string, carryFr
 
   // Gallery assets: the screenshots of the evaluated runs.
   const assets = join(paths.webPublic, id, version);
-  for (const run of report.runs) {
+  // With several samples per app, the gallery shows each app's newest run (listed first).
+  const galleryRuns = report.runs.filter((r, i) => report.runs.findIndex((x) => x.app === r.app) === i);
+  for (const run of galleryRuns) {
     const runDir = join(runsDir(id, evaluated), run.app, run.runId);
     const shots = readJson<ShotResult>(join(runDir, "shots.json"));
     // Gallery assets are page captures; interaction-state captures stay in the review only.

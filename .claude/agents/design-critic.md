@@ -37,6 +37,12 @@ reference's at the same size (compare the crops), and moving as specified in the
 For an update, also compare each app with the published version: say whether the update reached its goal,
 and treat anything that got worse as a weakness with its own prompt fix.
 
+When there are several runs per app (samples, rubric → "Samples"), you are judging the prompt, not one run.
+Look at every sample. Score the typical sample. A flaw lowers a score and gets a prompt fix only when it
+recurs (two or more samples, or every app of one sample) or the spec causes it; a one-off in one app of one
+sample is variance — list it with "1 of n samples" and leave the score alone, unless it breaks something for
+people. Give every finding its count ("3 of 3", "1 of 3").
+
 Score 0–5 per rubric dimension (`referenceFidelity` is null when there is no reference). Be strict:
 4 means a demanding design lead who knows the reference would ship it as that reference's language;
 5 is rare. For every score below 4, name the screen, what is wrong, and a concrete change to the spec
