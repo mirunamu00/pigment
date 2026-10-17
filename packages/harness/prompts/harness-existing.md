@@ -19,7 +19,7 @@ ask — go through every screen. Constraints that still apply:
   stop under `prefers-reduced-motion: reduce`.
 
 You may run exactly these commands, from the project root and without a `cd` prefix: `npm install`,
-`npm run build`, `npm run typecheck`, `node pigment-snap.mjs`.
+`npm run build`, `npm run typecheck`, `npm run test:e2e` (the project's smoke tests), `node pigment-snap.mjs`.
 
 `node pigment-snap.mjs` builds the app and writes screenshots of every page to `.snaps/` at 1440px and
 390px wide, light and dark, and lists any page that scrolls sideways. `node pigment-snap.mjs /some/path`
