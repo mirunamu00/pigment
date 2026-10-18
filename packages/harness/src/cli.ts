@@ -91,12 +91,10 @@ program
   .option("--concurrency <n>", "apps in parallel (one sample of four apps runs in one wave at 4)", "4")
   .option("--timeout <minutes>", "per-app agent timeout", "45")
   .option("--samples <n>", "independent runs per app (judge the prompt, not one lucky or unlucky run)", "1")
-  .option("--over-budget", "run although the version family's budget would be exceeded — only when the user agreed to the cost")
   .option("--after-pass", "run although a candidate already passed — only when the user asked for it")
   .action(async (ref: string, opts) => {
     const { id, version } = parseRef(ref);
     await generate(id, version, {
-      overBudget: !!opts.overBudget,
       afterPass: !!opts.afterPass,
       apps: opts.apps?.map((a: string) => RunAppId.parse(a)),
       holdout: !!opts.holdout,

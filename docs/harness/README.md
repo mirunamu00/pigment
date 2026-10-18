@@ -11,9 +11,9 @@ reference URL
    │               pnpm harness check-analysis <slug>         → every audit area, evidence, survey consistency
    │  4. author     prompt-author agent                        → content/templates/<id>/<version>/  (the design prompt package)
    │  5. validate   pnpm harness validate <id>@<version>       → schema, required tokens, contrast, prompt lint
-   │  6. generate   pnpm harness generate <id>@<version>       → showcase/runs/<id>/<version>/<app>/<runId>/  (agent restyles each base app; one sample to screen, two more + holdout apps to confirm; refuses past the budget or after a pass)
+   │  6. generate   pnpm harness generate <id>@<version>       → showcase/runs/<id>/<version>/<app>/<runId>/  (agent restyles each base app; one sample to screen, two more + holdout apps to confirm; refuses after a pass)
    │               pnpm harness reshoot <id>@<version>        → capture the latest runs again after the capture code changes (no agent run)
-   │  7. evaluate   pnpm harness evaluate <id>@<version> [--samples 3] → gates in every sample, measured layout defects, reference similarity, spend
+   │  7. evaluate   pnpm harness evaluate <id>@<version> [--samples 3] → gates in every sample, measured layout defects, reference similarity
    │               pnpm harness critic-brief <id>@<version>   → the critic's generated assignment
    │               design-critic agent                         → findings: blocker / major / minor, general prompt fixes
    │               pnpm harness critic <id>@<version> <file>  → pass = no blocker, no major the prompt causes

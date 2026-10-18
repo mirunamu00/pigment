@@ -89,27 +89,12 @@ test("versions: family and core order", () => {
   assert.equal(compareCore("1.1.0", "1.1.0-rc.9"), 0);
 });
 
-test("budget: a new template gets the larger budget, an update the smaller; spend sums the family", () => {
-  const root = runsFixture({ "0.1.0-rc.1": 20, "0.1.0-rc.2": 30, "1.1.0-rc.1": 12 }, {});
-  const published = join(tmp(), "published.json");
-  write(published, { "demo@1.0.0": "hash" });
-  const first = familyCost("demo", "0.1.0-rc.3", root, published);
-  assert.equal(first.usd, 50);
-  assert.equal(first.runs, 4);
-  assert.equal(first.budgetUsd, 150, "the family that became the first published version was a new template");
-  const update = familyCost("demo", "1.1.0-rc.2", root, published);
-  assert.equal(update.usd, 12);
-  assert.equal(update.budgetUsd, 60);
-  assert.equal(update.perRunUsd, 62 / 6);
-});
-
-test("budget: generate refuses a run that would go over", () => {
-  // $30 over two runs: $15 a run. One more run ends at $45 of $60; four more at $90.
-  const root = runsFixture({ "1.1.0-rc.1": 30 }, {});
-  const published = join(tmp(), "published.json");
-  write(published, { "demo@1.0.0": "hash" });
-  assert.equal(generationBlock("demo", "1.1.0-rc.2", 1, root, published), null);
-  assert.match(generationBlock("demo", "1.1.0-rc.2", 4, root, published) ?? "", /\$30 of its \$60 budget/);
+test("spend sums every candidate of the family and decides nothing", () => {
+  const root = runsFixture({ "1.1.0-rc.1": 300, "1.1.0-rc.2": 30, "1.0.0": 12 }, {});
+  const cost = familyCost("demo", "1.1.0-rc.3", root);
+  assert.equal(cost.usd, 330);
+  assert.equal(cost.runs, 4);
+  assert.equal(generationBlock("demo", "1.1.0-rc.3", root), null);
 });
 
 test("stopping: a confirmed pass blocks new candidates and more runs; a screen pass asks for its confirm", () => {
@@ -117,11 +102,11 @@ test("stopping: a confirmed pass blocks new candidates and more runs; a screen p
   const confirmed = runsFixture({ "1.1.0-rc.2": 10 }, { "1.1.0-rc.2": evalReport("1.1.0-rc.2", "pass", apps, 3) });
   assert.deepEqual(passedCandidates("demo", "1.1.0-rc.3", confirmed), [{ version: "1.1.0-rc.2", samples: 3 }]);
   assert.match(candidateBlock("demo", "1.1.0-rc.3", confirmed) ?? "", /passed on 3 samples/);
-  assert.match(generationBlock("demo", "1.1.0-rc.2", 8, confirmed) ?? "", /nothing left to confirm/);
+  assert.match(generationBlock("demo", "1.1.0-rc.2", confirmed) ?? "", /nothing left to confirm/);
 
   const screened = runsFixture({ "1.1.0-rc.2": 10 }, { "1.1.0-rc.2": evalReport("1.1.0-rc.2", "pass", apps, 1) });
   assert.match(candidateBlock("demo", "1.1.0-rc.3", screened) ?? "", /passed the screen/);
-  assert.equal(generationBlock("demo", "1.1.0-rc.2", 2, screened), null, "the screened candidate may be confirmed");
+  assert.equal(generationBlock("demo", "1.1.0-rc.2", screened), null, "the screened candidate may be confirmed");
 });
 
 test("stopping: the fifth candidate is past the cap; failed candidates don't block", () => {

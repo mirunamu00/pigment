@@ -449,10 +449,8 @@ export const EvalReport = z.object({
     .array(z.object({ app: RunAppId, runId: z.string(), route: z.string(), viewport: z.string(), kind: z.string(), where: z.string(), detail: z.string() }))
     .optional(),
   critic: CriticScores.optional(),
-  /** Agent spend of this version and of its whole family (all candidates), against the family's budget. */
-  cost: z
-    .object({ versionUsd: z.number(), familyUsd: z.number(), familyRuns: z.number(), budgetUsd: z.number() })
-    .optional(),
+  /** Agent spend of this version and of its whole family (all candidates), for the record. */
+  cost: z.object({ versionUsd: z.number(), familyUsd: z.number(), familyRuns: z.number() }).optional(),
   verdict: z.enum(["pass", "fail", "pending-review"]),
   reasons: z.array(z.string()),
 });

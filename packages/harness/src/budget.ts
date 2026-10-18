@@ -5,19 +5,15 @@ import { paths } from "./paths.ts";
 import { readJson } from "./util.ts";
 
 /**
- * Agent runs are the expensive part of the pipeline: each one is a coding agent restyling a whole app. These
- * limits stop the loop that burned most of a week's budget: fixing small flaws of a candidate that had
- * already passed, one more sample at a time.
+ * When to stop making candidates. Another candidate after a pass only draws a new sample with new small
+ * flaws: it never converges. Spend is recorded for the report; it decides nothing.
  */
-export const BUDGET_USD = { newTemplate: 150, update: 60 };
 /** Candidates per version family: the first one plus three fix iterations. */
 export const MAX_CANDIDATES = 4;
 /** Samples a candidate passes on before it may be published: the screen run plus two more. */
 export const CONFIRM_SAMPLES = 3;
-/** Used to estimate a generation before any run of the template exists. */
-const FALLBACK_RUN_USD = 6;
 
-/** "1.1.0-rc.3" → "1.1.0": the candidates of one version share a family, and a budget. */
+/** "1.1.0-rc.3" → "1.1.0": the candidates of one version share a family. */
 export function versionFamily(version: string): string {
   return version.split("-")[0]!;
 }
@@ -72,13 +68,10 @@ export interface FamilyCost {
   usd: number;
   runs: number;
   minutes: number;
-  budgetUsd: number;
-  /** Mean cost of one agent run of this template (all versions), for estimates. */
-  perRunUsd: number;
 }
 
-/** Spend across every candidate of a version family, against its budget. */
-export function familyCost(id: string, version: string, runsRoot = paths.runs, publishedFile = paths.published): FamilyCost {
+/** Spend across every candidate of a version family (reported, never a limit). */
+export function familyCost(id: string, version: string, runsRoot = paths.runs): FamilyCost {
   const total = { usd: 0, runs: 0, minutes: 0 };
   for (const v of familyVersions(id, version, runsRoot)) {
     const c = versionCost(id, v, runsRoot);
@@ -86,23 +79,7 @@ export function familyCost(id: string, version: string, runsRoot = paths.runs, p
     total.runs += c.runs;
     total.minutes += c.minutes;
   }
-  const all = { usd: 0, runs: 0 };
-  const dir = join(runsRoot, id);
-  for (const v of existsSync(dir) ? readdirSync(dir) : []) {
-    const c = versionCost(id, v, runsRoot);
-    all.usd += c.usd;
-    all.runs += c.runs;
-  }
-  // An update when an earlier version of the template is published; the family that became the first published
-  // version was a new template.
-  const published = existsSync(publishedFile) ? Object.keys(readJson<Record<string, string>>(publishedFile)) : [];
-  const isUpdate = published.some((ref) => ref.startsWith(`${id}@`) && compareCore(ref.slice(id.length + 1), version) < 0);
-  return {
-    family: versionFamily(version),
-    ...total,
-    budgetUsd: isUpdate ? BUDGET_USD.update : BUDGET_USD.newTemplate,
-    perRunUsd: all.runs ? all.usd / all.runs : FALLBACK_RUN_USD,
-  };
+  return { family: versionFamily(version), ...total };
 }
 
 /** The latest evaluation of a version, if any. */
@@ -150,11 +127,8 @@ export function candidateBlock(id: string, version: string, runsRoot = paths.run
   return null;
 }
 
-/**
- * Why a generation must not start, or null: the family's budget would be exceeded, or more samples of an
- * already-confirmed candidate were requested.
- */
-export function generationBlock(id: string, version: string, plannedRuns: number, runsRoot = paths.runs, publishedFile = paths.published): string | null {
+/** Why a generation must not start, or null: a candidate of the family already passed. */
+export function generationBlock(id: string, version: string, runsRoot = paths.runs): string | null {
   const passed = passedCandidates(id, version, runsRoot);
   const other = passed.find((p) => p.samples >= CONFIRM_SAMPLES && p.version !== version) ?? passed.find((p) => p.version !== version);
   if (other) {
@@ -164,10 +138,5 @@ export function generationBlock(id: string, version: string, plannedRuns: number
   }
   const self = passed.find((p) => p.version === version);
   if (self && self.samples >= CONFIRM_SAMPLES) return `${id}@${version} already passed on ${self.samples} samples — nothing left to confirm (--after-pass if the user asked for this run).`;
-  const cost = familyCost(id, version, runsRoot, publishedFile);
-  const estimate = plannedRuns * cost.perRunUsd;
-  if (cost.usd + estimate > cost.budgetUsd) {
-    return `the ${cost.family} family has spent $${cost.usd.toFixed(0)} of its $${cost.budgetUsd} budget over ${cost.runs} runs, and this generation adds about $${estimate.toFixed(0)} (${plannedRuns} runs × $${cost.perRunUsd.toFixed(1)}). Ask the user before going over (--over-budget).`;
-  }
   return null;
 }

@@ -42,8 +42,8 @@ Candidates are `<next>-rc.1`, `-rc.2`, …; only the final version is published.
 5. **Generate, evaluate, critic** — same as for a new system (`docs/harness/README.md` steps 6–7). The
    critic also compares with the current version's runs (`showcase/runs/<id>/<current>/`): an update must
    not make any app worse.
-6. **Iterate** with new candidates (`--from <id>@<next>-rc.<n-1>`), at most four in all, within the update
-   budget (`evaluation-rubric.md` → Cost and when to stop). Stop at the first confirmed pass.
+6. **Iterate** with new candidates (`--from <id>@<next>-rc.<n-1>`), at most four in all
+   (`evaluation-rubric.md` → When to stop). Stop at the first confirmed pass.
 7. **Approval (stop here).** Show the person the current and the candidate screenshots side by side, the gate
    table, the critic's findings and the draft public changelog entry. Wait for an explicit yes.
 8. **Final version.**
