@@ -82,14 +82,14 @@ export async function generate(id: string, version: string, options: GenerateOpt
   const holdout = options.holdout ? (holdoutApps() as RunAppId[]).filter((a) => !apps.includes(a)) : [];
   const block = generationBlock(id, version);
   if (block && !options.afterPass) fail(`not generating: ${block}`);
-  // One generation per template version at a time: a second one (e.g. a restart after the first one's shell
-  // was killed but its process lived on) doubles memory use and interleaves runs.
-  const lock = join(runsDir(id, version), ".generate.lock");
+  // One generation per machine at a time: each base app serves on a fixed port, so two generations (of any
+  // templates) test and capture each other's apps; a restart whose predecessor lived on also doubles memory use.
+  const lock = join(paths.runs, ".generate.lock");
   if (existsSync(lock)) {
-    const pid = Number(readFileSync(lock, "utf8"));
-    if (pid && pid !== process.pid && isAlive(pid)) throw new Error(`generation for ${id}@${version} is already running (pid ${pid})`);
+    const [pid, ref] = readFileSync(lock, "utf8").split(" ");
+    if (Number(pid) && Number(pid) !== process.pid && isAlive(Number(pid))) throw new Error(`a generation is already running (${ref ?? "pid " + pid}); start this one after it`);
   }
-  writeText(lock, String(process.pid));
+  writeText(lock, `${process.pid} ${id}@${version}`);
   try {
     return await generateLocked(id, version, apps, holdout, options);
   } finally {
