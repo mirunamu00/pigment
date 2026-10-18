@@ -1,0 +1,2960 @@
+diff --git a/package.json b/package.json
+index 0d72e6b..6153560 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource-variable/inter": "^5.2.5",
++    "@fontsource/geist-mono": "^5.2.5",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/components/ConfirmDialog.tsx b/src/components/ConfirmDialog.tsx
+index 0ac9dd1..ab77e42 100644
+--- a/src/components/ConfirmDialog.tsx
++++ b/src/components/ConfirmDialog.tsx
+@@ -3,6 +3,8 @@ import { useEffect, useRef, type ReactNode } from 'react';
+ interface ConfirmDialogProps {
+   open: boolean;
+   title: string;
++  /** Mono caption above the title: the object or step. */
++  label?: string;
+   children: ReactNode;
+   confirmLabel: string;
+   onConfirm: () => void;
+@@ -17,6 +19,7 @@ interface ConfirmDialogProps {
+ export default function ConfirmDialog({
+   open,
+   title,
++  label,
+   children,
+   confirmLabel,
+   onConfirm,
+@@ -48,15 +51,26 @@ export default function ConfirmDialog({
+       }}
+       data-testid={testId}
+     >
++      {label && (
++        <p className="mono-label dialog-label" aria-hidden="true">
++          {label}
++        </p>
++      )}
+       <h2 id={`${testId}-title`}>{title}</h2>
+       <div id={`${testId}-body`} className="dialog-body">
+         {children}
+       </div>
+       <div className="dialog-actions">
+-        <button ref={cancelRef} type="button" className="button" onClick={onCancel} data-testid={`${testId}-cancel`}>
++        <button
++          ref={cancelRef}
++          type="button"
++          className="button button-bordered button-lg"
++          onClick={onCancel}
++          data-testid={`${testId}-cancel`}
++        >
+           Cancel
+         </button>
+-        <button type="button" className="button button-primary" onClick={onConfirm} data-testid={`${testId}-confirm`}>
++        <button type="button" className="button button-primary button-lg" onClick={onConfirm} data-testid={`${testId}-confirm`}>
+           {confirmLabel}
+         </button>
+       </div>
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 8802b51..c46d0c1 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,11 +1,19 @@
+ import { NavLink, Outlet } from 'react-router';
+ import { currentUser } from '../data/account';
+ 
++/* 16px icons, 1.5px butt-cap strokes, currentColor. */
++const ICONS = {
++  profile: 'M8 8.25a2.75 2.75 0 1 0 0-5.5a2.75 2.75 0 0 0 0 5.5M2.75 14c.5-2.6 2.6-4 5.25-4s4.75 1.4 5.25 4',
++  notifications: 'M4 11.5V7a4 4 0 0 1 8 0v4.5l1.25 1.25H2.75zM6.5 14.25h3',
++  security: 'M3.75 7.25h8.5v6.5h-8.5zM5.5 7.25V5a2.5 2.5 0 0 1 5 0v2.25M8 9.75v1.5',
++  billing: 'M1.75 3.75h12.5v8.5H1.75zM1.75 6.75h12.5M4 9.75h3',
++} as const;
++
+ const SECTIONS = [
+-  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile' },
+-  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications' },
+-  { to: '/settings/security', label: 'Security', testId: 'nav-security' },
+-  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing' },
++  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile', icon: ICONS.profile },
++  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications', icon: ICONS.notifications },
++  { to: '/settings/security', label: 'Security', testId: 'nav-security', icon: ICONS.security },
++  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing', icon: ICONS.billing },
+ ];
+ 
+ export default function Layout() {
+@@ -27,11 +35,17 @@ export default function Layout() {
+       <div className="settings-layout">
+         <aside className="sidebar">
+           <nav aria-label="Settings sections" data-testid="settings-nav">
++            <p className="mono-label nav-group-label" aria-hidden="true">
++              Account
++            </p>
+             <ul className="nav-list">
+               {SECTIONS.map((section) => (
+                 <li key={section.to}>
+                   <NavLink to={section.to} className="nav-link" data-testid={section.testId}>
+-                    {section.label}
++                    <svg className="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
++                      <path d={section.icon} fill="none" stroke="currentColor" strokeWidth="1.5" />
++                    </svg>
++                    <span>{section.label}</span>
+                   </NavLink>
+                 </li>
+               ))}
+diff --git a/src/pages/BillingPage.tsx b/src/pages/BillingPage.tsx
+index 54b10a4..a20f5b1 100644
+--- a/src/pages/BillingPage.tsx
++++ b/src/pages/BillingPage.tsx
+@@ -1,7 +1,10 @@
+ import { useState } from 'react';
+ import ConfirmDialog from '../components/ConfirmDialog';
++import { CheckIcon, ScreenHead, SectionHead, StatusIcon, TierSlabs } from '../components/signature';
+ import { initialPlanId, invoices, paymentMethod, plans, type Plan, type PlanId } from '../data/billing';
+ 
++const TIER: Record<PlanId, 1 | 2 | 3> = { free: 1, pro: 2, business: 3 };
++
+ export default function BillingPage() {
+   const [currentPlanId, setCurrentPlanId] = useState<PlanId>(initialPlanId);
+   const [pendingPlan, setPendingPlan] = useState<Plan | null>(null);
+@@ -18,112 +21,152 @@ export default function BillingPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Billing</h1>
+-        <p className="muted">
+-          You are on the <strong data-testid="current-plan-name">{currentPlan.name}</strong> plan.
++      <ScreenHead label="Settings · 4 of 4" title="Billing">
++        <p className="two-tone">
++          <b>
++            You are on the <strong data-testid="current-plan-name">{currentPlan.name}</strong> plan.
++          </b>{' '}
++          Invoices are issued on the first of each month.
+         </p>
+-      </div>
++      </ScreenHead>
+ 
+-      <section className="panel" aria-labelledby="plans-heading">
+-        <h2 id="plans-heading">Plans</h2>
+-        <ul className="plan-grid">
+-          {plans.map((plan) => {
+-            const isCurrent = plan.id === currentPlanId;
+-            return (
+-              <li
+-                key={plan.id}
+-                className={isCurrent ? 'card plan-card plan-card-current' : 'card plan-card'}
+-                data-testid={`plan-card-${plan.id}`}
+-                data-current={isCurrent ? 'true' : 'false'}
+-                aria-current={isCurrent ? 'true' : undefined}
+-              >
+-                <h3>{plan.name}</h3>
+-                <p className="plan-price">
+-                  <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
+-                </p>
+-                <ul className="feature-list">
+-                  {plan.features.map((feature) => (
+-                    <li key={feature}>
+-                      <svg className="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+-                        <path d="M3 8.5l3 3l7-7" fill="none" stroke="currentColor" strokeWidth="2" />
+-                      </svg>
+-                      <span>{feature}</span>
+-                    </li>
+-                  ))}
+-                </ul>
+-                {isCurrent ? (
+-                  <p className="pill pill-current" data-testid="current-plan-badge">
+-                    Current plan
++      <section className="settings-group split" aria-labelledby="plans-heading">
++        <SectionHead
++          index={1}
++          total={3}
++          title="Plans"
++          titleId="plans-heading"
++          description="Compare tiers and switch at any time."
++        />
++        <div className="controls">
++          <ul className="plan-grid">
++            {plans.map((plan) => {
++              const isCurrent = plan.id === currentPlanId;
++              return (
++                <li
++                  key={plan.id}
++                  className={isCurrent ? 'plan-card plan-card-current' : 'plan-card'}
++                  data-testid={`plan-card-${plan.id}`}
++                  data-current={isCurrent ? 'true' : 'false'}
++                  aria-current={isCurrent ? 'true' : undefined}
++                >
++                  <TierSlabs tier={TIER[plan.id]} />
++                  <h3 className="plan-name">{plan.name}</h3>
++                  <p className="plan-price">
++                    <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
+                   </p>
+-                ) : (
+-                  <button
+-                    type="button"
+-                    className="button"
+-                    onClick={() => setPendingPlan(plan)}
+-                    data-testid={`choose-plan-${plan.id}`}
+-                  >
+-                    Switch to {plan.name}
+-                  </button>
+-                )}
+-              </li>
+-            );
+-          })}
+-        </ul>
+-        <p role="status" className="status-message" data-testid="plan-status">
+-          {message}
+-        </p>
++                  <ul className="feature-list">
++                    {plan.features.map((feature) => (
++                      <li key={feature}>
++                        <CheckIcon />
++                        <span>{feature}</span>
++                      </li>
++                    ))}
++                  </ul>
++                  {isCurrent ? (
++                    <p className="badge badge-current" data-testid="current-plan-badge">
++                      <span className="status-dot status-dot--success" aria-hidden="true" />
++                      <span className="badge-label">Current plan</span>
++                    </p>
++                  ) : (
++                    <button
++                      type="button"
++                      className="button"
++                      onClick={() => setPendingPlan(plan)}
++                      data-testid={`choose-plan-${plan.id}`}
++                    >
++                      Switch to {plan.name}
++                    </button>
++                  )}
++                </li>
++              );
++            })}
++          </ul>
++          <div className="status-line">
++            {message && <CheckIcon className="icon status-check" />}
++            <p role="status" className="status-message" data-testid="plan-status">
++              {message}
++            </p>
++          </div>
++        </div>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="payment-heading">
+-        <h2 id="payment-heading">Payment method</h2>
+-        <div className="payment-method" data-testid="payment-method">
+-          <svg className="card-icon" viewBox="0 0 32 22" width="32" height="22" aria-hidden="true" focusable="false">
+-            <rect x="1" y="1" width="30" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-            <rect x="1" y="6" width="30" height="4" fill="currentColor" />
+-          </svg>
+-          <span>
+-            {paymentMethod.brand} ending in {paymentMethod.last4}
+-          </span>
+-          <span className="muted small">Expires {paymentMethod.expires}</span>
++      <section className="settings-group split" aria-labelledby="payment-heading">
++        <SectionHead
++          index={2}
++          total={3}
++          title="Payment method"
++          titleId="payment-heading"
++          description="Charged automatically on each invoice date."
++        />
++        <div className="controls">
++          <div className="card payment-method" data-testid="payment-method">
++            <svg className="card-icon" viewBox="0 0 32 22" width="32" height="22" aria-hidden="true" focusable="false">
++              <rect x="1" y="1" width="30" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
++              <path d="M1 7.25h30" fill="none" stroke="currentColor" strokeWidth="1.5" />
++              <path d="M5 15.25h7" fill="none" stroke="currentColor" strokeWidth="1.5" />
++            </svg>
++            <span className="payment-method-name">
++              {paymentMethod.brand} ending in {paymentMethod.last4}
++            </span>
++            <span className="mono-label">Expires {paymentMethod.expires}</span>
++          </div>
+         </div>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="invoices-heading">
+-        <h2 id="invoices-heading">Invoices</h2>
+-        <div className="table-wrap">
+-          <table className="table" data-testid="invoices-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Invoice</th>
+-                <th scope="col">Date</th>
+-                <th scope="col" className="numeric">
+-                  Amount
+-                </th>
+-                <th scope="col">Status</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {invoices.map((invoice) => (
+-                <tr key={invoice.id} data-testid="invoice-row">
+-                  <td>{invoice.id}</td>
+-                  <td>{invoice.date}</td>
+-                  <td className="numeric">{invoice.amount}</td>
+-                  <td>
+-                    <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
+-                      {invoice.status}
+-                    </span>
+-                  </td>
++      <section className="settings-group split" aria-labelledby="invoices-heading">
++        <SectionHead
++          index={3}
++          total={3}
++          title="Invoices"
++          titleId="invoices-heading"
++          description="The last five months of charges."
++        />
++        <div className="controls">
++          <div className="tbl-wrap">
++            <table className="tbl" data-testid="invoices-table">
++              <thead>
++                <tr>
++                  <th scope="col">Invoice</th>
++                  <th scope="col">Date</th>
++                  <th scope="col" className="num">
++                    Amount
++                  </th>
++                  <th scope="col" className="pin">
++                    Status
++                  </th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
++              </thead>
++              <tbody>
++                {invoices.map((invoice) => (
++                  <tr key={invoice.id} data-testid="invoice-row">
++                    <td>
++                      <div className="cell-first">
++                        <span className="cell-lines" data-sub={`${invoice.date} · ${invoice.amount}`}>
++                          <span className="mono">{invoice.id}</span>
++                        </span>
++                      </div>
++                    </td>
++                    <td className="mono">{invoice.date}</td>
++                    <td className="num">{invoice.amount}</td>
++                    <td className="pin">
++                      <span className="cell-status">
++                        <StatusIcon kind={invoice.status === 'Paid' ? 'done' : 'progress'} />
++                        {invoice.status}
++                      </span>
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
+         </div>
+       </section>
+ 
+       <ConfirmDialog
+         open={pendingPlan !== null}
+         title={pendingPlan ? `Switch to the ${pendingPlan.name} plan?` : 'Change plan'}
++        label="Plan change"
+         confirmLabel="Confirm change"
+         onConfirm={confirmChange}
+         onCancel={() => setPendingPlan(null)}
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 9781ca6..b304e84 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,26 @@
+-import { Link } from 'react-router';
++import { Link, useNavigate } from 'react-router';
++import { BrokenConnector, Stage } from '../components/signature';
+ 
+ export default function NotFoundPage() {
++  const navigate = useNavigate();
+   return (
+-    <section className="empty-state" data-testid="not-found">
++    <section className="error-state" data-testid="not-found">
++      <Stage quiet>
++        <BrokenConnector width={300} />
++      </Stage>
++      <p className="mono-label">Err 404</p>
+       <h1>Page not found</h1>
+-      <p className="muted">The settings page you are looking for does not exist or has moved.</p>
+-      <Link to="/settings/profile">Go to profile settings</Link>
++      <p className="two-tone">
++        <b>The settings page you are looking for does not exist or has moved.</b> Pick a section from the menu.
++      </p>
++      <div className="empty-actions">
++        <Link to="/settings/profile" className="button button-primary button-lg">
++          Go to profile settings
++        </Link>
++        <button type="button" className="button button-lg" onClick={() => navigate(-1)}>
++          Go back
++        </button>
++      </div>
+     </section>
+   );
+ }
+diff --git a/src/pages/NotificationsPage.tsx b/src/pages/NotificationsPage.tsx
+index 040835b..f270f16 100644
+--- a/src/pages/NotificationsPage.tsx
++++ b/src/pages/NotificationsPage.tsx
+@@ -1,4 +1,5 @@
+ import { useState } from 'react';
++import { ScreenHead } from '../components/signature';
+ import { notificationGroups } from '../data/notifications';
+ 
+ function initialState(): Record<string, boolean> {
+@@ -9,6 +10,8 @@ function initialState(): Record<string, boolean> {
+   return state;
+ }
+ 
++const pad = (n: number) => String(n).padStart(2, '0');
++
+ export default function NotificationsPage() {
+   const [enabled, setEnabled] = useState<Record<string, boolean>>(initialState);
+ 
+@@ -21,19 +24,27 @@ export default function NotificationsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Notifications</h1>
+-        <p className="muted">Choose what you hear about and where. Changes apply right away.</p>
+-        <p className="small" data-testid="notifications-count">
++      <ScreenHead label="Settings · 2 of 4" title="Notifications">
++        <p className="two-tone">
++          <b>Choose what you hear about and where.</b> Changes apply right away.
++        </p>
++        <p className="mono-label" data-testid="notifications-count">
+           {onCount} of {total} notifications on
+         </p>
+-      </div>
++      </ScreenHead>
+ 
+-      {notificationGroups.map((group) => (
+-        <fieldset key={group.id} className="panel fieldset" data-testid={`notification-group-${group.id}`}>
+-          <legend className="legend">{group.title}</legend>
+-          <p className="muted small">{group.description}</p>
+-          <ul className="switch-list">
++      {notificationGroups.map((group, index) => (
++        <fieldset key={group.id} className="settings-group split fieldset" data-testid={`notification-group-${group.id}`}>
++          <legend className="legend">
++            <span className="mono-label section-counter" aria-hidden="true">
++              {pad(index + 1)} / {pad(notificationGroups.length)}
++            </span>
++            <span className="section-title">{group.title}</span>
++          </legend>
++          <div className="section-head">
++            <p className="section-desc">{group.description}</p>
++          </div>
++          <ul className="switch-list controls">
+             {group.settings.map((setting) => {
+               const inputId = `switch-${setting.id}`;
+               const descriptionId = `${inputId}-description`;
+@@ -43,9 +54,7 @@ export default function NotificationsPage() {
+                     <label htmlFor={inputId} className="field-label">
+                       {setting.label}
+                     </label>
+-                    <p id={descriptionId} className="muted small">
+-                      {setting.description}
+-                    </p>
++                    <p id={descriptionId}>{setting.description}</p>
+                   </div>
+                   <input
+                     id={inputId}
+diff --git a/src/pages/ProfilePage.tsx b/src/pages/ProfilePage.tsx
+index 89f0a81..459fc56 100644
+--- a/src/pages/ProfilePage.tsx
++++ b/src/pages/ProfilePage.tsx
+@@ -1,4 +1,5 @@
+ import { useState, type ChangeEvent, type FormEvent } from 'react';
++import { CheckIcon, Fig, FormBanner, ScreenHead, SectionHead, Stage } from '../components/signature';
+ import { BIO_MAX_LENGTH, currentUser, initialProfile, timeZones, type Profile } from '../data/account';
+ 
+ type ProfileErrors = Partial<Record<keyof Profile, string>>;
+@@ -55,159 +56,227 @@ export default function ProfilePage() {
+       .map((part) => part[0]?.toUpperCase())
+       .join('') || currentUser.initials;
+ 
++  const zoneLabel = timeZones.find((zone) => zone.value === profile.timeZone)?.label ?? 'No time zone';
++  const errorCount = Object.keys(errors).length;
++
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Profile</h1>
+-        <p className="muted">This information is shown to people in your workspace.</p>
+-      </div>
+-
+-      <form className="panel form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
+-        <div className="avatar-row">
+-          <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
+-            {initials}
+-          </span>
+-          <div>
+-            <p className="field-label">Profile photo</p>
+-            <p className="muted small">A placeholder with your initials is shown until you upload a photo.</p>
+-            <button type="button" className="button" data-testid="change-photo">
+-              <svg className="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+-                <path
+-                  d="M4 7h3l2-2h6l2 2h3v12H4z M12 10a3 3 0 1 0 0 6a3 3 0 0 0 0-6"
+-                  fill="none"
+-                  stroke="currentColor"
+-                  strokeWidth="2"
+-                  strokeLinejoin="round"
+-                />
+-              </svg>
+-              <span>Change photo</span>
+-            </button>
+-          </div>
+-        </div>
+-
+-        <div className="form-grid">
+-          <div className="field">
+-            <label htmlFor="profile-fullName" className="field-label">
+-              Full name
+-            </label>
+-            <input
+-              id="profile-fullName"
+-              type="text"
+-              className="input"
+-              autoComplete="name"
+-              value={profile.fullName}
+-              onChange={update('fullName')}
+-              aria-invalid={errors.fullName ? true : undefined}
+-              aria-describedby={errors.fullName ? 'profile-fullName-error' : undefined}
+-              data-testid="profile-name"
+-            />
+-            {errors.fullName && (
+-              <p id="profile-fullName-error" className="field-error" data-testid="error-name">
+-                {errors.fullName}
+-              </p>
+-            )}
+-          </div>
++      <ScreenHead label="Settings · 1 of 4" title="Profile">
++        <p className="two-tone">
++          <b>This information is shown to people in your workspace.</b> Your name and photo appear beside everything you
++          post.
++        </p>
++      </ScreenHead>
+ 
+-          <div className="field">
+-            <label htmlFor="profile-email" className="field-label">
+-              Email
+-            </label>
+-            <input
+-              id="profile-email"
+-              type="email"
+-              className="input"
+-              autoComplete="email"
+-              value={profile.email}
+-              onChange={update('email')}
+-              aria-invalid={errors.email ? true : undefined}
+-              aria-describedby={errors.email ? 'profile-email-error' : undefined}
+-              data-testid="profile-email"
+-            />
+-            {errors.email && (
+-              <p id="profile-email-error" className="field-error" data-testid="error-email">
+-                {errors.email}
+-              </p>
+-            )}
+-          </div>
++      <form className="form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
++        <section className="settings-group split" aria-labelledby="profile-card-heading">
++          <SectionHead
++            index={1}
++            total={2}
++            title="Public profile"
++            titleId="profile-card-heading"
++            description="Your card as teammates see it in mentions and member lists."
++          />
++          <div className="controls controls-form">
++            <div>
++              <Stage quiet className="preview-stage">
++                <div className="member-card">
++                  <div className="member-card-head">
++                    <span className="avatar avatar-profile">{initials}</span>
++                    <span className="member-card-lines">
++                      <span className="member-card-name">{profile.fullName.trim() || 'Your name'}</span>
++                      <span className="member-card-sub">{profile.jobTitle.trim() || 'Member'}</span>
++                    </span>
++                  </div>
++                  <dl className="member-card-rows">
++                    <div>
++                      <dt>Email</dt>
++                      <dd>{profile.email.trim() || 'No email'}</dd>
++                    </div>
++                    <div>
++                      <dt>Local time</dt>
++                      <dd>{zoneLabel}</dd>
++                    </div>
++                  </dl>
++                  {profile.bio.trim() && <p className="member-card-bio">{profile.bio}</p>}
++                </div>
++              </Stage>
++              <Fig number="FIG 0.1" name="Member card">
++                Updates as you edit the details below.
++              </Fig>
++            </div>
+ 
+-          <div className="field">
+-            <label htmlFor="profile-jobTitle" className="field-label">
+-              Job title <span className="muted small">(optional)</span>
+-            </label>
+-            <input
+-              id="profile-jobTitle"
+-              type="text"
+-              className="input"
+-              autoComplete="organization-title"
+-              value={profile.jobTitle}
+-              onChange={update('jobTitle')}
+-              data-testid="profile-job-title"
+-            />
++            <div className="photo-row">
++              <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
++                {initials}
++              </span>
++              <div className="photo-text">
++                <p className="field-label">Profile photo</p>
++                <p className="field-helper">A placeholder with your initials is shown until you upload a photo.</p>
++                <button type="button" className="button" data-testid="change-photo">
++                  <svg className="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
++                    <path
++                      d="M1.75 4.75h3l1.5-2h3.5l1.5 2h3v8.5H1.75zM8 6.5a2.25 2.25 0 1 0 0 4.5a2.25 2.25 0 0 0 0-4.5"
++                      fill="none"
++                      stroke="currentColor"
++                      strokeWidth="1.5"
++                    />
++                  </svg>
++                  <span>Change photo</span>
++                </button>
++              </div>
++            </div>
+           </div>
++        </section>
+ 
+-          <div className="field">
+-            <label htmlFor="profile-timeZone" className="field-label">
+-              Time zone
+-            </label>
+-            <select
+-              id="profile-timeZone"
+-              className="input"
+-              value={profile.timeZone}
+-              onChange={update('timeZone')}
+-              aria-invalid={errors.timeZone ? true : undefined}
+-              aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
+-              data-testid="profile-timezone"
+-            >
+-              <option value="">Select a time zone</option>
+-              {timeZones.map((zone) => (
+-                <option key={zone.value} value={zone.value}>
+-                  {zone.label}
+-                </option>
+-              ))}
+-            </select>
+-            {errors.timeZone && (
+-              <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
+-                {errors.timeZone}
+-              </p>
+-            )}
+-          </div>
++        <section className="settings-group split" aria-labelledby="profile-details-heading">
++          <SectionHead
++            index={2}
++            total={2}
++            title="Details"
++            titleId="profile-details-heading"
++            description="Name, contact email, role and the hours you keep."
++          />
++          <div className="controls-form">
++            <div className="form-stack">
++              <div className="field">
++                <label htmlFor="profile-fullName" className="field-label">
++                  Full name
++                </label>
++                <input
++                  id="profile-fullName"
++                  type="text"
++                  className="input"
++                  autoComplete="name"
++                  value={profile.fullName}
++                  onChange={update('fullName')}
++                  aria-invalid={errors.fullName ? true : undefined}
++                  aria-describedby={errors.fullName ? 'profile-fullName-error' : undefined}
++                  data-testid="profile-name"
++                />
++                {errors.fullName && (
++                  <p id="profile-fullName-error" className="field-error" data-testid="error-name">
++                    {errors.fullName}
++                  </p>
++                )}
++              </div>
++
++              <div className="field">
++                <label htmlFor="profile-email" className="field-label">
++                  Email
++                </label>
++                <input
++                  id="profile-email"
++                  type="email"
++                  className="input"
++                  autoComplete="email"
++                  value={profile.email}
++                  onChange={update('email')}
++                  aria-invalid={errors.email ? true : undefined}
++                  aria-describedby={errors.email ? 'profile-email-error' : undefined}
++                  data-testid="profile-email"
++                />
++                {errors.email && (
++                  <p id="profile-email-error" className="field-error" data-testid="error-email">
++                    {errors.email}
++                  </p>
++                )}
++              </div>
++
++              <div className="field">
++                <label htmlFor="profile-jobTitle" className="field-label">
++                  Job title <span className="muted small">(optional)</span>
++                </label>
++                <input
++                  id="profile-jobTitle"
++                  type="text"
++                  className="input"
++                  autoComplete="organization-title"
++                  value={profile.jobTitle}
++                  onChange={update('jobTitle')}
++                  data-testid="profile-job-title"
++                />
++              </div>
++
++              <div className="field">
++                <label htmlFor="profile-timeZone" className="field-label">
++                  Time zone
++                </label>
++                <div className="select-wrap">
++                  <select
++                    id="profile-timeZone"
++                    className="input"
++                    value={profile.timeZone}
++                    onChange={update('timeZone')}
++                    aria-invalid={errors.timeZone ? true : undefined}
++                    aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
++                    data-testid="profile-timezone"
++                  >
++                    <option value="">Select a time zone</option>
++                    {timeZones.map((zone) => (
++                      <option key={zone.value} value={zone.value}>
++                        {zone.label}
++                      </option>
++                    ))}
++                  </select>
++                  <svg className="icon chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
++                    <path d="M4.5 6.25L8 9.75l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
++                  </svg>
++                </div>
++                {errors.timeZone && (
++                  <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
++                    {errors.timeZone}
++                  </p>
++                )}
++              </div>
++
++              <div className="field">
++                <label htmlFor="profile-bio" className="field-label">
++                  Bio
++                </label>
++                <textarea
++                  id="profile-bio"
++                  className="input textarea"
++                  rows={4}
++                  value={profile.bio}
++                  onChange={update('bio')}
++                  aria-invalid={errors.bio ? true : undefined}
++                  aria-describedby={errors.bio ? 'profile-bio-hint profile-bio-error' : 'profile-bio-hint'}
++                  data-testid="profile-bio"
++                />
++                <div className="field-meta">
++                  {errors.bio ? (
++                    <p id="profile-bio-error" className="field-error" data-testid="error-bio">
++                      {errors.bio}
++                    </p>
++                  ) : (
++                    <p className="field-helper">A sentence or two about your work.</p>
++                  )}
++                  <p id="profile-bio-hint" className="mono-label" data-testid="bio-count">
++                    {profile.bio.length} / {BIO_MAX_LENGTH} characters
++                  </p>
++                </div>
++              </div>
++            </div>
++
++            <FormBanner count={errorCount} />
+ 
+-          <div className="field field-wide">
+-            <label htmlFor="profile-bio" className="field-label">
+-              Bio
+-            </label>
+-            <textarea
+-              id="profile-bio"
+-              className="input textarea"
+-              rows={4}
+-              value={profile.bio}
+-              onChange={update('bio')}
+-              aria-invalid={errors.bio ? true : undefined}
+-              aria-describedby={errors.bio ? 'profile-bio-hint profile-bio-error' : 'profile-bio-hint'}
+-              data-testid="profile-bio"
+-            />
+-            <p id="profile-bio-hint" className="muted small" data-testid="bio-count">
+-              {profile.bio.length} / {BIO_MAX_LENGTH} characters
+-            </p>
+-            {errors.bio && (
+-              <p id="profile-bio-error" className="field-error" data-testid="error-bio">
+-                {errors.bio}
+-              </p>
+-            )}
++            <div className="form-actions">
++              <button type="submit" className="button button-primary button-lg" data-testid="profile-save">
++                Save changes
++              </button>
++              <button type="button" className="button button-lg" onClick={handleReset} data-testid="profile-reset">
++                Reset
++              </button>
++              <div className="form-status">
++                {saved && <CheckIcon className="icon status-check" />}
++                <p role="status" className="status-message" data-testid="profile-status">
++                  {saved ? 'Saved' : ''}
++                </p>
++              </div>
++            </div>
+           </div>
+-        </div>
+-
+-        <div className="form-actions">
+-          <button type="submit" className="button button-primary" data-testid="profile-save">
+-            Save changes
+-          </button>
+-          <button type="button" className="button" onClick={handleReset} data-testid="profile-reset">
+-            Reset
+-          </button>
+-          <p role="status" className="status-message" data-testid="profile-status">
+-            {saved ? 'Saved' : ''}
+-          </p>
+-        </div>
++        </section>
+       </form>
+     </>
+   );
+diff --git a/src/pages/SecurityPage.tsx b/src/pages/SecurityPage.tsx
+index 3498f5d..e1b674b 100644
+--- a/src/pages/SecurityPage.tsx
++++ b/src/pages/SecurityPage.tsx
+@@ -1,4 +1,5 @@
+ import { useState, type FormEvent } from 'react';
++import { CheckIcon, DotMeter, EmptyState, FormBanner, Pulse, ScreenHead, SectionHead } from '../components/signature';
+ import { initialSessions, type Session } from '../data/sessions';
+ 
+ interface PasswordForm {
+@@ -12,19 +13,35 @@ type PasswordErrors = Partial<Record<keyof PasswordForm, string>>;
+ const EMPTY_FORM: PasswordForm = { current: '', next: '', confirm: '' };
+ const MIN_LENGTH = 8;
+ 
+-function strengthOf(password: string): { label: string; level: 'none' | 'weak' | 'fair' | 'strong' } {
+-  if (!password) return { label: `Use at least ${MIN_LENGTH} characters.`, level: 'none' };
+-  if (password.length < MIN_LENGTH) return { label: 'Too short', level: 'weak' };
++function varietyOf(password: string) {
+   let variety = 0;
+   if (/[a-z]/.test(password)) variety += 1;
+   if (/[A-Z]/.test(password)) variety += 1;
+   if (/\d/.test(password)) variety += 1;
+   if (/[^A-Za-z0-9]/.test(password)) variety += 1;
++  return variety;
++}
++
++function strengthOf(password: string): { label: string; level: 'none' | 'weak' | 'fair' | 'strong' } {
++  if (!password) return { label: `Use at least ${MIN_LENGTH} characters.`, level: 'none' };
++  if (password.length < MIN_LENGTH) return { label: 'Too short', level: 'weak' };
++  const variety = varietyOf(password);
+   if (variety >= 3 && password.length >= 12) return { label: 'Strong', level: 'strong' };
+   if (variety >= 2) return { label: 'Fair', level: 'fair' };
+   return { label: 'Weak', level: 'weak' };
+ }
+ 
++/** Password strength as a 1-to-5 level for the dot meter. */
++function meterOf(password: string, level: ReturnType<typeof strengthOf>['level']) {
++  if (level === 'none') return 0;
++  if (password.length < MIN_LENGTH) return 1;
++  if (level === 'weak') return 2;
++  if (level === 'fair') return 3;
++  return varietyOf(password) === 4 ? 5 : 4;
++}
++
++const METER_TONE = { none: undefined, weak: 'danger', fair: 'warning', strong: 'success' } as const;
++
+ function validate(form: PasswordForm): PasswordErrors {
+   const errors: PasswordErrors = {};
+   if (!form.current) errors.current = 'Enter your current password.';
+@@ -49,6 +66,7 @@ export default function SecurityPage() {
+   const [sessionMessage, setSessionMessage] = useState('');
+ 
+   const strength = strengthOf(form.next);
++  const meter = meterOf(form.next, strength.level);
+ 
+   function handleSubmit(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+@@ -71,14 +89,21 @@ export default function SecurityPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Security</h1>
+-        <p className="muted">Manage your password and the devices signed in to your account.</p>
+-      </div>
+-
+-      <section className="panel" aria-labelledby="password-heading">
+-        <h2 id="password-heading">Change password</h2>
+-        <form className="form" noValidate onSubmit={handleSubmit} data-testid="password-form">
++      <ScreenHead label="Settings · 3 of 4" title="Security">
++        <p className="two-tone">
++          <b>Manage your password and the devices signed in to your account.</b> Sign out anything you don't recognise.
++        </p>
++      </ScreenHead>
++
++      <section className="settings-group split" aria-labelledby="password-heading">
++        <SectionHead
++          index={1}
++          total={2}
++          title="Change password"
++          titleId="password-heading"
++          description="Pick one you don't use on any other site."
++        />
++        <form className="form controls-form" noValidate onSubmit={handleSubmit} data-testid="password-form">
+           <div className="form-stack">
+             {FIELDS.map((field) => {
+               const id = `password-${field.key}`;
+@@ -108,14 +133,17 @@ export default function SecurityPage() {
+                     data-testid={field.testId}
+                   />
+                   {field.key === 'next' && (
+-                    <p
+-                      id="password-strength"
+-                      className={`strength strength-${strength.level} small`}
+-                      data-testid="password-strength"
+-                      data-level={strength.level}
+-                    >
+-                      {strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}
+-                    </p>
++                    <div className="strength-row">
++                      <DotMeter level={meter} tone={METER_TONE[strength.level]} />
++                      <p
++                        id="password-strength"
++                        className={`strength strength-${strength.level} small`}
++                        data-testid="password-strength"
++                        data-level={strength.level}
++                      >
++                        {strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}
++                      </p>
++                    </div>
+                   )}
+                   {errors[field.key] && (
+                     <p id={`${id}-error`} className="field-error" data-testid={`error-${field.testId}`}>
+@@ -126,70 +154,102 @@ export default function SecurityPage() {
+               );
+             })}
+           </div>
++          <FormBanner count={Object.keys(errors).length} />
+           <div className="form-actions">
+-            <button type="submit" className="button button-primary" data-testid="password-submit">
++            <button type="submit" className="button button-primary button-lg" data-testid="password-submit">
+               Update password
+             </button>
+-            <p role="status" className="status-message" data-testid="password-status">
+-              {updated ? 'Password updated' : ''}
+-            </p>
++            <div className="form-status">
++              {updated && <CheckIcon className="icon status-check" />}
++              <p role="status" className="status-message" data-testid="password-status">
++                {updated ? 'Password updated' : ''}
++              </p>
++            </div>
+           </div>
+         </form>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="sessions-heading">
+-        <h2 id="sessions-heading">Active sessions</h2>
+-        <p className="muted small">Revoke a session to sign that device out immediately.</p>
+-        <div className="table-wrap">
+-          <table className="table" data-testid="sessions-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Device</th>
+-                <th scope="col">Location</th>
+-                <th scope="col">Last active</th>
+-                <th scope="col">
+-                  <span className="visually-hidden">Actions</span>
+-                </th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {sessions.map((session) => (
+-                <tr key={session.id} data-testid="session-row">
+-                  <td>
+-                    {session.device}
+-                    {session.current && (
+-                      <span className="pill pill-neutral small" data-testid="current-session">
+-                        This device
+-                      </span>
+-                    )}
+-                  </td>
+-                  <td>{session.location}</td>
+-                  <td>{session.lastActive}</td>
+-                  <td className="cell-actions">
+-                    {!session.current && (
+-                      <button
+-                        type="button"
+-                        className="button button-danger"
+-                        onClick={() => revoke(session)}
+-                        data-testid={`revoke-${session.id}`}
+-                      >
+-                        Revoke<span className="visually-hidden"> {session.device}</span>
+-                      </button>
+-                    )}
+-                  </td>
++      <section className="settings-group split" aria-labelledby="sessions-heading">
++        <SectionHead
++          index={2}
++          total={2}
++          title="Active sessions"
++          titleId="sessions-heading"
++          description="Revoke a session to sign that device out immediately."
++        />
++        <div className="controls">
++          <div className="tbl-wrap">
++            <table className="tbl" data-testid="sessions-table">
++              <thead>
++                <tr>
++                  <th scope="col">Device</th>
++                  <th scope="col">Location</th>
++                  <th scope="col">Last active</th>
++                  <th scope="col" className="pin">
++                    <span className="visually-hidden">Actions</span>
++                  </th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
++              </thead>
++              <tbody>
++                {sessions.map((session) => (
++                  <tr key={session.id} data-testid="session-row">
++                    <td>
++                      <div className="cell-first">
++                        <span className="cell-lines" data-sub={`${session.location} · ${session.lastActive}`}>
++                          <span>
++                            {session.device}
++                            {session.current && (
++                              <span className="badge" data-testid="current-session">
++                                <span className="status-dot status-dot--success" aria-hidden="true" />
++                                <span className="badge-label">This device</span>
++                              </span>
++                            )}
++                          </span>
++                        </span>
++                      </div>
++                    </td>
++                    <td>{session.location}</td>
++                    <td>
++                      {session.current ? (
++                        <span className="cell-live">
++                          <Pulse />
++                          {session.lastActive}
++                        </span>
++                      ) : (
++                        session.lastActive
++                      )}
++                    </td>
++                    <td className="pin">
++                      {!session.current && (
++                        <button
++                          type="button"
++                          className="button button-bordered button-sm"
++                          onClick={() => revoke(session)}
++                          data-testid={`revoke-${session.id}`}
++                        >
++                          Revoke<span className="visually-hidden"> {session.device}</span>
++                        </button>
++                      )}
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++          {sessions.length === 1 && (
++            <EmptyState
++              caption="No other sessions"
++              lead="No other devices are signed in."
++              rest="New sign-ins show up here."
++              testId="sessions-empty"
++            />
++          )}
++          <div className="status-line">
++            <p role="status" className="status-message muted" data-testid="sessions-status">
++              {sessionMessage}
++            </p>
++          </div>
+         </div>
+-        {sessions.length === 1 && (
+-          <p className="muted small" data-testid="sessions-empty">
+-            No other devices are signed in.
+-          </p>
+-        )}
+-        <p role="status" className="status-message" data-testid="sessions-status">
+-          {sessionMessage}
+-        </p>
+       </section>
+     </>
+   );
+diff --git a/src/styles/base.css b/src/styles/base.css
+index bfb6f76..e7e6b39 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,60 +1,71 @@
+ /*
+- * Base styles for the Account Settings app.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Account Settings on Graphite Blueprint 1.1.0-rc.6.
++ * Values come from tokens.css (copied from the design package); signature elements
++ * are in signature.css. This file holds the root setup, the app shell and components.
+  */
++@import './tokens.css';
++@import './signature.css';
++
++/* Fonts: self-hosted Inter (variable) and Geist Mono 400. */
++@font-face {
++  font-family: Inter;
++  font-style: normal;
++  font-display: swap;
++  font-weight: 100 900;
++  src: url('../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
++  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
++    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
++}
++@font-face {
++  font-family: Inter;
++  font-style: normal;
++  font-display: swap;
++  font-weight: 100 900;
++  src: url('../../node_modules/@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2') format('woff2-variations');
++  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
++    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
++}
++@font-face {
++  font-family: 'Geist Mono';
++  font-style: normal;
++  font-display: swap;
++  font-weight: 400;
++  src: url('../../node_modules/@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2') format('woff2');
++}
++
++/* Old variable names, aliased onto the design tokens (names that clash with tokens were retired). */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-danger-bg: #fdecee;
+-  --color-switch-off: #bbbbbb;
+-  --color-switch-on: #0645ad;
+-  --color-switch-thumb: #ffffff;
+-  --color-strength-weak: #b00020;
+-  --color-strength-fair: #7a5a00;
+-  --color-strength-strong: #2e7d32;
+-  --color-pill-neutral-bg: #e8e8e8;
+-  --color-pill-neutral-text: #444444;
+-  --color-pill-current-bg: #e3f2e5;
+-  --color-pill-current-text: #1b5e20;
+-  --color-pill-due-bg: #fff4d6;
+-  --color-pill-due-text: #7a5a00;
+-  --color-backdrop: rgba(0, 0, 0, 0.4);
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
+-  --content-max-width: 880px;
+-  --avatar-size-large: 72px;
+-  --switch-width: 40px;
+-  --switch-height: 22px;
+-}
+-
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-default);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-subtle);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-primary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-status-success);
++  --color-negative: var(--color-status-danger);
++  --color-danger-bg: var(--color-status-danger-tint);
++  --color-backdrop: var(--color-surface-overlay);
++  --font-body: var(--font-family-sans);
++  --radius: var(--radius-sm);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hairline);
++  --sidebar-width: var(--size-sidebar);
++
++  color-scheme: light dark;
++}
++:root[data-theme='light'] {
++  color-scheme: light;
++}
++:root[data-theme='dark'] {
++  color-scheme: dark;
++}
++
++/* Root */
+ *,
+ *::before,
+ *::after {
+@@ -64,56 +75,85 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-body);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-body);
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  color: var(--color-text-primary);
++  text-wrap: balance;
+ }
+ 
+-h1 {
+-  font-size: var(--font-size-h1);
++p,
++li {
++  text-wrap: pretty;
+ }
+ 
+-h2 {
+-  font-size: var(--font-size-h2);
++p {
++  margin: 0;
+ }
+ 
+-h3 {
+-  font-size: var(--font-size-base);
++fieldset {
++  margin: 0;
++  padding: 0;
++  border: 0;
++  min-width: 0;
+ }
+ 
+-p {
+-  margin: 0 0 var(--space-2);
++legend {
++  padding: 0;
++}
++
++pre,
++code,
++kbd,
++samp {
++  font-family: var(--font-family-mono);
++}
++
++button,
++input,
++select,
++textarea {
++  font: inherit;
++  letter-spacing: inherit;
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
++  text-decoration: underline;
++  text-decoration-color: var(--color-icon-idle);
++  text-decoration-thickness: 1px;
++  text-underline-offset: 3px;
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-hairline) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
+-.visually-hidden {
++.visually-hidden,
++.sr-only {
+   position: absolute;
+   width: 1px;
+   height: 1px;
+   padding: 0;
+   margin: -1px;
+   overflow: hidden;
+-  clip: rect(0, 0, 0, 0);
++  clip: rect(0 0 0 0);
+   white-space: nowrap;
+   border: 0;
+ }
+@@ -124,31 +164,39 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-8);
++  top: var(--space-8);
++  z-index: 30;
++  padding: var(--space-8) var(--space-12);
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+   font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
+ }
+ 
+-.numeric {
++.numeric,
++.num {
+   font-variant-numeric: tabular-nums;
+   text-align: right;
+ }
+ 
+ .icon {
+   flex-shrink: 0;
++  color: var(--color-icon-idle);
+ }
+ 
+-/* Layout */
++/* App shell */
+ .app-shell {
+   min-height: 100vh;
+   display: flex;
+@@ -156,16 +204,36 @@ a {
+ }
+ 
+ .topbar {
++  position: sticky;
++  top: 0;
++  z-index: 20;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  height: var(--size-header);
++  padding: 0 var(--space-20);
++  background: color-mix(in srgb, var(--color-surface-default) 80%, transparent);
++  -webkit-backdrop-filter: blur(20px);
++  backdrop-filter: blur(20px);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+ .brand {
+-  font-weight: bold;
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-semibold);
++  color: var(--color-text-primary);
++  white-space: nowrap;
++}
++
++.person {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  min-width: 0;
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
++  white-space: nowrap;
+ }
+ 
+ .settings-layout {
+@@ -174,208 +242,618 @@ a {
+ }
+ 
+ .sidebar {
+-  width: var(--sidebar-width);
++  width: var(--size-sidebar);
+   flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  background: var(--color-surface-subtle);
++  border-right: var(--border-width-hairline) solid var(--color-border-subtle);
++  padding: var(--space-12) var(--space-8);
++}
++
++.sidebar nav {
++  position: sticky;
++  top: calc(var(--size-header) + var(--space-12));
++}
++
++.nav-group-label {
++  margin: 0;
++  padding: var(--space-16) var(--space-12) var(--space-6);
+ }
+ 
+ .nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: grid;
++  gap: var(--space-2);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border: var(--border-width) solid transparent;
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  height: var(--size-row-dense);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-sm);
++  font-size: var(--font-size-dense);
++  color: var(--color-text-secondary);
+   text-decoration: none;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++
++.nav-link .icon {
++  color: var(--color-icon-idle);
++}
++
++.nav-link[aria-current='page'] {
++  background: var(--color-surface-tint);
++  color: var(--color-text-primary);
++}
++
++.nav-link[aria-current='page'] .icon {
++  color: var(--color-icon-active);
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  font-weight: bold;
++.nav-link:focus-visible {
++  outline-offset: -2px;
+ }
+ 
+ .content {
+   flex: 1;
+   min-width: 0;
+-  max-width: var(--content-max-width);
+-  padding: var(--space-6);
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-6);
+-}
+-
+-.person {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++  max-width: calc(var(--size-container) - var(--size-sidebar));
++  padding: 0 var(--space-32) var(--space-96);
+ }
+ 
++/* Avatars */
+ .avatar {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-weight: bold;
++  display: inline-grid;
++  place-items: center;
+   flex-shrink: 0;
++  border-radius: var(--radius-full);
++  background: var(--color-surface-press);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-micro);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: 0;
++  line-height: 1;
+ }
+ 
+ .avatar-small {
+-  width: 28px;
+-  height: 28px;
+-  font-size: var(--font-size-small);
++  width: 24px;
++  height: 24px;
++}
++
++.avatar-profile {
++  width: 32px;
++  height: 32px;
+ }
+ 
+ .avatar-large {
+-  width: var(--avatar-size-large);
+-  height: var(--avatar-size-large);
+-  font-size: var(--font-size-h2);
++  width: var(--space-48);
++  height: var(--space-48);
++  font-size: var(--font-size-small);
+ }
+ 
+-/* Panels */
+-.panel,
+-.card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++/* Screen head */
++.screen-head h1 {
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: var(--font-tracking-lead);
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.screen-head-title {
++  display: grid;
++  gap: var(--space-6);
+ }
+ 
+-/* Forms */
+-.form {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
++.screen-head-summary {
++  display: grid;
++  gap: var(--space-6);
++  font-size: var(--font-size-body);
++}
++
++/* Settings groups as split rows */
++.settings-group {
++  padding-bottom: var(--space-48);
++}
++
++.settings-group + .settings-group {
++  margin-top: 0;
++  padding-top: var(--space-48);
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++}
++
++.settings-group > :last-child,
++.settings-group :is(.card-grid, .form-actions, form):last-child {
++  margin-bottom: 0;
+ }
+ 
+-.form-grid {
++.screen-head + .settings-group,
++.screen-head + form > .settings-group:first-child {
++  padding-top: var(--space-24);
++}
++
++.split {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
++  gap: var(--space-32);
++  align-items: start;
++}
++
++.split > * {
++  min-width: 0;
++}
++
++.section-head {
+   display: grid;
+-  grid-template-columns: repeat(2, 1fr);
+   gap: var(--space-4);
+ }
+ 
++.section-head .mono-label {
++  margin-bottom: var(--space-4);
++}
++
++.section-title {
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-ui);
++  font-weight: var(--font-weight-semibold);
++}
++
++.section-desc {
++  max-width: 40ch;
++  color: var(--color-text-secondary);
++}
++
++.controls {
++  display: grid;
++  gap: var(--space-16);
++  min-width: 0;
++}
++
++.controls-form {
++  max-width: var(--size-form);
++}
++
++/* Fieldset groups (notifications): the legend floats so it joins the grid as a normal item. */
++.fieldset.split {
++  grid-template-rows: auto 1fr;
++  row-gap: var(--space-4);
++}
++
++.legend {
++  float: left;
++  display: grid;
++  gap: var(--space-8);
++  width: 100%;
++  grid-column: 1;
++  grid-row: 1;
++}
++
++.fieldset .section-head {
++  grid-column: 1;
++  grid-row: 2;
++}
++
++.fieldset .controls {
++  display: block;
++  grid-column: 2;
++  grid-row: 1 / span 2;
++}
++
++/* Forms */
+ .form-stack {
+   display: grid;
+-  gap: var(--space-4);
+-  max-width: 400px;
++  gap: var(--space-20);
+ }
+ 
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
++  gap: var(--space-6);
++  min-width: 0;
+ }
+ 
+-.field p {
++.field-label {
+   margin: 0;
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-body);
+ }
+ 
+-.field-wide {
+-  grid-column: 1 / -1;
++.field-label .muted {
++  font-weight: var(--font-weight-regular);
+ }
+ 
+-.field-label {
+-  font-weight: bold;
+-  margin: 0;
++.field-helper {
++  font-size: var(--font-size-caption);
++  line-height: var(--font-line-height-caption);
++  color: var(--color-text-secondary);
++}
++
++.field-meta {
++  display: flex;
++  justify-content: space-between;
++  gap: var(--space-12);
++}
++
++.field-meta .mono-label {
++  margin-left: auto;
+ }
+ 
+ .field-error {
+-  color: var(--color-negative);
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-caption);
++  line-height: var(--font-line-height-caption);
++  color: var(--color-status-danger);
+ }
+ 
+ .input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  width: 100%;
+   min-width: 0;
++  height: var(--size-field);
++  padding: 0 var(--space-12);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-card);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-dense);
++  transition: border-color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++
++.input::placeholder {
++  color: var(--color-text-tertiary);
++}
++
++.input:focus-visible {
++  border-color: var(--color-accent-default);
++  outline-offset: 2px;
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-negative);
++  border-color: var(--color-status-danger);
++}
++
++.input:disabled {
++  opacity: var(--opacity-disabled);
++  background: var(--color-surface-subtle);
++  cursor: not-allowed;
+ }
+ 
+ .textarea {
++  height: auto;
++  min-height: calc(3 * 1.5em + 2 * var(--space-8) + 2px);
++  padding: var(--space-8) var(--space-12);
++  line-height: var(--font-line-height-ui);
+   resize: vertical;
+ }
+ 
++.select-wrap {
++  position: relative;
++}
++
++.select-wrap select {
++  appearance: none;
++  padding-right: calc(var(--space-12) + var(--size-icon) + var(--space-8));
++  cursor: pointer;
++}
++
++.select-wrap .chevron {
++  position: absolute;
++  top: 50%;
++  right: var(--space-12);
++  translate: 0 -50%;
++  pointer-events: none;
++}
++
++.form-banner {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  margin-top: var(--space-32);
++  padding: var(--space-12) var(--space-16);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-status-danger-tint);
++  color: var(--color-text-body);
++  font-size: var(--font-size-small);
++}
++
+ .form-actions {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+-  gap: var(--space-3);
++  gap: var(--space-8);
++  margin-top: var(--space-32);
++}
++
++.form-status {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  margin-left: var(--space-8);
++  font-size: var(--font-size-small);
++  color: var(--color-text-body);
++}
++
++.form-status .icon,
++.status-check {
++  color: var(--color-status-success);
+ }
+ 
+ .status-message {
+   margin: 0;
+-  color: var(--color-positive);
++  font-size: var(--font-size-small);
++  color: var(--color-text-body);
+ }
+ 
+-.avatar-row {
++.status-line {
+   display: flex;
+   align-items: center;
++  gap: var(--space-6);
++}
++
++/* An empty status region takes no room, so the group's last content keeps 48px to the next rule. */
++.controls > .status-line:has(> .status-message:empty) {
++  margin-top: calc(-1 * var(--space-16));
++}
++
++/* Status dots */
++.status-dot {
++  display: inline-block;
++  flex: none;
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: var(--color-icon-idle);
++}
++
++.status-dot--danger {
++  background: var(--color-status-danger);
++}
++
++.status-dot--success {
++  background: var(--color-status-success);
++}
++
++.status-dot--warning {
++  background: var(--color-status-warning);
++}
++
++/* Profile photo row and preview */
++.photo-row {
++  display: flex;
++  align-items: center;
++  gap: var(--space-16);
++}
++
++.photo-text {
++  display: grid;
+   gap: var(--space-4);
++  justify-items: start;
++  min-width: 0;
++}
++
++.photo-text .button {
++  margin-top: var(--space-8);
++}
++
++.preview-stage {
++  min-height: var(--size-stage-mini);
++}
++
++.member-card {
++  display: grid;
++  gap: var(--space-16);
++  height: 100%;
++  padding: var(--space-20);
++}
++
++.member-card-head {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++  min-width: 0;
++}
++
++.member-card-lines {
++  display: grid;
++  min-width: 0;
++}
++
++.member-card-name {
++  display: block;
++  overflow: hidden;
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-semibold);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-primary);
++  white-space: nowrap;
++  text-overflow: ellipsis;
++}
++
++.member-card-sub {
++  display: block;
++  overflow: hidden;
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-secondary);
++  white-space: nowrap;
++  text-overflow: ellipsis;
++}
++
++.member-card-rows {
++  display: grid;
++  margin: 0;
++}
++
++.member-card-rows div {
++  display: flex;
++  justify-content: space-between;
++  gap: var(--space-12);
++  padding: var(--space-8) 0;
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++  font-size: var(--font-size-small);
++}
++
++.member-card-rows dt {
++  color: var(--color-text-secondary);
++}
++
++.member-card-rows dd {
++  overflow: hidden;
++  margin: 0;
++  color: var(--color-text-body);
++  white-space: nowrap;
++  text-overflow: ellipsis;
+ }
+ 
+-.avatar-row p {
+-  margin: 0 0 var(--space-1);
++.member-card-bio {
++  font-size: var(--font-size-small);
++  color: var(--color-text-body);
++  display: -webkit-box;
++  -webkit-line-clamp: 2;
++  -webkit-box-orient: vertical;
++  overflow: hidden;
+ }
+ 
+ /* Buttons */
+ .button {
+-  font: inherit;
++  position: relative;
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
++  justify-content: center;
++  gap: var(--space-6);
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border: var(--border-width-hairline) solid transparent;
++  border-radius: var(--radius-full);
++  background: var(--color-action-secondary);
++  color: var(--color-text-body);
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  line-height: 1;
++  white-space: nowrap;
++  text-decoration: none;
+   cursor: pointer;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    border-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease),
++    transform var(--motion-duration-hover) var(--motion-easing-standard);
++}
++
++.button .icon {
++  color: currentColor;
++}
++
++.button:active {
++  transform: scale(0.971);
++  background: var(--color-surface-press);
++}
++
++.button-lg {
++  height: var(--size-control-lg);
++  padding: 0 var(--space-16);
++}
++
++.button-sm {
++  height: var(--size-control-sm);
++  padding: 0 var(--space-12);
++}
++
++/* Touch target: 44px through an invisible hit area on the button itself. */
++.button::before {
++  content: '';
++  position: absolute;
++  inset: -6px 0;
++}
++
++.button-sm::before {
++  inset: -8px 0;
++}
++
++.button-lg::before {
++  inset: -2px 0;
+ }
+ 
+ .button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+ }
+ 
+-.button-danger {
+-  color: var(--color-negative);
++.button-primary:active {
++  background: var(--color-action-primary-hover);
+ }
+ 
+-.button-danger:hover {
+-  background: var(--color-danger-bg);
++.button-bordered {
++  background: transparent;
++  border-color: var(--color-border-default);
++  color: var(--color-text-secondary);
+ }
+ 
+-/* Fieldsets and switches */
+-.fieldset {
+-  margin: 0;
+-  min-width: 0;
++.button-danger {
++  background: var(--color-action-danger);
++  color: var(--color-text-on-danger);
+ }
+ 
+-.legend {
+-  font-weight: bold;
+-  font-size: var(--font-size-h2);
+-  padding: 0 var(--space-1);
++.button:disabled {
++  opacity: var(--opacity-disabled);
++  cursor: not-allowed;
++  transform: none;
+ }
+ 
++@media (hover: hover) and (pointer: fine) {
++  .nav-link:hover {
++    background: var(--color-action-ghost-hover);
++    color: var(--color-text-primary);
++  }
++
++  .nav-link[aria-current='page']:hover {
++    background: var(--color-surface-tint);
++  }
++
++  .button:hover:not(:disabled) {
++    background: var(--color-action-secondary-hover);
++    color: var(--color-text-primary);
++  }
++
++  .button-primary:hover:not(:disabled) {
++    background: var(--color-action-primary-hover);
++    color: var(--color-text-on-action);
++  }
++
++  .button-bordered:hover:not(:disabled) {
++    background: transparent;
++    border-color: var(--color-border-strong);
++    color: var(--color-text-primary);
++  }
++
++  .button-danger:hover:not(:disabled) {
++    background: var(--color-action-danger);
++    color: var(--color-text-on-danger);
++  }
++
++  .input:hover:not(:focus-visible):not([aria-invalid='true']):not(:disabled) {
++    border-color: var(--color-border-strong);
++  }
++
++  .switch:hover:not(:checked) {
++    border-color: var(--color-text-secondary);
++  }
++
++  .tbl tbody tr:hover td {
++    background: var(--color-surface-tint);
++  }
++
++  a:hover {
++    text-decoration-color: var(--color-text-primary);
++  }
++}
++
++/* Switches */
+ .switch-list {
+   list-style: none;
+   margin: 0;
+@@ -386,213 +864,711 @@ a {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-top: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  min-height: var(--size-row);
++  padding: var(--space-12) 0;
++}
++
++.switch-row + .switch-row {
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++}
++
++.switch-row:first-child {
++  padding-top: 0;
++}
++
++.switch-row:last-child {
++  padding-bottom: 0;
++}
++
++.switch-text {
++  display: grid;
++  gap: var(--space-2);
++  min-width: 0;
++}
++
++.switch-text .field-label {
++  color: var(--color-text-primary);
++  cursor: pointer;
+ }
+ 
+ .switch-text p {
+-  margin: 0;
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-secondary);
+ }
+ 
+ .switch {
+   appearance: none;
+   position: relative;
+-  width: var(--switch-width);
+-  height: var(--switch-height);
+-  margin: 0;
+   flex-shrink: 0;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-switch-off);
++  width: 28px;
++  height: 16px;
++  margin: 0;
++  border: var(--border-width-hairline) solid var(--color-border-check);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-press);
+   cursor: pointer;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-standard),
++    border-color var(--motion-duration-hover) var(--motion-easing-standard);
+ }
+ 
+ .switch::after {
+   content: '';
+   position: absolute;
+-  top: 3px;
+-  left: 3px;
+-  width: calc(var(--switch-height) - 6px);
+-  height: calc(var(--switch-height) - 6px);
+-  border-radius: 50%;
+-  background: var(--color-switch-thumb);
++  top: 1px;
++  left: 1px;
++  width: 12px;
++  height: 12px;
++  border-radius: var(--radius-full);
++  background: var(--color-text-secondary);
++  transition:
++    translate var(--motion-duration-hover) var(--motion-easing-standard),
++    background-color var(--motion-duration-hover) var(--motion-easing-standard);
+ }
+ 
+ .switch:checked {
+-  background: var(--color-switch-on);
++  background: var(--color-accent-default);
++  border-color: var(--color-accent-default);
+ }
+ 
+ .switch:checked::after {
+-  left: calc(var(--switch-width) - var(--switch-height) + 3px);
++  translate: 12px 0;
++  background: var(--color-text-on-accent);
+ }
+ 
+-/* Password strength */
+-.strength-none {
+-  color: var(--color-text-muted);
++.switch:disabled {
++  opacity: var(--opacity-disabled);
++  cursor: not-allowed;
+ }
+ 
+-.strength-weak {
+-  color: var(--color-strength-weak);
++/* Password strength */
++.strength {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  font-size: var(--font-size-caption);
++  line-height: var(--font-line-height-caption);
++  color: var(--color-text-secondary);
+ }
+ 
+-.strength-fair {
+-  color: var(--color-strength-fair);
++.strength-row {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
+ }
+ 
+-.strength-strong {
+-  color: var(--color-strength-strong);
++.strength-row .strength:not(.strength-none) {
++  color: var(--color-text-body);
+ }
+ 
+ /* Tables */
+-.table-wrap {
++.tbl-wrap {
+   overflow-x: auto;
+ }
+ 
+-.table {
++.tbl {
+   width: 100%;
+   border-collapse: collapse;
++  font-variant-numeric: tabular-nums;
+ }
+ 
+-.table th,
+-.table td {
++.tbl th {
++  height: var(--size-row-dense);
++  padding: 0 var(--space-12);
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++  font: var(--font-weight-regular) var(--font-size-caption) / var(--font-line-height-caption) var(--font-family-mono);
++  letter-spacing: 0;
++  text-transform: uppercase;
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  vertical-align: middle;
++  color: var(--color-text-tertiary);
++  white-space: nowrap;
+ }
+ 
+-.table th {
++.tbl td {
++  height: var(--size-row);
++  padding: var(--space-6) var(--space-12);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+   font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-body);
++  vertical-align: middle;
++  transition: background-color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+-.table .numeric {
++.tbl :is(th, td):first-child {
++  padding-left: 0;
++}
++
++.tbl :is(th, td):last-child {
++  padding-right: 0;
++}
++
++.tbl td:first-child {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++}
++
++.tbl .num {
+   text-align: right;
+ }
+ 
+-.cell-actions {
++.tbl .mono {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-regular);
++  letter-spacing: 0;
++}
++
++.tbl .pin {
++  position: sticky;
++  right: 0;
++  z-index: 1;
+   text-align: right;
++  white-space: nowrap;
++  background: var(--pin-bg, var(--color-surface-default));
++  box-shadow: inset 1px 0 0 var(--color-border-subtle);
++  padding-left: var(--space-12);
+ }
+ 
+-.pill {
+-  display: inline-block;
+-  margin: 0 0 0 var(--space-2);
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.pin::before {
++  content: '';
++  position: absolute;
++  inset-block: 0;
++  right: 100%;
++  width: var(--space-16);
++  pointer-events: none;
++  background: linear-gradient(90deg, transparent, var(--pin-bg, var(--color-surface-default)));
++}
++
++@media (hover: hover) and (pointer: fine) {
++  .tbl tr:hover .pin {
++    background: linear-gradient(var(--color-surface-tint), var(--color-surface-tint)), var(--pin-bg, var(--color-surface-default));
++  }
+ }
+ 
+-.pill-neutral {
+-  background: var(--color-pill-neutral-bg);
+-  color: var(--color-pill-neutral-text);
++.cell-first {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++  min-width: 0;
++}
++
++.cell-status {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  color: var(--color-text-body);
+ }
+ 
+-.pill-paid,
+-.pill-current {
+-  background: var(--color-pill-current-bg);
+-  color: var(--color-pill-current-text);
++.status-icon {
++  flex: none;
+ }
+ 
+-.pill-due {
+-  background: var(--color-pill-due-bg);
+-  color: var(--color-pill-due-text);
++.status-icon--todo,
++.status-icon--canceled {
++  color: var(--color-icon-idle);
++}
++
++.status-icon--progress {
++  color: var(--color-status-warning);
++}
++
++.status-icon--done {
++  color: var(--color-status-success);
++}
++
++.status-icon--urgent {
++  color: var(--color-status-urgent);
++}
++
++.cell-live {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-8);
++}
++
++/* Badges */
++.badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  height: 20px;
++  margin-left: var(--space-8);
++  padding: 0 var(--space-8);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: transparent;
++  color: var(--color-text-body);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-medium);
++  line-height: 1;
++  white-space: nowrap;
++  vertical-align: middle;
+ }
+ 
+-.table .pill,
+-.plan-card .pill {
++.badge-current {
+   margin-left: 0;
++  border-color: var(--color-border-strong);
+ }
+ 
+-/* Billing */
++/* Billing: plans as a hairline grid */
+ .plan-grid {
+   list-style: none;
+-  margin: 0 0 var(--space-3);
++  margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++  border-left: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+ .plan-card {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+-  gap: var(--space-2);
++  gap: var(--space-12);
++  min-width: 0;
++  padding: var(--space-24);
++  box-shadow:
++    1px 0 0 var(--color-border-subtle),
++    0 1px 0 var(--color-border-subtle);
+ }
+ 
+ .plan-card-current {
+-  border-color: var(--color-primary);
++  background: var(--color-surface-card);
++  box-shadow:
++    inset 0 0 0 1px var(--color-border-strong),
++    1px 0 0 var(--color-border-subtle),
++    0 1px 0 var(--color-border-subtle);
++}
++
++/* Every tier box is as tall as the 3-slab stack, so names and prices sit level. */
++.tier-slabs {
++  display: flex;
++  align-items: flex-end;
++  height: 90px;
++  margin-bottom: var(--space-12);
++}
++
++.plan-name {
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-ui);
++  font-weight: var(--font-weight-semibold);
+ }
+ 
+ .plan-price {
++  display: grid;
++  gap: var(--space-4);
+   margin: 0;
+ }
+ 
+ .plan-amount {
+-  font-size: var(--font-size-h1);
+-  font-weight: bold;
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++  color: var(--color-text-primary);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+ .feature-list {
+   list-style: none;
+-  margin: 0;
++  display: grid;
++  gap: var(--space-6);
++  align-content: start;
++  margin: var(--space-4) 0 var(--space-8);
+   padding: 0;
+   flex: 1;
++  font-size: var(--font-size-small);
++  color: var(--color-text-body);
+ }
+ 
+ .feature-list li {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-8);
++}
++
++.plan-card .button,
++.plan-card .badge {
++  margin-top: auto;
++}
++
++.plan-card .badge {
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++}
++
++@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
++  .plan-card:hover .bp-slab {
++    transform: translateY(calc(var(--i) * -1 * var(--motion-distance-lift)));
++  }
++}
++
++/* Cards */
++.card {
++  padding: var(--space-20);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-card);
+ }
+ 
+ .payment-method {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-3);
++  flex-wrap: wrap;
++  gap: var(--space-12);
++}
++
++.payment-method .card-icon {
++  flex: none;
++  color: var(--color-icon-idle);
++}
++
++.payment-method-name {
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-primary);
++}
++
++.payment-method .mono-label {
++  margin-left: auto;
++}
++
++/* Empty state */
++.empty {
++  display: grid;
++  justify-items: center;
++  max-width: 360px;
++  margin: 0 auto;
++  padding: var(--space-48) var(--space-24);
++  text-align: center;
++}
++
++.empty .mono-label {
++  margin-top: var(--space-16);
++}
++
++.empty .two-tone {
++  margin-top: var(--space-8);
++  font-size: var(--font-size-body);
++}
++
++.empty-actions {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: center;
++  gap: var(--space-8);
++  margin-top: var(--space-20);
++}
++
++/* Error variant (not found) */
++.error-state {
++  display: grid;
++  justify-items: center;
++  max-width: var(--size-form);
++  margin: 0 auto;
++  padding: var(--space-48) 0;
++  text-align: center;
++}
++
++.error-state .stage {
++  width: 100%;
++  min-height: var(--size-stage-mini);
++}
++
++.error-state .stage-window {
++  display: grid;
++  place-items: center;
++  padding: var(--space-32) var(--space-24);
++}
++
++.error-state .mono-label {
++  margin-top: var(--space-32);
++}
++
++.error-state h1 {
++  margin-top: var(--space-8);
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: var(--font-tracking-lead);
++}
++
++.error-state .two-tone {
++  max-width: 40ch;
++  margin-top: var(--space-8);
+ }
+ 
+ /* Dialog */
+ .dialog {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  padding: var(--space-6);
+-  max-width: 440px;
+-  width: calc(100% - var(--space-8));
++  width: calc(100% - var(--space-32));
++  max-width: var(--size-dialog);
++  padding: var(--space-24);
++  border: 0;
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
++  box-shadow: var(--elevation-popover);
++  color: var(--color-text-body);
++  opacity: 1;
++  scale: 1;
++  transition:
++    opacity calc(var(--motion-duration-ui) * 0.6) var(--motion-easing-standard),
++    scale calc(var(--motion-duration-ui) * 0.6) var(--motion-easing-standard),
++    overlay calc(var(--motion-duration-ui) * 0.6) allow-discrete,
++    display calc(var(--motion-duration-ui) * 0.6) allow-discrete;
++}
++
++.dialog:not([open]) {
++  opacity: 0;
++  scale: 0.98;
++}
++
++.dialog[open] {
++  transition-duration: var(--motion-duration-ui);
++}
++
++@starting-style {
++  .dialog[open] {
++    opacity: 0;
++    scale: 0.98;
++  }
+ }
+ 
+ .dialog::backdrop {
+-  background: var(--color-backdrop);
++  background: var(--color-surface-overlay);
++  -webkit-backdrop-filter: blur(4px);
++  backdrop-filter: blur(4px);
++}
++
++.dialog-label {
++  margin-bottom: var(--space-8);
++}
++
++.dialog h2 {
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: var(--font-tracking-lead);
++}
++
++.dialog-body {
++  margin-top: var(--space-12);
++  font-size: var(--font-size-body);
++  color: var(--color-text-body);
+ }
+ 
+ .dialog-actions {
+   display: flex;
+   justify-content: flex-end;
+-  gap: var(--space-2);
+-  margin-top: var(--space-4);
++  gap: var(--space-8);
++  margin-top: var(--space-24);
+ }
+ 
+-@media (max-width: 900px) {
++/* Responsive */
++@media (max-width: 1279.98px) {
++  .split {
++    grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-20);
++  }
++
++  .fieldset.split {
++    grid-template-rows: none;
++    row-gap: var(--space-4);
++  }
++
++  .fieldset .controls {
++    grid-column: 1;
++    grid-row: 3;
++    margin-top: var(--space-16);
++  }
++}
++
++@media (max-width: 1023.98px) {
+   .settings-layout {
+     flex-direction: column;
+   }
+ 
+   .sidebar {
+     width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    padding: var(--space-12) var(--space-20);
++    background: var(--color-surface-default);
++    border-right: 0;
++    border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++  }
++
++  .sidebar nav {
++    position: static;
++  }
++
++  .nav-group-label {
++    display: none;
+   }
+ 
+   .nav-list {
+     display: flex;
+     flex-wrap: wrap;
+-    gap: var(--space-2);
++    gap: var(--space-4);
++  }
++
++  .nav-link {
++    position: relative;
++    height: var(--size-control);
++    border-radius: var(--radius-full);
++    font-size: var(--font-size-small);
++    font-weight: var(--font-weight-medium);
++  }
++
++  .nav-link::before {
++    content: '';
++    position: absolute;
++    inset: -6px 0;
++  }
++
++  .nav-link .icon {
++    display: none;
++  }
++
++  .nav-link:focus-visible {
++    outline-offset: 2px;
++  }
++
++  .content {
++    max-width: none;
+   }
+ 
+-  .form-grid,
+   .plan-grid {
+-    grid-template-columns: 1fr;
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
++}
++
++@media (max-width: 767.98px) {
++  .content {
++    padding: 0 var(--space-20) var(--space-48);
++  }
++
++  .form-actions {
++    flex-direction: column;
++    align-items: stretch;
++  }
++
++  .form-actions .button {
++    display: flex;
++    width: 100%;
++  }
++
++  .form-status {
++    margin-left: 0;
++  }
++
++  .tbl :is(th, td):first-child {
++    white-space: nowrap;
++    min-width: 160px;
++  }
++}
++
++@media (max-width: 639.98px) {
++  .plan-grid {
++    grid-template-columns: minmax(0, 1fr);
++  }
++
++  .tbl-wrap {
++    overflow-x: visible;
++  }
++
++  .tbl {
++    width: 100%;
++  }
++
++  .tbl :is(th, td):not(:first-child):not(.pin) {
++    display: none;
++  }
++
++  .tbl :is(th, td):first-child {
++    width: 100%;
++    max-width: 0;
++    min-width: 0;
++    overflow: hidden;
++  }
++
++  .tbl .pin {
++    width: 1%;
++    white-space: nowrap;
++  }
++
++  .tbl .pin::before {
++    display: none;
++  }
++
++  .cell-lines {
++    flex: 1;
++    min-width: 0;
++  }
++
++  .cell-lines > *,
++  .cell-lines[data-sub]::after {
++    display: block;
++    line-height: var(--font-line-height-ui);
++    white-space: nowrap;
++    overflow: hidden;
++    text-overflow: ellipsis;
++  }
++
++  .cell-lines[data-sub]::after {
++    content: attr(data-sub) '\00a0';
++    color: var(--color-text-tertiary);
++    font-weight: var(--font-weight-regular);
++  }
++
++  .cell-lines .badge {
++    padding: 0;
++    border: 0;
++  }
++
++  .cell-lines .badge-label {
++    position: absolute;
++    clip: rect(0 0 0 0);
++  }
++
++  .dialog {
++    width: 100%;
++    max-width: none;
++    margin: auto 0 0;
++    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
++  }
++
++  .dialog-actions {
++    flex-direction: column-reverse;
++  }
++
++  .dialog-actions .button {
++    display: flex;
++    width: 100%;
++  }
++
++  .payment-method .mono-label {
++    margin-left: 0;
++    width: 100%;
++  }
++}
++
++/* Reduced motion: loops end on their base frame. */
++@media (prefers-reduced-motion: reduce) {
++  *,
++  *::before,
++  *::after {
++    animation-duration: var(--motion-duration-instant) !important;
++    animation-iteration-count: 1 !important;
++    animation-delay: 0s !important;
++    transition-duration: var(--motion-duration-instant) !important;
++    transition-delay: 0s !important;
++  }
++
++  .btn:active,
++  .button:active {
++    transform: none;
+   }
+ }

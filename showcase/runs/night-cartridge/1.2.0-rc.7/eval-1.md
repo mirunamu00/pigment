@@ -1,0 +1,101 @@
+# night-cartridge@1.2.0-rc.7 — evaluation 1
+
+Verdict: **pass** · 2026-10-18T06:09:13.030Z
+
+## blog (20261018-053536)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## commerce (20261018-053536)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 10 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## dashboard (20261018-053536)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 0.998 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## settings (20261018-053536)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 8 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## Cross-app and reference
+
+| Check | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| palette-consistency | pass | 0.896 | 0.75 |
+| type-consistency | pass | 1 | 0.7 |
+| reference-palette-distance | pass | 0 | reported |
+
+## Critic
+
+```json
+{
+  "referenceFidelity": 4,
+  "crossAppConsistency": 4,
+  "hierarchy": 4,
+  "spacingRhythm": 4,
+  "componentStates": 4,
+  "polish": 4,
+  "signature": 4,
+  "notes": [
+    "SCOPE (screen step, 1 sample). S0 = showcase/runs/night-cartridge/1.2.0-rc.7/<app>/20261018-053536/. Published = 1.1.0-rc.2/<app>/20261015-034853/. Reference = pipeline/mirunamu-docs-study/reference/. Gates: every gate passes in all four apps (eval-1.md); palette consistency 0.896, type consistency 1. Dark only in 4 of 4. Opened: commerce home desktop and mobile, tote detail desktop and mobile, tote and sweater banner crops (drawings/products-canvas-field-tote-d1.png, products-merino-crew-sweater-d1.png), footer strip crop (products-canvas-field-tote-d3.png), cart empty, state-card-hover, state-checkout-errors; blog home desktop and mobile, hero crop home-d1.png, shipping and about banner crops, motion-m1.png, state-search-empty, state-newsletter-error mobile; dashboard home desktop and mobile, state-empty-filter; settings profile desktop, state-plan-dialog, state-profile-errors mobile; all four agent-report.md; published commerce home; reference p1-i1.png and p2-i2.png. Because this is one sample, every finding below is counted '1 of 1'. New issues are one-sample observations and do not lower a score unless they break something for people. Not penalized (known harness gaps): no real pending request; the sticky header captured mid-page in full-page state shots (commerce state-checkout-errors-desktop-dark.png y≈545, dashboard state-empty-filter-desktop-dark.png y≈470, blog state-search-empty-desktop-dark.png y≈190, settings state-profile-errors-mobile-light.png); the dialog scrim ending at about 900px (settings state-plan-dialog-desktop-dark.png); motion frames only on the first route; report tables not filled because agents can't run scripts.",
+    "RC.6 RECURRING FINDINGS (critic-2), 1 of 1 each. (A) Tote sides stepping out at two-thirds height: FIXED. The body is straight-sided from rim to hem on the detail page (commerce/screenshots/products-canvas-field-tote-desktop-light.png: left edge x≈255 and right edge x≈549 from y≈813 to the hem at y≈1008, no step; base row inset to x≈269–535). Two separate square handle loops with background inside, a rim band and a patch pocket. Body about 294 × 209px, w÷h about 1.4, as the new grid asks. Same shape on the grid (home-desktop-light.png card 1, x 173–256) and at 390px (products-canvas-field-tote-mobile-light.png). It reads as a tote next to the 'Bags' label, the day pack and the duffel. Low-confidence remark: with a flat lid band and no taper it also sits close to a cash box or tool tray; still clearly better than the rc.6 cooler outline. (C) Store card summaries clamped at 2 lines: FIXED. Every summary is whole, up to 3 lines (home-desktop-light.png: 'Water-resistant backpack for commutes and short hikes.', 'A sturdy steel mug for coffee at home or outdoors.', 'A simple loop of vegetable-tanned leather.'), matching published 1.1.0 (1.1.0-rc.2 commerce/screenshots/home-desktop-light.png). Prices stay on one baseline per row (y≈800 and y≈1177). (B) One banner building per category / sign naming another product: FIXED. The tote banner leads with a brown gabled 'TOTE' shop (drawings/products-canvas-field-tote-d1.png); the sweater banner with a purple stepped-roof 'WOOL' shop (drawings/products-merino-crew-sweater-d1.png). The agent lists 11 different sign words, one per product: TOTE, PACK, GRIP, WOOL, TEES, COAT, MUGS, IRON, LOOM, KEYS, HATS (commerce agent-report.md line 10), and says pairs that share a roof shape differ in colour, sign and chimney (line 29). Lead heights: TOTE y≈180–290 = about 110px, WOOL y≈178–290 = about 112px. (D) Report tables (process): NOT FIXED, 4 of 4 apps. rc.7 now allows hand-filled tables marked 'by hand', but no agent wrote them: commerce gives essentials only (agent-report.md line 26, numbers at lines 34–42); blog line 26; dashboard line 25 (lead heights only); settings line 35. Dashboard also leaves src/pages/ArtReview.tsx on disk (line 23). Not visible to people, not scored.",
+    "MEASUREMENTS (1:1 desktop captures, ±3px). GRID AT 1440 (commerce/screenshots/home-desktop-light.png; picture window inner x 117–312, about 195px): tote x 173–256 = 83px (43%), day pack 426–509 = 83 (43%), duffel 678–762 = 84 (43%), sweater 932–1013 = 81 (42%), key 1180–1272 = 92 (47%). All inside 40–50%; the agent reports 42–48% (agent-report.md line 35). DETAIL AT 1440: tote x 255–549 = 294px in a window x 97–707 = 610px, 48%. Window y 661–1117, sprite y 743–1022, about 82px above and 95px below: balanced. DETAIL AT 390: about 47% (sprite x≈106–264 of window 16–354 at display scale). BLOG BANNER LEADS (256px window): shipping post 'INK' press house, chimney y≈177 to base y≈290 = about 113px (drawings/posts-shipping-a-design-system-d1.png); about 'NOTE' tower y≈172–292 = about 120px (drawings/about-d1.png). HERO (blog/drawings/home-d1.png): a blue post office with an envelope plate and flag on a teal-rimmed rise; the diagonal path runs from the door to about x≈1240 at the bottom edge (unit about 370), inside 366–416, near the floor (low confidence).",
+    "EARLIER TRACKED ITEMS (1.1.0-rc.2, 1.2.0-rc.1 to rc.5), 1 of 1 each. Product detail sprite 40–50%: FIXED (48%, mobile about 47%). Visible-ink grid sprites 40–50%: FIXED (42–47%). Tote reads as a bag: FIXED (see A). Sweater one silhouette with cuffs and hem: FIXED (home-desktop-light.png card 4). Coat, duffel, skillet: FIXED, they read as a coat with placket, a low wide duffel with handle, a pan with handle. Key ring: FIXED, the key is the largest part (card 10). Tote and duffel twins: FIXED. Full blog card summaries: FIXED (3–4 lines, blog/screenshots/home-desktop-light.png). Banner leads ≥96px: FIXED (110–120px). Store category icons on card labels: FIXED (bag, shirt, pot, key icons). Varied blog scene leads with the post office kept for the hero: FIXED (post office hero, INK press house, NOTE tower; the agent lists 8 distinct banner leads, blog agent-report.md line 7). Settings form in two columns: FIXED (Full name | Email, Job title | Time zone, Bio spanning, photo row on top; settings-profile-desktop-light.png). Hero lead identity and real lettering: FIXED (envelope plate; signs read TOTE, WOOL, INK, NOTE, PAY). Mobile hero framing: FIXED (lead whole under sky, title window below; blog/screenshots/home-mobile-light.png). Hero rim at 1x: FIXED. Newsletter title: FIXED ('Subscribe to the newsletter'). Commerce mobile wordmark: FIXED ('Fieldhouse Supply' in full, products-canvas-field-tote-mobile-light.png). Mobile table: FIXED (Project and Status only, dashboard/screenshots/home-mobile-light.png). Verticals off the frame: FIXED. Avatar initials: FIXED ('JL' and 'JA' hued squares). Grid columns: 5. Identical banners: FIXED. Dashboard n-of-m meter: FIXED (8 blocks for 'Showing 8 of 8', 8 empty blocks for 0 of 8 in state-empty-filter-desktop-dark.png). Dashboard panels end level: FIXED (chart grows; dashboard agent-report.md line 33). Sparse store strip: FIXED (20–50px props on the grass strip). Hero spacing conflict: not reported. Detail-window empty space: balanced (82/95px).",
+    "NEW ONE-SAMPLE OBSERVATIONS (1 of 1, not scored). E. Cart with one item at 1440: the left Items column ends at y≈530 while the summary and checkout windows run to y≈1290, leaving about 760px of empty page under the single line item (commerce state-checkout-errors-desktop-dark.png). rc.6 S2 had a similar void inside an Items panel (critic-2 G), so watch it in the confirm step; if it recurs, a fix is to make the summary column sticky or to stack checkout under Items. F. The empty-state titles render at body size ('No posts match these filters', blog state-search-empty-desktop-dark.png y≈1300; 'No projects match your filters', dashboard state-empty-filter-desktop-dark.png y≈1545), so the vignette leads and the title barely outranks the hint line. Readable, not broken. G. The settings sidebar marker doesn't blink (agent decision, settings agent-report.md line 42; spec allows). H. On phones the dashboard header isn't sticky and the switches are icon-only (dashboard agent-report.md line 30; labels kept for screen readers). I. Commerce sprites use each product's own colour (brown tote, green sweater) instead of the category hue the published sprites used (1.1.0-rc.2 home-desktop-light.png). The category stays coded by the card top bar and label icon, so it is not a defect. J. The store hero window drops published's meta line ('11 products · 4 categories · Free shipping over $100'); minor content difference, not scored.",
+    "COMPARED WITH PUBLISHED 1.1.0. Better: the tote (published read as a padlock under one arch, 1.1.0-rc.2 commerce/screenshots/home-desktop-light.png card 1), the sweater (published had detached sleeves), the coat (published read as a grid), the key ring (published read as a magnifier), product banners (one lead per product with a real sign word), blog scene variety and hero identity. Equal: blog summaries, commerce card summaries (now whole again, like published), category icons, settings two-column form, banner lead height (110–120px vs about 117px), dashboard layout and filter row. Worse: nothing found in this sample.",
+    "SIGNATURE (4). Present in all four apps and placed as Applying says. Blog: a full-bleed hero with a framed title window, the lit post office on a rimmed rise, a diagonal path, moon, stars and drifting clouds; each article and About has its own banner lead. Store: grid strip (general store), cart strip (parcel depot), and a banner per product with its own building and sign. Dashboard: a server-yard strip per screen. Settings: a workshop strip per screen (gear plate on Profile, PAY counter on Billing). Empty states have vignettes; the checkered grass strip runs on every screen. Motion is stepped: blog motion-m1.png shows nc-drift at 120000ms with steps(60), the cloud moves between frames and the nav marker blinks. Why not 5: the hero terrain is flat dark ground where the reference has tufted grass texture, a halo moon and a tree with a figure (reference/illustrations/p1-i1.png vs blog/drawings/home-d1.png); strip props are 20–50px and simpler than the reference's snow-laden trees and figure at the same scale (reference/illustrations/p2-i2.png vs commerce/drawings/products-canvas-field-tote-d3.png); dashboard and settings strip leads are small for a 96px strip (dashboard home-desktop-light.png y≈145–195). These were judged the same way in rc.6 and are fidelity limits, not regressions.",
+    "OTHER SCORES. Reference fidelity (4): night ground, cream pixel type, 4px windows, dither rules under h2s, one gold commit with a hard shadow, gold ▶ marker, hue top bars and bullets, block meters and the checkered strip, as in reference/screenshots/p1-desktop-light.png and p1-i1.png, without copying the cabin, figure or snow. Cross-app consistency (4): one family; blog and store use top navigation, dashboard and settings a sidebar; same windows, chips, meters and footer strip. Hierarchy (4): scene and h1 first, ruled h2s, 48px KPIs, 48px price with gold Add to cart, whole summaries on blog and store cards. Weak spot: body-size empty-state titles (F, 1 of 1). Spacing (4): 4px scale and h2 rhythm hold; the settings form fills its window; the detail window is balanced; the cart void (E) is a one-off in this candidate. Component states (4): card hover shows the ▶ marker and a raised card (state-card-hover-desktop-dark.png card 1); gold focus frame on the first invalid field with danger frames and '!' messages (state-checkout-errors-desktop-dark.png; settings state-profile-errors-mobile-light.png); a titled dialog with framed close, Cancel and gold Confirm change (state-plan-dialog-desktop-dark.png); empty results with vignette, 0-of-n meter and framed ▶ Clear filters; newsletter error with '!' message and gold focus (blog state-newsletter-error-mobile-light.png). Polish (4): radius 0, 2/4px borders, no default-browser leftovers, no generic look.",
+    "BAR: seven 4s, average 4.0, none below 3. The screen PASSES; the candidate can go to the confirm step (two more samples). Update goal: reached in this sample. rc.6's three visible recurring findings (A tote sides, C clamped summaries, B one building per category / wrong sign) are fixed 1 of 1; every earlier tracked item holds 1 of 1. D (report tables) is still not done in 4 of 4 apps despite the hand-fill allowance; it is a process item and is not scored. No regression from published found. Watch in the confirm step: E (cart void) and F (empty-state title size)."
+  ],
+  "promptFixes": [
+    "Process, low, not scored (4 of 4 apps in this sample: no agent wrote the report tables even though rc.7 allows them by hand). Either cut part 3 of the report to three hand numbers ('grid sprite %, detail sprite %, tallest banner lead px') with 'write \"not measured\" if you can't', or drop it; the visible checks it guards are already met. Also add to the report: 'list any temporary file you could not delete'. Evidence: commerce agent-report.md line 26; blog line 26; dashboard lines 23 and 25; settings line 35.",
+    "Watch item, not a blocker (1 of 1 here, and a similar void in rc.6 S2): in the cart layout rule add 'When Items is shorter than the summary column at ≥1024px, make the summary column sticky (top: header height + 16px) or put the checkout window under Items, so no column leaves more than 160px of empty page.' Apply only if it recurs in the confirm samples. Evidence: commerce/screenshots/state-checkout-errors-desktop-dark.png (Items ends y≈530, checkout ends y≈1290); 1.2.0-rc.6 S2 commerce state-checkout-errors-desktop-light.png.",
+    "Watch item, not a blocker (1 of 1, two apps): in Empty state, set the title to the h3 size (the type scale's 20–24px step) so it clearly outranks the hint line under the vignette. Apply only if it recurs. Evidence: blog/screenshots/state-search-empty-desktop-dark.png ('No posts match these filters'); dashboard/screenshots/state-empty-filter-desktop-dark.png ('No projects match your filters')."
+  ]
+}
+```

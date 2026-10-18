@@ -1,0 +1,235 @@
+# night-cartridge@1.2.0-rc.5 — evaluation 1
+
+Verdict: **fail** · 2026-10-18T02:24:02.593Z
+
+## blog (20261018-001548-s3)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 0.999 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## commerce (20261018-001548-s3)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 10 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## dashboard (20261018-001548-s3)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 0.999 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## settings (20261018-001548-s3)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 8 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## blog (20261018-001548-s2)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## commerce (20261018-001548-s2)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 10 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## dashboard (20261018-001548-s2)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 0.999 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## settings (20261018-001548-s2)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 8 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## blog (20261018-001548-s1)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 0.999 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## commerce (20261018-001548-s1)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 10 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## dashboard (20261018-001548-s1)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 0.998 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## settings (20261018-001548-s1)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 8 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## Cross-app and reference
+
+| Check | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| palette-consistency (sample 1) | pass | 0.938 | 0.75 |
+| type-consistency (sample 1) | pass | 1 | 0.7 |
+| palette-consistency (sample 2) | pass | 0.917 | 0.75 |
+| type-consistency (sample 2) | pass | 1 | 0.7 |
+| palette-consistency (sample 3) | pass | 0.938 | 0.75 |
+| type-consistency (sample 3) | pass | 1 | 0.7 |
+| reference-palette-distance | pass | 0 | reported |
+
+## Critic
+
+```json
+{
+  "referenceFidelity": 4,
+  "crossAppConsistency": 4,
+  "hierarchy": 4,
+  "spacingRhythm": 4,
+  "componentStates": 4,
+  "polish": 4,
+  "signature": 3,
+  "notes": [
+    "SCOPE. Paths are relative to showcase/runs/night-cartridge/1.2.0-rc.5/<app>/20261018-001548-s<n>/. Published evidence is 1.1.0-rc.2/<app>/20261015-034853/. Reference is pipeline/mirunamu-docs-study/reference/. Gates: all pass in all three samples (eval-1.md). Palette consistency is 0.938, 0.917 and 0.938; type consistency is 1. Dark only holds in all 12 runs. Opened for every sample: blog home desktop and mobile plus the hero crop, the commerce grid and tote detail at desktop, the dashboard home and settings profile. Opened for some samples only: blog banners (s1 all three, s2 and s3 two each), the commerce 390 grid and detail (s1), the dashboard mobile (s2), state captures (commerce s2 checkout errors, settings s3 plan dialog, blog s2 empty search), the blog article (s3) and motion (blog s1). Not penalized (known harness gaps): no real pending request; the sticky header captured mid-page in full-page state shots (commerce s2 state-checkout-errors-desktop-light.png); the dialog scrim ending at about 900px (settings s3 state-plan-dialog-desktop-light.png); motion frames only on the first route. The blog s1 motion-m1.png shows nc-drift at 120000ms with steps(96), about 1250ms per frame, and the cloud does move. Commerce motion.frames is [].",
+    "MEASUREMENTS (1:1 desktop captures, ±3px). GRID AT 1440: all three samples share one grid, with 5 columns and picture windows about 192px inner (x 117–312). The visible coloured silhouette of every 20-unit sprite is 72px, which is 37.5%. That covers the tote (x 178–250), sweater, tee, coat and beanie in s1 commerce/screenshots/home-desktop-light.png, and the same widths appear in s2 and s3. The sprites drawn 21–23 units wide reach 40–46%: duffel and skillet 80px = 42%, towels 77 = 40%, key 88 = 46%. The agents' sprite tables (s1 agent-report.md line 41, s3 line 48) say 80/192 = 42% for the 20-unit rows, because pct() counts the 1-unit `ol` ring on each side. That ring is near-black on the near-black window and cannot be seen at 1x: in drawings/home-d3.png (80×108) the teal ink spans about 72px inside a dark ring that barely differs from the window. So by the spec's arithmetic all rows are 42–46% in 3 of 3 samples, but by visible ink 5 of 11 sprites sit at 37–38% in 3 of 3. DETAIL AT 1440: the visible tote is x 265–535 = 270px in a window of about 602px = 45%, in all three samples (products-canvas-field-tote-desktop-light.png). DETAIL AT 390: about 41% in s1 (products-canvas-field-tote-mobile-dark.png, low confidence). HERO PATH END (blog drawings/home-d1.png, unit = 60 + x/4): s1 ends at x≈1230 = unit 367, s2 at x≈1305 = unit 386, s3 at x≈1285 = unit 381. All three are inside 366–416 and run diagonally from the door down to the bottom-right; s1 only just makes it. BLOG POST CARDS: 3 columns of about 405px in 3 of 3 (home-desktop-light.png). BANNER LEADS (posts-shipping-a-design-system-d1.png, 256px window): s1 about 95px, s2 about 102px, s3 about 93px, against the spec's 96px minimum and the published 1.1.0 lead of about 117px (1.1.0-rc.2 blog/drawings/posts-shipping-a-design-system-d1.png).",
+    "TRACKED ITEMS, 1.1.0-rc.2 critique. (1) Product-detail sprite at 40–50%: FIXED in 3 of 3 (45% visible; see above). (2) Sweater sleeves detached: FIXED in 3 of 3. One silhouette, from the spec grid (s1 commerce/drawings/home-d12.png). (3) Hero lead identity and fake lettering: FIXED in 3 of 3. s1 has a brown post office with an envelope plate and flag, s2 a brick house with an envelope plate and flag, and s3 a blue post office with an envelope, flag and window grid (blog/drawings/home-d1.png in each sample). (4) Mobile hero framing: FIXED in 3 of 3. The whole lead shows under sky (blog/screenshots/home-mobile-light.png). (5) Hero rim at 1x: FIXED in 3 of 3. A continuous teal line runs along the rise (home-d1.png). (6) Newsletter title: FIXED in 3 of 3 ('Subscribe to the newsletter' as an h2, home-desktop-light.png). (7) Commerce mobile wordmark: FIXED in the one sample checked (s1 products-canvas-field-tote-mobile-dark.png). (8) Mobile table: FIXED in the one sample checked. Only Project and Status show, with full names (s2 dashboard/screenshots/home-mobile-light.png).",
+    "TRACKED ITEMS, 1.2.0-rc.1 to rc.3 critiques. Grid sprites sized by box, not ink: PARTLY. The spec arithmetic passes in 3 of 3, but visible ink is 37.5% for the 20-unit sprites in 3 of 3 (see MEASUREMENTS). Cuffs and hem: FIXED 3 of 3. Key ring as a magnifier: FIXED 3 of 3; the key is the largest part, with a small ring (s1 and s2 home-desktop-light.png, card 10). Letter-like marks: FIXED 3 of 3. Settings workshops carry gear plates (settings-profile-desktop-light.png), and signs are real words (s1 'SHOP' and 'TOTE', commerce/drawings/home-d1.png and products-canvas-field-tote-d1.png; s1 'NOTE', blog/drawings/posts-release-notes-people-read-d1.png). Verticals off the frame: FIXED 3 of 3 in the hero. Frameless mobile hero Window: FIXED 3 of 3. Avatar initials: FIXED 3 of 3 (a 'JL' hued square in settings-profile-desktop-light.png). Coat as 'M', duffel as toaster, skillet as dot: FIXED 3 of 3; all three agents use the spec's grids. Grid columns: 5 in 3 of 3. Identical article banners: FIXED 3 of 3, with distinct leads and arrangements (s1 posts-*-d1.png and about-d1.png; s2 and s3 posts-*-d1.png). Dashboard n-of-m meter: FIXED 3 of 3 ('Showing 8 of 8 projects' has 8 blocks). Tote and duffel twins: FIXED 3 of 3. The tote is tall and the duffel low, but see the tote below.",
+    "TRACKED ITEMS, 1.2.0-rc.4 critique. (1) Report tables: MOSTLY FIXED. Commerce gives sprite numbers in 3 of 3 (s1 table at agent-report.md line 39; s2 prose at line 22; s3 table at line 46). Most apps give variant tables or the 'no item sprites' form. Blog s2 (agent-report.md line 29) and s3 (line 44) say they did not write the full per-scene report: 2 of 3 blog samples. The numbers are now computed, but they count the invisible outline, so the table reads 42% where the eye sees 37.5%. (2) Tote reads as a tote: NOT FIXED in 0 of 3, and the spec causes it. All three agents copied the spec's 20×27 tote grid verbatim (dist/agent.md lines 399–428). It draws a tall box with sides stepping in at mid-height, under one hollow arch. At 270px on the detail page and at 1x in the grid it reads as a bucket or pail, or a padlock (s1, s2 and s3 products-canvas-field-tote-desktop-light.png; s1 drawings/products-canvas-field-tote-d2.png and home-d3.png). The grid is a 'box under a hollow arch', which the same paragraph forbids. In rc.3 the wide, low body read as a bag (1.2.0-rc.3 commerce/drawings/home-d8.png). (3) Grid sprites 19–23 units wide: PARTLY (see above). (4) Blog grid in 6 columns: FIXED 3 of 3. The 3-column .cards also match the related posts (s3 posts-shipping-a-design-system-desktop-light.png). (5a) Hero path to a bottom corner: FIXED 3 of 3 (units 367, 386, 381). (5b) Sparse store strip: FIXED to the letter in 3 of 3. The far ridge now has roof and tree silhouettes, and no propless stretch exceeds 160 units (commerce/drawings/home-d1.png). Props are still 20–50px in a 96px strip, close to the reference's small strip subjects (reference/illustrations/p2-i2.png). (5c) Dashboard panels uneven: FIXED 3 of 3; chart and activity panels end level (home-desktop-light.png). (5d) Hero spacing conflict: no agent reports it any more (3 of 3).",
+    "WORSE THAN PUBLISHED 1.1.0 (seen in 2 or more samples). A. LOW-MEDIUM, hierarchy and content, caused by the spec. Every blog post summary is cut at 2 lines with '…' ('A few small habits…', 'Here is how we…') in 3 of 3 (home-desktop-light.png and the related posts). Published 1.1.0 showed full 3–4-line summaries in the same 3-column cards (1.1.0-rc.2 blog/screenshots/home-desktop-light.png). The 2-line clamp was added in rc.2 for narrow cards; at 405px it now hides what each post is about. The reference's post lists show whole one-line summaries in full-width rows (reference/screenshots/p1-desktop-light.png). B. LOW, signature: banner leads at about 93–95px in 2 of 3 (s1 and s3 posts-shipping-a-design-system-d1.png), under the spec's 96px and smaller than published (about 117px). The reference subjects reach 40–50% of the banner height (reference/illustrations/p2-i2.png). C. LOW, consistency: the commerce card category icons published in 1.1.0 (1.1.0-rc.2 commerce/screenshots/home-desktop-light.png, a pixel bag or shirt beside 'Bags' or 'Apparel') are bare bullets in 2 of 3 (s1 and s2 home-desktop-light.png; s3 keeps the icons). The reference's category cards carry icons (p1-desktop-light.png).",
+    "OTHER FINDINGS. D. LOW, signature, 2 of 3: every blog scene lead is an envelope-plated post office. In s2 that is the hero plus blue and green buildings on the banners; in s3 it is the hero plus green and brown post offices (s2 and s3 home-d1.png and posts-*-d1.png). They differ in outline, as step 1 asks, but read as one subject repeated. The reference's scenes change subject (cabin hero vs snowfield figure banner, p1-i1.png vs p2-i2.png). E. LOW, spacing, 2 of 3: the settings profile form is one 560px column with the photo aside, leaving about 450px of empty window under the photo (s2 and s3 settings-profile-desktop-light.png). Published 1.1.0 laid the fields in two columns, filling the window. s1 keeps two columns. F. Variance, 1 of 3, not scored: the dashboard s1 footer text sits on a brown dirt band (s1 home-desktop-light.png); the dashboard s2 chart panel has about 90px empty under its plot (s2 home-desktop-light.png); in the blog s3 hero a cloud peeks over the Window's top edge (s3 home-d1.png); the blog s2 mobile hero shows a clipped box at its left edge (s2 home-mobile-light.png). G. Shell variance: the dashboard uses top navigation in s1 and s2 and a sidebar in s3. The spec allows both, so this is not scored.",
+    "SIGNATURE (3). Present in all four apps in 3 of 3 and placed as Applying says: a full-bleed hero on blog home with a framed Window, a lit lead on a rimmed rise, a diagonal path, a moon and stars; a distinct banner per article, about page and product; strips with their own leads on the store, cart, dashboard and settings; vignettes on empty states (s2 blog state-search-empty-desktop-light.png); and the checkered ground strip everywhere. Motion is stepped. The hero is the best it has been across three samples. Why not 4: the store's flagship sprite, the tote, reads as a bucket or padlock in 3 of 3 because of the spec's own grid. The five 20-unit grid sprites are 37.5% visible in 3 of 3, while the tables report 42%. Banner leads are under 96px in 2 of 3. A design lead who knows the reference would not ship a bucket as the canvas tote.",
+    "OTHER SCORES. Reference fidelity (4): a night ground, cream pixel type, 4px windows, dither rules under h2s, one gold commit with a hard shadow, the gold ▶ marker, hue top bars and bullets, block meters and the checkered grass strip, as in reference/screenshots/p1-desktop-light.png, without its cabin, figure or snow. Cross-app consistency (4): one family in every sample. Drift: category icons in 1 of 3 commerce samples, and the shell (top nav vs sidebar) in the dashboard. Hierarchy (4): scene and h1 first, then ruled h2s; the 48px KPIs lead; the 48px price and gold Add to cart lead the product page. The weak spot is the clamped blog summaries (A). Spacing (4): the 4px scale and h2 rhythm hold, and panels end level. The soft spots are the settings void (E) and small 1-of-3 voids. Component states (4): a gold focus frame on the invalid field, danger frames with '!' messages (s2 commerce state-checkout-errors-desktop-light.png), a titled dialog with a framed close, Cancel and gold Confirm (s3 settings state-plan-dialog-desktop-light.png), and an empty search with a vignette, a 0-of-6 meter and a framed Clear filters (s2 blog state-search-empty-desktop-light.png). Polish (4): radius 0, 2/4px borders and no default-browser leftovers.",
+    "BAR: six 4s and a 3, average 3.86. This does NOT meet the bar (needs 4.0). Update goal: largely reached. Of the tracked items, all eight 1.1.0 items are fixed (six confirmed in 3 of 3, two in the one sample checked), and the rc.1–rc.4 items are fixed in 3 of 3, except: the tote (0 of 3, spec-caused); grid sprites at visible 40% (spec arithmetic passes, but 5 of 11 are at 37.5% visible in 3 of 3); and the blog per-scene report (2 of 3 blog samples skip it). Worse than published in 2+ samples: clamped blog summaries (3 of 3), smaller banner leads (2 of 3), and missing commerce category icons (2 of 3)."
+  ],
+  "promptFixes": [
+    "Signature, spec bug (3 of 3: the tote reads as a bucket or padlock). Replace the 20×27 tote grid in Imagery step 4 (dist/agent.md lines 399–428), since every agent copies it verbatim. New recipe: 'Tote (22×20): body wider than tall (w÷h 1.1–1.3), straight sides, no step-in; two separate handles, each a 1-unit `hi` loop 4–5 wide and 4–6 tall, rising from ⅕–⅖ and ⅗–⅘ of the top edge with background inside each loop; a 1–2-row `shade` hem and a 2–3-unit patch pocket or seam. Never one arch spanning the bag (bucket or padlock), never sides stepping in (pail).' Ship the grid, checked for one 4-connected region, and add 'bucket' and 'pail' to the name test. Keep the set-mate rule as 'duffel lowest and widest, tote two-handled'. Evidence: s1, s2 and s3 commerce/screenshots/products-canvas-field-tote-desktop-light.png and s1 drawings/home-d3.png, vs 1.2.0-rc.3 commerce/drawings/home-d8.png (the wide, low body read as a bag).",
+    "Signature, spec gap (3 of 3: 20-unit grid sprites are 37.5% visible while pct() says 42%). The `ol` ring is invisible on the near-black window, so it should not count as ink. In Imagery steps 1–2 and pct(), write: 'width counts visible units only (`h`, `b`, `s`, never `ol`); grid and detail sprites have 19–23 visible units, so add 2 columns for the ring (21–25 including `ol`)'. Widen the shipped sweater, coat and tote grids to 21+ visible units. Alternatively, give `ol` a visible tone (`color.art.far`) on picture windows. Evidence: s1 commerce/screenshots/home-desktop-light.png (tote x 178–250 = 72 of 192px) vs s1 agent-report.md line 41 and s3 line 48 (80/192 = 42%); the ring in drawings/home-d3.png.",
+    "Hierarchy, worse than published (3 of 3: blog summaries cut at 2 lines), caused by the spec. In Card, change 'summaries up to 2 lines' to: 'in .cards (≥320px) the summary shows in full up to 4 lines and clamps only past that; the 2-line clamp is for .tiles and product cards'. Evidence: s1, s2 and s3 blog/screenshots/home-desktop-light.png ('A few small habits…') vs 1.1.0-rc.2 blog/screenshots/home-desktop-light.png (full 3–4-line summaries).",
+    "Signature, low (2 of 3: banner leads under 96px, smaller than published). Turn the banner lead height into a code check in Verification report part 3: 'banner lead height in units × unit px ≥ 96 at 1440 (48+ units at 2px); state it per banner'. In Pixel stage step 4, add 'the lead's top sits in the haze band (y ≤ 70)'. Evidence: s1 and s3 blog/drawings/posts-shipping-a-design-system-d1.png (about 95px and 93px) vs 1.1.0-rc.2 blog/drawings/posts-shipping-a-design-system-d1.png (about 117px) and reference/illustrations/p2-i2.png.",
+    "Signature, low (2 of 3: every blog lead is an envelope post office). In step 1, add: 'the world's emblem lead (the post office for a blog) is the hero's alone; banners and about take other subjects of the same world (press house, depot, library, kiosk) with their own defining features'. Evidence: s2 and s3 blog/drawings/home-d1.png plus posts-*-d1.png (an envelope plate on every lead) vs reference p1-i1.png and p2-i2.png (different subjects per scene).",
+    "Consistency, low (2 of 3: the commerce category icons published in 1.1.0 are gone). In Applying the concept → Store row, add 'each card's category label carries its 12px category icon in its hue (Imagery → Icons), as the category chips do'. Evidence: s1 and s2 commerce/screenshots/home-desktop-light.png (bare bullets) vs s3 and 1.1.0-rc.2 commerce/screenshots/home-desktop-light.png (icons), and reference/screenshots/p1-desktop-light.png (category icons).",
+    "Spacing, low (2 of 3: an empty column under the settings photo). In Layout → Forms, add 'a form window wider than 720px lays short fields (name, email, title, time zone) in two columns, with the photo or aside under them or beside the first row; no aside column runs more than space.64 below its content'. Evidence: s2 and s3 settings/screenshots/settings-profile-desktop-light.png (about 450px empty under the photo) vs s1 and 1.1.0-rc.2 settings/screenshots/settings-profile-desktop-light.png (two field columns).",
+    "Process, low (2 of 3 blog samples skip the per-scene report). In the ten rules' closing line, name report part 3 the same way as the sprite table: 'part 3 lists each scene's lead height, path end, lights and details from code; \"not written\" fails it'. Evidence: s2 blog/agent-report.md line 29 and s3 line 44."
+  ]
+}
+```
+
+## Reasons
+
+- critic: average 3.86 (needs 4.0), lowest 3 (needs 3)
