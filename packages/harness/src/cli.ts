@@ -84,7 +84,7 @@ program
   .argument("<ref>")
   .option("--apps <apps...>", `subset of ${AppId.options.join(", ")}`)
   .option("--agent <agent>", "claude | codex (experimental)", "claude")
-  .option("--concurrency <n>", "apps in parallel", "2")
+  .option("--concurrency <n>", "apps in parallel (one sample of four apps runs in one wave at 4)", "4")
   .option("--timeout <minutes>", "per-app agent timeout", "45")
   .option("--samples <n>", "independent runs per app (judge the prompt, not one lucky or unlucky run)", "1")
   .action(async (ref: string, opts) => {

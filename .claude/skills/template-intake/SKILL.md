@@ -56,13 +56,13 @@ will fill by derivation, and what will not be carried over. Wait for approval or
 ## 4. Generate
 
 - Once per machine: `pnpm harness baseline` (captures the unstyled base apps).
-- `pnpm harness generate <id>@<version> --samples 3 --concurrency 3` (one sample is one user's result; see the rubric → "Samples") — the agent restyles all four base apps outside the repo,
+- Screen with one sample, confirm with two more only if it passes (rubric → "Samples"): `pnpm harness generate <id>@<version> --concurrency 4`; after a passing screen, `pnpm harness generate <id>@<version> --samples 2 --concurrency 4` — the agent restyles all four base apps outside the repo,
   then the harness builds and screenshots them. This takes a while; run it in the background and
   report progress.
 
 ## 5. Evaluate
 
-- `pnpm harness evaluate <id>@<version> --samples 3` → gates (every sample must pass) + `review-<n>.html`.
+- `pnpm harness evaluate <id>@<version>` for the screen, `--samples 3` for the confirmation → gates (every sample must pass) + `review-<n>.html`.
 - If gates pass (verdict `pending-review`), delegate to the `design-critic` agent with the template ref,
   the latest runs and the reference screenshots. It writes `showcase/runs/<id>/<version>/critic-<n>.json`.
 - `pnpm harness critic <id>@<version> showcase/runs/<id>/<version>/critic-<n>.json`
