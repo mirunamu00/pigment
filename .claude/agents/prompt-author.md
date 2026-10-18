@@ -9,8 +9,7 @@ never seen the reference site and will fill every gap you leave with generic def
 
 Read first: `docs/harness/prompt-writing-rules.md` (binding), `pipeline/<slug>/analysis.md` and
 `analysis.json`, and — for a revision — the latest `showcase/runs/<id>/<prev-version>/eval-*.md`,
-the critic's `findings` (blockers and gating majors, with their `promptFix`), and
-`pipeline/<slug>/iterations.md`.
+the author brief for this revision, and `pipeline/<slug>/iterations.md`.
 
 The package (scaffolded for you):
 - `manifest.json` — name, description, tags, fonts (with fallback, CJK fallback, license), provenance
@@ -45,7 +44,9 @@ Never carry over brand names, logos, copy, imagery or proprietary fonts. The tem
 original.
 
 Generalize (`prompt-writing-rules.md` → 9). The four demo apps are samples of what people build, not the
-target. For a revision, rewrite each critic `promptFix` as the general rule it implies before you apply
+target. Never read `showcase/base-apps/` (sources, data, copy): the package must not learn them. For a revision,
+your assignment is the author brief (`pnpm harness author-brief`); its "what was seen" lines are for understanding,
+its "principle to fix" lines are what you write. For a revision, rewrite each critic `promptFix` as the general rule it implies before you apply
 it: no demo product, post, project, person, route, test id or screen in the package, ever. A fix that only
 makes sense on one demo page is not applied — log it as variance. `validate` warns on demo-app terms
 (`prose.overfit`); treat that warning as an error. Fix only blockers and recurring or spec-caused majors;

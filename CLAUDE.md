@@ -45,6 +45,10 @@ The PR title is the squash-commit message. Merge only when the user asks and CI'
 
 ## Rules
 
+- **The demo apps are the test, not the target.** A template is handed to people's own agents for products we
+  have never seen. The base apps are where problems show up; a rule written for one of their screens, data or copy
+  (even in generic words) makes the template worse for everyone else. Every fix is the general principle it is
+  missing; the prompt-author gets its assignment from `pnpm harness author-brief` and never reads the base apps.
 - Templates are derived design languages, never clones: no reference logos, names, copy, imagery or
   proprietary fonts. Follow `docs/harness/prompt-writing-rules.md`.
 - Published template versions are immutable (`content/published.json` holds their hashes). Fix by

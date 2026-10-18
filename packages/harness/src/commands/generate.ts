@@ -98,7 +98,9 @@ export async function generate(id: string, version: string, options: GenerateOpt
 }
 
 async function generateLocked(id: string, version: string, apps: RunAppId[], holdout: RunAppId[], options: GenerateOptions): Promise<RunRecord[]> {
-  bundle(id, version);
+  // A published version is frozen, dist included (its hash covers it): run it as it was published.
+  const published = existsSync(paths.published) && Object.keys(JSON.parse(readFileSync(paths.published, "utf8"))).includes(`${id}@${version}`);
+  if (!published) bundle(id, version);
   const samples = Math.max(1, options.samples ?? 1);
   const base = newRunId();
   const ids = sampleRunIds(base, samples);
