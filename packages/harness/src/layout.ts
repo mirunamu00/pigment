@@ -111,6 +111,8 @@ function measure(): LayoutFinding[] {
     if (clippedSeen.has(el)) continue;
     for (let a: Element | null = el; a && a !== document.body; a = a.parentElement) {
       const cs = getComputedStyle(a);
+      // Inside a scroll area the text is reachable: scrolling sideways in a wide table is a choice, not a cut.
+      if (["auto", "scroll"].includes(cs.overflowX) || ["auto", "scroll"].includes(cs.overflowY)) break;
       const hidesX = cs.overflowX === "hidden" || cs.overflowX === "clip";
       const hidesY = cs.overflowY === "hidden" || cs.overflowY === "clip";
       if (!hidesX && !hidesY) continue;
@@ -210,6 +212,9 @@ function measure(): LayoutFinding[] {
       if (shared < 0.5 * Math.min(a.x2 - a.x1, b.x2 - b.x1)) continue;
       // A short line inside a longer one's box is an indicator on a rule (an active tab's underline), not a double.
       const nested = a.el.contains(b.el) || b.el.contains(a.el);
+      // Collapsed table borders are drawn once, however many cells and rows declare them.
+      const table = a.el.closest("table");
+      if (table && table === b.el.closest("table") && getComputedStyle(table).borderCollapse === "collapse") continue;
       if (nested && Math.min(a.x2 - a.x1, b.x2 - b.x1) < 0.8 * Math.max(a.x2 - a.x1, b.x2 - b.x1)) continue;
       ruleSeen.add(a.el);
       add("double-rule", a.el, `a line of ${locate(b.el).split(" ")[0]} runs ${Math.round(b.y - a.y)}px from its own`);

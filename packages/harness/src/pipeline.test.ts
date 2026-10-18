@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { chromium, type Browser } from "playwright";
 import type { CriticFinding, EvalReport } from "@pigment/schema";
+import { copyApp } from "./appdir.ts";
 import { candidateBlock, compareCore, familyCost, generationBlock, passedCandidates, versionFamily } from "./budget.ts";
 import { swatchPage } from "./commands/check-analysis.ts";
 import { judgeCritic, layoutCounts, shareOnScale } from "./commands/evaluate.ts";
@@ -191,7 +192,9 @@ test("layout checks find each defect and skip hidden and deliberate cases", asyn
     .over{position:relative;height:40px}.over span{position:absolute;top:0;left:0}</style>
     <div class="row"><div class="card" style="height:100px">A</div><div class="card" style="height:104px">B</div></div>
     <div class="row"><div class="card" style="height:100px">C</div><div class="card" style="height:160px">D</div></div>
-    <div class="clip">This text is far too long to fit</div><div class="ell">This text is far too long to fit</div>
+    <div class="clip">This text is far too long to fit</div>
+    <div style="overflow:hidden;width:120px"><div style="overflow-x:auto"><table><tr><td style="white-space:nowrap">A wide table that scrolls sideways</td></tr></table></div></div>
+    <table style="border-collapse:collapse;margin-top:20px"><tr style="border-bottom:1px solid #000"><td>r1</td></tr><tr style="border-top:1px solid #000"><td>r2</td></tr></table><div class="ell">This text is far too long to fit</div>
     <div class="sr">Hidden heading</div><div>Visible text</div>
     <div class="clamp">A long description that wraps onto several lines and is clamped to one line on purpose</div><span>$10</span>
     <div class="a">a</div><div class="b">b</div>
@@ -238,4 +241,14 @@ test("swatch page escapes analysis text and marks derived roles", () => {
   } as unknown as Parameters<typeof swatchPage>[0]);
   assert.match(html, /&lt;none&gt;/);
   assert.match(html, /class="d">derived/);
+});
+
+test("kept copies skip the app's build output and dependencies, never a design package's dist", () => {
+  const from = tmp();
+  for (const f of ["src/main.tsx", "dist/index.html", "node_modules/x/i.js", "test-results/r.txt", "design-packages/demo-1.0.0/dist/tokens.css"]) write(join(from, f), "x");
+  const to = join(tmp(), "copy");
+  copyApp(from, to);
+  assert.ok(existsSync(join(to, "src/main.tsx")));
+  assert.ok(existsSync(join(to, "design-packages/demo-1.0.0/dist/tokens.css")));
+  for (const gone of ["dist", "node_modules", "test-results"]) assert.ok(!existsSync(join(to, gone)), gone);
 });

@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { paths } from "./paths.ts";
 import { readJson, run } from "./util.ts";
 
@@ -23,7 +23,10 @@ export interface AppMeta {
   holdout?: boolean;
 }
 
-const SKIP = new Set(["node_modules", "dist", "test-results", "playwright-report", ".turbo", ".snaps"]);
+/** Never copied, wherever they are. */
+const SKIP = new Set(["node_modules", ".turbo"]);
+/** The app's own build and test output, skipped at its root only: a design package's `dist` is source to the app. */
+const SKIP_AT_ROOT = new Set(["dist", "test-results", "playwright-report", ".snaps"]);
 
 /**
  * Agent runs happen OUTSIDE the repository. Coding agents read instruction files (CLAUDE.md, AGENTS.md)
@@ -56,7 +59,10 @@ export function copyApp(from: string, to: string): void {
   mkdirSync(to, { recursive: true });
   cpSync(from, to, {
     recursive: true,
-    filter: (src) => !src.split(/[\\/]/).some((part) => SKIP.has(part)),
+    filter: (src) => {
+      const parts = relative(from, src).split(/[\\/]/);
+      return !parts.some((part) => SKIP.has(part)) && !SKIP_AT_ROOT.has(parts[0]!);
+    },
   });
 }
 
@@ -84,12 +90,19 @@ export interface Server {
 }
 
 export async function preview(dir: string, port: number): Promise<Server> {
+  // Something already answering on the port (a server left over from a stopped run) would be captured in place
+  // of this app: the new server can't bind (--strictPort) and the wait below would succeed against the old one.
+  const url = `http://localhost:${port}`;
+  const busy = await fetch(url, { signal: AbortSignal.timeout(2000) }).then(
+    () => true,
+    () => false,
+  );
+  if (busy) throw new Error(`port ${port} is already in use — stop the server left on it before capturing ${dir}`);
   const child: ChildProcess = spawn("npm", ["run", "preview"], {
     cwd: dir,
     shell: process.platform === "win32",
     stdio: "ignore",
   });
-  const url = `http://localhost:${port}`;
   const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
     try {
