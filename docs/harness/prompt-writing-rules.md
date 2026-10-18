@@ -104,6 +104,8 @@ product, and the lab cannot see it: the same four apps are the test.
   instances.
 - If a finding cannot be stated generally, it is variance or taste: log it in `iterations.md` and leave the
   package alone.
+- The author does not read the demo apps' sources and gets revisions as a generated brief
+  (`pnpm harness author-brief`), so the package never learns their screens. **[process]**
 
 ## 10. Change discipline
 

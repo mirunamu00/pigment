@@ -5,6 +5,11 @@ description: Turn a reference website into a tested Pigment design system templa
 
 # Template intake
 
+**The demo apps are the test, not the target.** A template is handed to people's own agents for products we
+have never seen. The base apps are where problems show up; a rule written for one of their screens, data or copy
+(even in generic words) makes the template worse for everyone else. Every fix is the general principle it is
+missing; the prompt-author gets its assignment from `pnpm harness author-brief` and never reads the base apps.
+
 Runs the pipeline in `docs/harness/README.md`. Read that file, `docs/harness/prompt-writing-rules.md`
 and `docs/harness/evaluation-rubric.md` before starting. Every stage writes files; resume from whatever
 already exists in `pipeline/<slug>/`.
@@ -81,9 +86,9 @@ step, a font substitute) is shown as a rendered swatch, never only in words: `ch
 
 - On `pass` after the screen: confirm (step 4). On `pass` after the confirm: stop and go to step 7. Never
   start another round to fix minors — list them for the user.
-- On `fail`: give the prompt-author the failing gates and the blockers and gating majors (with their
-  `promptFix`), log them in `pipeline/<slug>/iterations.md`, and go back to step 3 with a new rc. Holdout
-  apps' findings are applied only when the same general rule also fails on the four main apps.
+- On `fail`: scaffold the next rc from this one, run `pnpm harness author-brief <id>@<rc> --next <next-rc>`
+  and give the prompt-author that file's content verbatim — never a hand-written list of what the demo screens
+  got wrong. Holdout apps' findings are fixed only as general rules, like any other.
 - At most four candidates (scaffold enforces it) — then stop and
   report the failure analysis.
 

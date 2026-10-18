@@ -118,7 +118,7 @@ export function layoutCounts(reports: LayoutReport[]): Record<string, number> {
   return out;
 }
 
-export async function evaluate(id: string, version: string, options: { skipE2e?: boolean; samples?: number }): Promise<EvalReport> {
+export async function evaluate(id: string, version: string, options: { skipE2e?: boolean; samples?: number; apps?: RunAppId[] }): Promise<EvalReport> {
   const samples = Math.max(1, options.samples ?? 1);
   const tpl = loadTemplate(id, version);
   const palette = colorPalette(tpl);
@@ -132,7 +132,9 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
   // Style samples per sample index and app, for cross-app consistency within each sample.
   const perSample: Array<Record<string, StyleSample[]>> = Array.from({ length: samples }, () => ({}));
 
-  const apps = baseApps() as RunAppId[];
+  // `apps` limits the evaluation, e.g. to the holdout apps when checking whether a published system carries over.
+  const only = options.apps;
+  const apps = (baseApps() as RunAppId[]).filter((a) => !only || only.includes(a));
   const pending: Array<{ app: RunAppId; runDir: string; k: number; holdout?: boolean }> = [];
   for (const app of apps) {
     const runDirs = latestRuns(id, version, app, samples);
@@ -142,10 +144,16 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
   // Holdout apps (the confirm step): their latest run, when there is one. Their gates count like any app's;
   // they stay out of cross-app consistency, which compares the four main apps.
   const holdouts: RunAppId[] = [];
-  if (samples > 1) {
-    for (const app of holdoutApps() as RunAppId[]) {
+  if (samples > 1 || only) {
+    for (const app of (holdoutApps() as RunAppId[]).filter((a) => !only || only.includes(a))) {
       const runDir = latestRuns(id, version, app, 1)[0];
-      if (!runDir) continue;
+      if (!runDir) {
+        if (only) {
+          report.reasons.push(`${app}: no run`);
+          holdouts.push(app);
+        }
+        continue;
+      }
       holdouts.push(app);
       pending.push({ app, runDir, k: samples, holdout: true });
     }

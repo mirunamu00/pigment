@@ -17,7 +17,7 @@ reference URL
    │               pnpm harness critic-brief <id>@<version>   → the critic's generated assignment
    │               design-critic agent                         → findings: blocker / major / minor, general prompt fixes
    │               pnpm harness critic <id>@<version> <file>  → pass = no blocker, no major the prompt causes
-   │  8. iterate    back to 4 with the fixes (at most 4 candidates, each recorded; stop at the first confirmed pass)
+   │  8. iterate    pnpm harness author-brief <id>@<rc> --next <rc+1> → the author's generated assignment, then back to 4 (at most 4 candidates, each recorded; stop at the first confirmed pass)
    │  9. approve    the user reviews screenshots + report      (human gate)
    └ 10. publish    pnpm harness publish <id>@<version>        → frozen version, registry, gallery assets
 ```

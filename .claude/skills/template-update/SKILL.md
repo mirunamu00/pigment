@@ -5,6 +5,11 @@ description: Change a Pigment design system that is already published — fix a 
 
 # Template update
 
+**The demo apps are the test, not the target.** A template is handed to people's own agents for products we
+have never seen. The base apps are where problems show up; a rule written for one of their screens, data or copy
+(even in generic words) makes the template worse for everyone else. Every fix is the general principle it is
+missing; the prompt-author gets its assignment from `pnpm harness author-brief` and never reads the base apps.
+
 Runs `docs/harness/updating.md`. Read it first, with `docs/harness/prompt-writing-rules.md` and
 `docs/harness/evaluation-rubric.md`. Talk to the user about the change and its dates, never about version
 numbers — those are internal.
@@ -20,14 +25,16 @@ numbers — those are internal.
 ## 2. Candidates
 
 - `pnpm harness scaffold <id>@<next>-rc.1 --name "<Name>" --from <id>@<current>`
-- Delegate to `prompt-author` with the goal; it edits, adds a `## <next>-rc.1` changelog entry and loops
+- Delegate to `prompt-author` with the goal, stated as a general change (what should hold for any product), never
+  as a list of demo screens; it edits, adds a `## <next>-rc.1` changelog entry and loops
   on `pnpm harness validate` / `bundle`.
 - Screen: `pnpm harness generate <id>@<next>-rc.1` (background, report progress), `pnpm harness evaluate`,
   `pnpm harness critic-brief` (it adds the published version for comparison), the `design-critic` agent with
   the brief verbatim, `pnpm harness critic`. Only if the screen passes, confirm with
   `generate --samples 2 --holdout`, `evaluate --samples 3`, and the brief, critic and merge again.
-- On `fail`, iterate from the last candidate (`--from <id>@<next>-rc.<n-1>`) on the blockers and gating
-  majors only; scaffold stops at four candidates. On a confirmed pass, stop: minors go to the user as a list.
+- On `fail`, scaffold the next candidate from the last one (`--from <id>@<next>-rc.<n-1>`), run
+  `pnpm harness author-brief <id>@<next>-rc.<n-1> --next <next>-rc.<n>` and give the prompt-author that file's
+  content verbatim; scaffold stops at four candidates. On a confirmed pass, stop: minors go to the user as a list.
 
 ## 3. Approval (stop here)
 

@@ -23,7 +23,7 @@ export function criticBrief(id: string, version: string): string {
   const byApp = new Map<string, string[]>();
   for (const r of report.runs) byApp.set(r.app, [...(byApp.get(r.app) ?? []), r.runId]);
   const isHoldout = (app: string) => !AppId.safeParse(app).success;
-  const sampleCount = Math.max(...[...byApp.entries()].filter(([app]) => !isHoldout(app)).map(([, v]) => v.length));
+  const sampleCount = Math.max(1, ...[...byApp.entries()].filter(([app]) => !isHoldout(app)).map(([, v]) => v.length));
   const sampleRows = [...byApp.entries()].map(
     ([app, ids]) => `| ${app}${isHoldout(app) ? " (holdout)" : ""} | ${ids.map((runId) => `\`${rel(join(dir, app, runId))}\``).join(" · ")} |`,
   );

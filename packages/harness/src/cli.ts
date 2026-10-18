@@ -4,6 +4,7 @@ import { RunAppId } from "@pigment/schema";
 import { parseRef } from "./paths.ts";
 import { bundle } from "./commands/bundle.ts";
 import { capture } from "./commands/capture.ts";
+import { authorBrief } from "./commands/author-brief.ts";
 import { checkAnalysis } from "./commands/check-analysis.ts";
 import { criticBrief } from "./commands/critic-brief.ts";
 import { evaluate, mergeCritic } from "./commands/evaluate.ts";
@@ -121,10 +122,25 @@ program
   .argument("<ref>")
   .option("--skip-e2e", "skip the smoke tests (faster, not valid for publishing)")
   .option("--samples <n>", "evaluate the latest n runs of each app; every gate must pass in every sample", "1")
+  .option("--apps <apps...>", "evaluate only these apps, e.g. landing docs to check a published system on the holdouts")
   .action(async (ref: string, opts) => {
     const { id, version } = parseRef(ref);
-    const report = await evaluate(id, version, { skipE2e: !!opts.skipE2e, samples: Number(opts.samples) });
+    const report = await evaluate(id, version, {
+      skipE2e: !!opts.skipE2e,
+      samples: Number(opts.samples),
+      apps: opts.apps?.map((a: string) => RunAppId.parse(a)),
+    });
     process.exitCode = report.verdict === "fail" ? 1 : 0;
+  });
+
+program
+  .command("author-brief")
+  .description("8. write the prompt-author's assignment for the next candidate from the latest failed evaluation")
+  .argument("<ref>", "the candidate that failed")
+  .requiredOption("--next <version>", "the candidate to write, e.g. 0.1.0-rc.2")
+  .action((ref: string, opts) => {
+    const { id, version } = parseRef(ref);
+    authorBrief(id, version, opts.next);
   });
 
 program
