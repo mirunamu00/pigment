@@ -1,0 +1,2848 @@
+diff --git a/package.json b/package.json
+index 0d72e6b..6153560 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource-variable/inter": "^5.2.5",
++    "@fontsource/geist-mono": "^5.2.5",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/components/ConfirmDialog.tsx b/src/components/ConfirmDialog.tsx
+index 0ac9dd1..49fa8ac 100644
+--- a/src/components/ConfirmDialog.tsx
++++ b/src/components/ConfirmDialog.tsx
+@@ -3,6 +3,8 @@ import { useEffect, useRef, type ReactNode } from 'react';
+ interface ConfirmDialogProps {
+   open: boolean;
+   title: string;
++  /** Mono caption above the title: the object or step. */
++  label?: string;
+   children: ReactNode;
+   confirmLabel: string;
+   onConfirm: () => void;
+@@ -17,6 +19,7 @@ interface ConfirmDialogProps {
+ export default function ConfirmDialog({
+   open,
+   title,
++  label,
+   children,
+   confirmLabel,
+   onConfirm,
+@@ -48,15 +51,33 @@ export default function ConfirmDialog({
+       }}
+       data-testid={testId}
+     >
+-      <h2 id={`${testId}-title`}>{title}</h2>
++      {label && (
++        <p className="mono-label dialog-label" aria-hidden="true">
++          {label}
++        </p>
++      )}
++      <h2 id={`${testId}-title`} className="dialog-title">
++        {title}
++      </h2>
+       <div id={`${testId}-body`} className="dialog-body">
+         {children}
+       </div>
+       <div className="dialog-actions">
+-        <button ref={cancelRef} type="button" className="button" onClick={onCancel} data-testid={`${testId}-cancel`}>
++        <button
++          ref={cancelRef}
++          type="button"
++          className="button button-bordered button-lg"
++          onClick={onCancel}
++          data-testid={`${testId}-cancel`}
++        >
+           Cancel
+         </button>
+-        <button type="button" className="button button-primary" onClick={onConfirm} data-testid={`${testId}-confirm`}>
++        <button
++          type="button"
++          className="button button-primary button-lg"
++          onClick={onConfirm}
++          data-testid={`${testId}-confirm`}
++        >
+           {confirmLabel}
+         </button>
+       </div>
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 8802b51..dca32e5 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,11 +1,12 @@
+ import { NavLink, Outlet } from 'react-router';
+ import { currentUser } from '../data/account';
++import { BellIcon, CardIcon, LockIcon, ProfileIcon } from './Icons';
+ 
+ const SECTIONS = [
+-  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile' },
+-  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications' },
+-  { to: '/settings/security', label: 'Security', testId: 'nav-security' },
+-  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing' },
++  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile', Icon: ProfileIcon },
++  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications', Icon: BellIcon },
++  { to: '/settings/security', label: 'Security', testId: 'nav-security', Icon: LockIcon },
++  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing', Icon: CardIcon },
+ ];
+ 
+ export default function Layout() {
+@@ -27,11 +28,15 @@ export default function Layout() {
+       <div className="settings-layout">
+         <aside className="sidebar">
+           <nav aria-label="Settings sections" data-testid="settings-nav">
++            <p className="sidebar-label mono-label" aria-hidden="true">
++              Settings
++            </p>
+             <ul className="nav-list">
+-              {SECTIONS.map((section) => (
++              {SECTIONS.map(({ Icon, ...section }) => (
+                 <li key={section.to}>
+                   <NavLink to={section.to} className="nav-link" data-testid={section.testId}>
+-                    {section.label}
++                    <Icon className="nav-icon" />
++                    <span>{section.label}</span>
+                   </NavLink>
+                 </li>
+               ))}
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..2e5e339 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,9 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import './styles/fonts.css';
++import './styles/tokens.css';
++import './styles/signature.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/BillingPage.tsx b/src/pages/BillingPage.tsx
+index 54b10a4..b342b28 100644
+--- a/src/pages/BillingPage.tsx
++++ b/src/pages/BillingPage.tsx
+@@ -1,7 +1,17 @@
+ import { useState } from 'react';
+ import ConfirmDialog from '../components/ConfirmDialog';
++import { CardIcon, CheckIcon, StatusDoneIcon, StatusProgressIcon } from '../components/Icons';
++import { Blueprint, stack } from '../components/signature/Blueprint';
++import { GroupHead, ScreenHead } from '../components/signature/Openers';
+ import { initialPlanId, invoices, paymentMethod, plans, type Plan, type PlanId } from '../data/billing';
+ 
++/** Tier slabs: one slab per plan level. */
++const TIERS: Record<PlanId, ReturnType<typeof stack>> = {
++  free: stack(1),
++  pro: stack(2),
++  business: stack(3),
++};
++
+ export default function BillingPage() {
+   const [currentPlanId, setCurrentPlanId] = useState<PlanId>(initialPlanId);
+   const [pendingPlan, setPendingPlan] = useState<Plan | null>(null);
+@@ -18,111 +28,144 @@ export default function BillingPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Billing</h1>
+-        <p className="muted">
++      <ScreenHead label="Account settings" title="Billing">
++        <p className="two-tone">
+           You are on the <strong data-testid="current-plan-name">{currentPlan.name}</strong> plan.
+         </p>
+-      </div>
++      </ScreenHead>
+ 
+-      <section className="panel" aria-labelledby="plans-heading">
+-        <h2 id="plans-heading">Plans</h2>
+-        <ul className="plan-grid">
+-          {plans.map((plan) => {
+-            const isCurrent = plan.id === currentPlanId;
+-            return (
+-              <li
+-                key={plan.id}
+-                className={isCurrent ? 'card plan-card plan-card-current' : 'card plan-card'}
+-                data-testid={`plan-card-${plan.id}`}
+-                data-current={isCurrent ? 'true' : 'false'}
+-                aria-current={isCurrent ? 'true' : undefined}
+-              >
+-                <h3>{plan.name}</h3>
+-                <p className="plan-price">
+-                  <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
+-                </p>
+-                <ul className="feature-list">
+-                  {plan.features.map((feature) => (
+-                    <li key={feature}>
+-                      <svg className="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+-                        <path d="M3 8.5l3 3l7-7" fill="none" stroke="currentColor" strokeWidth="2" />
+-                      </svg>
+-                      <span>{feature}</span>
+-                    </li>
+-                  ))}
+-                </ul>
+-                {isCurrent ? (
+-                  <p className="pill pill-current" data-testid="current-plan-badge">
+-                    Current plan
++      <section className="settings-group" aria-labelledby="plans-heading">
++        <GroupHead
++          index={1}
++          total={3}
++          title="Plans"
++          titleId="plans-heading"
++          description="Switch plans at any time; the change shows on your next invoice."
++        />
++        <div className="group-body">
++          <ul className="plan-grid card-grid">
++            {plans.map((plan) => {
++              const isCurrent = plan.id === currentPlanId;
++              return (
++                <li
++                  key={plan.id}
++                  className={isCurrent ? 'plan-card plan-card-current' : 'plan-card'}
++                  data-testid={`plan-card-${plan.id}`}
++                  data-current={isCurrent ? 'true' : 'false'}
++                  aria-current={isCurrent ? 'true' : undefined}
++                >
++                  <div className="plan-tiers">
++                    <Blueprint drawing={TIERS[plan.id]} size="sm" />
++                  </div>
++                  <h3 className="plan-name">{plan.name}</h3>
++                  <p className="plan-price">
++                    <span className="plan-amount">{plan.price}</span> <span className="plan-period">{plan.period}</span>
+                   </p>
+-                ) : (
+-                  <button
+-                    type="button"
+-                    className="button"
+-                    onClick={() => setPendingPlan(plan)}
+-                    data-testid={`choose-plan-${plan.id}`}
+-                  >
+-                    Switch to {plan.name}
+-                  </button>
+-                )}
+-              </li>
+-            );
+-          })}
+-        </ul>
+-        <p role="status" className="status-message" data-testid="plan-status">
+-          {message}
+-        </p>
++                  <ul className="feature-list">
++                    {plan.features.map((feature) => (
++                      <li key={feature}>
++                        <CheckIcon />
++                        <span>{feature}</span>
++                      </li>
++                    ))}
++                  </ul>
++                  {isCurrent ? (
++                    <p className="badge badge-current" data-testid="current-plan-badge">
++                      Current plan
++                    </p>
++                  ) : (
++                    <button
++                      type="button"
++                      className="button button-secondary"
++                      onClick={() => setPendingPlan(plan)}
++                      data-testid={`choose-plan-${plan.id}`}
++                    >
++                      Switch to {plan.name}
++                    </button>
++                  )}
++                </li>
++              );
++            })}
++          </ul>
++          <p role="status" className="status-message" data-testid="plan-status">
++            {message}
++          </p>
++        </div>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="payment-heading">
+-        <h2 id="payment-heading">Payment method</h2>
+-        <div className="payment-method" data-testid="payment-method">
+-          <svg className="card-icon" viewBox="0 0 32 22" width="32" height="22" aria-hidden="true" focusable="false">
+-            <rect x="1" y="1" width="30" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-            <rect x="1" y="6" width="30" height="4" fill="currentColor" />
+-          </svg>
+-          <span>
+-            {paymentMethod.brand} ending in {paymentMethod.last4}
+-          </span>
+-          <span className="muted small">Expires {paymentMethod.expires}</span>
++      <section className="settings-group" aria-labelledby="payment-heading">
++        <GroupHead
++          index={2}
++          total={3}
++          title="Payment method"
++          titleId="payment-heading"
++          description="The card every invoice is charged to."
++        />
++        <div className="group-body">
++          <div className="card payment-method" data-testid="payment-method">
++            <span className="payment-icon">
++              <CardIcon />
++            </span>
++            <span className="payment-name">
++              {paymentMethod.brand} ending in {paymentMethod.last4}
++            </span>
++            <span className="mono-label">Expires {paymentMethod.expires}</span>
++          </div>
+         </div>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="invoices-heading">
+-        <h2 id="invoices-heading">Invoices</h2>
+-        <div className="table-wrap">
+-          <table className="table" data-testid="invoices-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Invoice</th>
+-                <th scope="col">Date</th>
+-                <th scope="col" className="numeric">
+-                  Amount
+-                </th>
+-                <th scope="col">Status</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {invoices.map((invoice) => (
+-                <tr key={invoice.id} data-testid="invoice-row">
+-                  <td>{invoice.id}</td>
+-                  <td>{invoice.date}</td>
+-                  <td className="numeric">{invoice.amount}</td>
+-                  <td>
+-                    <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
+-                      {invoice.status}
+-                    </span>
+-                  </td>
++      <section className="settings-group" aria-labelledby="invoices-heading">
++        <GroupHead
++          index={3}
++          total={3}
++          title="Invoices"
++          titleId="invoices-heading"
++          description="Your five most recent invoices."
++        />
++        <div className="group-body">
++          <div className="tbl-wrap">
++            <table className="tbl" data-testid="invoices-table">
++              <thead>
++                <tr>
++                  <th scope="col">Invoice</th>
++                  <th scope="col">Date</th>
++                  <th scope="col" className="num">
++                    Amount
++                  </th>
++                  <th scope="col" className="pin">
++                    Status
++                  </th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
++              </thead>
++              <tbody>
++                {invoices.map((invoice) => (
++                  <tr key={invoice.id} data-testid="invoice-row">
++                    <td>
++                      <div className="cell-first">
++                        <span className="cell-lines" data-sub={invoice.date}>
++                          <span className="cell-id">{invoice.id}</span>
++                        </span>
++                      </div>
++                    </td>
++                    <td className="cell-meta">{invoice.date}</td>
++                    <td className="num">{invoice.amount}</td>
++                    <td className="pin">
++                      <span className="status-cell">
++                        {invoice.status === 'Paid' ? <StatusDoneIcon /> : <StatusProgressIcon />}
++                        <span>{invoice.status}</span>
++                      </span>
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
+         </div>
+       </section>
+ 
+       <ConfirmDialog
+         open={pendingPlan !== null}
++        label="Plan change"
+         title={pendingPlan ? `Switch to the ${pendingPlan.name} plan?` : 'Change plan'}
+         confirmLabel="Confirm change"
+         onConfirm={confirmChange}
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 9781ca6..69ff4d7 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,38 @@
+-import { Link } from 'react-router';
++import { Link, useNavigate } from 'react-router';
++import { ArrowLeftIcon } from '../components/Icons';
++import { Blueprint, brokenPair } from '../components/signature/Blueprint';
++import { Stage } from '../components/signature/Stage';
++
++const BROKEN_LINK = brokenPair(0, 0, 80, 20);
+ 
+ export default function NotFoundPage() {
++  const navigate = useNavigate();
++
++  function goBack() {
++    if (window.history.length > 1) navigate(-1);
++    else navigate('/settings/profile');
++  }
++
+   return (
+-    <section className="empty-state" data-testid="not-found">
++    <section className="empty-state empty-state--error" data-testid="not-found">
++      <Stage quiet className="error-stage" windowClassName="error-stage-window">
++        <Blueprint drawing={BROKEN_LINK} size="lg" />
++      </Stage>
++      <p className="mono-label">ERR 404</p>
+       <h1>Page not found</h1>
+-      <p className="muted">The settings page you are looking for does not exist or has moved.</p>
+-      <Link to="/settings/profile">Go to profile settings</Link>
++      <p className="two-tone">
++        <b>The settings page you are looking for does not exist or has moved.</b> Pick a section from the menu
++        to carry on.
++      </p>
++      <div className="empty-actions">
++        <Link to="/settings/profile" className="button button-primary button-lg">
++          Go to profile settings
++        </Link>
++        <button type="button" className="button button-secondary button-lg" onClick={goBack}>
++          <ArrowLeftIcon />
++          Go back
++        </button>
++      </div>
+     </section>
+   );
+ }
+diff --git a/src/pages/NotificationsPage.tsx b/src/pages/NotificationsPage.tsx
+index 040835b..5203ca2 100644
+--- a/src/pages/NotificationsPage.tsx
++++ b/src/pages/NotificationsPage.tsx
+@@ -1,5 +1,6 @@
+ import { useState } from 'react';
+ import { notificationGroups } from '../data/notifications';
++import { GroupCount, ScreenHead } from '../components/signature/Openers';
+ 
+ function initialState(): Record<string, boolean> {
+   const state: Record<string, boolean> = {};
+@@ -21,48 +22,52 @@ export default function NotificationsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Notifications</h1>
+-        <p className="muted">Choose what you hear about and where. Changes apply right away.</p>
+-        <p className="small" data-testid="notifications-count">
++      <ScreenHead label="Account settings" title="Notifications">
++        <p className="two-tone">
++          <b>Choose what you hear about and where.</b> Changes apply right away.
++        </p>
++        <p className="mono-label" data-testid="notifications-count">
+           {onCount} of {total} notifications on
+         </p>
+-      </div>
++      </ScreenHead>
+ 
+-      {notificationGroups.map((group) => (
+-        <fieldset key={group.id} className="panel fieldset" data-testid={`notification-group-${group.id}`}>
+-          <legend className="legend">{group.title}</legend>
+-          <p className="muted small">{group.description}</p>
+-          <ul className="switch-list">
+-            {group.settings.map((setting) => {
+-              const inputId = `switch-${setting.id}`;
+-              const descriptionId = `${inputId}-description`;
+-              return (
+-                <li key={setting.id} className="switch-row">
+-                  <div className="switch-text">
+-                    <label htmlFor={inputId} className="field-label">
+-                      {setting.label}
+-                    </label>
+-                    <p id={descriptionId} className="muted small">
+-                      {setting.description}
+-                    </p>
+-                  </div>
+-                  <input
+-                    id={inputId}
+-                    type="checkbox"
+-                    role="switch"
+-                    className="switch"
+-                    checked={enabled[setting.id] ?? false}
+-                    onChange={() => toggle(setting.id)}
+-                    aria-describedby={descriptionId}
+-                    data-testid={inputId}
+-                  />
+-                </li>
+-              );
+-            })}
+-          </ul>
+-        </fieldset>
+-      ))}
++      <div className="settings-stack">
++        {notificationGroups.map((group, index) => (
++          <fieldset key={group.id} className="settings-group fieldset" data-testid={`notification-group-${group.id}`}>
++            <legend className="group-title">{group.title}</legend>
++            <GroupCount index={index + 1} total={notificationGroups.length} />
++            <p className="group-desc">{group.description}</p>
++            <ul className="group-body switch-list">
++              {group.settings.map((setting) => {
++                const inputId = `switch-${setting.id}`;
++                const descriptionId = `${inputId}-description`;
++                return (
++                  <li key={setting.id} className="switch-row">
++                    <div className="switch-text">
++                      <label htmlFor={inputId} className="switch-label">
++                        {setting.label}
++                      </label>
++                      <p id={descriptionId} className="switch-desc">
++                        {setting.description}
++                      </p>
++                    </div>
++                    <input
++                      id={inputId}
++                      type="checkbox"
++                      role="switch"
++                      className="switch"
++                      checked={enabled[setting.id] ?? false}
++                      onChange={() => toggle(setting.id)}
++                      aria-describedby={descriptionId}
++                      data-testid={inputId}
++                    />
++                  </li>
++                );
++              })}
++            </ul>
++          </fieldset>
++        ))}
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProfilePage.tsx b/src/pages/ProfilePage.tsx
+index 89f0a81..440efc6 100644
+--- a/src/pages/ProfilePage.tsx
++++ b/src/pages/ProfilePage.tsx
+@@ -1,5 +1,10 @@
+ import { useState, type ChangeEvent, type FormEvent } from 'react';
+ import { BIO_MAX_LENGTH, currentUser, initialProfile, timeZones, type Profile } from '../data/account';
++import { CameraIcon } from '../components/Icons';
++import { FormBanner } from '../components/FormBanner';
++import { DoneMark } from '../components/signature/DotGlyph';
++import { GroupHead, ScreenHead } from '../components/signature/Openers';
++import { Fig, Stage } from '../components/signature/Stage';
+ 
+ type ProfileErrors = Partial<Record<keyof Profile, string>>;
+ 
+@@ -15,10 +20,36 @@ function validate(profile: Profile): ProfileErrors {
+   return errors;
+ }
+ 
++interface PreviewProps {
++  profile: Profile;
++  initials: string;
++}
++
++/** The member card teammates see, at true scale, fed by the form's current values. */
++function ProfilePreview({ profile, initials }: PreviewProps) {
++  const zone = timeZones.find((item) => item.value === profile.timeZone);
++  return (
++    <div className="member-card">
++      <p className="mono-label">Workspace member</p>
++      <div className="member-card-person">
++        <span className="avatar avatar-medium">{initials}</span>
++        <span className="member-card-lines">
++          <span className="member-card-name">{profile.fullName.trim() || currentUser.name}</span>
++          <span className="member-card-meta">{profile.jobTitle.trim() || 'No job title'}</span>
++        </span>
++      </div>
++      {profile.bio.trim() && <p className="member-card-bio">{profile.bio}</p>}
++      <p className="member-card-zone mono-label">{zone ? zone.label : 'No time zone'}</p>
++    </div>
++  );
++}
++
+ export default function ProfilePage() {
+   const [profile, setProfile] = useState<Profile>(initialProfile);
+   const [errors, setErrors] = useState<ProfileErrors>({});
+   const [saved, setSaved] = useState(false);
++  const [saveCount, setSaveCount] = useState(0);
++  const [failedCount, setFailedCount] = useState(0);
+ 
+   function update(field: keyof Profile) {
+     return (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+@@ -34,16 +65,20 @@ export default function ProfilePage() {
+     const firstInvalid = Object.keys(nextErrors)[0];
+     if (firstInvalid) {
+       setSaved(false);
++      setFailedCount(Object.keys(nextErrors).length);
+       document.getElementById(`profile-${firstInvalid}`)?.focus();
+       return;
+     }
++    setFailedCount(0);
+     setSaved(true);
++    setSaveCount((count) => count + 1);
+   }
+ 
+   function handleReset() {
+     setProfile(initialProfile);
+     setErrors({});
+     setSaved(false);
++    setFailedCount(0);
+   }
+ 
+   const initials =
+@@ -57,157 +92,193 @@ export default function ProfilePage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Profile</h1>
+-        <p className="muted">This information is shown to people in your workspace.</p>
+-      </div>
++      <ScreenHead label="Account settings" title="Profile">
++        <p className="two-tone">This information is shown to people in your workspace.</p>
++      </ScreenHead>
+ 
+-      <form className="panel form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
+-        <div className="avatar-row">
+-          <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
+-            {initials}
+-          </span>
+-          <div>
+-            <p className="field-label">Profile photo</p>
+-            <p className="muted small">A placeholder with your initials is shown until you upload a photo.</p>
+-            <button type="button" className="button" data-testid="change-photo">
+-              <svg className="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+-                <path
+-                  d="M4 7h3l2-2h6l2 2h3v12H4z M12 10a3 3 0 1 0 0 6a3 3 0 0 0 0-6"
+-                  fill="none"
+-                  stroke="currentColor"
+-                  strokeWidth="2"
+-                  strokeLinejoin="round"
+-                />
+-              </svg>
+-              <span>Change photo</span>
+-            </button>
+-          </div>
+-        </div>
+-
+-        <div className="form-grid">
+-          <div className="field">
+-            <label htmlFor="profile-fullName" className="field-label">
+-              Full name
+-            </label>
+-            <input
+-              id="profile-fullName"
+-              type="text"
+-              className="input"
+-              autoComplete="name"
+-              value={profile.fullName}
+-              onChange={update('fullName')}
+-              aria-invalid={errors.fullName ? true : undefined}
+-              aria-describedby={errors.fullName ? 'profile-fullName-error' : undefined}
+-              data-testid="profile-name"
+-            />
+-            {errors.fullName && (
+-              <p id="profile-fullName-error" className="field-error" data-testid="error-name">
+-                {errors.fullName}
+-              </p>
+-            )}
+-          </div>
++      <form className="settings-form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
++        <section className="settings-group" aria-labelledby="profile-public-heading">
++          <GroupHead
++            index={1}
++            total={2}
++            title="Public profile"
++            titleId="profile-public-heading"
++            description="Your photo and the card teammates see."
++          />
++          <div className="group-body form-column">
++            <div>
++              <Stage quiet className="profile-stage">
++                <ProfilePreview profile={profile} initials={initials} />
++              </Stage>
++              <Fig number="0.1" name="Member card">
++                Updates as you edit your details.
++              </Fig>
++            </div>
+ 
+-          <div className="field">
+-            <label htmlFor="profile-email" className="field-label">
+-              Email
+-            </label>
+-            <input
+-              id="profile-email"
+-              type="email"
+-              className="input"
+-              autoComplete="email"
+-              value={profile.email}
+-              onChange={update('email')}
+-              aria-invalid={errors.email ? true : undefined}
+-              aria-describedby={errors.email ? 'profile-email-error' : undefined}
+-              data-testid="profile-email"
+-            />
+-            {errors.email && (
+-              <p id="profile-email-error" className="field-error" data-testid="error-email">
+-                {errors.email}
+-              </p>
+-            )}
++            <div className="avatar-row">
++              <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
++                {initials}
++              </span>
++              <div className="avatar-row-text">
++                <p className="field-label">Profile photo</p>
++                <p className="field-help">A placeholder with your initials is shown until you upload a photo.</p>
++                <button type="button" className="button button-secondary" data-testid="change-photo">
++                  <CameraIcon />
++                  <span>Change photo</span>
++                </button>
++              </div>
++            </div>
+           </div>
++        </section>
+ 
+-          <div className="field">
+-            <label htmlFor="profile-jobTitle" className="field-label">
+-              Job title <span className="muted small">(optional)</span>
+-            </label>
+-            <input
+-              id="profile-jobTitle"
+-              type="text"
+-              className="input"
+-              autoComplete="organization-title"
+-              value={profile.jobTitle}
+-              onChange={update('jobTitle')}
+-              data-testid="profile-job-title"
+-            />
+-          </div>
++        <section className="settings-group" aria-labelledby="profile-details-heading">
++          <GroupHead
++            index={2}
++            total={2}
++            title="Details"
++            titleId="profile-details-heading"
++            description="Name, contact address, locale and bio."
++          />
++          <div className="group-body form-column">
++            <div className="field-stack">
++              <div className="field">
++                <label htmlFor="profile-fullName" className="field-label">
++                  Full name
++                </label>
++                <input
++                  id="profile-fullName"
++                  type="text"
++                  className="input"
++                  autoComplete="name"
++                  value={profile.fullName}
++                  onChange={update('fullName')}
++                  aria-invalid={errors.fullName ? true : undefined}
++                  aria-describedby={errors.fullName ? 'profile-fullName-error' : undefined}
++                  data-testid="profile-name"
++                />
++                {errors.fullName && (
++                  <p id="profile-fullName-error" className="field-error" data-testid="error-name">
++                    {errors.fullName}
++                  </p>
++                )}
++              </div>
+ 
+-          <div className="field">
+-            <label htmlFor="profile-timeZone" className="field-label">
+-              Time zone
+-            </label>
+-            <select
+-              id="profile-timeZone"
+-              className="input"
+-              value={profile.timeZone}
+-              onChange={update('timeZone')}
+-              aria-invalid={errors.timeZone ? true : undefined}
+-              aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
+-              data-testid="profile-timezone"
+-            >
+-              <option value="">Select a time zone</option>
+-              {timeZones.map((zone) => (
+-                <option key={zone.value} value={zone.value}>
+-                  {zone.label}
+-                </option>
+-              ))}
+-            </select>
+-            {errors.timeZone && (
+-              <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
+-                {errors.timeZone}
+-              </p>
+-            )}
+-          </div>
++              <div className="field">
++                <label htmlFor="profile-email" className="field-label">
++                  Email
++                </label>
++                <input
++                  id="profile-email"
++                  type="email"
++                  className="input"
++                  autoComplete="email"
++                  value={profile.email}
++                  onChange={update('email')}
++                  aria-invalid={errors.email ? true : undefined}
++                  aria-describedby={errors.email ? 'profile-email-error' : undefined}
++                  data-testid="profile-email"
++                />
++                {errors.email && (
++                  <p id="profile-email-error" className="field-error" data-testid="error-email">
++                    {errors.email}
++                  </p>
++                )}
++              </div>
++
++              <div className="field">
++                <label htmlFor="profile-jobTitle" className="field-label">
++                  Job title <span className="field-optional">(optional)</span>
++                </label>
++                <input
++                  id="profile-jobTitle"
++                  type="text"
++                  className="input"
++                  autoComplete="organization-title"
++                  value={profile.jobTitle}
++                  onChange={update('jobTitle')}
++                  data-testid="profile-job-title"
++                />
++              </div>
++
++              <div className="field">
++                <label htmlFor="profile-timeZone" className="field-label">
++                  Time zone
++                </label>
++                <div className="select-wrap">
++                  <select
++                    id="profile-timeZone"
++                    className="input select"
++                    value={profile.timeZone}
++                    onChange={update('timeZone')}
++                    aria-invalid={errors.timeZone ? true : undefined}
++                    aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
++                    data-testid="profile-timezone"
++                  >
++                    <option value="">Select a time zone</option>
++                    {timeZones.map((zone) => (
++                      <option key={zone.value} value={zone.value}>
++                        {zone.label}
++                      </option>
++                    ))}
++                  </select>
++                  <svg className="select-chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
++                    <path d="M4.5 6.5L8 10l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
++                  </svg>
++                </div>
++                {errors.timeZone && (
++                  <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
++                    {errors.timeZone}
++                  </p>
++                )}
++              </div>
++
++              <div className="field">
++                <label htmlFor="profile-bio" className="field-label">
++                  Bio
++                </label>
++                <textarea
++                  id="profile-bio"
++                  className="input textarea"
++                  rows={4}
++                  value={profile.bio}
++                  onChange={update('bio')}
++                  aria-invalid={errors.bio ? true : undefined}
++                  aria-describedby={errors.bio ? 'profile-bio-hint profile-bio-error' : 'profile-bio-hint'}
++                  data-testid="profile-bio"
++                />
++                <div className="field-foot">
++                  {errors.bio ? (
++                    <p id="profile-bio-error" className="field-error" data-testid="error-bio">
++                      {errors.bio}
++                    </p>
++                  ) : (
++                    <span />
++                  )}
++                  <p id="profile-bio-hint" className="field-counter" data-testid="bio-count">
++                    {profile.bio.length} / {BIO_MAX_LENGTH} characters
++                  </p>
++                </div>
++              </div>
++            </div>
++
++            {failedCount > 0 && <FormBanner count={failedCount} />}
+ 
+-          <div className="field field-wide">
+-            <label htmlFor="profile-bio" className="field-label">
+-              Bio
+-            </label>
+-            <textarea
+-              id="profile-bio"
+-              className="input textarea"
+-              rows={4}
+-              value={profile.bio}
+-              onChange={update('bio')}
+-              aria-invalid={errors.bio ? true : undefined}
+-              aria-describedby={errors.bio ? 'profile-bio-hint profile-bio-error' : 'profile-bio-hint'}
+-              data-testid="profile-bio"
+-            />
+-            <p id="profile-bio-hint" className="muted small" data-testid="bio-count">
+-              {profile.bio.length} / {BIO_MAX_LENGTH} characters
+-            </p>
+-            {errors.bio && (
+-              <p id="profile-bio-error" className="field-error" data-testid="error-bio">
+-                {errors.bio}
+-              </p>
+-            )}
++            <div className="form-actions">
++              <button type="submit" className="button button-primary button-lg" data-testid="profile-save">
++                Save changes
++              </button>
++              <button type="button" className="button button-bordered button-lg" onClick={handleReset} data-testid="profile-reset">
++                Reset
++              </button>
++              <span className="form-status">
++                {saved && <DoneMark key={saveCount} />}
++                <p role="status" className="status-message" data-testid="profile-status">
++                  {saved ? 'Saved' : ''}
++                </p>
++              </span>
++            </div>
+           </div>
+-        </div>
+-
+-        <div className="form-actions">
+-          <button type="submit" className="button button-primary" data-testid="profile-save">
+-            Save changes
+-          </button>
+-          <button type="button" className="button" onClick={handleReset} data-testid="profile-reset">
+-            Reset
+-          </button>
+-          <p role="status" className="status-message" data-testid="profile-status">
+-            {saved ? 'Saved' : ''}
+-          </p>
+-        </div>
++        </section>
+       </form>
+     </>
+   );
+diff --git a/src/pages/SecurityPage.tsx b/src/pages/SecurityPage.tsx
+index 3498f5d..06536ce 100644
+--- a/src/pages/SecurityPage.tsx
++++ b/src/pages/SecurityPage.tsx
+@@ -1,5 +1,8 @@
+ import { useState, type FormEvent } from 'react';
+ import { initialSessions, type Session } from '../data/sessions';
++import { FormBanner } from '../components/FormBanner';
++import { DoneMark, DotGlyph, DotMeter } from '../components/signature/DotGlyph';
++import { GroupHead, ScreenHead } from '../components/signature/Openers';
+ 
+ interface PasswordForm {
+   current: string;
+@@ -12,7 +15,9 @@ type PasswordErrors = Partial<Record<keyof PasswordForm, string>>;
+ const EMPTY_FORM: PasswordForm = { current: '', next: '', confirm: '' };
+ const MIN_LENGTH = 8;
+ 
+-function strengthOf(password: string): { label: string; level: 'none' | 'weak' | 'fair' | 'strong' } {
++type StrengthLevel = 'none' | 'weak' | 'fair' | 'strong';
++
++function strengthOf(password: string): { label: string; level: StrengthLevel } {
+   if (!password) return { label: `Use at least ${MIN_LENGTH} characters.`, level: 'none' };
+   if (password.length < MIN_LENGTH) return { label: 'Too short', level: 'weak' };
+   let variety = 0;
+@@ -25,6 +30,14 @@ function strengthOf(password: string): { label: string; level: 'none' | 'weak' |
+   return { label: 'Weak', level: 'weak' };
+ }
+ 
++/** Strength as a 1-to-5 dot meter: lit dots and their status hue. */
++const METER: Record<StrengthLevel, { dots: number; tone?: string }> = {
++  none: { dots: 0 },
++  weak: { dots: 1, tone: 'var(--color-status-danger)' },
++  fair: { dots: 3, tone: 'var(--color-status-warning)' },
++  strong: { dots: 5, tone: 'var(--color-status-success)' },
++};
++
+ function validate(form: PasswordForm): PasswordErrors {
+   const errors: PasswordErrors = {};
+   if (!form.current) errors.current = 'Enter your current password.';
+@@ -45,10 +58,13 @@ export default function SecurityPage() {
+   const [form, setForm] = useState<PasswordForm>(EMPTY_FORM);
+   const [errors, setErrors] = useState<PasswordErrors>({});
+   const [updated, setUpdated] = useState(false);
++  const [updateCount, setUpdateCount] = useState(0);
++  const [failedCount, setFailedCount] = useState(0);
+   const [sessions, setSessions] = useState<Session[]>(initialSessions);
+   const [sessionMessage, setSessionMessage] = useState('');
+ 
+   const strength = strengthOf(form.next);
++  const meter = METER[strength.level];
+ 
+   function handleSubmit(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+@@ -57,11 +73,14 @@ export default function SecurityPage() {
+     const firstInvalid = FIELDS.find((field) => nextErrors[field.key]);
+     if (firstInvalid) {
+       setUpdated(false);
++      setFailedCount(Object.keys(nextErrors).length);
+       document.getElementById(`password-${firstInvalid.key}`)?.focus();
+       return;
+     }
++    setFailedCount(0);
+     setForm(EMPTY_FORM);
+     setUpdated(true);
++    setUpdateCount((count) => count + 1);
+   }
+ 
+   function revoke(session: Session) {
+@@ -71,15 +90,22 @@ export default function SecurityPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Security</h1>
+-        <p className="muted">Manage your password and the devices signed in to your account.</p>
+-      </div>
++      <ScreenHead label="Account settings" title="Security">
++        <p className="two-tone">
++          <b>Manage your password</b> and the devices signed in to your account.
++        </p>
++      </ScreenHead>
+ 
+-      <section className="panel" aria-labelledby="password-heading">
+-        <h2 id="password-heading">Change password</h2>
+-        <form className="form" noValidate onSubmit={handleSubmit} data-testid="password-form">
+-          <div className="form-stack">
++      <section className="settings-group" aria-labelledby="password-heading">
++        <GroupHead
++          index={1}
++          total={2}
++          title="Change password"
++          titleId="password-heading"
++          description="Strong passwords run 12 or more characters and mix letters, numbers and symbols."
++        />
++        <form className="group-body form-column" noValidate onSubmit={handleSubmit} data-testid="password-form">
++          <div className="field-stack">
+             {FIELDS.map((field) => {
+               const id = `password-${field.key}`;
+               const describedBy = [
+@@ -108,14 +134,17 @@ export default function SecurityPage() {
+                     data-testid={field.testId}
+                   />
+                   {field.key === 'next' && (
+-                    <p
+-                      id="password-strength"
+-                      className={`strength strength-${strength.level} small`}
+-                      data-testid="password-strength"
+-                      data-level={strength.level}
+-                    >
+-                      {strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}
+-                    </p>
++                    <div className="strength-row">
++                      <DotMeter level={meter.dots} tone={meter.tone} />
++                      <p
++                        id="password-strength"
++                        className={`strength strength-${strength.level}`}
++                        data-testid="password-strength"
++                        data-level={strength.level}
++                      >
++                        {strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}
++                      </p>
++                    </div>
+                   )}
+                   {errors[field.key] && (
+                     <p id={`${id}-error`} className="field-error" data-testid={`error-${field.testId}`}>
+@@ -126,70 +155,92 @@ export default function SecurityPage() {
+               );
+             })}
+           </div>
++          {failedCount > 0 && <FormBanner count={failedCount} />}
+           <div className="form-actions">
+-            <button type="submit" className="button button-primary" data-testid="password-submit">
++            <button type="submit" className="button button-primary button-lg" data-testid="password-submit">
+               Update password
+             </button>
+-            <p role="status" className="status-message" data-testid="password-status">
+-              {updated ? 'Password updated' : ''}
+-            </p>
++            <span className="form-status">
++              {updated && <DoneMark key={updateCount} />}
++              <p role="status" className="status-message" data-testid="password-status">
++                {updated ? 'Password updated' : ''}
++              </p>
++            </span>
+           </div>
+         </form>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="sessions-heading">
+-        <h2 id="sessions-heading">Active sessions</h2>
+-        <p className="muted small">Revoke a session to sign that device out immediately.</p>
+-        <div className="table-wrap">
+-          <table className="table" data-testid="sessions-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Device</th>
+-                <th scope="col">Location</th>
+-                <th scope="col">Last active</th>
+-                <th scope="col">
+-                  <span className="visually-hidden">Actions</span>
+-                </th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {sessions.map((session) => (
+-                <tr key={session.id} data-testid="session-row">
+-                  <td>
+-                    {session.device}
+-                    {session.current && (
+-                      <span className="pill pill-neutral small" data-testid="current-session">
+-                        This device
+-                      </span>
+-                    )}
+-                  </td>
+-                  <td>{session.location}</td>
+-                  <td>{session.lastActive}</td>
+-                  <td className="cell-actions">
+-                    {!session.current && (
+-                      <button
+-                        type="button"
+-                        className="button button-danger"
+-                        onClick={() => revoke(session)}
+-                        data-testid={`revoke-${session.id}`}
+-                      >
+-                        Revoke<span className="visually-hidden"> {session.device}</span>
+-                      </button>
+-                    )}
+-                  </td>
++      <section className="settings-group" aria-labelledby="sessions-heading">
++        <GroupHead
++          index={2}
++          total={2}
++          title="Active sessions"
++          titleId="sessions-heading"
++          description="Revoke a session to sign that device out immediately."
++        />
++        <div className="group-body">
++          <div className="tbl-wrap">
++            <table className="tbl" data-testid="sessions-table">
++              <thead>
++                <tr>
++                  <th scope="col">Device</th>
++                  <th scope="col">Location</th>
++                  <th scope="col">Last active</th>
++                  <th scope="col" className="pin">
++                    <span className="visually-hidden">Actions</span>
++                  </th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
+-        {sessions.length === 1 && (
+-          <p className="muted small" data-testid="sessions-empty">
+-            No other devices are signed in.
++              </thead>
++              <tbody>
++                {sessions.map((session) => (
++                  <tr key={session.id} data-testid="session-row">
++                    <td>
++                      <div className="cell-first">
++                        <span className="cell-lines" data-sub={session.lastActive}>
++                          <span>
++                            {session.device}
++                            {session.current && (
++                              <span className="badge" data-testid="current-session">
++                                <span className="status-dot status-dot--success" aria-hidden="true" />
++                                <span className="badge-label">This device</span>
++                              </span>
++                            )}
++                          </span>
++                        </span>
++                      </div>
++                    </td>
++                    <td>{session.location}</td>
++                    <td className="cell-meta">{session.lastActive}</td>
++                    <td className="pin">
++                      {!session.current && (
++                        <button
++                          type="button"
++                          className="button button-bordered button-sm"
++                          onClick={() => revoke(session)}
++                          data-testid={`revoke-${session.id}`}
++                        >
++                          Revoke<span className="visually-hidden"> {session.device}</span>
++                        </button>
++                      )}
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++          {sessions.length === 1 && (
++            <div className="empty-state empty-state--inline">
++              <DotGlyph name="empty" size="lg" />
++              <p className="mono-label">No other sessions</p>
++              <p className="two-tone" data-testid="sessions-empty">
++                <b>No other devices are signed in.</b> New sign-ins appear here.
++              </p>
++            </div>
++          )}
++          <p role="status" className="status-message" data-testid="sessions-status">
++            {sessionMessage}
+           </p>
+-        )}
+-        <p role="status" className="status-message" data-testid="sessions-status">
+-          {sessionMessage}
+-        </p>
++        </div>
+       </section>
+     </>
+   );
+diff --git a/src/styles/base.css b/src/styles/base.css
+index bfb6f76..bb445b1 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,58 +1,38 @@
+ /*
+- * Base styles for the Account Settings app.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Account Settings on Graphite Blueprint 1.1.0-rc.6.
++ * Tokens live in tokens.css (copied from the design package); signature pieces in signature.css.
++ * Every value below is a token; the old app variables are kept as aliases onto them.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-danger-bg: #fdecee;
+-  --color-switch-off: #bbbbbb;
+-  --color-switch-on: #0645ad;
+-  --color-switch-thumb: #ffffff;
+-  --color-strength-weak: #b00020;
+-  --color-strength-fair: #7a5a00;
+-  --color-strength-strong: #2e7d32;
+-  --color-pill-neutral-bg: #e8e8e8;
+-  --color-pill-neutral-text: #444444;
+-  --color-pill-current-bg: #e3f2e5;
+-  --color-pill-current-text: #1b5e20;
+-  --color-pill-due-bg: #fff4d6;
+-  --color-pill-due-text: #7a5a00;
+-  --color-backdrop: rgba(0, 0, 0, 0.4);
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
+-  --content-max-width: 880px;
+-  --avatar-size-large: 72px;
+-  --switch-width: 40px;
+-  --switch-height: 22px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-default);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-subtle);
++  --color-text: var(--color-text-body);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-primary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-status-success);
++  --color-negative: var(--color-status-danger);
++  --color-danger-bg: var(--color-status-danger-tint);
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --radius: var(--radius-sm);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hairline);
++  --sidebar-width: var(--size-sidebar);
++
++  --page-pad: var(--space-32);
++  color-scheme: light dark;
++}
++
++@media (max-width: 767.98px) {
++  :root {
++    --page-pad: var(--space-20);
++  }
+ }
+ 
+ *,
+@@ -64,46 +44,73 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-body);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-body);
++  font-feature-settings: 'cv11', 'ss01';
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  color: var(--color-text-primary);
++  text-wrap: balance;
+ }
+ 
+-h1 {
+-  font-size: var(--font-size-h1);
++p {
++  margin: 0;
+ }
+ 
+-h2 {
+-  font-size: var(--font-size-h2);
++p,
++li {
++  text-wrap: pretty;
+ }
+ 
+-h3 {
+-  font-size: var(--font-size-base);
++fieldset {
++  margin: 0;
++  padding: 0;
++  border: 0;
++  min-width: 0;
+ }
+ 
+-p {
+-  margin: 0 0 var(--space-2);
++legend {
++  padding: 0;
++}
++
++pre,
++code,
++kbd,
++samp {
++  font-family: var(--font-family-mono);
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
++  text-decoration: underline;
++  text-decoration-color: var(--color-icon-idle);
++  text-decoration-thickness: 1px;
++  text-underline-offset: 3px;
++}
++
++@media (hover: hover) and (pointer: fine) {
++  a:hover {
++    text-decoration-color: var(--color-text-primary);
++  }
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-hairline) solid var(--color-focus-ring);
+   outline-offset: 2px;
++  transition: none;
+ }
+ 
+ .visually-hidden {
+@@ -124,31 +131,25 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
+-}
+-
+-.muted {
+-  color: var(--color-text-muted);
+-}
+-
+-.small {
++  left: var(--space-8);
++  top: var(--space-8);
++  z-index: 30;
++  padding: var(--space-8) var(--space-12);
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+   font-size: var(--font-size-small);
+-}
+-
+-.numeric {
+-  font-variant-numeric: tabular-nums;
+-  text-align: right;
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
+ }
+ 
+ .icon {
+-  flex-shrink: 0;
++  flex: none;
++  width: var(--size-icon);
++  height: var(--size-icon);
+ }
+ 
+-/* Layout */
++/* ---------- Shell ---------- */
+ .app-shell {
+   min-height: 100vh;
+   display: flex;
+@@ -156,443 +157,1191 @@ a {
+ }
+ 
+ .topbar {
++  position: sticky;
++  top: 0;
++  z-index: 20;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  height: var(--size-header);
++  padding-inline: var(--space-20);
++  background: color-mix(in srgb, var(--color-surface-default) 80%, transparent);
++  backdrop-filter: blur(20px);
++  -webkit-backdrop-filter: blur(20px);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+ .brand {
+-  font-weight: bold;
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-semibold);
++  color: var(--color-text-primary);
++  white-space: nowrap;
++}
++
++.person {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  min-width: 0;
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
++  white-space: nowrap;
++}
++
++.avatar {
++  display: inline-grid;
++  place-items: center;
++  flex: none;
++  border-radius: var(--radius-full);
++  background: var(--color-surface-press);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-micro);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: 0;
++  font-variant-numeric: tabular-nums;
++}
++
++.avatar-small,
++.avatar-medium {
++  width: 32px;
++  height: 32px;
++}
++
++.avatar-large {
++  width: var(--size-glyph-lg);
++  height: var(--size-glyph-lg);
++  font-size: var(--font-size-small);
+ }
+ 
+ .settings-layout {
+   flex: 1;
+   display: flex;
++  min-width: 0;
+ }
+ 
+ .sidebar {
+-  width: var(--sidebar-width);
+-  flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  width: var(--size-sidebar);
++  flex: none;
++  background: var(--color-surface-subtle);
++  border-right: var(--border-width-hairline) solid var(--color-border-subtle);
++  padding: var(--space-12) var(--space-8);
++}
++
++.sidebar nav {
++  position: sticky;
++  top: calc(var(--size-header) + var(--space-12));
++}
++
++.sidebar-label {
++  margin: var(--space-16) 0 var(--space-8);
++  padding-inline: var(--space-12);
+ }
+ 
+ .nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: grid;
++  gap: var(--space-2);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border: var(--border-width) solid transparent;
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  height: var(--size-row-dense);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-sm);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-dense);
++  font-weight: var(--font-weight-medium);
+   text-decoration: none;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  font-weight: bold;
++.nav-icon {
++  color: var(--color-icon-idle);
++}
++
++.nav-link[aria-current='page'] {
++  background: var(--color-surface-tint);
++  color: var(--color-text-primary);
++}
++
++.nav-link[aria-current='page'] .nav-icon {
++  color: var(--color-icon-active);
++}
++
++.nav-link:focus-visible {
++  outline-offset: -2px;
++}
++
++@media (hover: hover) and (pointer: fine) {
++  .nav-link:hover {
++    background: var(--color-action-ghost-hover);
++    color: var(--color-text-primary);
++  }
+ }
+ 
+ .content {
+   flex: 1;
+   min-width: 0;
+-  max-width: var(--content-max-width);
+-  padding: var(--space-6);
+-  display: flex;
+-  flex-direction: column;
++  max-width: calc(var(--size-container) - var(--size-sidebar) + 2 * var(--page-pad));
++  padding: 0 var(--page-pad) var(--space-96);
++  container-type: inline-size;
++  container-name: content;
++}
++
++.content:focus {
++  outline: none;
++}
++
++/* Under breakpoint.lg the sidebar becomes text-only nav pills that wrap. */
++@media (max-width: 1023.98px) {
++  .topbar {
++    padding-inline: var(--page-pad);
++  }
++
++  .settings-layout {
++    flex-direction: column;
++  }
++
++  .sidebar {
++    width: auto;
++    background: none;
++    border-right: 0;
++    border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++    padding: var(--space-12) calc(var(--page-pad) - var(--space-12));
++  }
++
++  .sidebar nav {
++    position: static;
++  }
++
++  .sidebar-label,
++  .nav-icon {
++    display: none;
++  }
++
++  .nav-list {
++    display: flex;
++    flex-wrap: wrap;
++    gap: var(--space-4);
++  }
++
++  .nav-link {
++    height: var(--size-control);
++    border-radius: var(--radius-full);
++    font-size: var(--font-size-small);
++  }
++
++  .content {
++    max-width: none;
++  }
++}
++
++/* ---------- Screen head (signature 6) ---------- */
++.screen-head h1 {
++  margin-top: var(--space-4);
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: var(--font-tracking-lead);
++}
++
++.screen-head-summary {
++  display: grid;
+   gap: var(--space-6);
++  justify-items: start;
+ }
+ 
+-.person {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++.screen-head-summary .two-tone {
++  font-size: var(--font-size-body);
+ }
+ 
+-.avatar {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-weight: bold;
+-  flex-shrink: 0;
++/* ---------- Settings groups: split rows ---------- */
++.settings-form,
++.settings-stack {
++  display: block;
+ }
+ 
+-.avatar-small {
+-  width: 28px;
+-  height: 28px;
+-  font-size: var(--font-size-small);
++.screen-head + * {
++  margin-top: var(--space-24);
+ }
+ 
+-.avatar-large {
+-  width: var(--avatar-size-large);
+-  height: var(--avatar-size-large);
+-  font-size: var(--font-size-h2);
++.settings-group {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr);
++  align-content: start;
++  min-width: 0;
+ }
+ 
+-/* Panels */
+-.panel,
+-.card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++.group-count {
++  grid-row: 1;
++  margin-bottom: var(--space-6);
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.group-title {
++  grid-row: 2;
++  float: none;
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-ui);
++  font-weight: var(--font-weight-semibold);
++  color: var(--color-text-primary);
+ }
+ 
+-/* Forms */
+-.form {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
++legend.group-title {
++  float: left;
++  width: 100%;
+ }
+ 
+-.form-grid {
++.group-desc {
++  grid-row: 3;
++  margin-top: var(--space-4);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-body);
++  max-width: 40ch;
++}
++
++.group-body {
++  grid-row: 4;
++  margin-top: var(--space-24);
++  min-width: 0;
++}
++
++@container content (min-width: 880px) {
++  .settings-group {
++    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
++    grid-template-rows: auto auto auto 1fr;
++    column-gap: var(--space-32);
++  }
++
++  .group-count,
++  .group-title,
++  .group-desc {
++    grid-column: 1;
++  }
++
++  .group-body {
++    grid-column: 2;
++    grid-row: 1 / -1;
++    margin-top: 0;
++  }
++}
++
++/* ---------- Forms ---------- */
++.form-column {
+   display: grid;
+-  grid-template-columns: repeat(2, 1fr);
+-  gap: var(--space-4);
++  gap: var(--space-32);
++  max-width: var(--size-form);
++  align-content: start;
+ }
+ 
+-.form-stack {
++.field-stack {
+   display: grid;
+-  gap: var(--space-4);
+-  max-width: 400px;
++  gap: var(--space-20);
+ }
+ 
+ .field {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
++  display: grid;
++  gap: var(--space-6);
++  min-width: 0;
+ }
+ 
+-.field p {
+-  margin: 0;
++.field-label {
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-body);
+ }
+ 
+-.field-wide {
+-  grid-column: 1 / -1;
++.field-optional {
++  font-weight: var(--font-weight-regular);
++  color: var(--color-text-secondary);
+ }
+ 
+-.field-label {
+-  font-weight: bold;
+-  margin: 0;
++.field-help {
++  font-size: var(--font-size-caption);
++  line-height: var(--font-line-height-caption);
++  color: var(--color-text-secondary);
+ }
+ 
+ .field-error {
+-  color: var(--color-negative);
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-caption);
++  line-height: var(--font-line-height-caption);
++  color: var(--color-status-danger);
++}
++
++.field-foot {
++  display: flex;
++  justify-content: space-between;
++  align-items: baseline;
++  gap: var(--space-16);
++}
++
++.field-counter {
++  flex: none;
++  font: var(--font-weight-regular) var(--font-size-caption) / var(--font-line-height-caption) var(--font-family-mono);
++  color: var(--color-text-tertiary);
++  font-variant-numeric: tabular-nums;
++  letter-spacing: 0;
+ }
+ 
+ .input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  width: 100%;
+   min-width: 0;
++  height: var(--size-field);
++  padding: 0 var(--space-12);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-card);
++  color: var(--color-text-primary);
++  font: inherit;
++  font-size: var(--font-size-dense);
++  letter-spacing: var(--font-tracking-body);
++  transition: border-color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++
++.input::placeholder {
++  color: var(--color-text-tertiary);
++}
++
++.input:focus-visible {
++  border-color: var(--color-accent-default);
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-negative);
++  border-color: var(--color-status-danger);
++}
++
++.input:disabled {
++  opacity: var(--opacity-disabled);
++  background: var(--color-surface-subtle);
++  cursor: not-allowed;
++}
++
++@media (hover: hover) and (pointer: fine) {
++  .input:hover:not(:focus-visible):not([aria-invalid='true']):not(:disabled) {
++    border-color: var(--color-border-strong);
++  }
+ }
+ 
+ .textarea {
++  height: auto;
++  min-height: calc(3lh + 2 * var(--space-8));
++  padding: var(--space-8) var(--space-12);
++  line-height: var(--font-line-height-body);
+   resize: vertical;
+ }
+ 
++.select-wrap {
++  position: relative;
++}
++
++.select {
++  appearance: none;
++  padding-right: var(--space-32);
++  cursor: pointer;
++}
++
++.select option {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++}
++
++.select-chevron {
++  position: absolute;
++  right: var(--space-12);
++  top: 50%;
++  translate: 0 -50%;
++  color: var(--color-icon-idle);
++  pointer-events: none;
++}
++
++.form-banner {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  padding: var(--space-12) var(--space-16);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-status-danger-tint);
++  color: var(--color-text-body);
++  font-size: var(--font-size-small);
++}
++
++.status-dot {
++  display: inline-block;
++  flex: none;
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: var(--color-icon-idle);
++}
++
++.status-dot--danger {
++  background: var(--color-status-danger);
++}
++
++.status-dot--success {
++  background: var(--color-status-success);
++}
++
+ .form-actions {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+-  gap: var(--space-3);
++  gap: var(--space-12);
++}
++
++.form-status {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-8);
++  min-height: var(--size-glyph-sm);
++  color: var(--color-text-body);
+ }
+ 
+ .status-message {
+-  margin: 0;
+-  color: var(--color-positive);
++  font-size: var(--font-size-small);
++  color: var(--color-text-body);
++}
++
++/* An empty live region stays in the accessibility tree but takes no room. */
++.form-status:has(.status-message:empty) {
++  position: absolute;
++}
++
++.group-body > .status-message:not(:empty) {
++  margin-top: var(--space-16);
++}
++
++.done-check {
++  color: var(--color-status-success);
++}
++
++@media (max-width: 767.98px) {
++  .form-actions {
++    flex-direction: column;
++    align-items: stretch;
++  }
++
++  .form-actions .button {
++    width: 100%;
++  }
+ }
+ 
+ .avatar-row {
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-16);
++}
++
++.avatar-row-text {
++  display: grid;
++  gap: var(--space-6);
++  justify-items: start;
++  min-width: 0;
++}
++
++.avatar-row-text .button {
++  margin-top: var(--space-6);
++}
++
++/* Profile preview on a quiet stage */
++.profile-stage {
++  height: 280px;
++}
++
++.member-card {
++  display: grid;
++  align-content: start;
++  gap: var(--space-12);
++  height: 100%;
++  padding: var(--space-20);
++}
++
++.member-card-person {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-4);
++  gap: var(--space-12);
++  min-width: 0;
++}
++
++.member-card-lines {
++  display: grid;
++  min-width: 0;
++  line-height: var(--font-line-height-ui);
+ }
+ 
+-.avatar-row p {
+-  margin: 0 0 var(--space-1);
++.member-card-name {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-semibold);
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
+ }
+ 
+-/* Buttons */
++.member-card-meta {
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-small);
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++.member-card-bio {
++  color: var(--color-text-body);
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  display: -webkit-box;
++  -webkit-line-clamp: 3;
++  -webkit-box-orient: vertical;
++  overflow: hidden;
++  overflow-wrap: anywhere;
++}
++
++/* ---------- Buttons ---------- */
+ .button {
+-  font: inherit;
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
++  justify-content: center;
++  gap: var(--space-6);
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border: var(--border-width-hairline) solid transparent;
++  border-radius: var(--radius-full);
++  background: var(--color-action-secondary);
++  color: var(--color-text-body);
++  font: inherit;
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  line-height: 1;
++  white-space: nowrap;
++  text-decoration: none;
+   cursor: pointer;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease),
++    border-color var(--motion-duration-hover) var(--motion-easing-ease),
++    transform var(--motion-duration-hover) var(--motion-easing-standard);
++}
++
++.button:active:not(:disabled) {
++  transform: scale(0.971);
++}
++
++.button:disabled {
++  opacity: var(--opacity-disabled);
++  cursor: not-allowed;
++}
++
++.button-lg {
++  height: var(--size-control-lg);
++  padding: 0 var(--space-16);
++}
++
++.button-sm {
++  height: var(--size-control-sm);
++  padding: 0 var(--space-12);
+ }
+ 
+ .button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+ }
+ 
+-.button-danger {
+-  color: var(--color-negative);
++.button-secondary {
++  background: var(--color-action-secondary);
++  color: var(--color-text-body);
+ }
+ 
+-.button-danger:hover {
+-  background: var(--color-danger-bg);
++.button-secondary:active:not(:disabled) {
++  background: var(--color-surface-press);
+ }
+ 
+-/* Fieldsets and switches */
+-.fieldset {
+-  margin: 0;
+-  min-width: 0;
++.button-bordered {
++  background: transparent;
++  border-color: var(--color-border-default);
++  color: var(--color-text-secondary);
+ }
+ 
+-.legend {
+-  font-weight: bold;
+-  font-size: var(--font-size-h2);
+-  padding: 0 var(--space-1);
++@media (hover: hover) and (pointer: fine) {
++  .button-primary:hover:not(:disabled) {
++    background: var(--color-action-primary-hover);
++  }
++
++  .button-secondary:hover:not(:disabled) {
++    background: var(--color-action-secondary-hover);
++    color: var(--color-text-primary);
++  }
++
++  .button-bordered:hover:not(:disabled) {
++    background: var(--color-action-ghost-hover);
++    border-color: var(--color-border-strong);
++    color: var(--color-text-primary);
++  }
+ }
+ 
++/* ---------- Switches ---------- */
+ .switch-list {
+   list-style: none;
+-  margin: 0;
++  margin-bottom: 0;
+   padding: 0;
+ }
+ 
++.switch-row:last-child {
++  padding-bottom: 0;
++}
++
+ .switch-row {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-top: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  min-height: var(--size-row);
++  padding: var(--space-12) 0;
+ }
+ 
+-.switch-text p {
+-  margin: 0;
++.switch-row + .switch-row {
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++}
++
++.switch-row:first-child {
++  padding-top: 0;
++}
++
++.switch-text {
++  display: grid;
++  gap: var(--space-2);
++  min-width: 0;
++}
++
++.switch-label {
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-primary);
++  cursor: pointer;
++}
++
++.switch-desc {
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
+ 
+ .switch {
+   appearance: none;
+   position: relative;
+-  width: var(--switch-width);
+-  height: var(--switch-height);
++  flex: none;
++  width: 28px;
++  height: 16px;
+   margin: 0;
+-  flex-shrink: 0;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-switch-off);
++  border: var(--border-width-hairline) solid var(--color-border-check);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-press);
+   cursor: pointer;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-standard),
++    border-color var(--motion-duration-hover) var(--motion-easing-standard);
+ }
+ 
+ .switch::after {
+   content: '';
+   position: absolute;
+-  top: 3px;
+-  left: 3px;
+-  width: calc(var(--switch-height) - 6px);
+-  height: calc(var(--switch-height) - 6px);
+-  border-radius: 50%;
+-  background: var(--color-switch-thumb);
++  top: 1px;
++  left: 1px;
++  width: 12px;
++  height: 12px;
++  border-radius: var(--radius-full);
++  background: var(--color-text-secondary);
++  transition:
++    translate var(--motion-duration-hover) var(--motion-easing-standard),
++    background-color var(--motion-duration-hover) var(--motion-easing-standard);
+ }
+ 
+ .switch:checked {
+-  background: var(--color-switch-on);
++  background: var(--color-accent-default);
++  border-color: var(--color-accent-default);
+ }
+ 
+ .switch:checked::after {
+-  left: calc(var(--switch-width) - var(--switch-height) + 3px);
++  translate: 12px 0;
++  background: var(--color-text-on-accent);
+ }
+ 
+-/* Password strength */
+-.strength-none {
+-  color: var(--color-text-muted);
++.switch:disabled {
++  opacity: var(--opacity-disabled);
++  cursor: not-allowed;
+ }
+ 
+-.strength-weak {
+-  color: var(--color-strength-weak);
++@media (hover: hover) and (pointer: fine) {
++  .switch:hover:not(:checked):not(:disabled) {
++    border-color: var(--color-text-secondary);
++  }
++}
++
++/* ---------- Password strength ---------- */
++.strength-row {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
+ }
+ 
+-.strength-fair {
+-  color: var(--color-strength-fair);
++.strength {
++  font-size: var(--font-size-caption);
++  line-height: var(--font-line-height-caption);
++  color: var(--color-text-secondary);
+ }
+ 
++.strength-weak {
++  color: var(--color-status-danger);
++}
++
++.strength-fair,
+ .strength-strong {
+-  color: var(--color-strength-strong);
++  color: var(--color-text-body);
+ }
+ 
+-/* Tables */
+-.table-wrap {
+-  overflow-x: auto;
++/* ---------- Table ---------- */
++.tbl-wrap {
++  min-width: 0;
+ }
+ 
+-.table {
++.tbl {
+   width: 100%;
+   border-collapse: collapse;
++  font-size: var(--font-size-small);
++  color: var(--color-text-body);
+ }
+ 
+-.table th,
+-.table td {
++.tbl th,
++.tbl td {
++  padding: 0 var(--space-12);
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+   vertical-align: middle;
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+-.table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++.tbl th {
++  height: var(--size-row-dense);
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++  font: var(--font-weight-regular) var(--font-size-caption) / var(--font-line-height-caption) var(--font-family-mono);
++  text-transform: uppercase;
++  color: var(--color-text-tertiary);
++  letter-spacing: 0;
+ }
+ 
+-.table .numeric {
+-  text-align: right;
++.tbl td {
++  height: var(--size-row);
++}
++
++.tbl td:first-child {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++}
++
++.tbl :is(th, td):first-child {
++  padding-left: 0;
++}
++
++.tbl :is(th, td):last-child {
++  padding-right: 0;
+ }
+ 
+-.cell-actions {
++.tbl .num {
+   text-align: right;
++  font-variant-numeric: tabular-nums;
+ }
+ 
+-.pill {
+-  display: inline-block;
+-  margin: 0 0 0 var(--space-2);
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.tbl tbody tr {
++  transition: background-color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++
++@media (hover: hover) and (pointer: fine) {
++  .tbl tbody tr:hover {
++    background: var(--color-surface-tint);
++  }
++}
++
++.cell-meta,
++.cell-id {
++  font: var(--font-weight-regular) var(--font-size-caption) / var(--font-line-height-caption) var(--font-family-mono);
++  letter-spacing: 0;
++}
++
++.cell-meta {
++  color: var(--color-text-secondary);
++  text-transform: uppercase;
++  white-space: nowrap;
+ }
+ 
+-.pill-neutral {
+-  background: var(--color-pill-neutral-bg);
+-  color: var(--color-pill-neutral-text);
++.cell-id {
++  color: var(--color-text-primary);
+ }
+ 
+-.pill-paid,
+-.pill-current {
+-  background: var(--color-pill-current-bg);
+-  color: var(--color-pill-current-text);
++.status-cell {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  color: var(--color-text-body);
+ }
+ 
+-.pill-due {
+-  background: var(--color-pill-due-bg);
+-  color: var(--color-pill-due-text);
++.status-icon {
++  flex: none;
+ }
+ 
+-.table .pill,
+-.plan-card .pill {
+-  margin-left: 0;
++.status-icon--done {
++  color: var(--color-status-success);
+ }
+ 
+-/* Billing */
+-.plan-grid {
++.status-icon--progress {
++  color: var(--color-status-warning);
++}
++
++.badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  height: 20px;
++  margin: 0;
++  padding: 0 var(--space-8);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: transparent;
++  color: var(--color-text-body);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-medium);
++  line-height: 1;
++  white-space: nowrap;
++  vertical-align: middle;
++}
++
++.cell-lines .badge {
++  margin-left: var(--space-8);
++}
++
++.badge-current {
++  border-color: var(--color-border-strong);
++}
++
++/* Between breakpoint.sm and breakpoint.md the table scrolls in its wrapper, pin stays. */
++@media (min-width: 640px) and (max-width: 767.98px) {
++  .tbl-wrap {
++    overflow-x: auto;
++  }
++
++  .tbl td:first-child {
++    white-space: nowrap;
++    min-width: 160px;
++  }
++}
++
++.tbl .pin {
++  width: 1%;
++  white-space: nowrap;
++  padding-left: var(--space-12);
++}
++
++@media (max-width: 639.98px) {
++  .tbl td {
++    padding-block: var(--space-8);
++  }
++}
++
++/* ---------- Empty and error states ---------- */
++.empty-state {
++  display: grid;
++  justify-items: center;
++  text-align: center;
++  max-width: 360px;
++  margin-inline: auto;
++  padding: var(--space-48) var(--space-24);
++}
++
++.empty-state > .mono-label {
++  margin-top: var(--space-16);
++}
++
++.empty-state > .two-tone {
++  margin-top: var(--space-8);
++}
++
++.empty-state--inline {
++  padding-bottom: var(--space-24);
++}
++
++.empty-state--error {
++  max-width: 560px;
++  padding: var(--space-48) 0;
++}
++
++.error-stage {
++  width: 100%;
++  height: 300px;
++}
++
++.error-stage-window {
++  display: grid;
++  place-items: center;
++  padding: var(--space-24);
++}
++
++.error-stage-window .bp {
++  width: min(100%, var(--size-blueprint-lg));
++}
++
++.empty-state--error h1 {
++  margin-top: var(--space-8);
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: var(--font-tracking-lead);
++}
++
++.empty-actions {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: center;
++  gap: var(--space-8);
++  margin-top: var(--space-20);
++}
++
++@media (max-width: 767.98px) {
++  .empty-actions {
++    flex-direction: column;
++    align-self: stretch;
++  }
++}
++
++/* ---------- Billing ---------- */
++.card {
++  background: var(--color-surface-card);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  padding: var(--space-20);
++}
++
++.card-grid {
+   list-style: none;
+-  margin: 0 0 var(--space-3);
++  margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: minmax(0, 1fr);
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++  border-left: var(--border-width-hairline) solid var(--color-border-subtle);
++  container-type: inline-size;
++}
++
++.card-grid > * {
++  min-width: 0;
++  padding: var(--space-24);
++  box-shadow:
++    1px 0 0 var(--color-border-subtle),
++    0 1px 0 var(--color-border-subtle);
++}
++
++@media (min-width: 640px) {
++  .card-grid {
++    grid-template-columns: repeat(3, minmax(0, 1fr));
++  }
+ }
+ 
+ .plan-card {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+-  gap: var(--space-2);
++  gap: var(--space-8);
+ }
+ 
+ .plan-card-current {
+-  border-color: var(--color-primary);
++  background: var(--color-surface-card);
++  box-shadow:
++    inset 0 0 0 1px var(--color-border-strong),
++    1px 0 0 var(--color-border-subtle),
++    0 1px 0 var(--color-border-subtle);
++}
++
++.plan-tiers {
++  display: flex;
++  align-items: flex-end;
++  height: 96px;
++  margin-bottom: var(--space-8);
++}
++
++.plan-name {
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-semibold);
++  line-height: var(--font-line-height-ui);
+ }
+ 
+ .plan-price {
+-  margin: 0;
++  display: flex;
++  flex-wrap: wrap;
++  align-items: baseline;
++  column-gap: var(--space-6);
+ }
+ 
+ .plan-amount {
+-  font-size: var(--font-size-h1);
+-  font-weight: bold;
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++  color: var(--color-text-primary);
++  font-variant-numeric: tabular-nums;
++}
++
++.plan-period {
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
+ 
+ .feature-list {
+   list-style: none;
+-  margin: 0;
++  margin: var(--space-8) 0 var(--space-16);
+   padding: 0;
+   flex: 1;
++  display: grid;
++  align-content: start;
++  gap: var(--space-6);
++  font-size: var(--font-size-small);
++  color: var(--color-text-body);
+ }
+ 
+ .feature-list li {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-8);
++}
++
++.feature-list .icon {
++  color: var(--color-icon-idle);
++}
++
++.plan-card .badge,
++.plan-card .button {
++  margin-top: auto;
++}
++
++.plan-card .badge {
++  height: var(--size-control);
++  padding: 0 var(--space-12);
+ }
+ 
+ .payment-method {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-3);
++  flex-wrap: wrap;
++  gap: var(--space-6) var(--space-12);
++}
++
++.payment-icon {
++  display: inline-grid;
++  place-items: center;
++  width: var(--size-control);
++  height: var(--size-control);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-press);
++  color: var(--color-icon-active);
+ }
+ 
+-/* Dialog */
++.payment-name {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++}
++
++.payment-method .mono-label {
++  margin-left: auto;
++}
++
++/* ---------- Dialog ---------- */
+ .dialog {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  padding: var(--space-6);
+-  max-width: 440px;
+-  width: calc(100% - var(--space-8));
++  width: calc(100% - 2 * var(--space-16));
++  max-width: var(--size-dialog);
++  padding: var(--space-24);
++  border: 0;
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-body);
++  box-shadow: var(--elevation-popover);
++  opacity: 0;
++  scale: 0.98;
++  transition:
++    opacity calc(var(--motion-duration-ui) * 0.6) var(--motion-easing-standard),
++    scale calc(var(--motion-duration-ui) * 0.6) var(--motion-easing-standard),
++    overlay calc(var(--motion-duration-ui) * 0.6) allow-discrete,
++    display calc(var(--motion-duration-ui) * 0.6) allow-discrete;
++}
++
++.dialog[open] {
++  opacity: 1;
++  scale: 1;
++  transition-duration: var(--motion-duration-ui);
++}
++
++@starting-style {
++  .dialog[open] {
++    opacity: 0;
++    scale: 0.98;
++  }
+ }
+ 
+ .dialog::backdrop {
+-  background: var(--color-backdrop);
++  background: var(--color-surface-overlay);
++  backdrop-filter: blur(4px);
++  opacity: 0;
++  transition:
++    opacity var(--motion-duration-ui) var(--motion-easing-standard),
++    overlay var(--motion-duration-ui) allow-discrete,
++    display var(--motion-duration-ui) allow-discrete;
++}
++
++.dialog[open]::backdrop {
++  opacity: 1;
++}
++
++@starting-style {
++  .dialog[open]::backdrop {
++    opacity: 0;
++  }
++}
++
++.dialog-title {
++  margin-top: var(--space-6);
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: var(--font-tracking-lead);
++}
++
++.dialog-body {
++  margin-top: var(--space-12);
++  font-size: var(--font-size-body);
++  color: var(--color-text-body);
+ }
+ 
+ .dialog-actions {
+   display: flex;
+   justify-content: flex-end;
+-  gap: var(--space-2);
+-  margin-top: var(--space-4);
++  gap: var(--space-8);
++  margin-top: var(--space-24);
+ }
+ 
+-@media (max-width: 900px) {
+-  .settings-layout {
+-    flex-direction: column;
++@media (max-width: 639.98px) {
++  .dialog {
++    width: 100%;
++    max-width: 100%;
++    margin: auto 0 0;
++    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+   }
+ 
+-  .sidebar {
+-    width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
+-  }
+-
+-  .nav-list {
+-    display: flex;
+-    flex-wrap: wrap;
+-    gap: var(--space-2);
++  .dialog-actions {
++    flex-direction: column-reverse;
+   }
+ 
+-  .form-grid,
+-  .plan-grid {
+-    grid-template-columns: 1fr;
++  .dialog-actions .button {
++    width: 100%;
+   }
+ }

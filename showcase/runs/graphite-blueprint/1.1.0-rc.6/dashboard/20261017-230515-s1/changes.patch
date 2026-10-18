@@ -1,0 +1,2543 @@
+diff --git a/package.json b/package.json
+index 6a7bf99..c8231ed 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource-variable/inter": "^5.2.0",
++    "@fontsource/geist-mono": "^5.2.0",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/App.tsx b/src/App.tsx
+index bd70616..417e873 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,11 +1,14 @@
++import { lazy } from 'react';
+ import { Route, Routes } from 'react-router';
+ import Layout from './components/Layout';
+ import OverviewPage from './pages/OverviewPage';
+-import ProjectsPage from './pages/ProjectsPage';
+-import ProjectDetailPage from './pages/ProjectDetailPage';
+-import TeamPage from './pages/TeamPage';
+-import SettingsPage from './pages/SettingsPage';
+-import NotFoundPage from './pages/NotFoundPage';
++
++// Secondary screens load on demand; the shell shows the scan glyph while a chunk loads (after 300ms).
++const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
++const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage'));
++const TeamPage = lazy(() => import('./pages/TeamPage'));
++const SettingsPage = lazy(() => import('./pages/SettingsPage'));
++const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+ 
+ export default function App() {
+   return (
+diff --git a/src/components/BarChart.tsx b/src/components/BarChart.tsx
+index 63f7c3f..19e2d5a 100644
+--- a/src/components/BarChart.tsx
++++ b/src/components/BarChart.tsx
+@@ -1,3 +1,4 @@
++import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+ import type { MonthlyValue } from '../data/metrics';
+ 
+ interface BarChartProps {
+@@ -5,53 +6,114 @@ interface BarChartProps {
+   data: MonthlyValue[];
+ }
+ 
+-const WIDTH = 600;
+-const HEIGHT = 240;
+-const PADDING_TOP = 24;
+-const PADDING_BOTTOM = 28;
+-const PADDING_X = 16;
++// Dot-column chart drawn at true pixel scale: dots r 1.5 on a 6px pitch, lit to the value,
++// track dots above at opacity.dotTrack, at most 3 grid lines, no frame, mono axis labels.
++const PITCH = 6;
++const R = 1.5;
++const PADDING_TOP = 22;
++const PADDING_BOTTOM = 24;
++const AXIS_WIDTH = 32;
++const GRID_LINES = 3;
++
++// Round up to a step that splits evenly into the grid lines (186 → 200: lines at 50, 100, 150).
++function niceMax(value: number) {
++  const step = 10 ** Math.floor(Math.log10(value)) / 2;
++  return Math.ceil(value / step) * step;
++}
+ 
+ export default function BarChart({ title, data }: BarChartProps) {
+-  const max = Math.max(...data.map((point) => point.value), 1);
+-  const plotHeight = HEIGHT - PADDING_TOP - PADDING_BOTTOM;
+-  const slot = (WIDTH - PADDING_X * 2) / data.length;
+-  const barWidth = slot * 0.6;
++  const plotRef = useRef<HTMLDivElement>(null);
++  const [size, setSize] = useState({ width: 560, height: 240 });
++
++  useLayoutEffect(() => {
++    const element = plotRef.current;
++    if (!element) return;
++    const measure = () => {
++      const { width, height } = element.getBoundingClientRect();
++      setSize((current) =>
++        Math.abs(current.width - width) < 1 && Math.abs(current.height - height) < 1 ? current : { width, height },
++      );
++    };
++    measure();
++    const observer = new ResizeObserver(measure);
++    observer.observe(element);
++    return () => observer.disconnect();
++  }, []);
++
++  const max = niceMax(Math.max(...data.map((point) => point.value), 1));
++  const baseline = size.height - PADDING_BOTTOM;
++  const rows = Math.max(4, Math.floor((baseline - PADDING_TOP) / PITCH));
++  const plotTop = baseline - rows * PITCH;
++  const slot = (size.width - AXIS_WIDTH) / data.length;
++  const dotsWide = Math.max(2, Math.min(6, Math.floor((slot * 0.4) / PITCH)));
+   const summary = data.map((point) => `${point.month}: ${point.value}`).join(', ');
++  const grid = Array.from({ length: GRID_LINES }, (_, i) => (max / (GRID_LINES + 1)) * (i + 1));
+ 
+   return (
+     <figure className="chart" data-testid="bar-chart">
+-      <figcaption className="chart-title">{title}</figcaption>
+-      <svg
+-        className="chart-svg"
+-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+-        role="img"
+-        aria-label={`${title}. ${summary}`}
+-        preserveAspectRatio="xMidYMid meet"
+-      >
+-        <line
+-          className="chart-axis"
+-          x1={PADDING_X}
+-          x2={WIDTH - PADDING_X}
+-          y1={HEIGHT - PADDING_BOTTOM}
+-          y2={HEIGHT - PADDING_BOTTOM}
+-        />
+-        {data.map((point, index) => {
+-          const barHeight = (point.value / max) * plotHeight;
+-          const x = PADDING_X + index * slot + (slot - barWidth) / 2;
+-          const y = HEIGHT - PADDING_BOTTOM - barHeight;
+-          return (
+-            <g key={point.month} data-testid="chart-bar">
+-              <rect className="chart-bar" x={x} y={y} width={barWidth} height={barHeight} />
+-              <text className="chart-value" x={x + barWidth / 2} y={y - 6} textAnchor="middle">
+-                {point.value}
+-              </text>
+-              <text className="chart-label" x={x + barWidth / 2} y={HEIGHT - 8} textAnchor="middle">
+-                {point.month}
+-              </text>
+-            </g>
+-          );
+-        })}
+-      </svg>
++      <figcaption className="chart-title">
++        <span>{title}</span>
++        <span className="mono-label">{data.length} months</span>
++      </figcaption>
++      <div className="chart-plot" ref={plotRef}>
++        <svg
++          className="chart-svg"
++          viewBox={`0 0 ${size.width} ${size.height}`}
++          width={size.width}
++          height={size.height}
++          role="img"
++          aria-label={`${title}. ${summary}`}
++        >
++          {grid.map((value) => {
++            const y = Math.round(baseline - (value / max) * rows * PITCH) + 0.5;
++            return (
++              <g key={value}>
++                <line className="chart-grid" x1={AXIS_WIDTH} x2={size.width} y1={y} y2={y} />
++                <text className="chart-axis-label" x={0} y={y + 4}>
++                  {Math.round(value)}
++                </text>
++              </g>
++            );
++          })}
++          {data.map((point, index) => {
++            const lit = Math.max(1, Math.round((point.value / max) * rows));
++            const center = AXIS_WIDTH + index * slot + slot / 2;
++            const left = center - ((dotsWide - 1) * PITCH) / 2;
++            const dots = [];
++            for (let row = 0; row < rows; row++) {
++              const cy = baseline - PITCH / 2 - row * PITCH;
++              for (let col = 0; col < dotsWide; col++) {
++                dots.push(
++                  <circle
++                    key={`${row}-${col}`}
++                    className={row < lit ? 'chart-dot' : 'chart-dot chart-dot--track'}
++                    cx={left + col * PITCH}
++                    cy={cy}
++                    r={R}
++                  />,
++                );
++              }
++            }
++            const highlight = index === data.length - 1;
++            return (
++              <g key={point.month} data-testid="chart-bar">
++                <g
++                  className={highlight ? 'chart-col chart-col--highlight' : 'chart-col'}
++                  style={{ '--col': index } as CSSProperties}
++                >
++                  {dots}
++                </g>
++                <text className="chart-value" x={center} y={plotTop - 8} textAnchor="middle">
++                  {point.value}
++                </text>
++                <text className="chart-label" x={center} y={size.height - 4} textAnchor="middle">
++                  {point.month}
++                </text>
++              </g>
++            );
++          })}
++        </svg>
++      </div>
+     </figure>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 2a82e37..d059555 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,12 +1,14 @@
+-import { useEffect, useRef, useState, type FormEvent } from 'react';
++import { Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
+ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+ import { currentUser } from '../data/team';
++import { Loading } from '../signature/Working';
++import { ChevronDown, NavIcon, SearchIcon, type NavIconName } from './icons';
+ 
+-const NAV_ITEMS = [
+-  { to: '/', label: 'Overview', testId: 'nav-overview', end: true },
+-  { to: '/projects', label: 'Projects', testId: 'nav-projects', end: false },
+-  { to: '/team', label: 'Team', testId: 'nav-team', end: false },
+-  { to: '/settings', label: 'Settings', testId: 'nav-settings', end: false },
++const NAV_ITEMS: { to: string; label: string; testId: string; end: boolean; icon: NavIconName }[] = [
++  { to: '/', label: 'Overview', testId: 'nav-overview', end: true, icon: 'overview' },
++  { to: '/projects', label: 'Projects', testId: 'nav-projects', end: false, icon: 'projects' },
++  { to: '/team', label: 'Team', testId: 'nav-team', end: false, icon: 'team' },
++  { to: '/settings', label: 'Settings', testId: 'nav-settings', end: false, icon: 'settings' },
+ ];
+ 
+ export default function Layout() {
+@@ -49,18 +51,22 @@ export default function Layout() {
+         Skip to content
+       </a>
+       <aside className="sidebar">
++        <div className="sidebar-inner">
+         <div className="brand">Northwind Ops</div>
+         <nav aria-label="Primary" data-testid="sidebar-nav">
++          <p className="mono-label nav-group-label">Workspace</p>
+           <ul className="nav-list">
+             {NAV_ITEMS.map((item) => (
+               <li key={item.to}>
+                 <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
+-                  {item.label}
++                  <NavIcon name={item.icon} />
++                  <span>{item.label}</span>
+                 </NavLink>
+               </li>
+             ))}
+           </ul>
+         </nav>
++        </div>
+       </aside>
+ 
+       <div className="main-column">
+@@ -69,16 +75,19 @@ export default function Layout() {
+             <label htmlFor="global-search" className="visually-hidden">
+               Search projects
+             </label>
+-            <input
+-              id="global-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search projects…"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="global-search"
+-            />
+-            <button type="submit" className="button" data-testid="global-search-submit">
++            <div className="search-field">
++              <SearchIcon />
++              <input
++                id="global-search"
++                type="search"
++                className="input input--search"
++                placeholder="Search projects…"
++                value={query}
++                onChange={(event) => setQuery(event.target.value)}
++                data-testid="global-search"
++              />
++            </div>
++            <button type="submit" className="button button--secondary" data-testid="global-search-submit">
+               Search
+             </button>
+           </form>
+@@ -86,33 +95,34 @@ export default function Layout() {
+           <div className="user-menu" ref={menuRef}>
+             <button
+               type="button"
+-              className="button user-menu-button"
++              className="button button--ghost user-menu-button"
+               aria-expanded={menuOpen}
+               aria-controls="user-menu-panel"
+               onClick={() => setMenuOpen((open) => !open)}
+               data-testid="user-menu-button"
+             >
+-              <span className="avatar" aria-hidden="true">
++              <span className="avatar avatar--md" aria-hidden="true">
+                 {currentUser.initials}
+               </span>
+-              <span>{currentUser.name}</span>
++              <span className="user-menu-name">{currentUser.name}</span>
++              <ChevronDown />
+             </button>
+             {menuOpen && (
+-              <div id="user-menu-panel" className="user-menu-panel" data-testid="user-menu">
++              <div id="user-menu-panel" className="menu user-menu-panel" data-testid="user-menu">
+                 <p className="user-menu-email">{currentUser.email}</p>
+                 <ul className="user-menu-list">
+                   <li>
+-                    <Link to="/settings" className="user-menu-link">
++                    <Link to="/settings" className="menu-item user-menu-link">
+                       Account settings
+                     </Link>
+                   </li>
+                   <li>
+-                    <Link to="/team" className="user-menu-link">
++                    <Link to="/team" className="menu-item user-menu-link">
+                       My team
+                     </Link>
+                   </li>
+                   <li>
+-                    <button type="button" className="link-button" onClick={() => setMenuOpen(false)}>
++                    <button type="button" className="menu-item link-button" onClick={() => setMenuOpen(false)}>
+                       Sign out
+                     </button>
+                   </li>
+@@ -123,7 +133,11 @@ export default function Layout() {
+         </header>
+ 
+         <main id="main-content" className="content" tabIndex={-1}>
+-          <Outlet />
++          <div className="container">
++            <Suspense fallback={<Loading />}>
++              <Outlet />
++            </Suspense>
++          </div>
+         </main>
+       </div>
+     </div>
+diff --git a/src/components/ProjectsTable.tsx b/src/components/ProjectsTable.tsx
+index 28169e4..e1f0f5f 100644
+--- a/src/components/ProjectsTable.tsx
++++ b/src/components/ProjectsTable.tsx
+@@ -1,6 +1,9 @@
+ import { useMemo, useState } from 'react';
+ import { Link } from 'react-router';
+ import { projects, type Project, type ProjectStatus } from '../data/projects';
++import { DotGlyph } from '../signature/DotGlyph';
++import { SectionHead } from '../signature/ScreenHead';
++import { ChevronDown, SearchIcon } from './icons';
+ import StatusPill from './StatusPill';
+ 
+ type StatusFilter = 'all' | ProjectStatus;
+@@ -14,12 +17,13 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
+   { value: 'done', label: 'Done' },
+ ];
+ 
+-const COLUMNS: { key: SortKey; label: string }[] = [
++// Status is the pinned column (no row actions), so it sits last.
++const COLUMNS: { key: SortKey; label: string; className?: string }[] = [
+   { key: 'name', label: 'Project' },
+   { key: 'owner', label: 'Owner' },
+-  { key: 'status', label: 'Status' },
+-  { key: 'budget', label: 'Budget' },
++  { key: 'budget', label: 'Budget', className: 'num' },
+   { key: 'dueDate', label: 'Due date' },
++  { key: 'status', label: 'Status', className: 'pin' },
+ ];
+ 
+ const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+@@ -77,13 +81,16 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+   }
+ 
+   return (
+-    <section className="panel" aria-labelledby="projects-table-heading">
+-      <div className="panel-header">
+-        <h2 id="projects-table-heading">{heading}</h2>
+-        <p className="muted" data-testid="result-count" aria-live="polite">
+-          Showing {rows.length} of {projects.length} projects
+-        </p>
+-      </div>
++    <section className="tbl-section" aria-labelledby="projects-table-heading">
++      <SectionHead
++        id="projects-table-heading"
++        title={heading}
++        aside={
++          <p className="mono-label section-head-count" data-testid="result-count" aria-live="polite">
++            Showing {rows.length} of {projects.length} projects
++          </p>
++        }
++      />
+ 
+       <div className="toolbar">
+         <div className="segmented" role="group" aria-label="Filter by status">
+@@ -102,35 +109,44 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+         </div>
+         <div className="field-inline">
+           <label htmlFor="project-filter">Filter projects</label>
+-          <input
+-            id="project-filter"
+-            type="search"
+-            className="input"
+-            placeholder="Name, owner or team"
+-            value={query}
+-            onChange={(event) => setQuery(event.target.value)}
+-            data-testid="project-search"
+-          />
++          <div className="search-field">
++            <SearchIcon />
++            <input
++              id="project-filter"
++              type="search"
++              className="input input--search"
++              placeholder="Name, owner or team"
++              value={query}
++              onChange={(event) => setQuery(event.target.value)}
++              data-testid="project-search"
++            />
++          </div>
+         </div>
+       </div>
+ 
+       {rows.length === 0 ? (
+         <div className="empty-state" data-testid="projects-empty">
+-          <h3>No projects match your filters</h3>
+-          <p className="muted">Try a different search term or status.</p>
+-          <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
+-            Clear filters
+-          </button>
++          <DotGlyph kind="empty" size="lg" />
++          <p className="mono-label">No results</p>
++          <div className="empty-text">
++            <h3>No projects match your filters.</h3> <p>Try a different search term or status.</p>
++          </div>
++          <div className="actions">
++            <button type="button" className="button button--secondary" onClick={clearFilters} data-testid="clear-filters">
++              Clear filters
++            </button>
++          </div>
+         </div>
+       ) : (
+-        <div className="table-wrap">
+-          <table className="table" data-testid="projects-table">
++        <div className="tbl-wrap">
++          <table className="tbl table" data-testid="projects-table">
+             <thead>
+               <tr>
+                 {COLUMNS.map((column) => (
+                   <th
+                     key={column.key}
+                     scope="col"
++                    className={column.className}
+                     aria-sort={sortKey === column.key ? sortDirection : 'none'}
+                     data-testid={`column-${column.key}`}
+                   >
+@@ -141,9 +157,11 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+                       data-testid={`sort-${column.key}`}
+                     >
+                       {column.label}
+-                      <span className="sort-indicator" aria-hidden="true">
+-                        {sortKey === column.key ? (sortDirection === 'ascending' ? '▲' : '▼') : ''}
+-                      </span>
++                      {sortKey === column.key && (
++                        <span className={`sort-indicator sort-indicator--${sortDirection}`} aria-hidden="true">
++                          <ChevronDown size={12} />
++                        </span>
++                      )}
+                     </button>
+                   </th>
+                 ))}
+@@ -153,17 +171,21 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+               {rows.map((project) => (
+                 <tr key={project.id} data-testid="project-row">
+                   <td>
+-                    <Link to={`/projects/${project.id}`} data-testid="project-link">
+-                      {project.name}
+-                    </Link>
+-                    <div className="muted small">{project.client}</div>
++                    <div className="cell-first">
++                      <div className="cell-lines">
++                        <Link to={`/projects/${project.id}`} className="row-link" data-testid="project-link">
++                          {project.name}
++                        </Link>
++                        <span className="cell-sub small">{project.client}</span>
++                      </div>
++                    </div>
+                   </td>
+                   <td>{project.owner}</td>
+-                  <td>
++                  <td className="num">{currency.format(project.budget)}</td>
++                  <td className="mono-cell">{formatDate(project.dueDate)}</td>
++                  <td className="pin">
+                     <StatusPill status={project.status} />
+                   </td>
+-                  <td className="numeric">{currency.format(project.budget)}</td>
+-                  <td>{formatDate(project.dueDate)}</td>
+                 </tr>
+               ))}
+             </tbody>
+diff --git a/src/components/StatusPill.tsx b/src/components/StatusPill.tsx
+index 5abae07..6255da3 100644
+--- a/src/components/StatusPill.tsx
++++ b/src/components/StatusPill.tsx
+@@ -1,9 +1,18 @@
+ import { STATUS_LABELS, type ProjectStatus } from '../data/projects';
++import { StatusIcon, type StatusKind } from './icons';
+ 
+-export default function StatusPill({ status }: { status: ProjectStatus }) {
++const ICONS: Record<ProjectStatus, StatusKind> = {
++  active: 'progress',
++  paused: 'paused',
++  done: 'done',
++};
++
++// Table status: 14px status icon plus word. `badge` frames it as a Badge (detail header).
++export default function StatusPill({ status, badge = false }: { status: ProjectStatus; badge?: boolean }) {
+   return (
+-    <span className={`pill pill-${status}`} data-testid="status-pill">
+-      {STATUS_LABELS[status]}
++    <span className={badge ? `badge status status-${status}` : `status status-${status}`} data-testid="status-pill">
++      <StatusIcon kind={ICONS[status]} />
++      <span className="badge-label">{STATUS_LABELS[status]}</span>
+     </span>
+   );
+ }
+diff --git a/src/data/team.ts b/src/data/team.ts
+index e314b19..adc0320 100644
+--- a/src/data/team.ts
++++ b/src/data/team.ts
+@@ -7,6 +7,15 @@ export interface TeamMember {
+   activeProjects: number;
+ }
+ 
++// Avatar initials; 16px row avatars fit one letter (`max` = 1), larger avatars two.
++export function initials(name: string, max = 2): string {
++  return name
++    .split(' ')
++    .map((part) => part[0])
++    .slice(0, max)
++    .join('');
++}
++
+ export const currentUser = {
+   name: 'Jordan Avery',
+   email: 'jordan.avery@northwind.example',
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..f6d2c68 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -1,8 +1,12 @@
+ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
++import '@fontsource/geist-mono/latin-400.css';
+ import App from './App';
++import './styles/fonts.css';
++import '../design-system/tokens.css';
+ import './styles/base.css';
++import './styles/signature.css';
+ 
+ const rootElement = document.getElementById('root');
+ if (!rootElement) throw new Error('Root element #root not found');
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index dde83ce..0a1489b 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,24 @@
+ import { Link } from 'react-router';
++import ErrorState from '../components/ErrorState';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to overview</Link>
+-    </section>
++    <ErrorState
++      code="ERR 404"
++      title="Page not found"
++      testId="not-found"
++      actions={
++        <>
++          <Link to="/" className="button button--primary button--lg">
++            Go to overview
++          </Link>
++          <Link to="/projects" className="button button--secondary button--lg">
++            View projects
++          </Link>
++        </>
++      }
++    >
++      <b>The page you are looking for does not exist or has moved.</b> Start again from the overview.
++    </ErrorState>
+   );
+ }
+diff --git a/src/pages/OverviewPage.tsx b/src/pages/OverviewPage.tsx
+index 67fc003..5e9ed76 100644
+--- a/src/pages/OverviewPage.tsx
++++ b/src/pages/OverviewPage.tsx
+@@ -3,43 +3,71 @@ import BarChart from '../components/BarChart';
+ import ProjectsTable from '../components/ProjectsTable';
+ import { deploymentsByMonth, kpis, recentActivity } from '../data/metrics';
+ import { projects } from '../data/projects';
++import { initials } from '../data/team';
++import { ScreenHead } from '../signature/ScreenHead';
++import { Stage } from '../signature/Stage';
++
++const TREND_DOT = { up: 'status-dot status-dot--success', down: 'status-dot status-dot--info' } as const;
+ 
+ export default function OverviewPage() {
++  const deployments = kpis.find((kpi) => kpi.id === 'deployments');
++  const incidents = kpis.find((kpi) => kpi.id === 'incidents');
++
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Overview</h1>
+-        <p className="muted">Delivery health across all teams for October 2026.</p>
+-      </div>
++      <ScreenHead
++        label="Oct 2026"
++        title="Overview"
++        summary={
++          <>
++            <b>Delivery health across all teams for October 2026.</b> {deployments?.value} deployments,{' '}
++            {incidents?.value} open incidents.
++          </>
++        }
++      />
+ 
+       <section aria-label="Key metrics" className="kpi-grid" data-testid="kpi-grid">
+         {kpis.map((kpi) => (
+           <article key={kpi.id} className="card kpi-card" data-testid="kpi-card">
+-            <h2 className="kpi-label">{kpi.label}</h2>
++            <h2 className="kpi-label mono-label" title={kpi.label}>
++              {kpi.label}
++            </h2>
+             <p className="kpi-value">{kpi.value}</p>
+-            <p className={`kpi-change kpi-change-${kpi.trend}`}>{kpi.change}</p>
++            <p className={`kpi-change kpi-change-${kpi.trend}`}>
++              <span className={TREND_DOT[kpi.trend]} aria-hidden="true" />
++              {kpi.change}
++            </p>
+           </article>
+         ))}
+       </section>
+ 
+-      <div className="two-column">
+-        <section className="panel" aria-labelledby="throughput-heading">
+-          <h2 id="throughput-heading">Deployment throughput</h2>
+-          <BarChart title="Production deployments per month" data={deploymentsByMonth} />
++      <div className="dash-row">
++        <section className="dash-chart" aria-labelledby="throughput-heading">
++          <h2 id="throughput-heading" className="panel-title">
++            Deployment throughput
++          </h2>
++          <Stage quiet windowClassName="chart-window">
++            <BarChart title="Production deployments per month" data={deploymentsByMonth} />
++          </Stage>
+         </section>
+ 
+         <section className="panel" aria-labelledby="activity-heading">
+-          <h2 id="activity-heading">Recent activity</h2>
++          <h2 id="activity-heading" className="panel-title">
++            Recent activity
++          </h2>
+           <ul className="activity-list" data-testid="activity-list">
+             {recentActivity.map((item) => {
+               const project = projects.find((p) => p.name === item.target);
+               return (
+                 <li key={item.id} className="activity-item" data-testid="activity-item">
++                  <span className="avatar" aria-hidden="true">
++                    {initials(item.actor, 1)}
++                  </span>
+                   <p>
+                     <strong>{item.actor}</strong> {item.action}{' '}
+                     {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
+                   </p>
+-                  <p className="muted small">{item.time}</p>
++                  <p className="mono-label">{item.time}</p>
+                 </li>
+               );
+             })}
+diff --git a/src/pages/ProjectDetailPage.tsx b/src/pages/ProjectDetailPage.tsx
+index 3e13517..5981377 100644
+--- a/src/pages/ProjectDetailPage.tsx
++++ b/src/pages/ProjectDetailPage.tsx
+@@ -1,8 +1,13 @@
+-import { useRef, useState, type KeyboardEvent } from 'react';
++import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+ import { Link, useParams } from 'react-router';
++import ErrorState from '../components/ErrorState';
+ import StatusPill from '../components/StatusPill';
+ import { formatDate } from '../components/ProjectsTable';
+-import { findProject, type Project, type Task } from '../data/projects';
++import { findProject, projects, type Project, type Task } from '../data/projects';
++import { initials } from '../data/team';
++import { ScreenHead } from '../signature/ScreenHead';
++import { SpecPlate, specKinds } from '../signature/SpecPlate';
++import { Stage } from '../signature/Stage';
+ 
+ type TabId = 'overview' | 'tasks' | 'files';
+ 
+@@ -13,6 +18,10 @@ const TABS: { id: TabId; label: string }[] = [
+ ];
+ 
+ const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
++const compact = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 0 });
++
++// Spec figure kinds over the full project list's own order: same id, same figure everywhere.
++const KINDS = specKinds(projects.map((project) => project.id));
+ 
+ export default function ProjectDetailPage() {
+   const { id } = useParams();
+@@ -20,11 +29,23 @@ export default function ProjectDetailPage() {
+ 
+   if (!project) {
+     return (
+-      <div className="empty-state" data-testid="project-not-found">
+-        <h1>Project not found</h1>
+-        <p className="muted">There is no project with the id “{id}”.</p>
+-        <Link to="/projects">Back to all projects</Link>
+-      </div>
++      <ErrorState
++        code="ERR 404"
++        title="Project not found"
++        testId="project-not-found"
++        actions={
++          <>
++            <Link to="/projects" className="button button--primary button--lg">
++              Back to all projects
++            </Link>
++            <Link to="/" className="button button--secondary button--lg">
++              Go to overview
++            </Link>
++          </>
++        }
++      >
++        <b>There is no project with the id “{id}”.</b> It may have been renamed or removed.
++      </ErrorState>
+     );
+   }
+ 
+@@ -35,8 +56,15 @@ function ProjectDetail({ project }: { project: Project }) {
+   const [activeTab, setActiveTab] = useState<TabId>('overview');
+   const [tasks, setTasks] = useState<Task[]>(() => project.tasks.map((task) => ({ ...task })));
+   const tabRefs = useRef<Record<TabId, HTMLButtonElement | null>>({ overview: null, tasks: null, files: null });
++  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
+ 
+   const completed = tasks.filter((task) => task.done).length;
++  const figureNumber = String(projects.indexOf(project) + 1).padStart(2, '0');
++
++  useLayoutEffect(() => {
++    const tab = tabRefs.current[activeTab];
++    if (tab) setIndicator({ left: tab.offsetLeft, width: tab.offsetWidth });
++  }, [activeTab]);
+ 
+   function toggleTask(taskId: string) {
+     setTasks((current) => current.map((task) => (task.id === taskId ? { ...task, done: !task.done } : task)));
+@@ -66,113 +94,146 @@ function ProjectDetail({ project }: { project: Project }) {
+         </ol>
+       </nav>
+ 
+-      <div className="page-header page-header-row">
+-        <div>
+-          <h1 data-testid="project-title">{project.name}</h1>
+-          <p className="muted">
+-            {project.client} · Owned by {project.owner}
+-          </p>
++      <ScreenHead
++        label={`Project · ${project.id}`}
++        title={project.name}
++        titleTestId="project-title"
++        summary={
++          <>
++            <b>{project.client}</b> · Owned by {project.owner}
++          </>
++        }
++        aside={<StatusPill status={project.status} badge />}
++      />
++
++      <div>
++        <div className="tabs" role="tablist" aria-label="Project sections">
++          {TABS.map((tab, index) => (
++            <button
++              key={tab.id}
++              ref={(element) => {
++                tabRefs.current[tab.id] = element;
++              }}
++              type="button"
++              role="tab"
++              id={`tab-${tab.id}`}
++              className="tab"
++              aria-selected={activeTab === tab.id}
++              aria-controls={`panel-${tab.id}`}
++              tabIndex={activeTab === tab.id ? 0 : -1}
++              onClick={() => setActiveTab(tab.id)}
++              onKeyDown={(event) => onTabKeyDown(event, index)}
++              data-testid={`tab-${tab.id}`}
++            >
++              {tab.label}
++            </button>
++          ))}
++          <span className="tab-indicator" aria-hidden="true" style={{ left: indicator.left, width: indicator.width }} />
+         </div>
+-        <StatusPill status={project.status} />
+-      </div>
+ 
+-      <div className="tabs" role="tablist" aria-label="Project sections">
+-        {TABS.map((tab, index) => (
+-          <button
+-            key={tab.id}
+-            ref={(element) => {
+-              tabRefs.current[tab.id] = element;
+-            }}
+-            type="button"
+-            role="tab"
+-            id={`tab-${tab.id}`}
+-            className="tab"
+-            aria-selected={activeTab === tab.id}
+-            aria-controls={`panel-${tab.id}`}
+-            tabIndex={activeTab === tab.id ? 0 : -1}
+-            onClick={() => setActiveTab(tab.id)}
+-            onKeyDown={(event) => onTabKeyDown(event, index)}
+-            data-testid={`tab-${tab.id}`}
++        {activeTab === 'overview' && (
++          <section
++            id="panel-overview"
++            role="tabpanel"
++            aria-labelledby="tab-overview"
++            className="tab-panel detail-overview"
++            data-testid="panel-overview"
+           >
+-            {tab.label}
+-          </button>
+-        ))}
+-      </div>
+-
+-      {activeTab === 'overview' && (
+-        <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="panel" data-testid="panel-overview">
+-          <p>{project.description}</p>
+-          <dl className="details">
+-            <div>
+-              <dt>Budget</dt>
+-              <dd>{currency.format(project.budget)}</dd>
+-            </div>
+-            <div>
+-              <dt>Due date</dt>
+-              <dd>{formatDate(project.dueDate)}</dd>
+-            </div>
+-            <div>
+-              <dt>Tasks</dt>
+-              <dd>
+-                {completed} of {tasks.length} complete
+-              </dd>
++            <div className="detail-copy">
++              <p>{project.description}</p>
++              <dl className="details">
++                {[
++                  ['Budget', currency.format(project.budget)],
++                  ['Due date', formatDate(project.dueDate)],
++                  ['Tasks', `${completed} of ${tasks.length} complete`],
++                  ['Files', String(project.files.length)],
++                ].map(([term, value], index) => (
++                  <div key={term} className="detail-row">
++                    <dt>
++                      <span className="mono-label" aria-hidden="true">
++                        {String(index + 1).padStart(2, '0')}
++                      </span>
++                      {term}
++                    </dt>
++                    <dd>{value}</dd>
++                  </div>
++                ))}
++              </dl>
+             </div>
+-            <div>
+-              <dt>Files</dt>
+-              <dd>{project.files.length}</dd>
++            <Stage quiet className="detail-stage">
++              <SpecPlate
++                id={project.id}
++                kind={KINDS.get(project.id)}
++                caption={`FIG ${figureNumber} · ${compact.format(project.budget)} budget`}
++              />
++            </Stage>
++          </section>
++        )}
++
++        {activeTab === 'tasks' && (
++          <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="tab-panel" data-testid="panel-tasks">
++            <div className="progress-row">
++              <p data-testid="task-progress" aria-live="polite">
++                {completed} of {tasks.length} tasks complete
++              </p>
++              <progress className="progress" max={tasks.length} value={completed} aria-label="Task completion" />
+             </div>
+-          </dl>
+-        </section>
+-      )}
+-
+-      {activeTab === 'tasks' && (
+-        <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="panel" data-testid="panel-tasks">
+-          <div className="progress-row">
+-            <p data-testid="task-progress" aria-live="polite">
+-              {completed} of {tasks.length} tasks complete
+-            </p>
+-            <progress className="progress" max={tasks.length} value={completed} aria-label="Task completion" />
+-          </div>
+-          <ul className="task-list">
+-            {tasks.map((task) => (
+-              <li key={task.id} className={task.done ? 'task task-done' : 'task'} data-testid="task-item">
+-                <input
+-                  id={`task-${task.id}`}
+-                  type="checkbox"
+-                  checked={task.done}
+-                  onChange={() => toggleTask(task.id)}
+-                  data-testid={`task-checkbox-${task.id}`}
+-                />
+-                <label htmlFor={`task-${task.id}`}>{task.title}</label>
+-                <span className="muted small">{task.assignee}</span>
+-              </li>
+-            ))}
+-          </ul>
+-        </section>
+-      )}
+-
+-      {activeTab === 'files' && (
+-        <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="panel" data-testid="panel-files">
+-          <table className="table">
+-            <thead>
+-              <tr>
+-                <th scope="col">File name</th>
+-                <th scope="col">Size</th>
+-                <th scope="col">Last updated</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {project.files.map((file) => (
+-                <tr key={file.id} data-testid="file-row">
+-                  <td>{file.name}</td>
+-                  <td>{file.size}</td>
+-                  <td>{formatDate(file.updated)}</td>
+-                </tr>
++            <ul className="task-list">
++              {tasks.map((task) => (
++                <li key={task.id} className={task.done ? 'task task-done' : 'task'} data-testid="task-item">
++                  <input
++                    id={`task-${task.id}`}
++                    type="checkbox"
++                    checked={task.done}
++                    onChange={() => toggleTask(task.id)}
++                    data-testid={`task-checkbox-${task.id}`}
++                  />
++                  <label htmlFor={`task-${task.id}`}>{task.title}</label>
++                  <span className="task-assignee">
++                    <span className="avatar" aria-hidden="true">
++                      {initials(task.assignee, 1)}
++                    </span>
++                    <span className="muted small">{task.assignee}</span>
++                  </span>
++                </li>
+               ))}
+-            </tbody>
+-          </table>
+-        </section>
+-      )}
++            </ul>
++          </section>
++        )}
++
++        {activeTab === 'files' && (
++          <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="tab-panel" data-testid="panel-files">
++            <div className="tbl-wrap">
++              <table className="tbl table">
++                <thead>
++                  <tr>
++                    <th scope="col">File name</th>
++                    <th scope="col">Last updated</th>
++                    <th scope="col" className="num pin">
++                      Size
++                    </th>
++                  </tr>
++                </thead>
++                <tbody>
++                  {project.files.map((file) => (
++                    <tr key={file.id} data-testid="file-row">
++                      <td>
++                        <div className="cell-first">
++                          <div className="cell-lines" data-sub={formatDate(file.updated)}>
++                            <span>{file.name}</span>
++                          </div>
++                        </div>
++                      </td>
++                      <td className="mono-cell">{formatDate(file.updated)}</td>
++                      <td className="num pin">{file.size}</td>
++                    </tr>
++                  ))}
++                </tbody>
++              </table>
++            </div>
++          </section>
++        )}
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProjectsPage.tsx b/src/pages/ProjectsPage.tsx
+index 9529547..f340962 100644
+--- a/src/pages/ProjectsPage.tsx
++++ b/src/pages/ProjectsPage.tsx
+@@ -1,16 +1,24 @@
+ import { useSearchParams } from 'react-router';
+ import ProjectsTable from '../components/ProjectsTable';
++import { projects } from '../data/projects';
++import { ScreenHead } from '../signature/ScreenHead';
+ 
+ export default function ProjectsPage() {
+   const [searchParams] = useSearchParams();
+   const initialQuery = searchParams.get('q') ?? '';
++  const active = projects.filter((project) => project.status === 'active').length;
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Projects</h1>
+-        <p className="muted">Every initiative tracked by the operations team.</p>
+-      </div>
++      <ScreenHead
++        label={`${projects.length} projects`}
++        title="Projects"
++        summary={
++          <>
++            <b>Every initiative tracked by the operations team.</b> {active} are active now.
++          </>
++        }
++      />
+       {/* Re-mount when the global search changes so the table picks up the new query. */}
+       <ProjectsTable key={initialQuery} heading="All projects" initialQuery={initialQuery} />
+     </>
+diff --git a/src/pages/SettingsPage.tsx b/src/pages/SettingsPage.tsx
+index 920db50..6c9cade 100644
+--- a/src/pages/SettingsPage.tsx
++++ b/src/pages/SettingsPage.tsx
+@@ -1,18 +1,37 @@
+ import { Link } from 'react-router';
++import { Blueprint, stack, useLift } from '../signature/blueprint';
++import { ScreenHead } from '../signature/ScreenHead';
++
++const STACK = stack(3);
+ 
+ export default function SettingsPage() {
++  const { lifted, handlers } = useLift();
++
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Settings</h1>
+-      </div>
+-      <section className="panel empty-state" data-testid="settings-placeholder">
+-        <h2>Workspace settings are coming soon</h2>
+-        <p className="muted">
+-          Notification rules, integrations and access control will live here. For now, ask a workspace admin to make
+-          changes.
+-        </p>
+-        <Link to="/">Back to overview</Link>
++      <ScreenHead label="Workspace" title="Settings" />
++      <section className="settings-group settings-split" data-testid="settings-placeholder" {...handlers}>
++        <div className="settings-intro">
++          <span className="mono-label">01 / 01</span>
++          <h2>Workspace settings are coming soon</h2>
++          <p className="muted">
++            Notification rules, integrations and access control will live here. For now, ask a workspace admin to make
++            changes.
++          </p>
++          <div className="actions">
++            <Link to="/" className="button button--primary button--lg">
++              Back to overview
++            </Link>
++          </div>
++        </div>
++        <figure className="bp-figure">
++          <span className="mono-label">FIG 0.1</span>
++          <Blueprint figure={STACK} size="md" lifted={lifted} />
++          <figcaption>
++            <b>Settings stack</b>
++            <span>Three groups planned for this page.</span>
++          </figcaption>
++        </figure>
+       </section>
+     </>
+   );
+diff --git a/src/pages/TeamPage.tsx b/src/pages/TeamPage.tsx
+index c6c6245..5d1b207 100644
+--- a/src/pages/TeamPage.tsx
++++ b/src/pages/TeamPage.tsx
+@@ -1,37 +1,45 @@
+-import { team } from '../data/team';
++import { initials, team } from '../data/team';
++import { DotMeter } from '../signature/DotGlyph';
++import { ScreenHead } from '../signature/ScreenHead';
+ 
+ export default function TeamPage() {
++  const locations = new Set(team.map((member) => member.location)).size;
++
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Team</h1>
+-        <p className="muted">{team.length} people across engineering, design and operations.</p>
+-      </div>
+-      <section className="panel" aria-label="Team members">
+-        <div className="table-wrap">
+-          <table className="table" data-testid="team-table">
++      <ScreenHead
++        label={`${team.length} people`}
++        title="Team"
++        summary={
++          <>
++            <b>{team.length} people across engineering, design and operations.</b> {locations} cities.
++          </>
++        }
++      />
++      <section className="tbl-section" aria-label="Team members">
++        <div className="tbl-wrap">
++          <table className="tbl table" data-testid="team-table">
+             <thead>
+               <tr>
+                 <th scope="col">Name</th>
+                 <th scope="col">Role</th>
+                 <th scope="col">Location</th>
+-                <th scope="col">Active projects</th>
++                <th scope="col" className="num pin">
++                  <span className="head-long">Active </span>projects
++                </th>
+               </tr>
+             </thead>
+             <tbody>
+               {team.map((member) => (
+                 <tr key={member.id} data-testid="team-row">
+                   <td>
+-                    <div className="person">
++                    <div className="cell-first person">
+                       <span className="avatar" aria-hidden="true">
+-                        {member.name
+-                          .split(' ')
+-                          .map((part) => part[0])
+-                          .join('')}
++                        {initials(member.name, 1)}
+                       </span>
+-                      <div>
+-                        <div>{member.name}</div>
+-                        <a href={`mailto:${member.email}`} className="small">
++                      <div className="cell-lines">
++                        <span>{member.name}</span>
++                        <a href={`mailto:${member.email}`} className="cell-sub small">
+                           {member.email}
+                         </a>
+                       </div>
+@@ -39,7 +47,12 @@ export default function TeamPage() {
+                   </td>
+                   <td>{member.role}</td>
+                   <td>{member.location}</td>
+-                  <td className="numeric">{member.activeProjects}</td>
++                  <td className="num pin">
++                    <span className="load">
++                      {member.activeProjects}
++                      <DotMeter level={member.activeProjects} />
++                    </span>
++                  </td>
+                 </tr>
+               ))}
+             </tbody>
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 3eb965f..c8af158 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,50 +1,41 @@
+ /*
+- * Base styles for the Northwind Ops dashboard.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Northwind Ops on Graphite Blueprint 1.1.0-rc.6.
++ * Tokens live in design-system/tokens.css (follows the device's light/dark setting).
++ * The original variable names are kept below as aliases of the semantic tokens.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-status-active-bg: #e3f2e5;
+-  --color-status-active-text: #1b5e20;
+-  --color-status-paused-bg: #fff4d6;
+-  --color-status-paused-text: #7a5a00;
+-  --color-status-done-bg: #e8e8e8;
+-  --color-status-done-text: #444444;
+-  --color-chart-bar: #6f8fbf;
+-  --color-chart-axis: #999999;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
+-}
+-
++  color-scheme: light dark;
++
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-card);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-subtle);
++  --color-text: var(--color-text-body);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-primary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-status-success);
++  --color-negative: var(--color-status-danger);
++  --color-chart-bar: var(--color-chart-mark);
++  --color-chart-axis: var(--color-chart-grid);
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --line-height: var(--font-line-height-body);
++  --radius: var(--radius-md);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hairline);
++  --sidebar-width: var(--size-sidebar);
++
++  --page-pad: var(--space-32);
++}
++@media (max-width: 767.98px) {
++  :root { --page-pad: var(--space-20); }
++}
++
++/* Root */
+ *,
+ *::before,
+ *::after {
+@@ -54,56 +45,63 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-body);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
+-}
+-
+-h1 {
+-  font-size: var(--font-size-h1);
+-}
+-
+-h2 {
+-  font-size: var(--font-size-h2);
++  margin: 0;
++  color: var(--color-text-primary);
++  text-wrap: balance;
++  font-weight: var(--font-weight-semibold);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+-h3 {
+-  font-size: var(--font-size-base);
+-}
++h1 { font-size: var(--font-size-lead); letter-spacing: var(--font-tracking-lead); }
++h2, h3 { font-size: var(--font-size-body); }
+ 
+-p {
+-  margin: 0 0 var(--space-2);
+-}
++p { margin: 0; }
++p, li { text-wrap: pretty; }
++fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
++legend { padding: 0; }
++pre, code, kbd, samp { font-family: var(--font-family-mono); font-size: var(--font-size-small); }
++code { padding: 0 var(--space-4); border-radius: var(--radius-xs); background: var(--color-surface-code); }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
++  text-decoration: underline;
++  text-decoration-color: var(--color-icon-idle);
++  text-decoration-thickness: 1px;
++  text-underline-offset: 3px;
++  transition: text-decoration-color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-hairline) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
++:focus:not(:focus-visible) { outline: none; }
+ 
+-.visually-hidden {
++.visually-hidden,
++.sr-only {
+   position: absolute;
+   width: 1px;
+   height: 1px;
+   padding: 0;
+   margin: -1px;
+   overflow: hidden;
+-  clip: rect(0, 0, 0, 0);
++  clip: rect(0 0 0 0);
+   white-space: nowrap;
+   border: 0;
+ }
+@@ -111,65 +109,87 @@ a {
+ .skip-link {
+   position: absolute;
+   left: -9999px;
++  z-index: 30;
+ }
+-
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
+-}
+-
+-.muted {
+-  color: var(--color-text-muted);
+-}
+-
+-.small {
++  left: var(--space-8);
++  top: var(--space-8);
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+   font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
+ }
+ 
+-.numeric {
+-  font-variant-numeric: tabular-nums;
+-}
++.muted { color: var(--color-text-secondary); }
++.small { font-size: var(--font-size-small); }
++.numeric, .num { font-variant-numeric: tabular-nums; }
++.icon { flex: none; display: block; }
+ 
+-/* Layout */
++/* Shell */
+ .app-shell {
+   display: flex;
+   min-height: 100vh;
+ }
+ 
+ .sidebar {
+-  width: var(--sidebar-width);
++  width: var(--size-sidebar);
+   flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  padding: var(--space-12) var(--space-8);
++  background: var(--color-surface-subtle);
++  border-right: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
++.sidebar-inner { position: sticky; top: var(--space-12); }
++
+ .brand {
+-  font-weight: bold;
+-  margin-bottom: var(--space-4);
++  display: flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-8);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-semibold);
++}
++
++.nav-group-label {
++  margin: var(--space-16) 0 var(--space-4);
++  padding: 0 var(--space-8);
+ }
+ 
+ .nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: grid;
++  gap: var(--space-2);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  height: var(--size-row-dense);
++  padding: 0 var(--space-8);
++  border-radius: var(--radius-sm);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-dense);
+   text-decoration: none;
++  transition: background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+-
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
++.nav-link .icon { color: var(--color-icon-idle); }
++.nav-link:focus-visible { outline-offset: -2px; }
++.nav-link[aria-current='page'] {
++  background: var(--color-surface-tint);
++  color: var(--color-text-primary);
+ }
++.nav-link[aria-current='page'] .icon { color: var(--color-icon-active); }
+ 
+ .main-column {
+   flex: 1;
+@@ -179,442 +199,802 @@ a {
+ }
+ 
+ .topbar {
++  position: sticky;
++  top: 0;
++  z-index: 10;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  height: var(--size-header);
++  padding: 0 var(--page-pad);
++  background: color-mix(in srgb, var(--color-surface-default) 80%, transparent);
++  -webkit-backdrop-filter: blur(20px);
++  backdrop-filter: blur(20px);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+ .topbar-search {
+   display: flex;
+-  gap: var(--space-2);
++  align-items: center;
++  gap: var(--space-8);
+   flex: 1;
++  min-width: 0;
+   max-width: 420px;
+ }
+ 
+ .content {
+-  padding: var(--space-6);
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-6);
++  flex: 1;
++  padding: 0 var(--page-pad) var(--space-48);
+ }
++.content:focus { outline: none; }
+ 
+-.page-header-row {
++.container {
++  max-width: var(--size-container);
+   display: flex;
+-  justify-content: space-between;
+-  align-items: flex-start;
+-  gap: var(--space-4);
+-}
+-
+-.two-column {
+-  display: grid;
+-  grid-template-columns: 3fr 2fr;
+-  gap: var(--space-6);
++  flex-direction: column;
++  gap: var(--space-16);
+ }
++.container > .screen-head { margin-bottom: var(--space-8); }
++.container > .breadcrumb { margin-bottom: calc(-1 * var(--space-16)); padding-top: var(--space-24); }
++.container > .breadcrumb + .screen-head { padding-top: var(--space-12); }
+ 
+-/* Controls */
+-.input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
+-  flex: 1;
++.loading {
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-8);
++  min-height: 240px;
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
+ 
++/* Buttons */
+ .button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-6);
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border: 0;
++  border-radius: var(--radius-full);
++  background: var(--color-action-secondary);
++  color: var(--color-text-body);
++  font: var(--font-weight-medium) var(--font-size-small) / 1 var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
++  white-space: nowrap;
++  text-decoration: none;
+   cursor: pointer;
+-}
++  transition: background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease),
++    border-color var(--motion-duration-hover) var(--motion-easing-ease),
++    transform var(--motion-duration-hover) var(--motion-easing-standard);
++}
++.button:active { transform: scale(0.971); }
++.button--lg { height: var(--size-control-lg); padding: 0 var(--space-16); }
++.button--primary { background: var(--color-action-primary); color: var(--color-text-on-action); }
++.button--secondary { background: var(--color-action-secondary); color: var(--color-text-body); }
++.button--bordered {
++  background: transparent;
++  color: var(--color-text-secondary);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-default);
++}
++.button--ghost { background: transparent; color: var(--color-text-secondary); }
++.button[aria-expanded='true'] { background: var(--color-surface-press); color: var(--color-text-primary); }
++.button:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; transform: none; }
+ 
+ .link-button {
+   font: inherit;
+   background: none;
+   border: none;
+   padding: 0;
+-  color: var(--color-link);
+-  text-decoration: underline;
++  color: var(--color-text-primary);
+   cursor: pointer;
++  text-align: left;
+ }
+ 
+-.field-inline {
++.actions {
+   display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++  flex-wrap: wrap;
++  gap: var(--space-8);
+ }
+ 
+-/* User menu */
+-.user-menu {
++/* Fields */
++.input {
++  height: var(--size-field);
++  min-width: 0;
++  padding: 0 var(--space-12);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-card);
++  color: var(--color-text-primary);
++  font: var(--font-weight-regular) var(--font-size-dense) / var(--font-line-height-ui) var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
++  transition: border-color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++.input::placeholder { color: var(--color-text-tertiary); opacity: 1; }
++.input:focus-visible { border-color: var(--color-accent-default); outline-offset: 2px; }
++.input:disabled { opacity: var(--opacity-disabled); background: var(--color-surface-subtle); cursor: not-allowed; }
++.input[type='search']::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
++
++.search-field {
+   position: relative;
++  flex: 1;
++  min-width: 0;
++  display: flex;
++}
++.search-field .search-icon {
++  position: absolute;
++  left: var(--space-12);
++  top: 50%;
++  translate: 0 -50%;
++  color: var(--color-icon-idle);
++  pointer-events: none;
++}
++.input--search {
++  flex: 1;
++  width: 100%;
++  height: var(--size-control);
++  padding-left: 36px;
++  border-radius: var(--radius-full);
+ }
+ 
+-.user-menu-button {
++.field-inline {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-8);
++  min-width: 0;
+ }
+-
+-.user-menu-panel {
+-  position: absolute;
+-  right: 0;
+-  top: calc(100% + var(--space-1));
+-  min-width: 220px;
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-3);
+-  z-index: 5;
++.field-inline label {
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-body);
++  white-space: nowrap;
+ }
+ 
+-.user-menu-list {
+-  list-style: none;
++/* Checkbox */
++input[type='checkbox'] {
++  -webkit-appearance: none;
++  appearance: none;
++  flex: none;
++  width: 14px;
++  height: 14px;
+   margin: 0;
+-  padding: 0;
+-  display: grid;
+-  gap: var(--space-2);
++  border: var(--border-width-hairline) solid var(--color-border-check);
++  border-radius: var(--radius-xs);
++  background: transparent center / 10px 10px no-repeat;
++  cursor: pointer;
++  transition: background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    border-color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++input[type='checkbox']:checked {
++  border-color: var(--color-accent-default);
++  background-color: var(--color-accent-default);
++  /* the 1.5px check in color.text.onAccent (#FFFFFF in both appearances) */
++  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 5.2l2 2 4-4.4' fill='none' stroke='%23FFFFFF' stroke-width='1.5'/%3E%3C/svg%3E");
+ }
++input[type='checkbox']:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
+ 
++/* Avatars: initials micro 590 on surface.press */
+ .avatar {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  width: 28px;
+-  height: 28px;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
++  display: inline-grid;
++  place-items: center;
++  flex: none;
++  width: 16px;
++  height: 16px;
++  border-radius: var(--radius-full);
++  background: var(--color-surface-press);
++  color: var(--color-text-primary);
++  font: var(--font-weight-semibold) var(--font-size-micro) / 1 var(--font-family-sans);
++  letter-spacing: -0.06em;
++  overflow: hidden;
+ }
++.avatar--md { width: 24px; height: 24px; font-size: var(--font-size-micro); }
++.avatar--lg { width: 32px; height: 32px; font-size: var(--font-size-micro); }
++
++/* User menu */
++.user-menu { position: relative; flex: none; }
++.user-menu-button { padding: 0 var(--space-8) 0 var(--space-4); }
++.user-menu-button .chevron { color: var(--color-icon-idle); transition: rotate var(--motion-duration-open) var(--motion-easing-standard); }
++.user-menu-button[aria-expanded='true'] .chevron { rotate: 180deg; }
+ 
+-.person {
++.menu {
++  position: absolute;
++  right: 0;
++  top: calc(100% + var(--space-4));
++  z-index: 20;
++  min-width: 232px;
++  padding: var(--space-4);
++  background: var(--color-surface-raised);
++  border-radius: var(--radius-md);
++  box-shadow: var(--elevation-popover);
++  transform-origin: top right;
++  animation: menu-in var(--motion-duration-ui) var(--motion-easing-standard) both;
++}
++@keyframes menu-in {
++  from { opacity: 0; transform: scale(0.98); }
++}
++.user-menu-email {
++  padding: var(--space-6) var(--space-8) var(--space-8);
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++  margin-bottom: var(--space-4);
++  overflow-wrap: anywhere;
++}
++.user-menu-list { list-style: none; margin: 0; padding: 0; display: grid; }
++.menu-item {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  width: 100%;
++  height: var(--size-row-dense);
++  padding: 0 var(--space-8);
++  border-radius: var(--radius-sm);
++  color: var(--color-text-body);
++  font-size: var(--font-size-dense);
++  text-decoration: none;
+ }
++.menu-item:focus-visible { outline-offset: -2px; }
+ 
+-/* Cards and panels */
++/* Panels and cards */
+ .panel,
+ .card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++  min-width: 0;
++  padding: var(--space-20);
++  background: var(--color-surface-card);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-md);
+ }
+-
+-.panel-header {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: baseline;
+-  gap: var(--space-4);
++.panel-title {
++  margin-bottom: var(--space-12);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-ui);
++  font-weight: var(--font-weight-semibold);
++  color: var(--color-text-primary);
+ }
+ 
++/* Overview */
+ .kpi-grid {
+   display: grid;
+-  grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(4, minmax(0, 1fr));
++  gap: var(--space-16);
+ }
+-
+-.kpi-label {
+-  font-size: var(--font-size-small);
+-  font-weight: normal;
+-  color: var(--color-text-muted);
++.kpi-card { display: grid; gap: var(--space-8); }
++.kpi-card .kpi-label {
++  margin: 0;
++  overflow: hidden;
++  white-space: nowrap;
++  text-overflow: ellipsis;
++  font-weight: var(--font-weight-regular);
++  letter-spacing: 0;
+ }
+-
+ .kpi-value {
+-  font-size: 28px;
+-  font-weight: bold;
+   margin: 0;
++  color: var(--color-text-primary);
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++  font-variant-numeric: tabular-nums;
+ }
+-
+ .kpi-change {
+-  font-size: var(--font-size-small);
++  display: flex;
++  align-items: center;
++  gap: var(--space-6);
+   margin: 0;
++  font-size: var(--font-size-small);
++  color: var(--color-text-body);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+-.kpi-change-up {
+-  color: var(--color-positive);
++.status-dot {
++  flex: none;
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: var(--color-icon-idle);
+ }
++.status-dot--success { background: var(--color-status-success); }
++.status-dot--info { background: var(--color-status-info); }
++.status-dot--danger { background: var(--color-status-danger); }
+ 
+-.kpi-change-down {
+-  color: var(--color-negative);
++.dash-row {
++  display: grid;
++  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
++  gap: var(--space-16);
++  align-items: stretch;
++}
++.dash-chart {
++  display: flex;
++  flex-direction: column;
++  min-width: 0;
+ }
++.dash-chart > .panel-title { padding-top: var(--space-20); }
++.dash-chart > .stage { flex: 1; min-height: var(--size-stage-mini); }
+ 
+-/* Chart */
++/* Chart: dot columns on a quiet stage */
++.stage-window.chart-window { display: flex; flex-direction: column; padding: var(--space-16) var(--space-16) var(--space-12); }
+ .chart {
++  display: flex;
++  flex: 1;
++  flex-direction: column;
++  gap: var(--space-8);
++  min-height: 0;
+   margin: 0;
+ }
+-
+ .chart-title {
++  display: flex;
++  justify-content: space-between;
++  gap: var(--space-12);
+   font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
+-  margin-bottom: var(--space-2);
+-}
+-
+-.chart-svg {
+-  width: 100%;
+-  height: auto;
+-  display: block;
+-}
+-
+-.chart-bar {
+-  fill: var(--color-chart-bar);
+-}
+-
+-.chart-axis {
+-  stroke: var(--color-chart-axis);
++  color: var(--color-text-secondary);
++}
++.chart-plot { position: relative; flex: 1; min-height: var(--size-stage-mini); }
++.chart-svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; }
++.chart-grid { stroke: var(--color-chart-grid); stroke-width: 1; shape-rendering: crispEdges; }
++.chart-dot { fill: var(--color-chart-mark); }
++.chart-dot--track { opacity: var(--opacity-dot-track); }
++.chart-col--highlight .chart-dot { fill: var(--color-chart-highlight); }
++.chart-col {
++  transform-box: fill-box;
++  transform-origin: 50% 100%;
++  animation: chart-in var(--motion-duration-chart) var(--motion-easing-standard) calc(var(--col) * 8ms) both;
++}
++@keyframes chart-in {
++  from { opacity: 0; transform: scale(0.4); }
++}
++.chart-value {
++  fill: var(--color-text-primary);
++  font: var(--font-weight-medium) var(--font-size-caption) var(--font-family-sans);
++  font-variant-numeric: tabular-nums;
+ }
+-
+-.chart-value,
+-.chart-label {
+-  font-size: 12px;
+-  fill: var(--color-text);
++.chart-label,
++.chart-axis-label {
++  fill: var(--color-text-tertiary);
++  font: var(--font-weight-regular) var(--font-size-caption) var(--font-family-mono);
++  text-transform: uppercase;
+ }
+ 
+ /* Activity */
+-.activity-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-}
+-
++.activity-list { list-style: none; margin: 0; padding: 0; }
+ .activity-item {
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
+-}
+-
+-.activity-item p {
+-  margin: 0;
+-}
++  display: grid;
++  grid-template-columns: auto minmax(0, 1fr);
++  column-gap: var(--space-12);
++  row-gap: var(--space-2);
++  padding: var(--space-12) 0;
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-body);
++}
++.activity-item + .activity-item { border-top: var(--border-width-hairline) solid var(--color-border-subtle); }
++.activity-item:first-child { padding-top: 0; }
++.activity-item:last-child { padding-bottom: 0; }
++.activity-item .avatar { margin-top: 2px; }
++.activity-item strong { font-weight: var(--font-weight-medium); color: var(--color-text-primary); }
++.activity-item .mono-label { grid-column: 2; }
++
++/* Table */
++.tbl-section { display: flex; flex-direction: column; min-width: 0; }
++.section-head-count { margin: 0; justify-self: end; }
++@media (max-width: 767.98px) { .section-head-count { justify-self: start; } }
++.screen-head + * > .section-head:first-child { border-top: 0; padding-top: 0; }
+ 
+-/* Toolbar & table */
+ .toolbar {
+   display: flex;
+   flex-wrap: wrap;
++  align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-3);
+-  margin: var(--space-3) 0;
++  gap: var(--space-12);
++  padding-bottom: var(--space-16);
+ }
++.toolbar .field-inline { flex: 0 1 320px; }
+ 
+ .segmented {
+-  display: flex;
++  display: inline-flex;
++  padding: var(--space-2);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-card);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-subtle);
+ }
+-
+ .segmented-button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  height: var(--size-control-sm);
++  padding: 0 var(--space-12);
++  border: 0;
++  border-radius: var(--radius-full);
++  background: transparent;
++  color: var(--color-text-secondary);
++  font: var(--font-weight-medium) var(--font-size-small) / 1 var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
+   cursor: pointer;
+-  margin-left: -1px;
+-}
+-
+-.segmented-button:first-child {
+-  border-radius: var(--radius) 0 0 var(--radius);
+-  margin-left: 0;
++  transition: background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease),
++    transform var(--motion-duration-hover) var(--motion-easing-standard);
+ }
+-
+-.segmented-button:last-child {
+-  border-radius: 0 var(--radius) var(--radius) 0;
+-}
+-
++.segmented-button:active { transform: scale(0.971); }
+ .segmented-button[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
+-}
+-
+-.table-wrap {
+-  overflow-x: auto;
++  background: var(--color-surface-press);
++  color: var(--color-text-primary);
++  box-shadow: var(--elevation-ring);
+ }
+ 
+-.table {
++.tbl-wrap { overflow-x: auto; min-width: 0; }
++.tbl {
+   width: 100%;
+   border-collapse: collapse;
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-body);
+ }
+-
+-.table th,
+-.table td {
++.tbl th,
++.tbl td {
++  padding: 0 var(--space-12);
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  vertical-align: top;
++  vertical-align: middle;
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++}
++.tbl th:first-child,
++.tbl td:first-child { padding-left: 0; }
++.tbl th:last-child,
++.tbl td:last-child { padding-right: 0; }
++.tbl thead th {
++  height: var(--size-row-dense);
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++  font: var(--font-weight-regular) var(--font-size-caption) / var(--font-line-height-caption) var(--font-family-mono);
++  text-transform: uppercase;
++  color: var(--color-text-tertiary);
++  white-space: nowrap;
+ }
+-
+-.table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++.tbl-section .tbl thead th { border-top: var(--border-width-hairline) solid var(--color-border-subtle); }
++.tbl thead th[aria-sort='ascending'],
++.tbl thead th[aria-sort='descending'] { color: var(--color-text-secondary); }
++.tbl td { height: var(--size-row); }
++.tbl td:first-child { color: var(--color-text-primary); font-weight: var(--font-weight-medium); }
++.tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
++.tbl .mono-cell {
++  font: var(--font-weight-regular) var(--font-size-caption) / var(--font-line-height-caption) var(--font-family-mono);
++  text-transform: uppercase;
++  color: var(--color-text-secondary);
++  white-space: nowrap;
++  font-variant-numeric: tabular-nums;
+ }
++.tbl tbody tr { transition: background-color var(--motion-duration-hover) var(--motion-easing-ease); }
++.tbl tbody tr[aria-selected='true'] { background: var(--color-accent-subtle); box-shadow: inset var(--border-width-bar) 0 0 var(--color-accent-default); }
+ 
+ .sort-button {
+   font: inherit;
+   color: inherit;
++  text-transform: inherit;
++  letter-spacing: inherit;
+   background: none;
+   border: none;
+-  padding: 0;
++  height: var(--size-row-dense);
+   cursor: pointer;
+-  display: inline-flex;
+-  gap: var(--space-1);
+ }
+-
+-.sort-indicator {
+-  font-size: 10px;
+-}
+-
+-.pill {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
+-}
+-
+-.pill-active {
+-  background: var(--color-status-active-bg);
+-  color: var(--color-status-active-text);
+-}
+-
+-.pill-paused {
+-  background: var(--color-status-paused-bg);
+-  color: var(--color-status-paused-text);
++.sort-button:focus-visible { outline-offset: -2px; }
++.tbl .sort-button { display: inline-flex; align-items: center; gap: var(--space-4); padding-inline: 0; }
++.tbl :is(.num, .pin) .sort-button { flex-direction: row-reverse; }
++.sort-indicator { display: inline-flex; color: var(--color-icon-idle); }
++.sort-indicator--ascending .chevron { rotate: 180deg; }
++
++.tbl .pin { text-align: right; }
++/* The pin only matters while the table scrolls in its wrapper (breakpoint.sm to breakpoint.md). */
++@media (max-width: 767.98px) {
++  .tbl .pin {
++    position: sticky;
++    right: 0;
++    z-index: 1;
++    background: var(--pin-bg, var(--color-surface-default));
++    box-shadow: inset 1px 0 0 var(--color-border-subtle);
++  }
++  .pin::before {
++    content: '';
++    position: absolute;
++    inset-block: 0;
++    right: 100%;
++    width: var(--space-16);
++    pointer-events: none;
++    background: linear-gradient(90deg, transparent, var(--pin-bg, var(--color-surface-default)));
++  }
+ }
++.cell-first { display: flex; align-items: center; gap: var(--space-12); min-width: 0; }
++.cell-lines { display: grid; min-width: 0; padding-block: var(--space-6); line-height: var(--font-line-height-ui); }
++.cell-sub { color: var(--color-text-secondary); font-weight: var(--font-weight-regular); }
++a.cell-sub { text-decoration-color: transparent; color: var(--color-text-secondary); }
++.row-link { text-decoration: none; color: var(--color-text-primary); }
++.row-link:focus-visible { outline-offset: 0; border-radius: var(--radius-xs); }
+ 
+-.pill-done {
+-  background: var(--color-status-done-bg);
+-  color: var(--color-status-done-text);
++/* Status: icon plus word; Badge frame */
++.status {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  color: var(--color-text-body);
++  white-space: nowrap;
+ }
+-
++.status-icon { flex: none; }
++.status-icon--progress { color: var(--color-status-warning); }
++.status-icon--done { color: var(--color-status-success); }
++.status-icon--paused,
++.status-icon--todo,
++.status-icon--canceled { color: var(--color-icon-idle); }
++.badge {
++  height: 20px;
++  padding: 0 var(--space-8);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-medium);
++}
++.badge .status-icon { width: 12px; height: 12px; }
++
++.load { display: inline-flex; align-items: center; gap: var(--space-8); }
++
++/* Empty and error states */
+ .empty-state {
++  display: grid;
++  justify-items: center;
++  max-width: 360px;
++  margin: 0 auto;
++  padding: var(--space-48) var(--space-24);
+   text-align: center;
+-  padding: var(--space-8) var(--space-4);
+ }
++.empty-state > .dm { margin-bottom: var(--space-16); }
++.empty-state > .mono-label { margin-bottom: var(--space-8); }
++.empty-state > .actions { margin-top: var(--space-20); justify-content: center; }
++.empty-text { font-size: var(--font-size-body); line-height: var(--font-line-height-ui); }
++.empty-text > * { display: inline; font-size: inherit; font-weight: inherit; line-height: inherit; letter-spacing: inherit; }
++.empty-text > h3 { color: var(--color-text-primary); }
++.empty-text > p { color: var(--color-text-secondary); }
++.tbl-section .empty-state { max-width: none; border-top: var(--border-width-hairline) solid var(--color-border-subtle); border-bottom: var(--border-width-hairline) solid var(--color-border-subtle); }
++.tbl-section .empty-state > * { max-width: 360px; }
++
++.error-state {
++  display: grid;
++  justify-items: center;
++  max-width: 420px;
++  margin: 0 auto;
++  padding: var(--space-48) 0;
++  text-align: center;
++}
++.stage.error-stage { width: 100%; height: 240px; margin-bottom: var(--space-24); }
++.error-stage .stage-window { display: grid; place-items: center; padding: var(--space-24); }
++.error-state > .mono-label { margin-bottom: var(--space-8); }
++.error-state h1 { font-size: var(--font-size-lead); }
++.error-state > .two-tone { margin-top: var(--space-8); font-size: var(--font-size-body); line-height: var(--font-line-height-ui); }
++.error-state > .actions { margin-top: var(--space-20); justify-content: center; }
+ 
+ /* Project detail */
+ .breadcrumb ol {
+   list-style: none;
+   display: flex;
+-  gap: var(--space-2);
++  flex-wrap: wrap;
+   margin: 0;
+   padding: 0;
+   font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
++.breadcrumb a { color: var(--color-text-secondary); text-decoration-color: transparent; }
++.breadcrumb li + li::before { content: ' / '; white-space: pre; color: var(--color-text-tertiary); }
++.breadcrumb [aria-current='page'] { color: var(--color-text-primary); }
+ 
+-.breadcrumb li + li::before {
+-  content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
+-}
++.screen-head-side { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-12); min-width: 0; }
+ 
+ .tabs {
++  position: relative;
+   display: flex;
+-  gap: var(--space-1);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-24);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+-
+ .tab {
+-  font: inherit;
++  height: var(--size-control);
++  padding: 0;
++  border: 0;
+   background: none;
+-  border: var(--border-width) solid transparent;
+-  border-bottom: none;
+-  border-radius: var(--radius) var(--radius) 0 0;
+-  padding: var(--space-2) var(--space-4);
+-  color: var(--color-text);
++  color: var(--color-text-secondary);
++  font: var(--font-weight-medium) var(--font-size-small) / 1 var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
+   cursor: pointer;
+-  margin-bottom: -1px;
++  transition: color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+-
+-.tab[aria-selected='true'] {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  border-bottom: var(--border-width) solid var(--color-surface);
+-  font-weight: bold;
++.tab[aria-selected='true'] { color: var(--color-text-primary); }
++.tab:focus-visible { outline-offset: -2px; border-radius: var(--radius-xs); }
++.tab-indicator {
++  position: absolute;
++  bottom: -1px;
++  height: var(--border-width-bar);
++  background: var(--color-text-primary);
++  transition: left var(--motion-duration-tab) var(--motion-easing-enter), width var(--motion-duration-tab) var(--motion-easing-enter);
+ }
+ 
+-.details {
++.tab-panel { padding-top: var(--space-24); min-width: 0; }
++.detail-overview {
+   display: grid;
+-  grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 0;
++  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
++  gap: var(--space-32);
++  align-items: stretch;
+ }
++.detail-copy { display: grid; align-content: start; gap: var(--space-24); min-width: 0; }
++.detail-copy > p { max-width: var(--size-measure); color: var(--color-text-body); }
++.detail-stage { min-height: var(--size-stage-mini); }
++.detail-stage .plate { position: absolute; inset: 0; border: 0; background: none; aspect-ratio: auto; }
+ 
+-.details dt {
++.details { margin: 0; }
++.detail-row {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) auto;
++  align-items: center;
++  gap: var(--space-12);
++  min-height: var(--size-row);
+   font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
+-}
+-
+-.details dd {
+-  margin: 0;
+ }
++.detail-row + .detail-row { border-top: var(--border-width-hairline) solid var(--color-border-subtle); }
++.detail-row dt { display: flex; align-items: baseline; color: var(--color-text-secondary); }
++.detail-row dt .mono-label { flex: none; width: var(--space-32); }
++.detail-row dd { margin: 0; color: var(--color-text-primary); font-weight: var(--font-weight-medium); font-variant-numeric: tabular-nums; text-align: right; }
+ 
+ .progress-row {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-4);
+-}
+-
+-.progress-row p {
+-  margin: 0;
++  gap: var(--space-16);
++  padding-bottom: var(--space-12);
++  font-size: var(--font-size-small);
++  color: var(--color-text-body);
++  font-variant-numeric: tabular-nums;
+ }
+-
+ .progress {
++  -webkit-appearance: none;
++  appearance: none;
+   flex: 1;
+   max-width: 240px;
++  height: var(--space-4);
++  border: 0;
++  border-radius: var(--radius-full);
++  background: var(--color-surface-press);
++  overflow: hidden;
+ }
++.progress::-webkit-progress-bar { background: var(--color-surface-press); border-radius: var(--radius-full); }
++.progress::-webkit-progress-value { background: var(--color-chart-mark); border-radius: var(--radius-full); }
++.progress::-moz-progress-bar { background: var(--color-chart-mark); border-radius: var(--radius-full); }
+ 
+-.task-list {
+-  list-style: none;
+-  margin: var(--space-3) 0 0;
+-  padding: 0;
+-}
+-
++.task-list { list-style: none; margin: 0; padding: 0; border-top: var(--border-width-hairline) solid var(--color-border-subtle); }
+ .task {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-8);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++  font-size: var(--font-size-small);
+ }
+-
+ .task label {
+   flex: 1;
++  min-width: 0;
++  padding: var(--space-8) 0;
++  min-height: var(--size-row);
++  display: flex;
++  align-items: center;
++  color: var(--color-text-body);
++  cursor: pointer;
+ }
++.task-done label { color: var(--color-text-secondary); text-decoration: line-through; text-decoration-color: var(--color-icon-idle); }
++.task-assignee { display: inline-flex; align-items: center; gap: var(--space-6); color: var(--color-text-secondary); white-space: nowrap; }
+ 
+-.task-done label {
+-  text-decoration: line-through;
+-  color: var(--color-text-muted);
+-}
+-
+-@media (max-width: 900px) {
+-  .app-shell {
+-    flex-direction: column;
+-  }
+-
++/* Settings */
++.settings-group { padding-bottom: var(--space-48); }
++.settings-group + .settings-group { margin-top: 0; padding-top: var(--space-48); border-top: var(--border-width-hairline) solid var(--color-border-subtle); }
++.settings-group > :last-child,
++.settings-group :is(.card-grid, .form-actions, form):last-child { margin-bottom: 0; }
++.settings-split {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
++  gap: var(--space-32);
++  padding-top: var(--space-8);
++}
++.settings-intro { display: grid; align-content: start; gap: var(--space-8); }
++.settings-intro h2 { font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
++.settings-intro p { max-width: 48ch; color: var(--color-text-secondary); }
++.settings-intro .actions { margin-top: var(--space-12); }
++.bp-figure { display: grid; justify-items: start; gap: var(--space-12); margin: 0; }
++.bp-figure .bp { opacity: 0.8; }
++.bp-figure figcaption { display: grid; gap: var(--space-2); }
++.bp-figure figcaption b { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); color: var(--color-text-primary); }
++.bp-figure figcaption span { font-size: var(--font-size-small); color: var(--color-text-secondary); }
++
++/* Hover rules */
++@media (hover: hover) and (pointer: fine) {
++  a:hover { text-decoration-color: var(--color-text-primary); }
++  .nav-link:hover { background: var(--color-action-ghost-hover); color: var(--color-text-primary); }
++  .nav-link[aria-current='page']:hover { background: var(--color-surface-tint); }
++  .button--primary:hover { background: var(--color-action-primary-hover); }
++  .button--secondary:hover { background: var(--color-action-secondary-hover); color: var(--color-text-primary); }
++  .button--bordered:hover { color: var(--color-text-primary); box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-strong); }
++  .button--ghost:hover { background: var(--color-action-ghost-hover); color: var(--color-text-primary); }
++  .input:hover:not(:focus-visible) { border-color: var(--color-border-strong); }
++  .menu-item:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
++  .segmented-button:hover { color: var(--color-text-body); }
++  .segmented-button[aria-pressed='true']:hover { color: var(--color-text-primary); }
++  .tab:hover { color: var(--color-text-body); }
++  .tab[aria-selected='true']:hover { color: var(--color-text-primary); }
++  .tbl tbody tr:hover { background: var(--color-surface-tint); }
++  .tbl tbody tr:hover .pin { background: linear-gradient(var(--color-surface-tint), var(--color-surface-tint)), var(--pin-bg, var(--color-surface-default)); }
++  .row-link:hover { text-decoration: underline; text-decoration-color: var(--color-text-primary); }
++  a.cell-sub:hover { text-decoration-color: var(--color-text-secondary); }
++  input[type='checkbox']:hover:not(:checked) { border-color: var(--color-text-secondary); }
++  .breadcrumb a:hover { color: var(--color-text-primary); text-decoration-color: var(--color-text-primary); }
++}
++
++/* Under breakpoint.lg: text-only nav pills that wrap above the header */
++@media (max-width: 1023.98px) {
++  .app-shell { flex-direction: column; }
+   .sidebar {
+     width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    padding: var(--space-12) var(--page-pad);
++    border-right: 0;
++    border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+   }
+-
+-  .nav-list {
++  .sidebar-inner {
++    position: static;
+     display: flex;
+     flex-wrap: wrap;
+-    gap: var(--space-2);
++    align-items: center;
++    gap: var(--space-4) var(--space-16);
+   }
+-
+-  .kpi-grid,
+-  .details {
+-    grid-template-columns: repeat(2, 1fr);
++  .brand { padding: 0; }
++  .nav-group-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; padding: 0; }
++  .nav-list { display: flex; flex-wrap: wrap; gap: var(--space-4); }
++  .nav-link .icon { display: none; }
++  .nav-link {
++    height: var(--size-control);
++    padding: 0 var(--space-12);
++    border-radius: var(--radius-full);
++    font-size: var(--font-size-small);
++    font-weight: var(--font-weight-medium);
+   }
+-
+-  .two-column {
+-    grid-template-columns: 1fr;
++  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++  .dash-row { grid-template-columns: minmax(0, 1fr); }
++  .detail-overview { grid-template-columns: minmax(0, 1fr); }
++}
++
++@media (max-width: 767.98px) {
++  .topbar { gap: var(--space-8); }
++  .user-menu-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
++  .user-menu-button { padding: 0 var(--space-4); }
++  .user-menu-button .chevron { display: none; }
++  .toolbar { flex-direction: column; align-items: stretch; }
++  .toolbar .field-inline { flex: 1 1 auto; }
++  .settings-split { grid-template-columns: minmax(0, 1fr); }
++  .tab { height: var(--size-touch); }
++  .tbl-wrap .tbl td:first-child,
++  .tbl-wrap .tbl th:first-child { white-space: nowrap; min-width: 160px; }
++}
++
++@media (max-width: 639.98px) {
++  .kpi-grid { grid-template-columns: minmax(0, 1fr); }
++  .task-assignee .small,
++  .head-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
++  .tbl-wrap { overflow-x: visible; }
++  .tbl { width: 100%; }
++  .tbl :is(th, td):not(:first-child):not(.pin) { display: none; }
++  .tbl :is(th, td):first-child { width: 100%; max-width: 0; overflow: hidden; }
++  .tbl .pin { width: 1%; white-space: nowrap; }
++  .tbl .pin::before { display: none; }
++  .cell-lines { flex: 1; min-width: 0; }
++  .cell-lines > *,
++  .cell-lines[data-sub]::after { display: block; line-height: var(--font-line-height-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
++  .cell-lines[data-sub]::after { content: attr(data-sub) "\00a0"; color: var(--color-text-tertiary); }
++  .cell-lines .badge { padding: 0; border: 0; }
++  .cell-lines .badge-label { position: absolute; clip: rect(0 0 0 0); }
++}
++
++/* Reduced motion: loops end on their base frame */
++@media (prefers-reduced-motion: reduce) {
++  *, *::before, *::after {
++    animation-duration: var(--motion-duration-instant) !important;
++    animation-iteration-count: 1 !important;
++    animation-delay: 0s !important;
++    transition-duration: var(--motion-duration-instant) !important;
++    transition-delay: 0s !important;
+   }
++  .btn:active, .button:active, .segmented-button:active { transform: none; }
++  .bp.is-lifted .bp-slab { transform: none; }
+ }

@@ -106,3 +106,288 @@ Banner (Pixel stage + Store row); Never: the same scene on two screens; product 
 recognisable by outline; charts: bars ≤40% of slot, 12px y-axis with 3–5 values, never outweighing KPIs; hero rise gets a
 1-unit `.haze` rim (no new token: the critic's `color.scene.rim` does not exist); settings form and scene window share
 one content width. Theme untouched.
+
+## 2026-10-17 — update: leftovers from the 1.1.0 review (1.2.0)
+
+Goal: fix the regressions the 1.1.0-rc.2 critique listed against the published version
+(`showcase/runs/night-cartridge/1.1.0-rc.2/critic-1.json`), so none remains:
+- Blog hero lead lost its identity (generic brick block, unreadable fake-letter sign; the one tall element is a
+  clock tower cut off by the right edge) — the lead must carry its subject's defining features and a real sign.
+- Blog hero on mobile starts at the roof line with no sky — the 390px crop must show the whole lead with sky.
+- Product page sprite ~30% of its window — the 40–50% rule applies to the detail page too.
+- Sweater sleeves drawn as separate bars with a gap; blog newsletter title shrank to a 16px label; commerce
+  mobile header hides the store name; hero hill barely separates from the ground; dashboard mobile table cuts
+  its last column with no scroll cue.
+
+1.2.0-rc.1 (2026-10-18): answers critic-1 on 1.1.0-rc.2 (all 4; eight promptFixes), each as a checkable rule plus a
+Verification line. Dark only and everything else from 1.1.0 kept.
+- Hero lead identity (signature regression): Pixel stage step 4 — the lead shows 3+ defining features of 2+ units per
+  world (post office: envelope plate, flagpole, mail slot; shop; server hut; workshop), never a plain window-grid block;
+  signs are a pictogram, real 3×5-unit letters (one real word, ≤4) or plain. Never adjusted ("text inside art" now
+  excepts a sign's real letters, forbids letter-like marks). The critic's "never by letters" was widened to the user's
+  "real readable glyphs or none".
+- Tall vertical cut by the edge: step 4 — wholly inside the 1440px crop, 4+ units in (hero x 64–416; banner in a
+  `size.container` Window x 42–678, computed from 1296px − 8px frame = 644 units centred on 360).
+- Mobile hero framing: the old crop (bottom-aligned y 48–128) cannot show sky at all (sky ends near y 48), so the crop is
+  now stated and moved: `size.heroSm` shows y 24–104 (scene translated down 24 units = 96px) and is centred on the lead
+  via `--lx` (x `--lx`±48 at 390px). Lead ≤80 units wide, base y 86–100, top y ≥40 = the critic's 16 units of sky;
+  consistent with the hero lead height 40–52 (e.g. base 96, height 48, top 48). New CSS line in the stage block, placed
+  after `.stage--hero` so the cascade keeps it.
+- Hero rim at 1x (carried): computed contrast on `color.art.near`: `.haze` mix ≈1.8:1 (why rc.2's rim vanished),
+  `color.art.sky6` 3.0:1. Rim → continuous `.sky-6` line over a `.haze` line; path → 3+ `.haze` steps 4–8×2 units.
+  No new token.
+- Product detail sprite size: Imagery, Missing images — 40–50% of the window width in grids and on product detail at
+  every width, at an integer unit via `round(down,50cqi/var(--w),1px)*var(--w)`; Card grid and Store rows point to it.
+- Sweater sleeves: one connected silhouette, touching parts share a unit edge, no background gap; Verification asks
+  for one 4-connected region.
+- Newsletter title: Typography — standalone sections open with a `title` h2 (panels in an h2 group keep captions).
+- Store header name on mobile: Navigation — the name never hides at any width, in any app.
+- Mobile table (carried): Table → Small screens: only `data-pin` columns (first + one or two), the rest
+  `display:none`, one-line ellipsis cells, `.sub` lines hidden, every row `size.row`; replaces "scroll or stack".
+- Budget: agent.md 7,491 words (validate's count), from 7,949 after the additions. Block-meter paragraph shortened
+  (the `dd` markup example dropped, rule kept), Verification bullets merged, code comments and the cloud drift example
+  trimmed, duplicates of rule 3 (Pixel type Limits), Shape and depth, Color use (dark only), Card panel note and
+  Existing project's native-inputs line (still in Checkbox and Select) shortened. Validate: 0 errors, 0 warnings.
+
+1.2.0-rc.2 (2026-10-18): answers critic-1 on 1.2.0-rc.1 (seven 4s; ten promptFixes plus its PARTLY / worse items).
+- Grid and detail sprites under 40% (worse; agent sized the svg box, not the drawing): Imagery — the drawn silhouette
+  spans 40–50% of the window's inner width, viewBox cropped tight to the ink, and `--w` ≤ smallest window ÷ 8 px so
+  `round(down,50cqi/w)` gives a unit of 4+ px and stays ≥ 40% (k/(k+1)·50% with k ≥ 4). Verification measures the ink
+  at 1440px and 390px and the report states each percentage.
+- Cuffs and hem below an outline row: parts touch the body fill directly, no outline row between.
+- Key ring read as a magnifier: key or tag hangs to one side, never a ring above a straight bar.
+- "TH" mark in the settings workshop: Signs — one pictogram, one real word or plain; no 1–2-glyph marks, no letter-like
+  bars anywhere; the workshop's tool rack defined as hammer, wrench and saw on a board.
+- Tower hugging the frame: verticals 12+ units in (hero x 72–408, banner x 50–670), not both in the outer 10%.
+- Starved mobile name column: first pinned column `width:100%;max-width:0` with ellipsis, others `width:1%`
+  (shrink to content); `table-layout:fixed` dropped since it defeats shrink-to-content; 16+ characters at 390px or pin
+  one column fewer.
+- Frameless mobile hero Window (regression): hero placement keeps four frame sides inside the gutter.
+- Clamped summaries and square mobile pictures (regression): Card — up to 2 lines; 4:3 under `breakpoint.sm`.
+- Avatar copy vs image (carried): initials shown where copy promises them; copy never changed.
+- Hero path straight down: steps sideways in one direction, a diagonal from a bottom corner.
+- Same banner on both product pages and mobile lead pushed to the frame: step 1 — each product or article page takes its
+  focal group or crop from its item; Banner — `--lx` centring under `breakpoint.lg` (new CSS rule).
+- Chart outweighing KPIs (carried): new token `size.chart` 240px, bars mixed 55% into `color.surface.subtle`; Layout's
+  "chart grows into its panel" capped at it.
+- Error icon reading as a padlock (low confidence): Text field gives the "!" rows.
+- Budget: 7,485 words (validate's count) from 7,915 after the additions; only true duplicates trimmed (listed in the
+  changelog). Tabs hover conflict with Interaction fixed on the way.
+
+1.2.0-rc.3 (2026-10-18): answers critic-1 on 1.2.0-rc.2 (six 4s, signature 3; 3.86; 14 of 19 fixed). The five items
+that survived two rounds of prose become measurable procedures, each with a measured check in Verification, per the
+critic's promptFixes. Dark only and every other rule kept.
+- (1) Grid sprites 32–37% (carried twice): Imagery → Missing images is now five numbered steps. Tight box: viewBox =
+  ink bounds (first and last column and row each hold a pixel), `--w` 14–20. Size: product grid
+  `repeat(auto-fill,minmax(236px,1fr))`, at most 5 columns at 1440px, windows 190px+ inner (1248px content, 5 columns:
+  236.8px cards − 40px padding − 4px frame ≈ 193px). The formula then gives 42–44% at 190px, about 45% at 390px and
+  about 49% on the 526px detail window. Verification: a required `sprite | ink px | window px | %` table for every grid
+  and detail sprite at 1440px and 390px, every row 40–50%; "checked by eye" fails; a missing required table fails.
+- (2) Cuffs and hem behind an outline row, ear-like shoulders (carried twice): step 3 One silhouette, `ol` only around
+  the outside, joints fill against fill, collar a 1-row dip with no bumps, plus an 18×13 sweater unit grid (rows
+  checked: 18 wide; cuff row 9 and hem row 11 sit straight under fill; every edge column and row holds a pixel).
+- (3) Key ring as a magnifier (carried twice): the key (6×6 bow with a 2×2 hole, 2-thick shaft 8–10 long, 2–3 teeth)
+  is the largest part; the ring is 1 unit and at most 6 across, through the bow's corner; never a big ring with a tag.
+- (4) "TIF" on the workshop (carried twice): step 4 "No letter-like marks". Free-standing 1-unit verticals 2–6 tall
+  (alone or in 2–4s), or a horizontal run touching one, are forbidden on walls, boards and plates; verticals only edge
+  a door, window or wall. This was written so it does not ban siding or brick runs. Tool board: 2–3 filled tools 4+
+  units each (hammer 4×2 head on a 2×4 handle, wrench 4×4 jaw, saw 6×3 blade), a gear plate, or plain. Verification
+  adds a squint test.
+- (5) Hero verticals in the outer 10%, a stall cut by the edge: tall verticals' x spans sit inside 12–88% of the
+  1440px crop: hero x 104–376 (crop 60–420, 360 units), banner x 116–604 (crop 38–682, 644 units). One stands within
+  40 units of the focal group. Crop edges: no prop crosses x 60/420 (banner 38/682) or the scene's ends, and at most
+  one prop per side sits in the outer 10% (hero <96 or >384, banner <102 or >618). The critic's "≤396" was tightened
+  to the user's 12–88%.
+- (6) New outline recipes in step 4 for the tote (a handle loop at ¼–¾ of the top, corners cut, fill joined; not a
+  shackle or a slot), the coat (open lapels, buttons, sleeves; not a book), the duffel (a barrel with end caps and one
+  arch; not a toaster) and the skillet (`disc()` pan 60%+ of the width, handle 30–40%), plus a name test at 1x. Step 1:
+  the hero's lead and focal group appear only in the hero (critic other-issue 3).
+- Budget: 7,490 words (validate passes), down from 8,144 after the additions. The cuts:
+  - Verification's per-screen list drops checks that were stable for two or more rounds and are still rules elsewhere:
+    card titles flush (Card), chip marker or bullet (Badge), n-of-m meter (rule 9), contents list on load, menus
+    highlighted and placeholders (Navigation, Select), sidebar to the ground strip (Layout), ruled dashboard h2s
+    (Card, Applying).
+  - Still-frame checks that restate step 3 and the Ground strip are gone; the hero rim and 390px checks were kept in
+    shorter form.
+  - Further true duplicates removed:
+    - Never: the meter's invented maximum (rule 9) and "each screen has its own focal group" (step 1).
+    - Hero: "under it only sky…" (Never: no prop under the hero Window).
+    - Strip: the "only for…" list (Applying).
+    - Stepped motion What/Limits (rules 6 and 7).
+    - Component focus and one-frame lines (Interaction, Motion).
+    - Empty state "reduced motion: still" (global).
+    - Table "meter inside its td" (Block meter).
+    - Interaction's focus offsets (the marker CSS).
+    - JS comments.
+  - Wording was tightened in the remaining sections.
+- Validate: 0 errors, 0 warnings.
+
+1.2.0-rc.4 (2026-10-18): answers critic-1 on 1.2.0-rc.3 (seven 4s, 4.0, bar met). Every promptFix applied; rc.3's
+procedures, checks and rules kept; only true duplicates cut. Dark only unchanged.
+- (1) Identical article banners, about reusing the lead mirrored (MEDIUM, regression vs 1.1.0): step 1 now says every
+  scene has its own lead and focal group; each strip, the about page and every item of one type take a different lead
+  sprite (another subject or outline, not mirrored) in another arrangement; recolouring or relighting is not a
+  different scene. Verification: banners of one type and about differ in lead sprite and arrangement (mirrored,
+  recoloured or relit fails); the report lists each banner's lead and focal group.
+- (2) Dashboard n-of-m meter lost after its check was cut: restored in Verification per-screen ("every 'Showing n of m'
+  or 'n of m on' count has its block meter") and written into rule 9 ("every n-of-m count (Showing n of m)").
+- (3) Coat reads as "M"/trousers; tote and duffel twins: step 4 gets an 18×22 coat unit grid (one body block, sleeves
+  outside, 2-row V collar dip, `hi` button column, fronts never part; checked 18 wide, one 4-connected region); tote
+  body 1.2–1.5× as wide as tall; set-mates differ in silhouette at 1x; the name test adds "a letter" and "its set-mate".
+- (4) Spec bug: `.btn-gold` border `--color-action-primary-edge` (undefined) → `--color-action-primary`. Every
+  `var(--…)` in dist/agent.md code blocks checked against dist/tokens.css: all token variables defined; the rest are
+  spec-set properties (`--base`, `--lx`, `--hue`, `--cur-*`, `--o`, `--d`, `--i`, `--w`, `--bob`, `--dc`), and the
+  undocumented ones (`--from`, `--to`, `--n`, `--dx`, `--dy`, `--tone`) are now named per instance.
+- (5) Rare-event frames about 137ms vs the 250ms minimum: `nc-rare` travel starts at 90% (was 95%): 14000ms × 9.9% ÷ 5
+  = about 277ms per frame.
+- (6) Hammer/wrench read as T/Y: dropped. Workshop plates are a gear (8×8+, 2-unit teeth, 2×2 hole), a saw blade 6×3
+  or plain; the workshop lead's feature is "a gear plate"; Verification checks it.
+- (7) Header switches per route, avatar styles per app, chart top band, card min width: Navigation "the same set on
+  every route of the app" (Pixel body on every route of an app with long prose or dense tables); Avatars one treatment,
+  hued initials, never monochrome; Charts "the panel caption sits at its top padding, the plot right under it"; Layout
+  card grids `minmax(200px,1fr)` "exactly"; Verification per-screen adds switches and avatars.
+- (8) Sprite table skipped: moved into a report the agent writes last in a fixed order (sprite table, variant table,
+  per-scene numbers with each banner's lead, files and decisions); a report missing a part fails, and an app without
+  item pictures must write "Sprite table: no item sprites", so no app can skip it silently.
+- Budget: 7,497 words (validate's count), 0 errors, 0 warnings. Cuts were duplicates only: one-frame state lines in
+  Dialog, Toast, Tabs, Checkbox, Select (Motion); Card focus/press and loading (Interaction, Motion); Table touch rows
+  (Accessibility); Pixel stage reduced-motion line and Stepped motion limits list (rule 7); Imagery chart height cap
+  (Layout); Empty state's error recipe (Applying); marker Where list (rule 5); hero crop restatement (step 4); Text
+  field "frame unchanged" (contradicted Interaction); shorter Color use surfaces, hue order and New project step 3.
+
+1.2.0-rc.5 (2026-10-18): answers critic-1 on 1.2.0-rc.4 (3.86; all eight promptFixes). Rules go into recipe code where
+possible, since the evaluation now judges three samples per app. Dark only and every earlier rule kept.
+- (1) Process, third round (agents cannot measure the render): Verification "every reported number is measured on the
+  render" → numbers are computed from code: sprite rows by a new `pct()` (ink px = floor(window ÷ 2 ÷ `--w`) × `--w`;
+  window px from the CSS: 1440 (1248−4×16)÷5 − 40 padding − 4 frame = 192px, 390 358−40−4 = 314px), scene numbers from
+  the `put()`, `path()`, `dot()`, `light()` coordinates, each computation shown. The ten rules close with "the report
+  opens with the sprite and variant tables, computed from code; a missing part fails it".
+- (2) Tote as a padlock (regression): new tote recipe and a 20×27 unit grid (checked: 20 wide, 27 tall, one
+  4-connected region): body w÷h 0.8–1.0 (20 wide × 21 tall body), sides step 1 unit in at mid-height, 1-unit `hi`
+  straps from cols 4/15 meeting in an arch 12 wide (60%), background between straps and body; never a 2-unit squared
+  loop or a box under a hollow arch. Set-mates: tote tallest bag, duffel lowest. Name test: "padlock".
+- (3) Grid sprites at 38–40%: every grid and detail sprite 19–23 units wide; a new `item()` trims empty edge rows and
+  columns so the viewBox is always the ink (the rc.4 misses were 18-unit ink in 20-unit boxes). Computed with
+  floor(W/2/w)·w: at 192px 19→49%, 20→42%, 21→44%, 22→46%, 23→48%; at 314px 44–49%; at 608px detail 47–50%. Sweater
+  and coat grids widened 18 → 20 by doubling the two centre columns (still one region each); key shaft 11–14 long.
+- (4) Blog grid in 6 cramped columns (spec bug): "Card grids exactly minmax(200px,1fr)" → `.tiles` (200px) only for an
+  icon, a title and one line; `.cards` for anything with a summary:
+  `minmax(min(100%,max(320px,(100% − 2·gap)/3)),1fr)`, so 3 columns at 1440 (1248px content → 405px each), 2 at 1024,
+  1 at 390, never 4+; one width per card kind on every route; Verification checks summary cards.
+- (5a) Hero path: new `path(doorX,doorBaseY)` — 6×2 steps, 4 right per 2 down (run 2× rise) to the bottom edge, end x =
+  doorX+2×(128−doorBaseY)+2 must be in 366–416 (the 1440 crop's bottom-right quarter; the left corner is under the
+  Window). Consistency at 1440: lead centre 300–340 (60–100 off centre 240), door base 86–100 → e.g. 320/96 ends at
+  386. Verification reads the end from the arguments.
+- (5b) Sparse store strip: step 3 — far ridge carries 4+ `roof()`/`tree()`/rack silhouettes per 360 units, 30–90 apart,
+  never bare noise (new helpers); step 4 — no propless stretch over 160 units, crop edges included.
+- (5c) Dashboard panels uneven: Layout `.panels` (grid, `align-items:stretch`), bottoms level; grow the shorter (plot up
+  to `size.chart`, more rows) or trim the longer (5–8 activity items + View all). Verification already checks it.
+- (5d) Hero spacing conflict (blog agent): computed at 1440 — content x 96px → unit 84; Window 464px → x 84–200; props
+  from 216; crop 60–420, so 204 units for the focal group (lead ≤80) and clusters, which cannot fit two 60–160 gaps.
+  Now: x 216–420 holds the focal group, both verticals and one cluster 16–60 units away; a second cluster may sit at
+  x 424–476 (seen at 1920, not counted at 1440). Verticals x 216–376; step 8's quarter check runs on x 216–420.
+- Budget: 7,493 words (validate's count), 0 errors, 0 warnings. Duplicate cuts only: Never's meter-in-dl line (Block
+  meter states it), Verification's banner line (merged into report part 3), hero letter-mark check (step 4), "one
+  marker per list" (marker limits), Applying cells restating Table, Empty state, Motion; "Dense screens shed art"
+  merged into Applying's opening; Pixel type font names (tokens); compact table pipes and one `const` per group in the
+  demo code; tighter wording.
+
+1.2.0-rc.6 (2026-10-18): answers critic-1 on 1.2.0-rc.5 (3.86; seven of eight promptFixes plus the process note). Dark
+only and every earlier rule kept; only true duplicates cut.
+- (1) Tote read as a bucket or padlock in 3 of 3 (spec bug: every agent copied the 20×27 grid). New 23×21 grid, built and
+  checked by script: one 4-connected region (400 cells), 21 visible columns, rendered at 4px and 12px units on the
+  near-black window. It reads as a tote: two separate 6×4 `hi` handle loops with background inside and 3 columns between
+  them, body 19 visible on top widening to 21 at mid-height (w÷h about 1.3), `hi` rim, `shade` hem, a patch pocket with
+  a lit top edge, an inset `shade` base row. A first draft (narrow 5×5 loops, two flare steps, hollow `shade` pocket) read
+  as a plug or a radio and was dropped. The rule names what it must not be (one arch over the bag, sides narrowing
+  downward, taller than wide); name test adds bucket and pail; set-mates: duffel low and wide, tote two-handled.
+- (2) Visible ink 37.5% while pct() said 42% (3 of 3): sprite width counts visible units only (never `ol`). `item()`
+  sets `--v`; unit = floor(window ÷ 2 ÷ `--v`); CSS width = unit × `--w`; `pct(name, v, win)` adds a visible-units
+  column. Tested in node on the shipped grids: tote v21 → 84/192 = 44%, 147/314 = 47%, 294/602 = 49%; sweater and coat
+  (widened to 22 columns, 20 visible; coat collar kept centred) → 80/192 = 42%, 140/314 = 45%, 300/602 = 50%. For any
+  v in 19–23: 41.7–49.5% at 192px, 44–49% at 314px.
+- (3) Blog summaries cut at 2 lines (3 of 3, worse than published): Card shows the whole summary in `.cards`, clamping
+  only past 4 lines; 2 lines stay for `.tiles` and product cards.
+- (4) Banner leads 93–95px (2 of 3): step 4 counts the lead in visible units from its topmost non-`ol` unit; banner unit
+  = 2px at every width, so 48 units = 96px floor, aim 52–60 (104–120px), top at y ≤ 70; report part 3 states height in
+  units and px.
+- (5) Commerce category icons lost (2 of 3): Applying store row — product card category labels carry their 12px hue
+  icon, never a bare bullet.
+- (6) Every blog lead a post office (2 of 3): step 1 — the emblem lead is the hero's or first strip's alone; other scenes
+  take other subjects (blog: press house, mail depot, reading room, newsstand), never an envelope plate on two leads.
+- (7) Settings ~450px empty band (2 of 3): Layout — a form window wider than 720px puts short fields in two `.fields`
+  columns (new CSS, one column under 600px), long ones across both, no column ending `space.64`+ above the others.
+- (8) Blog per-scene report skipped (2 of 3): report part 3 says "not written" fails it.
+- Budget: 7,479 words (validate's count), 0 errors, 0 warnings. True duplicates cut: Verification lines restating other
+  sections (hero, gold button, 4px frames, panels, summary cards, newsletter titles, header switches, avatars, 390px header and tables, "!" icon,
+  stems, two step 8 rounds), the ten rules' report line, step 8's banner-lead check, step 5's `.base` mix, "key ring and
+  pan as wide as the bags", Navigation dropdown keyboard (points to Select), settings row's aside clause; tighter wording.
+
+1.2.0-rc.7 (2026-10-18): answers critic-2 on 1.2.0-rc.6 (three-sample confirm passed, seven 4s; its four optional
+promptFixes). Dark only and every earlier rule kept; only true duplicates cut, no Verification check removed.
+- (A) Tote sides stepped outward at two-thirds height in 3 of 3 (spec-caused: every agent copied the grid; read as a
+  cooler or lunch box). New 23×21 grid with straight sides, 21 visible from rim to hem (w÷h about 1.4), same two 6×4
+  handle loops, rim, pocket and inset base row; checked by script as one 4-connected region (413 cells), 21 visible
+  columns. Rule allows 1 unit narrower per side toward the top, never wider; Never clause and name test add cooler
+  and lunch box.
+- (C) Product-card summaries clamped at 2 lines in 3 of 3 (worse than published): Card shows them whole up to 3 lines,
+  clamped past 3; 2 lines stay for `.tiles`.
+- (B) One banner building per category in 2 of 3, with a 'COAT' sign over the sweater: Applying store row — each product
+  banner's lead is a building no other product has, its sign word names that product or trade (WOOL, IRON), never a
+  sibling or category word; a repeated type changes roof, sign and colour.
+- (D) Report tables missing because agents cannot run code (3 of 3, process): Verification's numbers line allows report
+  parts 1 and 3 computed by hand from grid and scene constants, marked "by hand".
+- Budget: 7,498 words (validate's count), 0 errors, 0 warnings. True duplicates cut: pct() table-row sentence, "21–25
+  columns with the ring", "(Showing n of m)" in rule 9, "focus ring never removed" in Accessibility, the Card grid
+  row's card anatomy, "hue bars on cards and KPI tiles", Pixel type's body-switch clause in What, "sit on a 16px
+  grid", the tote's "body taller than wide" (w÷h says it).
+
+1.2.0-rc.8 (2026-10-18): generalization pass, built on 1.2.0-rc.6 (passed its three-sample evaluation), not on rc.7.
+Answers the `prose.overfit` lint (the package named demo-store products) and one measured defect that recurred in every
+evaluated sample. Tokens, the ten rules, the Never list and every measured number are unchanged; no generate or
+evaluate run.
+- (1) Overfit lint, products: Imagery steps 3–5 dropped the sweater, coat and tote grids and the duffel, skillet and
+  key-ring outlines. Each became the general principle behind it: one 4-connected silhouette, attached parts joined by
+  fill and free-hanging parts kept 1 unit off the body (from the sweater/coat sleeve and collar rules); solid defining
+  parts 2+ units thick, the naming part 30–60% of the width, the real width ÷ height kept within ±0.2 (skillet
+  handle, duffel arch and proportions); top-down round objects as a `disc()` 60%+ wide (skillet); loops 1-unit runs
+  with 4×3+ background inside, two handles separate and 3+ columns apart (tote); a ring at most 6 across and never the
+  largest part, so it never reads as a magnifier (key ring); set-mates differ in silhouette at 1x (duffel vs tote).
+  Verification's "the tote two-handled" became "set-mates told apart by silhouette at 1x".
+- (2) Overfit, apps and screens: Pixel stage step 1's four demo worlds (server yard, market street, post-office street,
+  workshop yard) and their emblem and lead lists became a rule for deriving a world from any domain, with non-demo
+  examples (booking product: station square; fitness tracker: training ground) and an abstract-product fallback
+  (messaging tool: telegraph office). Step 4's per-world lead features and workshop plate rule became one example and a
+  general "a pictogram whose silhouette is a letter is replaced by a closed shape". Applying rows lost their world
+  names ("Store grid" became "Catalogue grid"); the footer newsletter, the settings photo, "posts, projects" and the
+  marker label "Overview" became kinds (sign-up or contact form, image field, articles/records/listings, "Home").
+  The docs and landing holdout apps were not used as examples.
+- (3) Control heights 4px apart next to each other in every sample (email input + subscribe, save + reset): new Layout
+  rule, controls sharing a row are all `size.control` (40px) frame included; the gold button joins at `size.control`,
+  `size.controlLg` only when it stands alone, `size.controlSm` only for all-small rows. New `.controls` CSS; root block
+  adds `box-sizing:border-box` (the 4px matches two 2px frames added to a content-box height; not confirmed in the run DOM). Button, Text field and
+  Dialog point to it; Verification measures computed heights.
+- Not carried from rc.7: its store-row sign-word rule (named demo trades) and the tote grid fix (the grid is gone).
+- Budget: bundle about 16,000 tokens (characters ÷ 4, whitespace collapsed), under 20,000. validate: 0 errors, 0
+  warnings.
+
+1.2.0-rc.9 (2026-10-18): built on 1.2.0-rc.8 (generalization kept). Answers the two spec-caused majors of the rc.8
+screen (critic-1.json, 1 of 1 sample). No generate or evaluate run.
+- (Major 1) Garment sleeves drawn as separate bars with a background gap, sweater and coat sharing one outline; caused
+  by rc.8's Imagery step 3 ("free-hanging parts ... keep a 1-unit background gap"). General rule now: parts attached in
+  the real object (sleeve, collar, arm, leg, strap, handle, spout, lid) touch the body fill against fill along the
+  attachment and angle away from it (1 unit out every 1–3 rows, far end 2+ units farther from the centre line); a
+  background gap only where the real object is open (loop or ring inside, a handle's or strap's opening, between legs
+  below where they join). Set-mates differ in outline in at least two of length, w ÷ h (0.2+), opening, hem, part
+  count, never only in hue or an inner detail. Name test adds gate and table. The critic's "garments are one solid
+  shape" wording is folded into the general attached-part rule rather than naming garments alone.
+- (Major 2) Item-card summaries clamped at 2 lines (rc.6 wording inherited by rc.8): carried rc.7's fix in general
+  terms — whole up to 3 lines on item cards, clamped past 3; 2 lines only in `.tiles`; a clamp never cuts a summary
+  that would fit in one more line. "Product card" anatomy renamed "Item card (product, listing)".
+- Carried from rc.7, generalized: the detail-page banner rule moved into Pixel stage step 1 for any set of detail
+  pages (item, article, record): own lead building, own sign word, never a sibling's or the category's; a repeated
+  building type changes roof, sign and colour (rc.7's store-trade examples dropped). Verification's "by hand" numbers
+  line. Not carried: rc.7's tote grid (named a demo product).
+- Variance, left alone: per-category vs per-item store banners (minor, reference does per-category; now covered by the
+  general rule), empty-state title size, key ring and tea-towel name-test misses, headstone-like strip props, user menu
+  focus, password form width (all minor).
