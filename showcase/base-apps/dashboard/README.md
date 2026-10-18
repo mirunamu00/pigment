@@ -8,7 +8,8 @@ tests prove nothing broke.
 
 - Left sidebar navigation (Overview, Projects, Team, Settings) and a top bar with a
   project search and a user menu.
-- Overview: four KPI cards, an SVG bar chart drawn from data, a recent-activity list, and a
+- Overview: four KPI cards with a Refresh button (shows a loading placeholder for 1.5 s,
+  `aria-busy`), an SVG bar chart drawn from data, a recent-activity list, and a
   projects table with status filter (All / Active / Paused / Done), text filter, sortable
   columns and an empty state.
 - Project detail with Overview / Tasks / Files tabs; checking tasks updates the progress count.
@@ -32,7 +33,7 @@ tests prove nothing broke.
 
 ## What the smoke tests guarantee (`tests/smoke.spec.ts`)
 
-KPIs/chart/activity/table render; status filter and text search narrow the table; a search with
+KPIs/chart/activity/table render; Refresh shows the loading placeholders and then the KPIs again; status filter and text search narrow the table; a search with
 no matches shows the empty state and "Clear filters" restores it; column sorting toggles
 `aria-sort` and row order; project detail opens and tabs switch; task checkboxes update the
 progress count; sidebar navigation and global search route correctly; the user menu opens and

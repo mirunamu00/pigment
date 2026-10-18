@@ -18,7 +18,9 @@ export interface AppMeta {
   port: number;
   routes: Array<{ path: string; name: string; capture: boolean }>;
   /** Interaction states to capture (focus, hover, errors, dialogs, toasts): steps run from a route. */
-  states?: Array<{ name: string; route: string; steps: StateStep[] }>;
+  states?: Array<{ name: string; route: string; steps: StateStep[]; viewports?: Array<"desktop" | "mobile"> }>;
+  /** Used only to confirm a candidate (see HoldoutAppId); not run on a screen, never in the gallery. */
+  holdout?: boolean;
 }
 
 const SKIP = new Set(["node_modules", "dist", "test-results", "playwright-report", ".turbo", ".snaps"]);
@@ -29,8 +31,21 @@ const SKIP = new Set(["node_modules", "dist", "test-results", "playwright-report
  */
 export const WORK_ROOT = process.env.PIGMENT_WORKDIR ?? join(tmpdir(), "pigment-runs");
 
+function appsWhere(holdout: boolean): string[] {
+  return readdirSync(paths.baseApps).filter((d) => {
+    const file = join(paths.baseApps, d, "pigment.app.json");
+    return existsSync(file) && !!readJson<AppMeta>(file).holdout === holdout;
+  });
+}
+
+/** The main apps: every candidate is screened on them, and their captures are the gallery. */
 export function baseApps(): string[] {
-  return readdirSync(paths.baseApps).filter((d) => existsSync(join(paths.baseApps, d, "pigment.app.json")));
+  return appsWhere(false);
+}
+
+/** The holdout apps, run only when a candidate is confirmed. */
+export function holdoutApps(): string[] {
+  return appsWhere(true);
 }
 
 export function appMeta(dir: string): AppMeta {

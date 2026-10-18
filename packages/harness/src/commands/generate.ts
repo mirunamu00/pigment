@@ -1,11 +1,12 @@
 import { cpSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { AppId, RunRecord } from "@pigment/schema";
-import { appMeta, baseApps, build, copyApp, install, WORK_ROOT } from "../appdir.ts";
+import type { RunAppId, RunRecord } from "@pigment/schema";
+import { appMeta, baseApps, build, copyApp, holdoutApps, install, WORK_ROOT } from "../appdir.ts";
+import { familyCost, generationBlock, passedCandidates } from "../budget.ts";
 import { paths, rel, runsDir, templateDir } from "../paths.ts";
 import { bundle } from "./bundle.ts";
 import { shootApp } from "./shoot.ts";
-import { info, ok, run, runId as newRunId, timestamp, writeJson, writeText } from "../util.ts";
+import { fail, info, ok, run, runId as newRunId, timestamp, writeJson, writeText } from "../util.ts";
 
 export type Agent = "claude" | "codex";
 
@@ -42,7 +43,9 @@ async function runAgent(agent: Agent, cwd: string, prompt: string, timeoutMs: nu
 }
 
 export interface GenerateOptions {
-  apps?: AppId[];
+  apps?: RunAppId[];
+  /** Also run each holdout app once (the confirm step). */
+  holdout?: boolean;
   agent: Agent;
   concurrency: number;
   timeoutMinutes: number;
@@ -50,6 +53,20 @@ export interface GenerateOptions {
    *  problems the prompt causes (they recur) and which are chance (they don't). */
   samples?: number;
   label?: string;
+  /** The user agreed to go over the version family's budget. */
+  overBudget?: boolean;
+  /** The user asked for runs although a candidate already passed. */
+  afterPass?: boolean;
+}
+
+/** One run id per sample; ids sort in sample order, so the newest run is the last sample. */
+export function sampleRunIds(base: string, samples: number): string[] {
+  return Array.from({ length: samples }, (_, i) => (samples === 1 ? base : `${base}-s${i + 1}`));
+}
+
+/** Sample by sample, every main app; then each holdout app once, with the first sample. */
+export function runQueue(ids: string[], apps: RunAppId[], holdout: RunAppId[]): Array<{ app: RunAppId; runId: string }> {
+  return [...ids.flatMap((runId) => apps.map((app) => ({ app, runId }))), ...holdout.map((app) => ({ app, runId: ids[0]! }))];
 }
 
 function isAlive(pid: number): boolean {
@@ -62,6 +79,15 @@ function isAlive(pid: number): boolean {
 }
 
 export async function generate(id: string, version: string, options: GenerateOptions): Promise<RunRecord[]> {
+  const known = [...baseApps(), ...holdoutApps()];
+  const apps = (options.apps ?? (baseApps() as RunAppId[])).filter((a) => known.includes(a));
+  const holdout = options.holdout ? (holdoutApps() as RunAppId[]).filter((a) => !apps.includes(a)) : [];
+  const planned = apps.length * Math.max(1, options.samples ?? 1) + holdout.length;
+  const block = generationBlock(id, version, planned);
+  const passed = passedCandidates(id, version).length > 0;
+  if (block && !(passed ? options.afterPass : options.overBudget)) fail(`not generating: ${block}`);
+  const cost = familyCost(id, version);
+  info(`${cost.family} family so far: $${cost.usd.toFixed(0)} of $${cost.budgetUsd} over ${cost.runs} runs; this adds about $${(planned * cost.perRunUsd).toFixed(0)} (${planned} runs)`);
   // One generation per template version at a time: a second one (e.g. a restart after the first one's shell
   // was killed but its process lived on) doubles memory use and interleaves runs.
   const lock = join(runsDir(id, version), ".generate.lock");
@@ -71,24 +97,24 @@ export async function generate(id: string, version: string, options: GenerateOpt
   }
   writeText(lock, String(process.pid));
   try {
-    return await generateLocked(id, version, options);
+    return await generateLocked(id, version, apps, holdout, options);
   } finally {
     rmSync(lock, { force: true });
   }
 }
 
-async function generateLocked(id: string, version: string, options: GenerateOptions): Promise<RunRecord[]> {
+async function generateLocked(id: string, version: string, apps: RunAppId[], holdout: RunAppId[], options: GenerateOptions): Promise<RunRecord[]> {
   bundle(id, version);
-  const apps = (options.apps ?? (baseApps() as AppId[])).filter((a) => baseApps().includes(a));
   const samples = Math.max(1, options.samples ?? 1);
-  // One run id per sample; ids sort in sample order, so the newest run is the last sample.
   const base = newRunId();
-  const ids = Array.from({ length: samples }, (_, i) => (samples === 1 ? base : `${base}-s${i + 1}`));
+  const ids = sampleRunIds(base, samples);
   const template = readFileSync(join(paths.prompts, "harness-existing.md"), "utf8");
   const prompt = template.replaceAll("{{id}}", id).replaceAll("{{version}}", version);
-  info(`generating ${id}@${version} on ${apps.join(", ")} with ${options.agent} (run ${base}${samples > 1 ? `, ${samples} samples` : ""})`);
+  info(
+    `generating ${id}@${version} on ${apps.join(", ")}${holdout.length ? ` + holdout ${holdout.join(", ")} (once)` : ""} with ${options.agent} (run ${base}${samples > 1 ? `, ${samples} samples` : ""})`,
+  );
 
-  const queue = ids.flatMap((runId) => apps.map((app) => ({ app, runId })));
+  const queue = runQueue(ids, apps, holdout);
   const records: RunRecord[] = [];
   const worker = async () => {
     while (queue.length) {
@@ -101,7 +127,7 @@ async function generateLocked(id: string, version: string, options: GenerateOpti
   return records;
 }
 
-async function generateOne(id: string, version: string, app: AppId, runId: string, prompt: string, options: GenerateOptions): Promise<RunRecord> {
+async function generateOne(id: string, version: string, app: RunAppId, runId: string, prompt: string, options: GenerateOptions): Promise<RunRecord> {
   const work = join(WORK_ROOT, id, version, app, runId);
   const out = join(runsDir(id, version), app, runId);
   copyApp(join(paths.baseApps, app), work);
@@ -181,7 +207,7 @@ async function generateOne(id: string, version: string, app: AppId, runId: strin
 
 /** The unstyled base apps, captured once, are the accessibility and style baseline for evaluation. */
 export async function baseline(force = false): Promise<void> {
-  for (const app of baseApps()) {
+  for (const app of [...baseApps(), ...holdoutApps()]) {
     const out = join(paths.runs, "_baseline", app);
     if (!force && existsSync(join(out, "shots.json"))) continue;
     const work = join(WORK_ROOT, "_baseline", app);
@@ -201,8 +227,9 @@ export async function baseline(force = false): Promise<void> {
  * for when the capture gains new evidence (e.g. drawing crops). Uses the run's built work folder, or
  * rebuilds the kept copy of the restyled app when that folder is gone. The agent's output is untouched.
  */
-export async function reshoot(id: string, version: string, apps?: AppId[]): Promise<void> {
-  for (const app of (apps ?? (baseApps() as AppId[])).filter((a) => baseApps().includes(a))) {
+export async function reshoot(id: string, version: string, apps?: RunAppId[]): Promise<void> {
+  const known = [...baseApps(), ...holdoutApps()];
+  for (const app of (apps ?? (known as RunAppId[])).filter((a) => known.includes(a))) {
     const dir = join(runsDir(id, version), app);
     const latest = existsSync(dir) ? readdirSync(dir).filter((d) => existsSync(join(dir, d, "run.json"))).sort().at(-1) : undefined;
     if (!latest) {

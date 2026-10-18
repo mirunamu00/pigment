@@ -5,6 +5,7 @@ import { contrast } from "../color.ts";
 import { paths } from "../paths.ts";
 import { loadTemplate, resolveTokens, type LoadedTemplate } from "../template.ts";
 import { listFiles, readJson } from "../util.ts";
+import { baseAppTerms, overfitMentions } from "../overfit.ts";
 import { cssName } from "./bundle.ts";
 import type { Intake } from "./intake.ts";
 
@@ -17,8 +18,15 @@ export interface Finding {
 const INSTRUCTION_SECTIONS = ["## New project", "## Existing project", "## Ongoing development", "## Verification", "## Rollback"];
 // Instruction-file names (CLAUDE.md, GEMINI.md) are fine: the package tells agents to write pointers into them.
 const VENDOR_TERMS = [/\bclaude\b(?!\.md)/i, /\bcodex\b/i, /\bcursor\b/i, /\bcopilot\b/i, /\bgemini\b(?!\.md)/i, /(^|\s)\/[a-z][a-z-]+\s/m];
-const BUNDLE_WORD_BUDGET = 6000;
-const BUNDLE_WORD_BUDGET_V2 = 7500;
+// Measured in tokens (about four characters each, whitespace collapsed), not words: a word count rewarded
+// squeezing spaces out of recipes, and made rules compete with formatting.
+const BUNDLE_TOKEN_BUDGET = 13_000;
+const BUNDLE_TOKEN_BUDGET_V2 = 20_000;
+
+/** Estimated tokens of a text: whitespace runs count as one character, then four characters per token. */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.replace(/\s+/g, " ").length / 4);
+}
 
 /** Markdown with fenced code removed, so examples inside code blocks don't trip prose rules. */
 function prose(markdown: string): string {
@@ -114,6 +122,16 @@ export function validateTemplate(tpl: LoadedTemplate): Finding[] {
     if (/\b(beautiful|modern|clean|sleek|elegant|stunning)\b/i.test(text) && !name.endsWith("visual-language.md")) {
       warn("prose.adjectives", `${name}: vague adjectives — replace with measurable rules`);
     }
+    // Rules about the demo apps' own products, people, routes or test ids fit the test, not the products people build.
+    if (!name.endsWith("CHANGELOG.md")) {
+      const hits = overfitMentions(raw, baseAppTerms());
+      if (hits.length) {
+        warn(
+          "prose.overfit",
+          `${name}: names demo-app content (${hits.slice(0, 5).map((t) => `"${t.term}" (${t.app} ${t.kind})`).join(", ")}${hits.length > 5 ? "…" : ""}) — state the general rule instead (docs/harness/prompt-writing-rules.md → Generalize)`,
+        );
+      }
+    }
   }
   for (const brand of intake?.ownBrand ? [] : (intake?.brandTerms ?? [])) {
     if (brand && manifest.name.toLowerCase().includes(brand.toLowerCase())) err("provenance.name", `template name contains reference brand "${brand}"`);
@@ -183,10 +201,10 @@ export function validateTemplate(tpl: LoadedTemplate): Finding[] {
 
   // Bundle budget (only when built). Schema 2 packages carry recipes, so they get more room.
   const bundle = join(tpl.dir, "dist", "agent.md");
-  const budget = manifest.schemaVersion >= 2 ? BUNDLE_WORD_BUDGET_V2 : BUNDLE_WORD_BUDGET;
+  const budget = manifest.schemaVersion >= 2 ? BUNDLE_TOKEN_BUDGET_V2 : BUNDLE_TOKEN_BUDGET;
   if (existsSync(bundle)) {
-    const words = readFileSync(bundle, "utf8").split(/\s+/).length;
-    if (words > budget) err("bundle.budget", `agent.md has ${words} words, budget is ${budget}`);
+    const tokens = estimateTokens(readFileSync(bundle, "utf8"));
+    if (tokens > budget) err("bundle.budget", `agent.md is about ${tokens} tokens, budget is ${budget}`);
   }
   return findings;
 }

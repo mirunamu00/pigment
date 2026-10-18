@@ -22,14 +22,19 @@ numbers — those are internal.
 - `pnpm harness scaffold <id>@<next>-rc.1 --name "<Name>" --from <id>@<current>`
 - Delegate to `prompt-author` with the goal; it edits, adds a `## <next>-rc.1` changelog entry and loops
   on `pnpm harness validate` / `bundle`.
-- Screen: `pnpm harness generate <id>@<next>-rc.1 --concurrency 4` (background, report progress) and `pnpm harness evaluate`; only if the screen passes, confirm with `generate --samples 2 --concurrency 4` and `evaluate --samples 3` (rubric → "Samples"); then
-  the `design-critic` agent with the published version's runs for comparison, then `pnpm harness critic`.
-- On `fail`, iterate from the last candidate (`--from <id>@<next>-rc.<n-1>`), at most three times.
+- An update's budget is $60 for the whole family (rubric → "Cost and when to stop"). Before each generation,
+  tell the user the runs and the estimate `generate` prints.
+- Screen: `pnpm harness generate <id>@<next>-rc.1` (background, report progress), `pnpm harness evaluate`,
+  `pnpm harness critic-brief` (it adds the published version for comparison), the `design-critic` agent with
+  the brief verbatim, `pnpm harness critic`. Only if the screen passes, confirm with
+  `generate --samples 2 --holdout`, `evaluate --samples 3`, and the brief, critic and merge again.
+- On `fail`, iterate from the last candidate (`--from <id>@<next>-rc.<n-1>`) on the blockers and gating
+  majors only; scaffold stops at four candidates. On a confirmed pass, stop: minors go to the user as a list.
 
 ## 3. Approval (stop here)
 
 Show the user: the published and the candidate screenshots side by side for all four apps, the gate
-table, the critic scores (and anything that got worse), and the **draft public changelog entry** —
+table, the critic's findings (and anything that got worse), the spend, and the **draft public changelog entry** —
 an opening paragraph of what people will notice plus concrete bullets. Wait for an explicit yes.
 
 ## 4. Publish

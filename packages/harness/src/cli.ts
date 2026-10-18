@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { AppId } from "@pigment/schema";
+import { RunAppId } from "@pigment/schema";
 import { parseRef } from "./paths.ts";
 import { bundle } from "./commands/bundle.ts";
 import { capture } from "./commands/capture.ts";
 import { checkAnalysis } from "./commands/check-analysis.ts";
+import { criticBrief } from "./commands/critic-brief.ts";
 import { evaluate, mergeCritic } from "./commands/evaluate.ts";
 import { makeFixture } from "./commands/fixture.ts";
 import { baseline, generate, reshoot, type Agent } from "./commands/generate.ts";
@@ -39,8 +40,8 @@ program
   .command("check-analysis")
   .description("3. check the analyst's output: schema, every audit area, evidence files, survey consistency")
   .argument("<slug>")
-  .action((slug: string) => {
-    process.exitCode = checkAnalysis(slug) ? 0 : 1;
+  .action(async (slug: string) => {
+    process.exitCode = (await checkAnalysis(slug)) ? 0 : 1;
   });
 
 program
@@ -49,6 +50,8 @@ program
   .argument("<ref>", "<id>@<version>")
   .requiredOption("--name <name>", "display name")
   .option("--from <ref>", "copy an existing version, e.g. calm-ledger@0.1.0-rc.1")
+  .option("--after-pass", "make a candidate although one in the family already passed — only when the user asked for it")
+  .option("--past-cap", "make a candidate past the iteration cap — only when the user asked for it")
   .action((ref: string, opts) => {
     const { id, version } = parseRef(ref);
     scaffold(id, version, opts);
@@ -82,15 +85,21 @@ program
   .command("generate")
   .description("6. let a coding agent apply the template to the base apps, then build and capture")
   .argument("<ref>")
-  .option("--apps <apps...>", `subset of ${AppId.options.join(", ")}`)
+  .option("--apps <apps...>", "subset of the main apps (dashboard, commerce, blog, settings)")
+  .option("--holdout", "also run each holdout app once — for the confirm step only")
   .option("--agent <agent>", "claude | codex (experimental)", "claude")
   .option("--concurrency <n>", "apps in parallel (one sample of four apps runs in one wave at 4)", "4")
   .option("--timeout <minutes>", "per-app agent timeout", "45")
   .option("--samples <n>", "independent runs per app (judge the prompt, not one lucky or unlucky run)", "1")
+  .option("--over-budget", "run although the version family's budget would be exceeded — only when the user agreed to the cost")
+  .option("--after-pass", "run although a candidate already passed — only when the user asked for it")
   .action(async (ref: string, opts) => {
     const { id, version } = parseRef(ref);
     await generate(id, version, {
-      apps: opts.apps?.map((a: string) => AppId.parse(a)),
+      overBudget: !!opts.overBudget,
+      afterPass: !!opts.afterPass,
+      apps: opts.apps?.map((a: string) => RunAppId.parse(a)),
+      holdout: !!opts.holdout,
       agent: opts.agent as Agent,
       concurrency: Number(opts.concurrency),
       timeoutMinutes: Number(opts.timeout),
@@ -102,10 +111,10 @@ program
   .command("reshoot")
   .description("6b. capture the latest runs again with the current capture code (no agent run)")
   .argument("<ref>")
-  .option("--apps <apps...>", `subset of ${AppId.options.join(", ")}`)
+  .option("--apps <apps...>", "subset of the apps (main and holdout)")
   .action(async (ref: string, opts) => {
     const { id, version } = parseRef(ref);
-    await reshoot(id, version, opts.apps?.map((a: string) => AppId.parse(a)));
+    await reshoot(id, version, opts.apps?.map((a: string) => RunAppId.parse(a)));
   });
 
 program
@@ -121,8 +130,17 @@ program
   });
 
 program
+  .command("critic-brief")
+  .description("7a. write the design-critic's assignment for the latest evaluation (give it to the agent verbatim)")
+  .argument("<ref>")
+  .action((ref: string) => {
+    const { id, version } = parseRef(ref);
+    criticBrief(id, version);
+  });
+
+program
   .command("critic")
-  .description("7b. merge the design-critic's scores into the latest evaluation")
+  .description("7b. merge the design-critic's findings into the latest evaluation and settle the verdict")
   .argument("<ref>")
   .argument("<file>", "critic JSON (CriticScores schema)")
   .action((ref: string, file: string) => {

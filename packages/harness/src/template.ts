@@ -60,10 +60,19 @@ export function radiusSet(tpl: LoadedTemplate): number[] {
   return [...out];
 }
 
+export function spaceScale(tpl: LoadedTemplate): number[] {
+  const out = new Set<number>();
+  for (const [path, token] of resolveTokens(tpl.primitives)) {
+    if (/^(space|spacing)\./.test(path) && typeof token.value === "string") out.add(parseFloat(token.value));
+  }
+  return [...out].filter((n) => Number.isFinite(n));
+}
+
 export function fontFamilies(tpl: LoadedTemplate): string[] {
   return tpl.manifest.fonts.flatMap((f) => [f.family, ...f.fallback.split(","), ...(f.cjkFallback?.split(",") ?? [])]).map(normalizeFamily);
 }
 
 export function normalizeFamily(family: string): string {
-  return family.trim().replace(/^["']|["']$/g, "").toLowerCase();
+  // Variable-font packages register the same typeface under a suffixed name ("Inter Variable", "Inter VF").
+  return family.trim().replace(/^["']|["']$/g, "").replace(/\s+(variable|vf)$/i, "").toLowerCase();
 }

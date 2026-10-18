@@ -1,6 +1,6 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { EvalReport, Registry } from "@pigment/schema";
+import { AppId, EvalReport, Registry } from "@pigment/schema";
 import { paths, rel, runsDir, templateDir } from "../paths.ts";
 import { loadTemplate } from "../template.ts";
 import { fail, hashDir, listFiles, ok, readJson, timestamp, writeJson } from "../util.ts";
@@ -99,9 +99,7 @@ export function publish(id: string, version: string, approvedBy: string, carryFr
 
   // Gallery assets: the screenshots of the evaluated runs.
   const assets = join(paths.webPublic, id, version);
-  // With several samples per app, the gallery shows each app's newest run (listed first).
-  const galleryRuns = report.runs.filter((r, i) => report.runs.findIndex((x) => x.app === r.app) === i);
-  for (const run of galleryRuns) {
+  for (const run of galleryRuns(report)) {
     const runDir = join(runsDir(id, evaluated), run.app, run.runId);
     const shots = readJson<ShotResult>(join(runDir, "shots.json"));
     // Gallery assets are page captures; interaction-state captures stay in the review only.
@@ -188,4 +186,9 @@ export function checkAll(): boolean {
   }
   if (good) ok("all templates valid, published versions intact");
   return good;
+}
+
+/** With several samples per app, the gallery shows each app's newest run (listed first); holdout apps never. */
+export function galleryRuns(report: EvalReport): EvalReport["runs"] {
+  return report.runs.filter((r, i) => AppId.safeParse(r.app).success && report.runs.findIndex((x) => x.app === r.app) === i);
 }

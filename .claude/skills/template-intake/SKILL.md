@@ -45,38 +45,55 @@ site-wide features), every signature element with an evidence image (motion fram
 motion and interaction patterns, the proposed template name and tags, the ten defining rules, the gaps it
 will fill by derivation, and what will not be carried over. Wait for approval or corrections.
 
+Anything the analysis derives rather than measures (a light mode for a dark-only reference, a palette
+step, a font substitute) is shown as a rendered swatch, never only in words: `check-analysis` writes
+`pipeline/<slug>/derived-swatches.png` (and `.html`) — show it at the checkpoint.
+
 ## 3. Authoring — delegate to the `prompt-author` agent
 
 - First iteration: `pnpm harness scaffold <id>@0.1.0-rc.1 --name "<Name>"`, then the author fills the
   package from the analysis.
 - Later iterations: `pnpm harness scaffold <id>@0.1.0-rc.<n> --name "<Name>" --from <id>@0.1.0-rc.<n-1>`,
-  and the author applies the fixes from the last evaluation.
+  and the author applies the fixes from the last evaluation. Scaffold refuses a new candidate once one has
+  passed, and past the fourth: those are the user's call (rubric → "Cost and when to stop").
 - The author runs `pnpm harness validate` and `pnpm harness bundle` until validation is clean.
 
 ## 4. Generate
 
 - Once per machine: `pnpm harness baseline` (captures the unstyled base apps).
-- Screen with one sample, confirm with two more only if it passes (rubric → "Samples"): `pnpm harness generate <id>@<version> --concurrency 4`; after a passing screen, `pnpm harness generate <id>@<version> --samples 2 --concurrency 4` — the agent restyles all four base apps outside the repo,
-  then the harness builds and screenshots them. This takes a while; run it in the background and
-  report progress.
+- Every generation costs real money. Before each one, tell the user what it will start (runs and the
+  estimate `generate` prints) and what the family has spent; `generate` refuses past the budget.
+- Screen with one sample, confirm with two more only if it passes (rubric → "Samples"):
+  `pnpm harness generate <id>@<version>`; after a passing screen,
+  `pnpm harness generate <id>@<version> --samples 2 --holdout` — the agent restyles the base apps outside
+  the repo, then the harness builds and screenshots them. Run it in the background and report progress.
+  Never queue a second generation behind the first.
 
 ## 5. Evaluate
 
-- `pnpm harness evaluate <id>@<version>` for the screen, `--samples 3` for the confirmation → gates (every sample must pass) + `review-<n>.html`.
-- If gates pass (verdict `pending-review`), delegate to the `design-critic` agent with the template ref,
-  the latest runs and the reference screenshots. It writes `showcase/runs/<id>/<version>/critic-<n>.json`.
-- `pnpm harness critic <id>@<version> showcase/runs/<id>/<version>/critic-<n>.json`
+- `pnpm harness evaluate <id>@<version>` for the screen, `--samples 3` for the confirmation → gates (every
+  sample must pass), measured layout defects, spend so far, and `review-<n>.html`.
+- If gates pass (verdict `pending-review`): `pnpm harness critic-brief <id>@<version>`, then delegate to the
+  `design-critic` agent with the brief's content **verbatim** — never write or edit a critic prompt yourself.
+  It writes `showcase/runs/<id>/<version>/critic-<n>.json`.
+- `pnpm harness critic <id>@<version> showcase/runs/<id>/<version>/critic-<n>.json`: no blocker and no
+  gating major → pass.
 
-## 6. Iterate
+## 6. Iterate or stop
 
-On `fail`: collect failing gates and the critic's `promptFixes`, log them in `pipeline/<slug>/iterations.md`,
-and go back to step 3 with a new rc. Maximum three iterations — then stop and report the failure analysis.
+- On `pass` after the screen: confirm (step 4). On `pass` after the confirm: stop and go to step 7. Never
+  start another round to fix minors — list them for the user.
+- On `fail`: give the prompt-author the failing gates and the blockers and gating majors (with their
+  `promptFix`), log them in `pipeline/<slug>/iterations.md`, and go back to step 3 with a new rc. Holdout
+  apps' findings are applied only when the same general rule also fails on the four main apps.
+- At most four candidates (scaffold enforces it), within the budget (generate enforces it) — then stop and
+  report the failure analysis.
 
 ## 7. Approval and publish
 
 **Checkpoint 2 (stop here):** show the user `review-<n>.html` (screenshots of all four apps, desktop and
-mobile, light and dark), the reference screenshots, the gate table, the critic scores and the iteration
-log. Only on explicit approval:
+mobile, light and dark), the reference screenshots, the gate table, the critic's findings and the iteration
+log, the critic's minors as a list of known flaws, and what the template cost. Only on explicit approval:
 
 1. `pnpm harness scaffold <id>@<final> --name "<Name>" --from <id>@<last-rc>` (e.g. 1.0.0), and write the
    public `## <final>` changelog entry: what the system is, in plain words, with no version numbers or

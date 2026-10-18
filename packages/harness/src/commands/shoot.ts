@@ -3,6 +3,7 @@ import { AxeBuilder } from "@axe-core/playwright";
 import { chromium, type Page } from "playwright";
 import { appMeta, preview } from "../appdir.ts";
 import { extractStyles, mergeSamples, settle, type StyleSample } from "../extract.ts";
+import { layoutChecks, type LayoutReport } from "../layout.ts";
 import { drawingCrops, motionEvidence } from "../probe.ts";
 import { writeJson } from "../util.ts";
 
@@ -19,6 +20,30 @@ export interface ShotResult {
   motion?: Awaited<ReturnType<typeof motionEvidence>>;
   /** Native-resolution crops of every drawing per route (desktop, light, final frames). */
   drawings?: Array<{ route: string; file: string; w: number; h: number }>;
+  /** Measured layout defects per route, desktop and mobile, light (see layout.ts). */
+  layout?: LayoutReport[];
+  /** Motion on every other capture route (the first is `motion`). */
+  motionRoutes?: Array<{ route: string } & Awaited<ReturnType<typeof motionEvidence>>>;
+}
+
+/**
+ * A full-page capture keeps fixed elements where they sit in the first viewport, so a bar pinned to the bottom
+ * of the screen lands in the middle of a long page. Moves bottom-pinned elements to the end of the page for the
+ * capture (the page itself is unchanged for every measurement before it).
+ */
+async function pinFixedToPageEnd(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const docH = document.documentElement.scrollHeight;
+    if (docH <= innerHeight + 1) return;
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>("body *"))) {
+      if (getComputedStyle(el).position !== "fixed") continue;
+      const r = el.getBoundingClientRect();
+      if (r.height === 0 || r.top < innerHeight / 2) continue;
+      el.style.setProperty("position", "absolute", "important");
+      el.style.setProperty("top", `${docH - (innerHeight - r.top)}px`, "important");
+      el.style.setProperty("bottom", "auto", "important");
+    }
+  });
 }
 
 /**
@@ -70,7 +95,12 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
             `Math.max(document.documentElement.scrollWidth, document.documentElement.clientWidth) - ${expected}`,
           );
           if (typeof px === "number" && px > 1) result.overflow.push({ route: route.path, viewport, scheme, px });
+          if (scheme === "light") {
+            const findings = await layoutChecks(page).catch(() => null);
+            if (findings) (result.layout ??= []).push({ route: route.path, viewport, scheme, findings });
+          }
           const file = join(outDir, "screenshots", `${slug}-${viewport}-${scheme}.png`);
+          await pinFixedToPageEnd(page).catch(() => {});
           await page.screenshot({ path: file, fullPage: true });
           result.screenshots.push({ route: route.path, viewport, scheme, file: `screenshots/${slug}-${viewport}-${scheme}.png` });
           if (viewport === "desktop") samples.push(await extractStyles(page, scheme));
@@ -89,16 +119,19 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
         }
       }
     }
-    // Motion: the first capture route with motion allowed — what the system's signature motion became.
-    const first = meta.routes.find((r) => r.capture);
-    if (first) {
+    // Motion with motion allowed, on every capture route — what the system's signature motion became. The first
+    // route's is `motion` (frames named motion-m*.png), the others' `motionRoutes`.
+    for (const [i, route] of meta.routes.filter((r) => r.capture).entries()) {
       const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "light", reducedMotion: "no-preference" });
       const page = await context.newPage();
       try {
-        await open(page, server.url + first.path);
+        await open(page, server.url + route.path);
         await page.waitForTimeout(600);
-        result.motion = await motionEvidence(page, outDir, "motion");
-        result.motion.frames = result.motion.frames.map((f) => relative(outDir, f).replaceAll("\\", "/"));
+        const slug = route.path === "/" ? "home" : route.path.replace(/^\//, "").replace(/[^a-z0-9]+/gi, "-");
+        const evidence = await motionEvidence(page, outDir, i === 0 ? "motion" : `motion-${slug}`);
+        evidence.frames = evidence.frames.map((f) => relative(outDir, f).replaceAll("\\", "/"));
+        if (i === 0) result.motion = evidence;
+        else (result.motionRoutes ??= []).push({ route: route.path, ...evidence });
       } catch {
         // motion evidence is best-effort; the gates above don't depend on it
       } finally {
@@ -114,7 +147,8 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
       { viewport: "mobile", scheme: "light" },
     ] as const;
     for (const state of meta.states ?? []) {
-      for (const { viewport, scheme } of variants) {
+      // A state that exists at one width only (a drawer opened by a mobile menu button) lists its viewports.
+      for (const { viewport, scheme } of variants.filter((v) => !state.viewports || state.viewports.includes(v.viewport))) {
         const context = await browser.newContext({
           viewport: viewport === "desktop" ? { width: 1440, height: 900 } : { width: 390, height: 844 },
           isMobile: viewport === "mobile",

@@ -11,11 +11,13 @@ reference URL
    │               pnpm harness check-analysis <slug>         → every audit area, evidence, survey consistency
    │  4. author     prompt-author agent                        → content/templates/<id>/<version>/  (the design prompt package)
    │  5. validate   pnpm harness validate <id>@<version>       → schema, required tokens, contrast, prompt lint
-   │  6. generate   pnpm harness generate <id>@<version>       → showcase/runs/<id>/<version>/<app>/<runId>/  (agent restyles each base app; one sample to screen, two more to confirm)
+   │  6. generate   pnpm harness generate <id>@<version>       → showcase/runs/<id>/<version>/<app>/<runId>/  (agent restyles each base app; one sample to screen, two more + holdout apps to confirm; refuses past the budget or after a pass)
    │               pnpm harness reshoot <id>@<version>        → capture the latest runs again after the capture code changes (no agent run)
-   │  7. evaluate   pnpm harness evaluate <id>@<version> [--samples 3] → gates in every sample: build, e2e, a11y, token adherence, reference similarity
-   │               design-critic agent                         → scores + concrete prompt fixes
-   │  8. iterate    back to 4 with the fixes (max 3 iterations, each recorded)
+   │  7. evaluate   pnpm harness evaluate <id>@<version> [--samples 3] → gates in every sample, measured layout defects, reference similarity, spend
+   │               pnpm harness critic-brief <id>@<version>   → the critic's generated assignment
+   │               design-critic agent                         → findings: blocker / major / minor, general prompt fixes
+   │               pnpm harness critic <id>@<version> <file>  → pass = no blocker, no major the prompt causes
+   │  8. iterate    back to 4 with the fixes (at most 4 candidates, each recorded; stop at the first confirmed pass)
    │  9. approve    the user reviews screenshots + report      (human gate)
    └ 10. publish    pnpm harness publish <id>@<version>        → frozen version, registry, gallery assets
 ```
@@ -33,7 +35,7 @@ published version: see [`updating.md`](updating.md) (the `template-update` skill
 | `pipeline/<slug>/` | Work area for one reference submission: intake, capture, analysis, iteration log. Reference images stay local (gitignored); the measured JSON is kept |
 | `content/templates/<id>/<version>/` | The product: the design prompt package (manifest, tokens, principles, components, agent instructions) |
 | `content/_template/` | Skeleton copied by `pnpm harness scaffold` |
-| `showcase/base-apps/` | The four neutral apps every template is applied to (dashboard, commerce, blog, settings) |
+| `showcase/base-apps/` | The four neutral apps every template is applied to (dashboard, commerce, blog, settings), and the holdout apps used only to confirm (`"holdout": true`) |
 | `showcase/runs/` | Agent outputs per template version and app, with screenshots and reports |
 | `packages/harness/` | The CLI behind every `pnpm harness` command |
 | `packages/schema/` | Data contracts (zod + emitted JSON Schema) |
