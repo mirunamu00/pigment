@@ -291,7 +291,7 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
   }
 
   const spent = familyCost(id, version);
-  report.cost = { versionUsd: round2(versionCost(id, version).usd), familyUsd: round2(spent.usd), familyRuns: spent.runs, budgetUsd: spent.budgetUsd };
+  report.cost = { versionUsd: round2(versionCost(id, version).usd), familyUsd: round2(spent.usd), familyRuns: spent.runs };
 
   const failed = [...report.runs.flatMap((r) => r.gates.map((g) => ({ ...g, app: r.app }))), ...report.crossApp.map((g) => ({ ...g, app: "cross-app" }))].filter((g) => !g.pass);
   for (const g of failed) report.reasons.push(`${g.app}: ${g.name} = ${g.value} (needs ${g.threshold ?? "pass"})`);
@@ -310,7 +310,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function renderMarkdown(r: EvalReport): string {
   const lines = [`# ${r.template}@${r.version} — evaluation ${r.iteration}`, "", `Verdict: **${r.verdict}** · ${r.evaluatedAt}`, ""];
-  if (r.cost) lines.push(`Agent spend: this candidate $${r.cost.versionUsd.toFixed(0)} · family $${r.cost.familyUsd.toFixed(0)} of $${r.cost.budgetUsd} over ${r.cost.familyRuns} runs`, "");
+  if (r.cost) lines.push(`Agent spend: this candidate $${r.cost.versionUsd.toFixed(0)} · family $${r.cost.familyUsd.toFixed(0)} over ${r.cost.familyRuns} runs`, "");
   for (const run of r.runs) {
     lines.push(`## ${run.app} (${run.runId})`, "", "| Gate | Result | Value | Threshold |", "| --- | --- | --- | --- |");
     for (const g of run.gates) lines.push(`| ${g.name} | ${g.pass ? "pass" : "**FAIL**"} | ${g.value ?? ""} | ${g.threshold ?? ""} |`);

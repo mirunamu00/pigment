@@ -2,7 +2,7 @@ import { cpSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } 
 import { join } from "node:path";
 import type { RunAppId, RunRecord } from "@pigment/schema";
 import { appMeta, baseApps, build, copyApp, holdoutApps, install, WORK_ROOT } from "../appdir.ts";
-import { familyCost, generationBlock, passedCandidates } from "../budget.ts";
+import { generationBlock } from "../budget.ts";
 import { paths, rel, runsDir, templateDir } from "../paths.ts";
 import { bundle } from "./bundle.ts";
 import { shootApp } from "./shoot.ts";
@@ -53,8 +53,6 @@ export interface GenerateOptions {
    *  problems the prompt causes (they recur) and which are chance (they don't). */
   samples?: number;
   label?: string;
-  /** The user agreed to go over the version family's budget. */
-  overBudget?: boolean;
   /** The user asked for runs although a candidate already passed. */
   afterPass?: boolean;
 }
@@ -82,12 +80,8 @@ export async function generate(id: string, version: string, options: GenerateOpt
   const known = [...baseApps(), ...holdoutApps()];
   const apps = (options.apps ?? (baseApps() as RunAppId[])).filter((a) => known.includes(a));
   const holdout = options.holdout ? (holdoutApps() as RunAppId[]).filter((a) => !apps.includes(a)) : [];
-  const planned = apps.length * Math.max(1, options.samples ?? 1) + holdout.length;
-  const block = generationBlock(id, version, planned);
-  const passed = passedCandidates(id, version).length > 0;
-  if (block && !(passed ? options.afterPass : options.overBudget)) fail(`not generating: ${block}`);
-  const cost = familyCost(id, version);
-  info(`${cost.family} family so far: $${cost.usd.toFixed(0)} of $${cost.budgetUsd} over ${cost.runs} runs; this adds about $${(planned * cost.perRunUsd).toFixed(0)} (${planned} runs)`);
+  const block = generationBlock(id, version);
+  if (block && !options.afterPass) fail(`not generating: ${block}`);
   // One generation per template version at a time: a second one (e.g. a restart after the first one's shell
   // was killed but its process lived on) doubles memory use and interleaves runs.
   const lock = join(runsDir(id, version), ".generate.lock");

@@ -22,8 +22,6 @@ numbers — those are internal.
 - `pnpm harness scaffold <id>@<next>-rc.1 --name "<Name>" --from <id>@<current>`
 - Delegate to `prompt-author` with the goal; it edits, adds a `## <next>-rc.1` changelog entry and loops
   on `pnpm harness validate` / `bundle`.
-- An update's budget is $60 for the whole family (rubric → "Cost and when to stop"). Before each generation,
-  tell the user the runs and the estimate `generate` prints.
 - Screen: `pnpm harness generate <id>@<next>-rc.1` (background, report progress), `pnpm harness evaluate`,
   `pnpm harness critic-brief` (it adds the published version for comparison), the `design-critic` agent with
   the brief verbatim, `pnpm harness critic`. Only if the screen passes, confirm with
@@ -34,7 +32,7 @@ numbers — those are internal.
 ## 3. Approval (stop here)
 
 Show the user: the published and the candidate screenshots side by side for all four apps, the gate
-table, the critic's findings (and anything that got worse), the spend, and the **draft public changelog entry** —
+table, the critic's findings (and anything that got worse), and the **draft public changelog entry** —
 an opening paragraph of what people will notice plus concrete bullets. Wait for an explicit yes.
 
 ## 4. Publish

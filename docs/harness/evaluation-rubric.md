@@ -141,14 +141,12 @@ Judging three samples:
   is listed with "1 of 3" and does not fail the candidate. A blocker fails it wherever it appears.
 - Every finding says in how many samples it appears.
 
-## Cost and when to stop
+## When to stop
 
-Agent runs are the expensive part (about $5–7 each; a screen is 4 runs, a confirm 8). The harness enforces:
+Cost is never the reason to ship or to skip a fix: do what the template needs. What the harness stops is
+work that cannot converge — another round on a candidate that already passed only draws a new sample with
+new small flaws. Every eval records the spend of the candidate and its family, for the record only.
 
-- **Budget per version family** (all candidates of one version, e.g. every `1.1.0-rc.n`): $150 for a new
-  template, $60 for an update of a published one. `generate` estimates the cost of the runs it is about to
-  start and refuses when the family would go over, unless the user agreed (`--over-budget`). Every eval
-  shows the spend so far.
 - **Stop when a candidate passes.** Once a candidate passes the confirm, `scaffold` refuses a new candidate
   and `generate` refuses more runs in that family (`--after-pass` only when the user asks). A candidate that
   passed the screen is confirmed, not replaced. Leftover minors go to the user as a list, never into
@@ -156,6 +154,8 @@ Agent runs are the expensive part (about $5–7 each; a screen is 4 runs, a conf
 - **Iteration cap:** at most four candidates per family (the first plus three fix iterations). `scaffold`
   refuses the fifth (`--past-cap` only when the user asks); stop and report the failure analysis instead —
   the reference may not be expressible as a portable system, or a harness rule may need to change.
+- These limits are about convergence, never about money: a needed fix (a bug in a published version,
+  a prompt fitted to the demo apps) always gets its candidate.
 
 ## Iteration
 
