@@ -11,9 +11,9 @@ reference URL
    │               pnpm harness check-analysis <slug>         → every audit area, evidence, survey consistency
    │  4. author     prompt-author agent                        → content/templates/<id>/<version>/  (the design prompt package)
    │  5. validate   pnpm harness validate <id>@<version>       → schema, required tokens, contrast, prompt lint
-   │  6. generate   pnpm harness generate <id>@<version> --samples 3 → showcase/runs/<id>/<version>/<app>/<runId>/  (agent restyles each base app, 3 independent runs)
+   │  6. generate   pnpm harness generate <id>@<version>       → showcase/runs/<id>/<version>/<app>/<runId>/  (agent restyles each base app; one sample to screen, two more to confirm)
    │               pnpm harness reshoot <id>@<version>        → capture the latest runs again after the capture code changes (no agent run)
-   │  7. evaluate   pnpm harness evaluate <id>@<version> --samples 3 → gates in every sample: build, e2e, a11y, token adherence, reference similarity
+   │  7. evaluate   pnpm harness evaluate <id>@<version> [--samples 3] → gates in every sample: build, e2e, a11y, token adherence, reference similarity
    │               design-critic agent                         → scores + concrete prompt fixes
    │  8. iterate    back to 4 with the fixes (max 3 iterations, each recorded)
    │  9. approve    the user reviews screenshots + report      (human gate)

@@ -83,7 +83,15 @@ behind it.
 
 Every user's agent builds a different result from the same prompt, so one run is one sample. Fixing the
 small flaws of one sample and running again only draws a new sample with new small flaws. Candidates are
-generated and evaluated with several samples (`generate --samples 3`, `evaluate --samples 3`):
+judged on three samples, gathered in two steps so a failing candidate costs one sample, not three:
+
+1. **Screen:** `generate --concurrency 4` (one sample), `evaluate`, critic. A failing gate or a score below
+   the bar sends the candidate straight back to the author.
+2. **Confirm:** only a candidate that passes the screen gets `generate --samples 2 --concurrency 4`, then
+   `evaluate --samples 3` (the screen run plus the two new ones) and the critic on all three. Publish only
+   after this passes.
+
+Judging three samples:
 
 - **Gates** must pass in every sample.
 - **Scores** describe what a user can expect: the typical sample, not the best or the worst.
