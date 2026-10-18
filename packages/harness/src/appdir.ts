@@ -76,7 +76,19 @@ export async function build(dir: string): Promise<{ ok: boolean; durationMs: num
   return { ok: r.code === 0, durationMs: r.durationMs, log: (r.stdout + r.stderr).slice(-20_000) };
 }
 
+/** Whether something already answers on a local port. */
+export async function portBusy(port: number): Promise<boolean> {
+  return fetch(`http://localhost:${port}`, { signal: AbortSignal.timeout(2000) }).then(
+    () => true,
+    () => false,
+  );
+}
+
 export async function e2e(dir: string): Promise<{ passed: number; failed: number; ok: boolean; log: string }> {
+  // The smoke tests reuse a server already on the app's port: another run's app there (a generation in progress
+  // on the same base app) would be tested in place of this one.
+  const { port } = appMeta(dir);
+  if (await portBusy(port)) throw new Error(`port ${port} is in use (another run of this app?) — wait for it before testing ${dir}`);
   const r = await run("npx", ["playwright", "test", "--reporter=line"], { cwd: dir, timeoutMs: 15 * 60_000 });
   const log = (r.stdout + r.stderr).slice(-20_000);
   const passed = Number(/(\d+) passed/.exec(log)?.[1] ?? 0);
@@ -93,11 +105,7 @@ export async function preview(dir: string, port: number): Promise<Server> {
   // Something already answering on the port (a server left over from a stopped run) would be captured in place
   // of this app: the new server can't bind (--strictPort) and the wait below would succeed against the old one.
   const url = `http://localhost:${port}`;
-  const busy = await fetch(url, { signal: AbortSignal.timeout(2000) }).then(
-    () => true,
-    () => false,
-  );
-  if (busy) throw new Error(`port ${port} is already in use — stop the server left on it before capturing ${dir}`);
+  if (await portBusy(port)) throw new Error(`port ${port} is already in use — stop the server left on it before capturing ${dir}`);
   const child: ChildProcess = spawn("npm", ["run", "preview"], {
     cwd: dir,
     shell: process.platform === "win32",
