@@ -242,16 +242,33 @@ export async function reshoot(id: string, version: string, apps?: RunAppId[]): P
       info(`[${app}] ${latest} did not build — nothing to reshoot`);
       continue;
     }
-    let work = record.workDir && existsSync(join(record.workDir, "node_modules")) ? record.workDir : null;
+    // The work folder lives in the temp directory and may be partly cleaned up: use it only while it is whole.
+    const whole = (dir: string) => ["node_modules", "dist", "pigment.app.json"].every((f) => existsSync(join(dir, f)));
+    let work = record.workDir && whole(record.workDir) ? record.workDir : null;
     if (!work) {
       work = join(WORK_ROOT, id, version, app, `${latest}-reshoot`);
       copyApp(join(out, "app"), work);
+      // Copies kept before the design package's dist was kept need it back from the template.
+      const pkg = join(work, "design-packages", `${record.template}-${record.version}`);
+      if (existsSync(pkg) && !existsSync(join(pkg, "dist")) && existsSync(templateDir(record.template, record.version))) {
+        cpSync(templateDir(record.template, record.version), pkg, { recursive: true, filter: (p) => !p.endsWith(".zip") });
+      }
       info(`[${app}] rebuilding the kept copy`);
-      if (!(await install(work)) || !(await build(work)).ok) throw new Error(`the kept copy of ${app} ${latest} does not build`);
+      if (!(await install(work)) || !(await build(work)).ok) {
+        info(`[${app}] the kept copy of ${latest} does not build — not reshot`);
+        process.exitCode = 1;
+        continue;
+      }
     }
     info(`[${app}] capturing ${latest} again`);
-    const shots = await shootApp(work, out);
-    writeJson(join(out, "run.json"), { ...record, screenshots: shots.screenshots });
-    ok(`[${app}] reshot → ${rel(out)}`);
+    // One app's capture failure doesn't stop the others.
+    try {
+      const shots = await shootApp(work, out);
+      writeJson(join(out, "run.json"), { ...record, screenshots: shots.screenshots });
+      ok(`[${app}] reshot → ${rel(out)}`);
+    } catch (e) {
+      info(`[${app}] CAPTURE FAILED: ${(e as Error).message.split("\n")[0]}`);
+      process.exitCode = 1;
+    }
   }
 }
