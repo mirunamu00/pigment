@@ -1,11 +1,13 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { CriticScores, EvalReport, type AppId } from "@pigment/schema";
-import { e2e } from "../appdir.ts";
+import { CriticScores, EvalReport, type RunAppId } from "@pigment/schema";
+import { baseApps, e2e, holdoutApps } from "../appdir.ts";
+import { familyCost, versionCost } from "../budget.ts";
 import { distance, isMostlyOpaque, nearest, toHex } from "../color.ts";
 import type { StyleSample } from "../extract.ts";
 import { paths, rel, runsDir } from "../paths.ts";
-import { colorPalette, fontFamilies, loadTemplate, normalizeFamily, radiusSet } from "../template.ts";
+import type { LayoutReport } from "../layout.ts";
+import { colorPalette, fontFamilies, loadTemplate, normalizeFamily, radiusSet, spaceScale } from "../template.ts";
 import { fail, info, ok, readJson, timestamp, writeJson, writeText } from "../util.ts";
 import type { ShotResult } from "./shoot.ts";
 
@@ -71,11 +73,58 @@ function fontSizes(samples: StyleSample[]): Set<string> {
   return new Set(samples.flatMap((s) => Object.keys(s.fontSize)));
 }
 
+/** Weighted share of a histogram's px values within ±1px of one of `scale` (percent values count as on it). */
+export function shareOnScale(hist: Record<string, number>, scale: number[]): number {
+  let total = 0;
+  let on = 0;
+  for (const [value, n] of Object.entries(hist)) {
+    const px = parseFloat(value);
+    if (!Number.isFinite(px)) continue;
+    total += n;
+    if (value.endsWith("%") || scale.some((s) => Math.abs(s - px) <= 1)) on += n;
+  }
+  return total ? on / total : 1;
+}
+
+function mergeHist(samples: StyleSample[], key: "fontSize" | "radius" | "spacing"): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const s of samples) for (const [k, v] of Object.entries(s[key])) out[k] = (out[k] ?? 0) + v;
+  return out;
+}
+
+/** The most used px values of a histogram, covering `cover` of its weight. */
+function mainValues(hist: Record<string, number>, cover = 0.8): number[] {
+  const entries = Object.entries(hist).sort((a, b) => b[1] - a[1]);
+  const sum = entries.reduce((a, [, n]) => a + n, 0) || 1;
+  const out: number[] = [];
+  let acc = 0;
+  for (const [value, n] of entries) {
+    if (acc >= cover * sum) break;
+    const px = parseFloat(value);
+    if (Number.isFinite(px)) out.push(px);
+    acc += n;
+  }
+  return out;
+}
+
+/** Layout findings per kind; the "N more not listed" entry counts N. */
+export function layoutCounts(reports: LayoutReport[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const r of reports)
+    for (const f of r.findings) {
+      const more = f.where === "" ? parseInt(f.detail) : NaN;
+      out[f.kind] = (out[f.kind] ?? 0) + (Number.isFinite(more) ? more : 1);
+    }
+  return out;
+}
+
 export async function evaluate(id: string, version: string, options: { skipE2e?: boolean; samples?: number }): Promise<EvalReport> {
   const samples = Math.max(1, options.samples ?? 1);
   const tpl = loadTemplate(id, version);
   const palette = colorPalette(tpl);
   const radii = radiusSet(tpl);
+  const space = spaceScale(tpl);
+  const allSamples: StyleSample[] = [];
   const families = new Set([...fontFamilies(tpl), "system-ui", "sans-serif", "serif", "monospace", "-apple-system"]);
   const dir = runsDir(id, version);
   const iteration = existsSync(dir) ? readdirSync(dir).filter((f) => /^eval-\d+\.json$/.test(f)).length + 1 : 1;
@@ -83,16 +132,27 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
   // Style samples per sample index and app, for cross-app consistency within each sample.
   const perSample: Array<Record<string, StyleSample[]>> = Array.from({ length: samples }, () => ({}));
 
-  const apps = readdirSync(paths.baseApps).filter((a) => existsSync(join(paths.baseApps, a, "pigment.app.json"))) as AppId[];
-  const pending: Array<{ app: AppId; runDir: string; k: number }> = [];
+  const apps = baseApps() as RunAppId[];
+  const pending: Array<{ app: RunAppId; runDir: string; k: number; holdout?: boolean }> = [];
   for (const app of apps) {
     const runDirs = latestRuns(id, version, app, samples);
     if (runDirs.length < samples) report.reasons.push(`${app}: ${runDirs.length} of ${samples} sample(s)`);
     runDirs.forEach((runDir, k) => pending.push({ app, runDir, k }));
   }
+  // Holdout apps (the confirm step): their latest run, when there is one. Their gates count like any app's;
+  // they stay out of cross-app consistency, which compares the four main apps.
+  const holdouts: RunAppId[] = [];
+  if (samples > 1) {
+    for (const app of holdoutApps() as RunAppId[]) {
+      const runDir = latestRuns(id, version, app, 1)[0];
+      if (!runDir) continue;
+      holdouts.push(app);
+      pending.push({ app, runDir, k: samples, holdout: true });
+    }
+  }
   // Each app's newest run first: publishing takes an app's first listed run as its gallery capture.
   pending.sort((a, b) => a.k - b.k);
-  for (const { app, runDir, k } of pending) {
+  for (const { app, runDir, k, holdout } of pending) {
     const run = readJson<{ runId: string; agentExitCode?: number | null; build?: { ok: boolean }; workDir: string }>(join(runDir, "run.json"));
     const gates: Gate[] = [];
     const metrics: Record<string, number> = {};
@@ -102,7 +162,10 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
     if (run.build?.ok && existsSync(join(runDir, "shots.json"))) {
       const shots = readJson<ShotResult>(join(runDir, "shots.json"));
       const styleSamples = readJson<StyleSample[]>(join(runDir, "samples.json"));
-      perSample[k]![app] = styleSamples;
+      if (!holdout) {
+        perSample[k]![app] = styleSamples;
+        allSamples.push(...styleSamples);
+      }
 
       if (!options.skipE2e) {
         info(`[${app}] running smoke tests`);
@@ -168,8 +231,16 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
       }
       metrics.radiusAdherence = rounded ? Math.round((onScale / rounded) * 1000) / 1000 : 1;
       gates.push({ name: "radius-adherence", pass: metrics.radiusAdherence >= THRESHOLDS.radiusAdherence, value: metrics.radiusAdherence, threshold: THRESHOLDS.radiusAdherence });
+
+      // Reported for the critic, not gated: spacing on the scale, and measured layout defects (layout.ts).
+      if (space.length) metrics.spacingOnScale = Math.round(shareOnScale(mergeHist(styleSamples, "spacing"), space) * 1000) / 1000;
+      for (const [kind, n] of Object.entries(layoutCounts(shots.layout ?? []))) metrics[`layout:${kind}`] = n;
     }
     report.runs.push({ runId: run.runId, app, gates, metrics });
+    if (run.build?.ok && existsSync(join(runDir, "shots.json"))) {
+      for (const l of readJson<ShotResult>(join(runDir, "shots.json")).layout ?? [])
+        for (const f of l.findings) (report.layout ??= []).push({ app, runId: run.runId, route: l.route, viewport: l.viewport, ...f });
+    }
   }
 
   // Cross-app consistency: the four apps should look like one family — in every sample.
@@ -204,11 +275,27 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
     const refTop = topColors(readJson<StyleSample[]>(refSamplesFile));
     const meanDelta = refTop.reduce((sum, c) => sum + nearest(c, palette).delta, 0) / Math.max(1, refTop.length);
     report.crossApp.push({ name: "reference-palette-distance", pass: true, value: Math.round(meanDelta * 100) / 100, detail: "mean ΔE2000 from the reference's top colors to the template palette (reported, not gated)" });
+    if (allSamples.length) {
+      // What the agents built, against the reference: how much of the reference's main type sizes, radii and
+      // spacing the output uses. Low means the language did not carry over; everything at 1 with palette distance
+      // 0 is worth a look for copying.
+      const ref = readJson<StyleSample[]>(refSamplesFile);
+      const outTop = topColors(allSamples);
+      const outDelta = refTop.reduce((sum, c) => sum + nearest(c, outTop).delta, 0) / Math.max(1, refTop.length);
+      report.crossApp.push({ name: "reference-output-palette-distance", pass: true, value: Math.round(outDelta * 100) / 100, detail: "mean ΔE2000 from the reference's top colors to the built apps' top colors (reported)" });
+      for (const key of ["fontSize", "radius", "spacing"] as const) {
+        const value = Math.round(shareOnScale(mergeHist(allSamples, key), mainValues(mergeHist(ref, key))) * 1000) / 1000;
+        report.crossApp.push({ name: `reference-${key}-overlap`, pass: true, value, detail: `share of the built apps' ${key} values within 1px of the reference's main values (reported)` });
+      }
+    }
   }
+
+  const spent = familyCost(id, version);
+  report.cost = { versionUsd: round2(versionCost(id, version).usd), familyUsd: round2(spent.usd), familyRuns: spent.runs, budgetUsd: spent.budgetUsd };
 
   const failed = [...report.runs.flatMap((r) => r.gates.map((g) => ({ ...g, app: r.app }))), ...report.crossApp.map((g) => ({ ...g, app: "cross-app" }))].filter((g) => !g.pass);
   for (const g of failed) report.reasons.push(`${g.app}: ${g.name} = ${g.value} (needs ${g.threshold ?? "pass"})`);
-  report.verdict = failed.length || report.runs.length < apps.length * samples ? "fail" : "pending-review";
+  report.verdict = failed.length || report.runs.length < apps.length * samples + holdouts.length ? "fail" : "pending-review";
 
   const parsed = EvalReport.parse(report);
   writeJson(join(dir, `eval-${iteration}.json`), parsed);
@@ -219,11 +306,19 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
   return parsed;
 }
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 function renderMarkdown(r: EvalReport): string {
   const lines = [`# ${r.template}@${r.version} — evaluation ${r.iteration}`, "", `Verdict: **${r.verdict}** · ${r.evaluatedAt}`, ""];
+  if (r.cost) lines.push(`Agent spend: this candidate $${r.cost.versionUsd.toFixed(0)} · family $${r.cost.familyUsd.toFixed(0)} of $${r.cost.budgetUsd} over ${r.cost.familyRuns} runs`, "");
   for (const run of r.runs) {
     lines.push(`## ${run.app} (${run.runId})`, "", "| Gate | Result | Value | Threshold |", "| --- | --- | --- | --- |");
     for (const g of run.gates) lines.push(`| ${g.name} | ${g.pass ? "pass" : "**FAIL**"} | ${g.value ?? ""} | ${g.threshold ?? ""} |`);
+    lines.push("");
+  }
+  if (r.layout?.length) {
+    lines.push("## Measured layout (reported, for the critic)", "");
+    for (const l of r.layout) lines.push(`- ${l.app} ${l.runId} ${l.route} ${l.viewport}: ${l.kind} — ${l.where} ${l.detail}`.trim());
     lines.push("");
   }
   if (r.crossApp.length) {
@@ -231,7 +326,14 @@ function renderMarkdown(r: EvalReport): string {
     for (const g of r.crossApp) lines.push(`| ${g.name} | ${g.pass ? "pass" : "**FAIL**"} | ${g.value ?? ""} | ${g.threshold ?? "reported"} |`);
     lines.push("");
   }
-  if (r.critic) {
+  if (r.critic?.findings) {
+    lines.push("## Critic findings", "", "| Severity | Area | Samples | Finding |", "| --- | --- | --- | --- |");
+    const order = { blocker: 0, major: 1, minor: 2 } as const;
+    for (const f of [...r.critic.findings].sort((a, b) => order[a.severity] - order[b.severity])) {
+      lines.push(`| ${f.severity}${f.specCaused ? " (spec)" : ""} | ${f.area} | ${f.samples} of ${f.of} | ${f.summary.replaceAll("|", "/")} |`);
+    }
+    lines.push("");
+  } else if (r.critic) {
     lines.push("## Critic", "", "```json", JSON.stringify(r.critic, null, 2), "```", "");
   }
   if (r.reasons.length) lines.push("## Reasons", "", ...r.reasons.map((x) => `- ${x}`), "");
@@ -271,17 +373,38 @@ export function mergeCritic(id: string, version: string, criticFile: string): vo
   const file = join(dir, evals[evals.length - 1]!);
   const report = EvalReport.parse(readJson(file));
   const critic = CriticScores.parse(readJson(criticFile));
-  const scores = [critic.referenceFidelity, critic.crossAppConsistency, critic.hierarchy, critic.spacingRhythm, critic.componentStates, critic.polish, critic.signature ?? null].filter(
-    (s): s is number => s !== null,
-  );
-  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-  const min = Math.min(...scores);
   report.critic = critic;
   const gatesOk = report.verdict !== "fail";
-  const criticOk = avg >= 4 && min >= 3;
-  if (!criticOk) report.reasons.push(`critic: average ${avg.toFixed(2)} (needs 4.0), lowest ${min} (needs 3)`);
-  report.verdict = gatesOk && criticOk ? "pass" : "fail";
+  const judged = judgeCritic(critic);
+  report.reasons.push(...judged.reasons);
+  report.verdict = gatesOk && judged.ok ? "pass" : "fail";
   writeJson(file, EvalReport.parse(report));
   writeText(file.replace(/\.json$/, ".md"), renderMarkdown(report));
-  ok(`critic merged: average ${avg.toFixed(2)}, lowest ${min} → ${report.verdict}`);
+  ok(`critic merged: ${judged.summary} → ${report.verdict}`);
+}
+
+/**
+ * The critic's part of the verdict. With findings: no blocker, and no major the prompt causes — one that recurs
+ * (2+ samples), that the spec causes, or that can't yet be told from chance because there is one sample. Minors
+ * never fail a candidate. Older critic files without findings fall back to the score bar.
+ */
+export function judgeCritic(critic: CriticScores): { ok: boolean; summary: string; reasons: string[] } {
+  if (critic.findings) {
+    const blockers = critic.findings.filter((f) => f.severity === "blocker");
+    const gatingMajors = critic.findings.filter((f) => f.severity === "major" && (f.specCaused || f.samples >= 2 || f.of === 1));
+    const minors = critic.findings.filter((f) => f.severity === "minor");
+    const reasons = [...blockers.map((f) => `critic blocker: ${f.summary}`), ...gatingMajors.map((f) => `critic major (${f.samples} of ${f.of}${f.specCaused ? ", spec" : ""}): ${f.summary}`)];
+    return {
+      ok: blockers.length === 0 && gatingMajors.length === 0,
+      summary: `${blockers.length} blocker(s), ${gatingMajors.length} gating major(s), ${minors.length} minor(s)`,
+      reasons,
+    };
+  }
+  const scores = [critic.referenceFidelity, critic.crossAppConsistency, critic.hierarchy, critic.spacingRhythm, critic.componentStates, critic.polish, critic.signature].filter(
+    (s): s is number => typeof s === "number",
+  );
+  const avg = scores.reduce((a, b) => a + b, 0) / Math.max(1, scores.length);
+  const min = Math.min(...scores);
+  const ok = scores.length > 0 && avg >= 4 && min >= 3;
+  return { ok, summary: `average ${avg.toFixed(2)}, lowest ${min}`, reasons: ok ? [] : [`critic: average ${avg.toFixed(2)} (needs 4.0), lowest ${min} (needs 3)`] };
 }

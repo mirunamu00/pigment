@@ -9,7 +9,8 @@ never seen the reference site and will fill every gap you leave with generic def
 
 Read first: `docs/harness/prompt-writing-rules.md` (binding), `pipeline/<slug>/analysis.md` and
 `analysis.json`, and — for a revision — the latest `showcase/runs/<id>/<prev-version>/eval-*.md`,
-the critic's `promptFixes`, and `pipeline/<slug>/iterations.md`.
+the critic's `findings` (blockers and gating majors, with their `promptFix`), and
+`pipeline/<slug>/iterations.md`.
 
 The package (scaffolded for you):
 - `manifest.json` — name, description, tags, fonts (with fallback, CJK fallback, license), provenance
@@ -42,6 +43,13 @@ projects show them on the sample screen.
 
 Never carry over brand names, logos, copy, imagery or proprietary fonts. The template name must be
 original.
+
+Generalize (`prompt-writing-rules.md` → 9). The four demo apps are samples of what people build, not the
+target. For a revision, rewrite each critic `promptFix` as the general rule it implies before you apply
+it: no demo product, post, project, person, route, test id or screen in the package, ever. A fix that only
+makes sense on one demo page is not applied — log it as variance. `validate` warns on demo-app terms
+(`prose.overfit`); treat that warning as an error. Fix only blockers and recurring or spec-caused majors;
+minors are never a reason for a new candidate.
 
 Loop: edit → `pnpm harness validate <id>@<version>` → fix → `pnpm harness bundle <id>@<version>`
 until there are no errors. Read `dist/agent.md` once at the end as if you were the implementing agent:

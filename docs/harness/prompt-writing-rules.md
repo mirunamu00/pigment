@@ -82,11 +82,30 @@ them on the sample screen.
 
 ## 8. Budget
 
-- `agent.md` (the bundle) stays under ~6,000 words (7,500 for `schemaVersion: 2`, which carries recipes). Details beyond that are served on demand by MCP
-  (`get_component_spec`). **[lint]**
+- `agent.md` (the bundle) stays under about 13,000 tokens (20,000 for `schemaVersion: 2`, which carries
+  recipes), counted as characters ÷ 4 with whitespace collapsed — squeezing spaces out of a recipe gains
+  nothing. Details beyond that are served on demand by MCP (`get_component_spec`). **[lint]**
 - Lead with what matters most: character summary, the 10 rules that define the look, then tokens.
+- When the budget is tight, cut instance detail (one demo screen's numbers, an extra example), never a
+  general rule or a check in Verification.
 
-## 9. Change discipline
+## 9. Generalize — the demo apps are samples, not the target
+
+The harness tests a package on four demo apps (a blog, a store, a dashboard, settings). People will build
+everything else. A rule that only makes sense on one demo screen makes the package worse for every other
+product, and the lab cannot see it: the same four apps are the test.
+
+- Never name a demo app's products, posts, projects, people, routes or test ids, or describe one of its
+  screens ("the tote", "the billing page", "`product-card`"). **[lint: prose.overfit]**
+- Turn every review finding into the general principle it is missing: not "the skillet's handle is too
+  short" but "a drawn object's defining part is at least 2 units thick and 30% of its width". Ask: would
+  this rule help a product the harness has never seen — a booking flow, a CRM, a docs site?
+- Name kinds of content and screens (a product image, a data table, a form, an empty state), never
+  instances.
+- If a finding cannot be stated generally, it is variance or taste: log it in `iterations.md` and leave the
+  package alone.
+
+## 10. Change discipline
 
 - Every iteration records what changed and why in `pipeline/<slug>/iterations.md`.
 - Published versions never change. A fix is a new version with a `CHANGELOG.md` entry

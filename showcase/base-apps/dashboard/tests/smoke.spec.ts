@@ -17,6 +17,17 @@ test('overview shows KPIs, chart, activity and the full projects table', async (
   await expect(page.getByTestId('result-count')).toHaveText('Showing 8 of 8 projects');
 });
 
+test('refresh shows a loading state, then the metrics again', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('refresh-metrics').click();
+  await expect(page.getByTestId('kpi-card-loading')).toHaveCount(4);
+  await expect(page.getByTestId('kpi-grid')).toHaveAttribute('aria-busy', 'true');
+  await expect(page.getByTestId('refresh-metrics')).toBeDisabled();
+  await expect(page.getByTestId('kpi-card')).toHaveCount(4);
+  await expect(page.getByTestId('kpi-grid')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.getByTestId('refresh-metrics')).toHaveText('Refresh');
+});
+
 test('status filter reduces the table to matching rows', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('status-filter-paused').click();

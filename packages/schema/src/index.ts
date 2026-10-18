@@ -16,6 +16,14 @@ export const Hex = z.string().regex(/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, "6 or 
 
 export const AppId = z.enum(["dashboard", "commerce", "blog", "settings"]);
 export type AppId = z.infer<typeof AppId>;
+/**
+ * Apps used only to confirm a candidate, never to steer it: structures the main four don't have, so they show
+ * whether a system carries to products it was not tuned on. Never shown in the gallery.
+ */
+export const HoldoutAppId = z.enum(["landing", "docs"]);
+export type HoldoutAppId = z.infer<typeof HoldoutAppId>;
+export const RunAppId = z.union([AppId, HoldoutAppId]);
+export type RunAppId = z.infer<typeof RunAppId>;
 
 export const Scenario = z.enum(["new", "existing", "ongoing"]);
 export type Scenario = z.infer<typeof Scenario>;
@@ -361,7 +369,7 @@ export const RunRecord = z.object({
   runId: z.string(),
   template: TemplateId,
   version: SemVer,
-  app: AppId,
+  app: RunAppId,
   scenario: Scenario,
   agent: z.enum(["claude", "codex"]),
   model: z.string().optional(),
@@ -386,18 +394,41 @@ export const GateResult = z.object({
   detail: z.string().optional(),
 });
 
-export const CriticScores = z.object({
-  referenceFidelity: z.number().min(0).max(5).nullable(),
-  crossAppConsistency: z.number().min(0).max(5),
-  hierarchy: z.number().min(0).max(5),
-  spacingRhythm: z.number().min(0).max(5),
-  componentStates: z.number().min(0).max(5),
-  polish: z.number().min(0).max(5),
-  /** Are the signature elements present across all four apps, placed per the application map, moving as specified? Null for packages without signatures. */
-  signature: z.number().min(0).max(5).nullable().optional(),
-  notes: z.array(z.string()),
-  promptFixes: z.array(z.string()).describe("Concrete spec changes that would fix the observed problems"),
+/**
+ * One thing the critic saw. The verdict comes from findings, not from scores: a blocker fails a candidate, a
+ * major fails it when the prompt causes it (it recurs, or the spec itself is at fault), a minor never does.
+ */
+export const CriticFinding = z.object({
+  severity: z.enum(["blocker", "major", "minor"]),
+  /** Rubric area: referenceFidelity, crossAppConsistency, hierarchy, spacingRhythm, componentStates, polish, signature. */
+  area: z.string(),
+  summary: z.string(),
+  /** In how many of the evaluated samples it appears, and how many there were. */
+  samples: z.number().int().min(0),
+  of: z.number().int().min(1),
+  /** The spec's own wording or recipe causes it (a missing, ambiguous or contradictory rule). */
+  specCaused: z.boolean().default(false),
+  evidence: z.array(z.string()).default([]),
+  /** A general rule that would prevent it in any product — never a fix tied to one demo app's screen or data. */
+  promptFix: z.string().optional(),
 });
+export type CriticFinding = z.infer<typeof CriticFinding>;
+
+const score = z.number().min(0).max(5);
+export const CriticScores = z.object({
+  /** Descriptive only (the verdict comes from findings). Older critic files gate on them. */
+  referenceFidelity: score.nullable().optional(),
+  crossAppConsistency: score.optional(),
+  hierarchy: score.optional(),
+  spacingRhythm: score.optional(),
+  componentStates: score.optional(),
+  polish: score.optional(),
+  signature: score.nullable().optional(),
+  findings: z.array(CriticFinding).optional(),
+  notes: z.array(z.string()).default([]),
+  promptFixes: z.array(z.string()).default([]).describe("Concrete spec changes that would fix the observed problems"),
+});
+export type CriticScores = z.infer<typeof CriticScores>;
 
 export const EvalReport = z.object({
   template: TemplateId,
@@ -407,13 +438,21 @@ export const EvalReport = z.object({
   runs: z.array(
     z.object({
       runId: z.string(),
-      app: AppId,
+      app: RunAppId,
       gates: z.array(GateResult),
       metrics: z.record(z.string(), z.number()),
     }),
   ),
   crossApp: z.array(GateResult).default([]),
+  /** Measured layout defects (clipped or overlapping text, near-miss alignment, doubled rules, repeated drawings). */
+  layout: z
+    .array(z.object({ app: RunAppId, runId: z.string(), route: z.string(), viewport: z.string(), kind: z.string(), where: z.string(), detail: z.string() }))
+    .optional(),
   critic: CriticScores.optional(),
+  /** Agent spend of this version and of its whole family (all candidates), against the family's budget. */
+  cost: z
+    .object({ versionUsd: z.number(), familyUsd: z.number(), familyRuns: z.number(), budgetUsd: z.number() })
+    .optional(),
   verdict: z.enum(["pass", "fail", "pending-review"]),
   reasons: z.array(z.string()),
 });
