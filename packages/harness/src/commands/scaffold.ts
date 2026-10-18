@@ -1,7 +1,7 @@
-import { cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { candidateBlock, candidateNumber, MAX_CANDIDATES, passedCandidates } from "../budget.ts";
-import { paths, rel, templateDir } from "../paths.ts";
+import { paths, rel, runsDir, templateDir } from "../paths.ts";
 import { fail, listFiles, ok } from "../util.ts";
 
 export function scaffold(id: string, version: string, options: { name: string; from?: string; afterPass?: boolean; pastCap?: boolean }): void {
@@ -28,6 +28,11 @@ export function scaffold(id: string, version: string, options: { name: string; f
     manifest.version = version;
     manifest.status = "draft";
     writeFileSync(manifestFile, JSON.stringify(manifest, null, 2) + "\n");
+    // Which candidate a new candidate answers: the critic brief checks regressions against that one's verdict.
+    if (n !== null) {
+      mkdirSync(runsDir(id, version), { recursive: true });
+      writeFileSync(join(runsDir(id, version), "origin.json"), JSON.stringify({ from: options.from }, null, 2) + "\n");
+    }
   } else {
     cpSync(paths.skeleton, dest, { recursive: true });
     for (const file of listFiles(dest)) {

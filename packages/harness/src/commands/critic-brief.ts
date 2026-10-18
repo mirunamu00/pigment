@@ -74,7 +74,14 @@ export function criticBrief(id: string, version: string): string {
       .sort((a, b) => parseInt(a.slice(7)) - parseInt(b.slice(7)))
       .map((f) => join(vdir, f));
   };
-  const before = familyVersions(id, version).filter((v) => compareRc(v, version) < 0).sort(compareRc).at(-1);
+  // The candidate this one was scaffolded from (scaffold records it), else the one numbered just before it.
+  const originFile = join(dir, "origin.json");
+  const origin = existsSync(originFile) ? readJson<{ from?: string }>(originFile).from : undefined;
+  const fromVersion = origin?.startsWith(`${id}@`) ? origin.slice(id.length + 1) : undefined;
+  const before =
+    fromVersion && existsSync(runsDir(id, fromVersion))
+      ? fromVersion
+      : familyVersions(id, version).filter((v) => compareRc(v, version) < 0).sort(compareRc).at(-1);
   const earlier = [...(before ? critics(before).slice(-1) : []), ...critics(version).filter((f) => !f.endsWith(`critic-${n}.json`))].map((f) => `- \`${rel(f)}\``);
 
   const layout = report.layout ?? [];
