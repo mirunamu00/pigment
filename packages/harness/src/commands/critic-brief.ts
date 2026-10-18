@@ -89,6 +89,7 @@ export function criticBrief(id: string, version: string): string {
     ? layout.map((l) => `- ${l.app} \`${l.runId}\` ${l.route} (${l.viewport}): **${l.kind}** — ${l.where} ${l.detail}`.trim())
     : ["- None measured."];
 
+  const smokeSkipped = report.runs.some((r) => !r.gates.some((g) => g.name === "functional-preservation"));
   const out = join(dir, `critic-${n}.json`);
   const brief = [
     `# Critic brief — ${id}@${version}, evaluation ${n}`,
@@ -99,7 +100,7 @@ export function criticBrief(id: string, version: string): string {
     "## What was asked",
     "",
     `- The spec the agents were given: \`${rel(join(templateDir(id, version), "dist", "agent.md"))}\``,
-    `- The automated gates: \`${rel(join(dir, `eval-${n}.md`))}\` (all passed)`,
+    `- The automated gates: \`${rel(join(dir, `eval-${n}.md`))}\` (all passed${smokeSkipped ? "; the smoke tests were not run for this evaluation and run at the confirm step" : ""})`,
     "",
     `## What was built: ${sampleCount} sample(s) of every app`,
     "",
