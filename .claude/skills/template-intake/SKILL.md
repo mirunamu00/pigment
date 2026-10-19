@@ -63,39 +63,36 @@ step, a font substitute) is shown as a rendered swatch, never only in words: `ch
   passed, and past the fourth: those are the user's call (rubric → "When to stop").
 - The author runs `pnpm harness validate` and `pnpm harness bundle` until validation is clean.
 
-## 4. Generate
+## 4–6. Screen, confirm, holdout check
 
-- Once per machine: `pnpm harness baseline` (captures the unstyled base apps).
-- Screen with one sample, confirm with two more only if it passes (rubric → "Samples"):
-  `pnpm harness generate <id>@<version>`; after a passing screen,
-  `pnpm harness generate <id>@<version> --samples 2 --holdout` — the agent restyles the base apps outside
-  the repo, then the harness builds and screenshots them. Run it in the background and report progress.
-  Never queue a second generation behind the first.
+Three stages, in order; the harness refuses them out of order (rubric → "Stages"). Run each generation in the
+background and report progress; never queue a second generation behind the first. Once per machine first:
+`pnpm harness baseline`.
 
-## 5. Evaluate
+1. **Screen** (one sample of the four main apps): `pnpm harness generate <id>@<rc>`, then
+   `pnpm harness evaluate <id>@<rc>`, then `pnpm harness review <id>@<rc>`.
+2. **Confirm** (only after a passing screen; two more samples, plus one run of each holdout app):
+   `pnpm harness generate <id>@<rc> --samples 2 --holdout`, then `pnpm harness evaluate <id>@<rc> --samples 3`,
+   then `pnpm harness review <id>@<rc>`.
+3. **Holdout check** (only after a passing confirm): `pnpm harness evaluate <id>@<rc> --holdout`, then
+   `pnpm harness review <id>@<rc> --holdout`. The holdout runs were made with the confirm; they are judged only
+   now, so a candidate that failed on the main apps never learns from them.
 
-- `pnpm harness evaluate <id>@<version>` for the screen, `--samples 3` for the confirmation → gates (every
-  sample must pass), measured layout defects and `review-<n>.html`.
-- If gates pass (verdict `pending-review`): `pnpm harness critic-brief <id>@<version>`, then delegate to the
-  `design-critic` agent with the brief's content **verbatim** — never write or edit a critic prompt yourself.
-  It writes `showcase/runs/<id>/<version>/critic-<n>.json`.
-- `pnpm harness critic <id>@<version> showcase/runs/<id>/<version>/critic-<n>.json`: no blocker and no
-  gating major → pass.
+`review` is the critic: the harness builds the checklist and comparison sheets, runs the reviewers and a lead
+reviewer, checks that every item was answered, and merges the verdict. Never write, edit or extend a reviewer
+prompt, never edit a critic file, and never review by delegating to an agent yourself. If you disagree with a
+severity, change it only with `pnpm harness critic <ref> <file> --override "<phrase>=<severity>=<reason>"`, which
+is recorded in the report. A review that ends "incomplete" gives no verdict: run it again; do not pass it.
 
-## 6. Iterate or stop
-
-- On `pass` after the screen: confirm (step 4). On `pass` after the confirm: stop and go to step 7. Never
-  start another round to fix minors — list them for the user.
-- On `fail`: scaffold the next rc from this one, run `pnpm harness author-brief <id>@<rc> --next <next-rc>`
-  and give the prompt-author that file's content verbatim — never a hand-written list of what the demo screens
-  got wrong. Holdout apps' findings are fixed only as general rules, like any other.
-- At most four candidates (scaffold enforces it) — then stop and
-  report the failure analysis.
+On `fail` (any stage): scaffold the next rc from this one, run `pnpm harness author-brief <id>@<rc> --next
+<next-rc>` and give the prompt-author that file's content verbatim — never a hand-written list of what the demo
+screens got wrong. On a pass of the holdout check: stop and go to step 7; minors go to the user as a list.
+At most four candidates (scaffold enforces it) — then stop and report the failure analysis.
 
 ## 7. Approval and publish
 
 **Checkpoint 2 (stop here):** show the user `review-<n>.html` (screenshots of all four apps, desktop and
-mobile, light and dark), the reference screenshots, the gate table, the critic's findings and the iteration
+mobile, light and dark), the reference screenshots, the gate table, the review's findings and coverage, and the iteration
 log, and the critic's minors as a list of known flaws. Only on explicit approval:
 
 1. `pnpm harness scaffold <id>@<final> --name "<Name>" --from <id>@<last-rc>` (e.g. 1.0.0), and write the

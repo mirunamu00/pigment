@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { CriticScores, EvalReport, type RunAppId } from "@pigment/schema";
 import { baseApps, e2e, holdoutApps } from "../appdir.ts";
-import { familyCost, versionCost } from "../budget.ts";
+import { evalScope, familyCost, versionCost } from "../budget.ts";
 import { distance, isMostlyOpaque, nearest, toHex } from "../color.ts";
 import type { StyleSample } from "../extract.ts";
 import { paths, rel, runsDir } from "../paths.ts";
@@ -118,7 +118,7 @@ export function layoutCounts(reports: LayoutReport[]): Record<string, number> {
   return out;
 }
 
-export async function evaluate(id: string, version: string, options: { skipE2e?: boolean; samples?: number; apps?: RunAppId[] }): Promise<EvalReport> {
+export async function evaluate(id: string, version: string, options: { skipE2e?: boolean; samples?: number; apps?: RunAppId[]; holdout?: boolean }): Promise<EvalReport> {
   const samples = Math.max(1, options.samples ?? 1);
   const tpl = loadTemplate(id, version);
   const palette = colorPalette(tpl);
@@ -127,35 +127,33 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
   const allSamples: StyleSample[] = [];
   const families = new Set([...fontFamilies(tpl), "system-ui", "sans-serif", "serif", "monospace", "-apple-system"]);
   const dir = runsDir(id, version);
-  const iteration = existsSync(dir) ? readdirSync(dir).filter((f) => /^eval-\d+\.json$/.test(f)).length + 1 : 1;
-  const report: EvalReport = { template: id, version, iteration, evaluatedAt: timestamp(), runs: [], crossApp: [], verdict: "pending-review", reasons: [] };
+  // The next number after the highest, so a gap in the files never overwrites an evaluation.
+  const iteration = (existsSync(dir) ? Math.max(0, ...readdirSync(dir).map((f) => Number(/^eval-(\d+)\.json$/.exec(f)?.[1] ?? 0))) : 0) + 1;
+  // The main apps (screen, confirm) and the holdout apps (the final check) are evaluated and judged apart: the
+  // holdouts are looked at only once the main apps passed, so they never steer a candidate that failed there.
+  const scope = options.holdout ? ("holdout" as const) : ("main" as const);
+  const report: EvalReport = { template: id, version, iteration, evaluatedAt: timestamp(), runs: [], crossApp: [], verdict: "pending-review", reasons: [], scope };
   // Style samples per sample index and app, for cross-app consistency within each sample.
   const perSample: Array<Record<string, StyleSample[]>> = Array.from({ length: samples }, () => ({}));
 
   // `apps` limits the evaluation, e.g. to the holdout apps when checking whether a published system carries over.
   const only = options.apps;
-  const apps = (baseApps() as RunAppId[]).filter((a) => !only || only.includes(a));
+  const apps = scope === "main" ? (baseApps() as RunAppId[]).filter((a) => !only || only.includes(a)) : [];
   const pending: Array<{ app: RunAppId; runDir: string; k: number; holdout?: boolean }> = [];
   for (const app of apps) {
     const runDirs = latestRuns(id, version, app, samples);
     if (runDirs.length < samples) report.reasons.push(`${app}: ${runDirs.length} of ${samples} sample(s)`);
     runDirs.forEach((runDir, k) => pending.push({ app, runDir, k }));
   }
-  // Holdout apps (the confirm step): their latest run, when there is one. Their gates count like any app's;
-  // they stay out of cross-app consistency, which compares the four main apps.
+  // Holdout apps (the final check): each one's latest run. Their gates count like any app's; they stay out of
+  // cross-app consistency, which compares the four main apps.
   const holdouts: RunAppId[] = [];
-  if (samples > 1 || only) {
+  if (scope === "holdout") {
     for (const app of (holdoutApps() as RunAppId[]).filter((a) => !only || only.includes(a))) {
-      const runDir = latestRuns(id, version, app, 1)[0];
-      if (!runDir) {
-        if (only) {
-          report.reasons.push(`${app}: no run`);
-          holdouts.push(app);
-        }
-        continue;
-      }
       holdouts.push(app);
-      pending.push({ app, runDir, k: samples, holdout: true });
+      const runDir = latestRuns(id, version, app, 1)[0];
+      if (!runDir) report.reasons.push(`${app}: no run`);
+      else pending.push({ app, runDir, k: 0, holdout: true });
     }
   }
   // Each app's newest run first: publishing takes an app's first listed run as its gallery capture.
@@ -310,7 +308,7 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
   writeText(join(dir, `eval-${iteration}.md`), renderMarkdown(parsed));
   writeText(join(dir, `review-${iteration}.html`), renderReviewPage(parsed, id, version));
   ok(`${id}@${version} iteration ${iteration}: ${parsed.verdict} → ${rel(join(dir, `eval-${iteration}.md`))}`);
-  if (parsed.verdict === "pending-review") console.log(`  next: run the design-critic agent, then pnpm harness critic ${id}@${version} <critic.json>`);
+  if (parsed.verdict === "pending-review") console.log(`  next: pnpm harness review ${id}@${version}${scope === "holdout" ? " --holdout" : ""}`);
   return parsed;
 }
 
@@ -333,6 +331,12 @@ function renderMarkdown(r: EvalReport): string {
     lines.push("## Cross-app and reference", "", "| Check | Result | Value | Threshold |", "| --- | --- | --- | --- |");
     for (const g of r.crossApp) lines.push(`| ${g.name} | ${g.pass ? "pass" : "**FAIL**"} | ${g.value ?? ""} | ${g.threshold ?? "reported"} |`);
     lines.push("");
+  }
+  if (r.review) {
+    lines.push(`Review: ${r.review.status}, ${r.review.covered} of ${r.review.items} checklist items covered by ${r.review.reviewers} reviewer(s) in ${r.review.minutes} min`, "");
+  }
+  if (r.critic?.overrides?.length) {
+    lines.push("## Severity overrides", "", ...r.critic.overrides.map((o) => `- ${o.from} → ${o.to}: ${o.summary} — ${o.reason} (${o.at})`), "");
   }
   if (r.critic?.findings) {
     lines.push("## Critic findings", "", "| Severity | Area | Samples | Finding |", "| --- | --- | --- | --- |");
@@ -373,33 +377,75 @@ figcaption{font:12px ui-monospace,monospace;color:#555;margin-top:4px}li.fail{co
 <h1>${id}@${version} — review ${r.iteration}</h1><p>Verdict: <strong>${r.verdict}</strong></p>${rows}`;
 }
 
-/** Merges the design-critic's scores into the latest evaluation and settles the verdict. */
-export function mergeCritic(id: string, version: string, criticFile: string): void {
+export interface OverrideRequest {
+  /** Text that identifies one finding (a substring of its summary). */
+  match: string;
+  to: "blocker" | "major" | "minor";
+  reason: string;
+}
+
+/** Applies severity overrides to a critic file's findings and records each one. Refuses a vague match. */
+export function applyOverrides(critic: CriticScores, requests: OverrideRequest[], at = timestamp()): CriticScores {
+  if (!requests.length) return critic;
+  const findings = [...(critic.findings ?? [])];
+  const overrides = [...(critic.overrides ?? [])];
+  for (const req of requests) {
+    if (!req.reason.trim()) throw new Error(`override "${req.match}": a reason is required`);
+    const hits = findings.map((f, i) => [f, i] as const).filter(([f]) => f.summary.toLowerCase().includes(req.match.toLowerCase()));
+    if (hits.length !== 1) throw new Error(`override "${req.match}" matches ${hits.length} findings — use a phrase from exactly one summary`);
+    const [f, i] = hits[0]!;
+    overrides.push({ summary: f.summary, from: f.severity, to: req.to, reason: req.reason, at });
+    findings[i] = { ...f, severity: req.to };
+  }
+  return { ...critic, findings, overrides };
+}
+
+/** The evaluation file a critic file belongs to: the latest one of its scope. */
+function latestEvalFile(id: string, version: string, scope: "main" | "holdout"): string | null {
   const dir = runsDir(id, version);
-  const evals = existsSync(dir) ? readdirSync(dir).filter((f) => /^eval-\d+\.json$/.test(f)).sort((a, b) => parseInt(a.slice(5)) - parseInt(b.slice(5))) : [];
-  if (!evals.length) fail("no evaluation yet — run pnpm harness evaluate first");
-  const file = join(dir, evals[evals.length - 1]!);
+  const files = existsSync(dir) ? readdirSync(dir).filter((f) => /^eval-\d+\.json$/.test(f)).sort((a, b) => parseInt(b.slice(5)) - parseInt(a.slice(5))) : [];
+  for (const f of files) if (evalScope(EvalReport.parse(readJson(join(dir, f)))) === scope) return join(dir, f);
+  return null;
+}
+
+/**
+ * Merges a critic file into the latest evaluation of its scope and settles the verdict. Severity changes go
+ * through `overrides` (recorded in the file and the report), never by editing the critic file.
+ */
+export function mergeCritic(
+  id: string,
+  version: string,
+  criticFile: string,
+  options: { holdout?: boolean; overrides?: OverrideRequest[]; review?: EvalReport["review"] } = {},
+): EvalReport {
+  const scope = options.holdout ? "holdout" : "main";
+  const file = latestEvalFile(id, version, scope);
+  if (!file) fail(`no ${scope} evaluation yet — run pnpm harness evaluate${options.holdout ? " --holdout" : ""} first`);
   const report = EvalReport.parse(readJson(file));
-  const critic = CriticScores.parse(readJson(criticFile));
+  const critic = applyOverrides(CriticScores.parse(readJson(criticFile)), options.overrides ?? []);
+  if (options.overrides?.length) writeJson(criticFile, critic);
   report.critic = critic;
+  if (options.review) report.review = options.review;
   const gatesOk = report.verdict !== "fail";
   const judged = judgeCritic(critic);
   report.reasons.push(...judged.reasons);
   report.verdict = gatesOk && judged.ok ? "pass" : "fail";
   writeJson(file, EvalReport.parse(report));
   writeText(file.replace(/\.json$/, ".md"), renderMarkdown(report));
-  ok(`critic merged: ${judged.summary} → ${report.verdict}`);
+  ok(`critic merged into ${scope} evaluation ${report.iteration}: ${judged.summary} → ${report.verdict}`);
+  return report;
 }
 
 /**
  * The critic's part of the verdict. With findings: no blocker, and no major the prompt causes — one that recurs
- * (2+ samples), that the spec causes, or that can't yet be told from chance because there is one sample. Minors
- * never fail a candidate. Older critic files without findings fall back to the score bar.
+ * (2+ samples), that the spec causes, or that can't yet be told from chance because there is one sample. A major
+ * seen only on the holdout apps (one run each) counts only when the spec causes it. Minors never fail a
+ * candidate. Older critic files without findings fall back to the score bar.
  */
 export function judgeCritic(critic: CriticScores): { ok: boolean; summary: string; reasons: string[] } {
   if (critic.findings) {
     const blockers = critic.findings.filter((f) => f.severity === "blocker");
-    const gatingMajors = critic.findings.filter((f) => f.severity === "major" && (f.specCaused || f.samples >= 2 || f.of === 1));
+    const gatingMajors = critic.findings.filter((f) => f.severity === "major" && (f.specCaused || (!f.holdoutOnly && (f.samples >= 2 || f.of === 1))));
     const minors = critic.findings.filter((f) => f.severity === "minor");
     const reasons = [...blockers.map((f) => `critic blocker: ${f.summary}`), ...gatingMajors.map((f) => `critic major (${f.samples} of ${f.of}${f.specCaused ? ", spec" : ""}): ${f.summary}`)];
     return {

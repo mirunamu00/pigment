@@ -411,8 +411,22 @@ export const CriticFinding = z.object({
   evidence: z.array(z.string()).default([]),
   /** A general rule that would prevent it in any product — never a fix tied to one demo app's screen or data. */
   promptFix: z.string().optional(),
+  /** Seen only in holdout apps, which run once: a major there counts only when the spec causes it. */
+  holdoutOnly: z.boolean().optional(),
+  /** Review checklist items it was seen on (pnpm harness review). */
+  items: z.array(z.string()).optional(),
 });
 export type CriticFinding = z.infer<typeof CriticFinding>;
+
+/** A severity changed by the orchestrator after the review, with its reason — recorded, never silent. */
+export const CriticOverride = z.object({
+  summary: z.string(),
+  from: z.enum(["blocker", "major", "minor"]),
+  to: z.enum(["blocker", "major", "minor"]),
+  reason: z.string().min(1),
+  at: z.string(),
+});
+export type CriticOverride = z.infer<typeof CriticOverride>;
 
 const score = z.number().min(0).max(5);
 export const CriticScores = z.object({
@@ -427,8 +441,75 @@ export const CriticScores = z.object({
   findings: z.array(CriticFinding).optional(),
   notes: z.array(z.string()).default([]),
   promptFixes: z.array(z.string()).default([]).describe("Concrete spec changes that would fix the observed problems"),
+  overrides: z.array(CriticOverride).optional(),
 });
 export type CriticScores = z.infer<typeof CriticScores>;
+
+// ---------------------------------------------------------------------------
+// Review (pnpm harness review): a checklist every reviewer must cover
+// ---------------------------------------------------------------------------
+
+/** One thing to look at: one screen (or state, drawing set, motion set) of one app, across every sample. */
+export const ReviewItem = z.object({
+  id: z.string(),
+  app: z.string(),
+  holdout: z.boolean(),
+  kind: z.enum(["page", "state", "drawings", "motion"]),
+  /** Route path, state name, or "motion". */
+  subject: z.string(),
+  viewport: z.enum(["desktop", "mobile"]).optional(),
+  scheme: z.enum(["light", "dark"]).optional(),
+  /** The comparison sheet: every sample side by side (repo-relative). */
+  sheet: z.string(),
+  /** The original images, per sample (repo-relative), for a closer look. */
+  sources: z.array(z.array(z.string())),
+  questions: z.array(z.string()),
+});
+export type ReviewItem = z.infer<typeof ReviewItem>;
+
+export const ReviewUnit = z.object({ id: z.string(), app: z.string(), items: z.array(z.string()) });
+export type ReviewUnit = z.infer<typeof ReviewUnit>;
+
+export const ReviewPlan = z.object({
+  template: TemplateId,
+  version: SemVer,
+  evaluation: z.number().int(),
+  samples: z.number().int().min(1),
+  referenceSheet: z.string().nullable(),
+  items: z.array(ReviewItem),
+  units: z.array(ReviewUnit),
+});
+export type ReviewPlan = z.infer<typeof ReviewPlan>;
+
+/** What one unit reviewer returns: a line for every assigned item, and what it found. */
+export const UnitReview = z.object({
+  items: z.array(z.object({ id: z.string(), status: z.enum(["ok", "finding"]), note: z.string() })),
+  findings: z.array(CriticFinding).default([]),
+});
+export type UnitReview = z.infer<typeof UnitReview>;
+
+export const ReviewReport = z.object({
+  template: TemplateId,
+  version: SemVer,
+  evaluation: z.number().int(),
+  status: z.enum(["complete", "incomplete"]),
+  items: z.number().int(),
+  covered: z.number().int(),
+  units: z.array(
+    z.object({
+      id: z.string(),
+      items: z.number().int(),
+      covered: z.number().int(),
+      attempts: z.number().int(),
+      durationMs: z.number(),
+      turns: z.number().optional(),
+      costUsd: z.number().optional(),
+      problems: z.array(z.string()),
+    }),
+  ),
+  synthesis: z.object({ durationMs: z.number(), turns: z.number().optional(), costUsd: z.number().optional() }).optional(),
+});
+export type ReviewReport = z.infer<typeof ReviewReport>;
 
 export const EvalReport = z.object({
   template: TemplateId,
@@ -449,10 +530,16 @@ export const EvalReport = z.object({
     .array(z.object({ app: RunAppId, runId: z.string(), route: z.string(), viewport: z.string(), kind: z.string(), where: z.string(), detail: z.string() }))
     .optional(),
   critic: CriticScores.optional(),
+  /** Coverage of the review that produced `critic` (pnpm harness review). */
+  review: z
+    .object({ status: z.enum(["complete", "incomplete"]), items: z.number(), covered: z.number(), reviewers: z.number(), minutes: z.number() })
+    .optional(),
   /** Agent spend of this version and of its whole family (all candidates), for the record. */
   cost: z.object({ versionUsd: z.number(), familyUsd: z.number(), familyRuns: z.number() }).optional(),
   verdict: z.enum(["pass", "fail", "pending-review"]),
   reasons: z.array(z.string()),
+  /** The main apps (screen, confirm) or only the holdout apps (the final check). Older reports: derived. */
+  scope: z.enum(["main", "holdout"]).optional(),
 });
 export type EvalReport = z.infer<typeof EvalReport>;
 

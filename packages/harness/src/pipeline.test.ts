@@ -4,11 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { chromium, type Browser } from "playwright";
-import type { CriticFinding, EvalReport } from "@pigment/schema";
+import type { CriticFinding, EvalReport, ReviewItem } from "@pigment/schema";
 import { copyApp } from "./appdir.ts";
-import { candidateBlock, compareCore, familyCost, generationBlock, passedCandidates, versionFamily } from "./budget.ts";
+import { candidateBlock, candidateStage, compareCore, familyCost, generationBlock, latestEval, passedCandidates, versionFamily } from "./budget.ts";
+import { buildPlan, planUnits } from "./review/plan.ts";
+import { checkUnit, extractJson, UNIT_MINOR_CAP } from "./review/run.ts";
+import { sheetHtml } from "./review/sheets.ts";
+import { paths } from "./paths.ts";
 import { swatchPage } from "./commands/check-analysis.ts";
-import { judgeCritic, layoutCounts, shareOnScale } from "./commands/evaluate.ts";
+import { applyOverrides, judgeCritic, layoutCounts, shareOnScale } from "./commands/evaluate.ts";
 import { runQueue, sampleRunIds } from "./commands/generate.ts";
 import { galleryRuns } from "./commands/publish.ts";
 import { layFixedLayers } from "./commands/shoot.ts";
@@ -98,16 +102,119 @@ test("spend sums every candidate of the family and decides nothing", () => {
   assert.equal(generationBlock("demo", "1.1.0-rc.3", root), null);
 });
 
-test("stopping: a confirmed pass blocks new candidates and more runs; a screen pass asks for its confirm", () => {
+test("stages: screen, confirm on 3 samples, then the holdout check; each blocks what comes out of order", () => {
   const apps = ["blog", "settings"];
-  const confirmed = runsFixture({ "1.1.0-rc.2": 10 }, { "1.1.0-rc.2": evalReport("1.1.0-rc.2", "pass", apps, 3) });
-  assert.deepEqual(passedCandidates("demo", "1.1.0-rc.3", confirmed), [{ version: "1.1.0-rc.2", samples: 3 }]);
-  assert.match(candidateBlock("demo", "1.1.0-rc.3", confirmed) ?? "", /passed on 3 samples/);
-  assert.match(generationBlock("demo", "1.1.0-rc.2", confirmed) ?? "", /nothing left to confirm/);
+  const holdoutReport = (verdict: EvalReport["verdict"]) => ({ ...evalReport("1.1.0-rc.2", verdict, ["landing", "docs"], 1), iteration: 2, scope: "holdout" as const });
 
   const screened = runsFixture({ "1.1.0-rc.2": 10 }, { "1.1.0-rc.2": evalReport("1.1.0-rc.2", "pass", apps, 1) });
-  assert.match(candidateBlock("demo", "1.1.0-rc.3", screened) ?? "", /passed the screen/);
-  assert.equal(generationBlock("demo", "1.1.0-rc.2", screened), null, "the screened candidate may be confirmed");
+  assert.equal(candidateStage("demo", "1.1.0-rc.2", screened, true).stage, "confirm");
+  assert.match(candidateBlock("demo", "1.1.0-rc.3", screened, true) ?? "", /passed the screen/);
+  assert.equal(generationBlock("demo", "1.1.0-rc.2", screened, "main", true), null, "the screened candidate may be confirmed");
+  assert.match(generationBlock("demo", "1.1.0-rc.2", screened, "holdout", true) ?? "", /holdout check comes after/);
+
+  const confirmed = runsFixture({ "1.1.0-rc.2": 10 }, { "1.1.0-rc.2": evalReport("1.1.0-rc.2", "pass", apps, 3) });
+  assert.deepEqual(passedCandidates("demo", "1.1.0-rc.3", confirmed, true), [{ version: "1.1.0-rc.2", samples: 3, stage: "holdout" }]);
+  assert.match(candidateBlock("demo", "1.1.0-rc.3", confirmed, true) ?? "", /holdout check/);
+  assert.match(generationBlock("demo", "1.1.0-rc.2", confirmed, "main", true) ?? "", /no more main-app samples/);
+  assert.equal(generationBlock("demo", "1.1.0-rc.2", confirmed, "holdout", true), null);
+  assert.equal(candidateStage("demo", "1.1.0-rc.2", confirmed, false).stage, "done", "without holdout apps the confirm is the end");
+  const mixed = evalReport("1.1.0-rc.2", "pass", apps, 3);
+  mixed.runs.push({ ...mixed.runs[0]!, runId: "h1", app: "landing" });
+  const legacy = runsFixture({ "1.1.0-rc.2": 10 }, { "1.1.0-rc.2": mixed });
+  assert.equal(candidateStage("demo", "1.1.0-rc.2", legacy, true).stage, "holdout", "a holdout run in an older main evaluation doesn't lower its samples");
+
+  write(join(confirmed, "demo", "1.1.0-rc.2", "eval-2.json"), holdoutReport("pass"));
+  assert.equal(candidateStage("demo", "1.1.0-rc.2", confirmed, true).stage, "done");
+  assert.equal(latestEval("demo", "1.1.0-rc.2", confirmed)?.iteration, 1, "the main evaluation is not hidden by a newer holdout one");
+  assert.match(candidateBlock("demo", "1.1.0-rc.3", confirmed, true) ?? "", /publishing/);
+
+  write(join(confirmed, "demo", "1.1.0-rc.2", "eval-2.json"), holdoutReport("fail"));
+  assert.equal(candidateStage("demo", "1.1.0-rc.2", confirmed, true).stage, "failed");
+  assert.equal(candidateBlock("demo", "1.1.0-rc.3", confirmed, true), null, "a candidate that failed the holdout check doesn't block the next");
+});
+
+test("critic verdict: a holdout-only major counts only when the spec causes it", () => {
+  const holdout = (specCaused: boolean): CriticFinding => ({ ...finding("major", 1, 1, specCaused), holdoutOnly: true });
+  assert.equal(judgeCritic(critic([holdout(false)])).ok, true);
+  assert.equal(judgeCritic(critic([holdout(true)])).ok, false);
+  assert.equal(judgeCritic(critic([{ ...finding("blocker", 1, 1), holdoutOnly: true }])).ok, false);
+});
+
+test("overrides change one finding's severity and are recorded with their reason", () => {
+  const base = critic([finding("minor", 2, 3), { ...finding("major", 1, 3), summary: "checkout heading becomes the page close" }]);
+  const out = applyOverrides(base, [{ match: "checkout heading", to: "blocker", reason: "pushes the form below the fold" }], "t");
+  assert.equal(out.findings!.find((f) => f.summary.includes("checkout"))!.severity, "blocker");
+  assert.deepEqual(out.overrides, [{ summary: "checkout heading becomes the page close", from: "major", to: "blocker", reason: "pushes the form below the fold", at: "t" }]);
+  assert.throws(() => applyOverrides(base, [{ match: "o", to: "minor", reason: "x" }], "t"), "a phrase matching several findings is refused");
+});
+
+// --- Review --------------------------------------------------------------------------------------------
+
+const item = (id: string): ReviewItem => ({ id, app: "blog", holdout: false, kind: "page", subject: "/", viewport: "desktop", scheme: "light", sheet: `${id}.png`, sources: [[`${id}-a.png`]], questions: ["?"] });
+
+test("review: a unit answer counts only with a note about what is on every item", () => {
+  const items = [item("a"), item("b"), item("c")];
+  const good = checkUnit(items, {
+    items: [
+      { id: "a", status: "ok", note: "Hero headline left, dot field under the close, three samples alike." },
+      { id: "b", status: "finding", note: "Pinned column covers the budget figures in samples 1 and 3." },
+      { id: "c", status: "ok", note: "ok" },
+      { id: "zzz", status: "ok", note: "An item that is not on this checklist at all." },
+    ],
+    findings: [{ severity: "major", area: "polish", summary: "covered figures", samples: 2, of: 3, items: ["b", "nope"] }],
+  });
+  assert.deepEqual(good.missing, ["c"], "a contentless note counts as missing");
+  assert.deepEqual(good.review!.findings[0]!.items, ["b"], "findings only point at checklist items");
+  assert.ok(good.problems.some((p) => /unknown item ids: zzz/.test(p)));
+  assert.deepEqual(checkUnit(items, { nonsense: true }).missing, ["a", "b", "c"]);
+  const minors = Array.from({ length: 12 }, (_, i) => ({ severity: "minor", area: "polish", summary: `m${i}`, samples: 1, of: 3 }));
+  assert.equal(checkUnit(items, { items: [], findings: minors }).review!.findings.length, UNIT_MINOR_CAP);
+});
+
+test("review: the answer's JSON is read from a fenced block or the outermost braces", () => {
+  assert.deepEqual(extractJson('Done.\n```json\n{"a": 1}\n```\n'), { a: 1 });
+  assert.deepEqual(extractJson('Here: {"a": {"b": 2}} end'), { a: { b: 2 } });
+  assert.throws(() => extractJson("no json here"));
+});
+
+test("review: the checklist covers every screen, state, drawing set and motion set, samples side by side", () => {
+  const runsRoot = tmp();
+  const runs = ["r2", "r1"];
+  for (const runId of runs) {
+    write(join(runsRoot, "graphite-blueprint", "1.2.0", "blog", runId, "shots.json"), {
+      screenshots: [
+        { route: "/", viewport: "desktop", scheme: "light", file: "screenshots/home-desktop-light.png" },
+        { route: "/", viewport: "desktop", scheme: "dark", file: "screenshots/home-desktop-dark.png" },
+        { route: "state:search-empty", viewport: "mobile", scheme: "light", file: "screenshots/state-search-empty-mobile-light.png" },
+      ],
+      consoleErrors: [], overflow: [], stateFailures: [], axe: [],
+      drawings: [{ route: "/", file: "drawings/home-d1.png", w: 100, h: 100 }],
+      motion: { animations: 1, loops: 0, inSvg: 0, keyframes: [], illustrations: 0, lineDrawings: 0, frames: ["motion/motion-m1.png"] },
+    });
+  }
+  const report = { ...evalReport("9.9.9-rc.1", "pending-review", ["blog"], 2), template: "graphite-blueprint" };
+  report.runs = runs.map((runId) => ({ runId, app: "blog" as const, gates: [], metrics: {} }));
+  const plan = buildPlan({ id: "graphite-blueprint", version: "1.2.0", report, reviewDir: join(runsRoot, "review"), runsRoot });
+  const ids = plan.items.map((i) => i.id).sort();
+  // graphite-blueprint 1.2.0 has light and dark: both page appearances, the state, drawings and motion.
+  assert.deepEqual(ids, ["blog--drawings--home", "blog--motion", "blog--page--home--desktop-dark", "blog--page--home--desktop-light", "blog--state--search-empty--mobile-light"]);
+  const page = plan.items.find((i) => i.id === "blog--page--home--desktop-light")!;
+  assert.equal(page.sources.length, 2, "one column per sample");
+  assert.match(page.sources[0]![0]!, /r2[\\/]screenshots[\\/]home-desktop-light\.png$/);
+  assert.equal(plan.samples, 2);
+  assert.deepEqual(plan.units, [{ id: "blog", app: "blog", items: plan.items.map((i) => i.id) }]);
+});
+
+test("review: an app with many items is split between two reviewers", () => {
+  const items = Array.from({ length: 40 }, (_, i) => ({ ...item(`x${i}`), kind: (i < 20 ? "page" : "state") as ReviewItem["kind"] }));
+  assert.deepEqual(planUnits(items).map((u) => [u.id, u.items.length]), [["blog-pages", 20], ["blog-details", 20]]);
+});
+
+test("review: a comparison sheet puts every sample side by side and lists the originals", () => {
+  const html = sheetHtml("blog · page · /", [{ label: "sample 1", images: ["showcase/runs/x/a.png"] }, { label: "sample 2", images: [] }], 560, paths.root);
+  assert.match(html, /sample 1[\s\S]*sample 2/);
+  assert.match(html, /no capture in this sample/);
+  assert.match(html, /showcase\/runs\/x\/a\.png/);
 });
 
 test("stopping: the fifth candidate is past the cap; failed candidates don't block", () => {

@@ -12,6 +12,7 @@ import { makeFixture } from "./commands/fixture.ts";
 import { baseline, generate, reshoot, type Agent } from "./commands/generate.ts";
 import { intake } from "./commands/intake.ts";
 import { checkAll, publish } from "./commands/publish.ts";
+import { review } from "./commands/review.ts";
 import { scaffold } from "./commands/scaffold.ts";
 import { validate } from "./commands/validate.ts";
 
@@ -122,13 +123,15 @@ program
   .argument("<ref>")
   .option("--skip-e2e", "skip the smoke tests (faster, not valid for publishing)")
   .option("--samples <n>", "evaluate the latest n runs of each app; every gate must pass in every sample", "1")
-  .option("--apps <apps...>", "evaluate only these apps, e.g. landing docs to check a published system on the holdouts")
+  .option("--holdout", "evaluate the holdout apps (the final check, after the main apps passed the confirm)")
+  .option("--apps <apps...>", "evaluate only these apps")
   .action(async (ref: string, opts) => {
     const { id, version } = parseRef(ref);
     const report = await evaluate(id, version, {
       skipE2e: !!opts.skipE2e,
       samples: Number(opts.samples),
       apps: opts.apps?.map((a: string) => RunAppId.parse(a)),
+      holdout: !!opts.holdout,
     });
     process.exitCode = report.verdict === "fail" ? 1 : 0;
   });
@@ -153,13 +156,34 @@ program
   });
 
 program
+  .command("review")
+  .description("7. review every checklist item of the latest evaluation (reviewers run by the harness), then settle the verdict")
+  .argument("<ref>")
+  .option("--holdout", "review the holdout evaluation (only after the main apps passed the confirm)")
+  .option("--concurrency <n>", "reviewers in parallel", "6")
+  .action(async (ref: string, opts) => {
+    const { id, version } = parseRef(ref);
+    await review(id, version, { holdout: !!opts.holdout, concurrency: Number(opts.concurrency) });
+  });
+
+program
   .command("critic")
-  .description("7b. merge the design-critic's findings into the latest evaluation and settle the verdict")
+  .description("7b. merge a critic file into the latest evaluation of its scope and settle the verdict")
   .argument("<ref>")
   .argument("<file>", "critic JSON (CriticScores schema)")
-  .action((ref: string, file: string) => {
+  .option("--holdout", "the critic file judges the holdout evaluation")
+  .option(
+    "--override <change...>",
+    'change one finding\'s severity, recorded with its reason: "<phrase from its summary>=<blocker|major|minor>=<reason>"',
+  )
+  .action((ref: string, file: string, opts) => {
     const { id, version } = parseRef(ref);
-    mergeCritic(id, version, file);
+    const overrides = ((opts.override as string[] | undefined) ?? []).map((o) => {
+      const [match, to, ...reason] = o.split("=");
+      if (!match || !to || !["blocker", "major", "minor"].includes(to)) throw new Error(`--override "${o}": expected "<phrase>=<severity>=<reason>"`);
+      return { match, to: to as "blocker" | "major" | "minor", reason: reason.join("=") };
+    });
+    mergeCritic(id, version, file, { holdout: !!opts.holdout, overrides });
   });
 
 program
