@@ -391,3 +391,129 @@ Verification guard kept.
   lines, table outer-padding gloss and sort-order note (CSS), checkbox "never an overlay", the review loop's "(never a
   new file)" (now in Never), settings-group examples, "590" in app section heads. agent.md 7,497 words (validator
   count; wc 7,470); validate 0 errors, 0 warnings.
+
+## 2026-10-19 — graphite-blueprint 1.2.0-rc.1: generalize (overfit review)
+
+Goal: the package is written for any product, not for the harness's demo apps. Source:
+`pipeline/linear-study/overfit-review-2026-10-19.md` (items 1-12). Design language, tokens and signature recipes
+unchanged; only prose, examples and the Applying table moved. Author did not read the base apps.
+
+1. Closing statement. Before: Applying row "Closing: newsletter, store and blog lists … (a store: its shipping or
+   returns promise)"; Typography "two sentences of at most 12 characters" with a shipping example, "longer copy goes in
+   the form's helper line". After: row "Page close (optional) | one centered two-tone statement and its action(s) over
+   the dot field | at most once per page"; Typography "one or two short sentences … each sentence fits one line from
+   `breakpoint.lg` … Anything longer is a secondary line under it at `font.size.lead`".
+2. Dashboard. Before: "KPI cards; dot-column chart on a quiet stage …, level with the activity list beside it";
+   Signature 1 Limits "the list is capped at the stage's height with 'View all →'". After: row "Dashboard, overview |
+   the main chart on a quiet stage as its panel; panels in a row end level; metric values tabular"; Limits "the
+   shorter panel stretches … or the longer content is capped at the row's height with a link to the rest".
+3. Spec plate caption. Before: "one fact … (a material, capacity or weight), `FIG 03 · 18 OZ CANVAS` on products,
+   `NO. 07 · DESIGN` on posts". After: "the item's number and one short attribute it actually has … (`FIG 03 ·
+   ATTRIBUTE`, `NO. 07 · CATEGORY`) … never an invented physical fact for an item that has none (a plan, a course, a
+   person: use its type or category)". Where "every product and post" → "every item without an image of its own";
+   Limits "adjacent posts" → "adjacent items in a list".
+4. Store grid / product detail rows. Before: "mono category labels"; "mono `CATEGORY · IN STOCK` over the name;
+   segmented pills; Details rows numbered in mono". After: "Item grid (catalog, gallery, library) | … plate or photo
+   cards with mono meta labels; filter chips" and "Item detail | the item's image or plate on one quiet stage, its
+   caption the only FIG; the item's meta as a `.mono-label` over its name; option pickers as segmented pills".
+5. Dot meter. Before: "Any 1-to-5 level (password strength, a person's load)"; row "a 1-to-5 load as the dot meter".
+   After: "A small ordinal level (1 to 5) may show as the dot meter beside its value; ordinary counts and amounts stay
+   numbers"; row "an ordinal 1-to-5 column may use the dot meter beside its value".
+6. Table small screens. Before: badge "This device", pin "(row actions, else status, else the key number)", heads
+   "PROJECTS", "STATUS", unit "4 projects", "(email, ID)"; instructions "KPI values level" in the 390px table check.
+   After: badge "marking the row's own state (default, current)", pin "the one column a user needs to act on or judge
+   the row", heads "STATUS", "TOTAL", unit "4 items", "(a secondary identifier)"; KPI check removed. Pin mechanism and
+   CSS unchanged.
+7. Content home. Before: "A content home's featured block continues the masthead: a 'FEATURED' .mono-label … the
+   plate's top above 900px at 1440px"; row "Blog … featured post as in Signature 6"; instructions "a content home's
+   first viewport has one large headline". After: "A featured item, if the page has one, takes a 'FEATURED'
+   `.mono-label` over its image and text, not a second large headline: one large headline per first viewport"; row
+   "Content index (articles, docs, releases)"; instructions "every first viewport has one large headline". Article row
+   → "Long-form page".
+8. Settings. Before: "(payment method, plans, invoices)"; `bp--sm` "plan cards (the only place for 1-2-3 tier
+   stacks) and dashboard first run"; Card "Plan card: tier slabs, name, price, 16px checks", "a 'Current' badge";
+   row "tier slabs on plans". After: "Wide blocks inside a settings section (cards, grids, tables) span the controls
+   column's full width"; `bp--sm` "ranked choice cards (the choice of rank n draws n slabs, for any number of
+   choices …) and a first-run empty panel"; Card "Choice card (one of several options side by side): name, its key
+   figure in `font.size.h3`, then its items; ranked choices add a `bp--sm` stack", "a badge naming the state"; row
+   "Settings, preferences | sections as split rows; wide blocks span the controls column". `.settings-group` CSS and
+   the 48px check kept (instructions say "settings section").
+9. Cart / checkout. Before: row "Cart, checkout form | App section heads; confirmation: joined-parts blueprint";
+   Signature 6 "App sections (cart, checkout, settings groups, long forms)". After: rows "Form, multi-step flow | app
+   section heads; the error banner per Text field" and "Success, confirmation | a small blueprint of the finished step
+   and a two-tone sentence"; Signature 6 "the parts of a multi-step flow, a long form or a settings screen".
+10. Text field. Before: counter "120 / 160", "one-field forms too". After: "`count / limit`", "however short the
+    form"; the second-banner rule for long forms kept.
+11. Test-setup leaks. Before: "('SHOWING 6 OF 6 POSTS') … in every app"; instructions "across apps", "an article's
+    left x for brand, breadcrumb, h1, Related and footer". After: "('SHOWING 12 OF 40') … everywhere in the product";
+    "everywhere in the product"; "a long-form page's main blocks, header brand to footer (one left x)".
+12. Minor. Card "KPI card … under `breakpoint.sm` a shorter label or one card per row" → "Metric card … a long one ends
+    in an ellipsis, full label in `title`"; quiet-stage list "a settings preview" → "a live preview beside the controls
+    that change it"; Typography "Product name, KPI value" → "Item name on its detail, metric value".
+
+Applying the concept: 13 → 14 rows, every row a kind of screen; new intro "Each row names a kind of screen and what any
+screen of that kind has; a screen uses the row's elements at its strength with the parts it really has, never adds
+parts to match the row. A screen that fits no row takes the closest one." `agent/instructions.md` New project step 5
+and Ongoing now say the same ("add no panel, block or section to match it"). Landing row: "two pills" → "its action
+pill(s)".
+
+validate: 0 errors, 0 warnings (no `prose.overfit`, no `tokens.undefined-var`); bundle built, agent.md 7,695 words (wc).
+
+## 2026-10-19 — graphite-blueprint 1.2.0-rc.2 (answers 1.2.0-rc.1 eval-1, author brief 1)
+
+Two spec-caused majors, both signature; 4 minors left alone.
+
+1. Page close dropped where a page really ends in an action (major, signature). Cause: the row read "Page close
+   (optional)" with no trigger, and the table intro says "never adds parts to match the row", so agents skipped it.
+   Rule written: the row is now "Page close" with a trigger: when a page ends in one final action for the reader
+   (subscribe, sign up, start, contact, buy), that existing block is the page close (centered two-tone statement over
+   the dot field, `.mono-label` above, the block's own form or pills under it); a page with no final action gets none
+   and never gains one. Strength "Every page that ends in a final action, once". Signature 2 Limits: the dot field
+   sits only behind a page close. Verification adds the both-ways check. Why it holds beyond the demo apps: any
+   product page that ends in a call to action (a booking page's "Reserve", a CRM landing's "Start trial", a docs
+   site's "Contact sales") gets the close from a part it already has; pages that end without one (a grid, a table,
+   an app screen) stay untouched, so the update's "no invented parts" goal is kept.
+2. Plate captions repeated nearby labels (major, signature). Cause: examples `FIG 03 · ATTRIBUTE` and
+   `NO. 07 · CATEGORY`, category as the fallback, no rule that the caption differ from its neighbors. Rule written:
+   the caption's attribute is one the item has and that no label in the same card, row or screen head shows; a
+   concrete property from the item's own data first (material, size, format, length, count), type or category only
+   when nothing else is shown, number and kind name when everything is already visible; never a status, a name or a
+   value repeated from beside the plate. Example now `FIG 03 · 48 MIN` on a card showing title and price only.
+   Verification "captions name the item" → "each plate caption carries an attribute no label beside it shows". Why it
+   holds: a figure caption is extra information in any product (a course's length, a file's format, a room's size);
+   the rule is about the caption's neighbors, not about any one kind of item.
+
+validate and bundle: see below.
+
+## graphite-blueprint 1.2.0-rc.3 (revising 1.2.0-rc.2, evaluation 1)
+
+1. A settings card stopped at the form width while the blocks around it spanned the controls column (major,
+   spacingRhythm, worse than published). Cause: "wide blocks (cards, grids, tables) span the controls column" left
+   open whether a short, one-row card counts as wide or as form content, so the agent capped it at `size.form`.
+   Rule written (Layout adaptation, Settings controls column; Applying the concept, Settings row): only form inputs
+   (fields, selects, switches, labels, help) and a live preview or banner with them stop at `size.form`; every other
+   block (a card for a saved item or connected account, a grid of choices, a list, a table) ends at the column's right
+   edge even with one row; never cap a card because it is short. Verification adds: on each settings screen every
+   non-form block has the same right x, wider than `size.form`. Why it holds beyond the demo apps: the split is by
+   kind of block, not by screen; a booking app's saved card, a CRM's connected integration, a docs site's API key
+   list all fall on the same side of it.
+
+validate: 0 error(s), 0 warning(s); bundle: ok.
+
+## graphite-blueprint 1.2.0-rc.4 (revising 1.2.0-rc.3, evaluation 1)
+
+1. The page close lost its two-tone statement and became the block's plain one-sentence heading, with a secondary
+   line wrapping under it (major, signature, caused by the spec). Cause: two rules disagreed. The Page close row asked
+   for a "two-tone statement", Typography allowed "one or two short sentences, each one tone" (so one sentence in one
+   tone was legal), Signature 6 Limits allowed 1 to 3 sentences, and "never adds parts" let the agent keep the heading
+   copy unchanged. Rule written (Typography, Closing statement): always exactly two short sentences in two tones, each
+   in its own nowrap span, a primary lead in `<b>` then a secondary answer in `color.text.secondary`; never one
+   sentence or one tone; a plain block heading is rewritten into the statement, never kept unchanged (the original may
+   become the `.mono-label`); a secondary line under it fits one line at `breakpoint.lg`. Made consistent: the Page
+   close row points to Typography and says rewriting the heading is restyling, not adding a part; Signature 6 Limits
+   excepts the page close from "1 to 3 sentences"; Verification replaces "one tone per sentence" with the
+   two-sentence, two-tone check and the one-line check for the line under it. Why it holds beyond the demo apps: any
+   closing call to action (a booking page's reservation block, a CRM's trial sign-up, a docs site's contact block)
+   arrives with a plain heading; the rule turns it into the system's statement without inventing a part.
+
+validate: 0 error(s), 0 warning(s); bundle: ok.

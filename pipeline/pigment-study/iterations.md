@@ -130,3 +130,25 @@ unused tokens (`color.action.disabled`, `color.code.ring`, `font.size.display`, 
 0 warnings.
 Not addressed in the package (harness, promptFix 19): state captures that frame their subject, mobile state captures,
 and the commerce 828px-wide mobile capture anomaly.
+
+## margin-notes@1.2.0-rc.1 — generalize for any product (2026-10-19)
+
+Goal: the package is written for any product, not for the harness's demo apps. Answers every item of
+`pipeline/pigment-study/overfit-review-2026-10-19.md` (verdict on 1.1.0: structurally fitted). Tokens, components,
+recipes and the design language are unchanged; the studio details still reach every kind of screen they did before,
+now placed by screen moment instead of by app. Authored without reading the demo apps.
+
+| # | Before (1.1.0) | After |
+| --- | --- | --- |
+| 1 | Studio details: "Per app, one note each" — Dashboard, Store, Blog, Settings bullets with demo copy, a featured card "spans columns 1 to 8", a note sized for "the 220px sidebar" | Placement by screen moment: home, index or collection screen (bloom, serif word in the h1, swash once per product on the top-level home header, note on the lead); pinned or featured item (tape plus `elevation.pinned`, note on its eyebrow if the screen has no lead note); editorial title (serif allowed); settings and form screens (no bloom, serif or tape; a `.note--below` on the section navigation if there is one, `--note-x` keeps it in a narrow column); record-detail, checkout and data-dense screens (none). Details table rows name these screen kinds |
+| 2 | Rule 6: serif word "only in a title of 2 or more words on the per-app list"; table "Titles on the per-app list" | Rule 6 and table: in a page h1 of 2+ words on a home, index or collection screen, or an editorial title; never on settings, form, checkout or record-detail screens |
+| 3 | Note examples from demo copy ("made for every day", "October 2026 … this month so far"); recipe "Two to six words" | Recipe uses placeholders (`{target phrase}`, `{2 to 4 words restating it}`); the note restates whatever its target says, 2 to 4 words |
+| 4 | Featured post card spans columns 1 to 8, taped | A pinned or featured item (tape plus `elevation.pinned`) spans the columns its content needs, never a fixed span |
+| 5 | "Projects" / "All projects"; "8 projects"; "Showing 0 of 6 posts"; "Current plan", "This device"; badge count "e.g. cart"; "Saved"; empty state "cart" | "Orders" / "All orders"; "{n} items"; "a result count in a sentence"; a state marker tags the current or selected item next to its name (rule 2, Badge); "e.g. unread items"; "a saved or sent confirmation"; "list" |
+| 6 | Charts: "past periods … at `opacity.chartRest`, the current one full" | The emphasized mark (current or selected) is full `color.text.primary`, the others at `opacity.chartRest`, in any chart |
+| 7 | "blogs add 1 pull-quote per article" | A long-form article may add 1 serif pull-quote |
+| 8 | Media frame "same in every app"; ratios "4:3 products, 16:10 screenshots, 3:2 posts" | "same in every product"; default ratios by image kind: 4:3 object photos, 16:10 screenshots and interface captures, 3:2 cover and editorial images |
+| 9 | Instructions: `VERSION` (`margin-notes@1.0.0`) | `VERSION` (`margin-notes, updated <the spec's update date>`); `components.md` records where each studio detail sits by screen moment |
+| — | Also generalized: Typography "Object h1: product, project, post, record"; same-height card rows "(products, stats, plans)"; "One container in every app" | "record detail (one item, person, order or article)"; "(catalog items, stats, pricing tiers)"; "on every screen" |
+
+Not applied: nothing; every review item had a general form. Validate: see below; bundle rebuilt.

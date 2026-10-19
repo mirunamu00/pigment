@@ -1,0 +1,2657 @@
+diff --git a/package.json b/package.json
+index a042f8e..421756b 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,9 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource/instrument-sans": "^5.0.0",
++    "@fontsource/jetbrains-mono": "^5.0.0",
++    "@fontsource/source-serif-4": "^5.0.0",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/App.tsx b/src/App.tsx
+index c258f61..997cac1 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -4,7 +4,6 @@ import HomePage from './pages/HomePage';
+ import PostPage from './pages/PostPage';
+ import AboutPage from './pages/AboutPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <Routes>
+diff --git a/src/components/ArticleBody.tsx b/src/components/ArticleBody.tsx
+index e696cf8..31eec13 100644
+--- a/src/components/ArticleBody.tsx
++++ b/src/components/ArticleBody.tsx
+@@ -1,7 +1,8 @@
+ import type { Block } from '../data/posts';
++import type { StageTone } from '../ink/ink';
+ import ImagePlaceholder from './ImagePlaceholder';
+ 
+-function renderBlock(block: Block, index: number) {
++function renderBlock(block: Block, index: number, figureTone: StageTone) {
+   switch (block.type) {
+     case 'heading':
+       return block.level === 2 ? (
+@@ -25,7 +26,7 @@ function renderBlock(block: Block, index: number) {
+           <blockquote data-testid="body-quote">
+             <p>{block.text}</p>
+           </blockquote>
+-          {block.cite && <figcaption className="muted small">{block.cite}</figcaption>}
++          {block.cite && <figcaption className="body-quote-cite">{block.cite}</figcaption>}
+         </figure>
+       );
+     case 'code':
+@@ -48,9 +49,9 @@ function renderBlock(block: Block, index: number) {
+     }
+     case 'figure':
+       return (
+-        <figure key={index} className="body-figure" data-testid="body-figure">
+-          <ImagePlaceholder alt={block.alt} />
+-          <figcaption className="muted small" data-testid="figure-caption">
++        <figure key={index} className="body-figure ghost-figure" data-testid="body-figure" data-rise="media">
++          <ImagePlaceholder alt={block.alt} tone={figureTone} lines={index} />
++          <figcaption className="figure-caption" data-testid="figure-caption">
+             {block.caption}
+           </figcaption>
+         </figure>
+@@ -58,10 +59,10 @@ function renderBlock(block: Block, index: number) {
+   }
+ }
+ 
+-export default function ArticleBody({ blocks }: { blocks: Block[] }) {
++export default function ArticleBody({ blocks, figureTone }: { blocks: Block[]; figureTone: StageTone }) {
+   return (
+     <div className="article-body" data-testid="article-body">
+-      {blocks.map(renderBlock)}
++      {blocks.map((block, index) => renderBlock(block, index, figureTone))}
+     </div>
+   );
+ }
+diff --git a/src/components/ImagePlaceholder.tsx b/src/components/ImagePlaceholder.tsx
+index d2c3e71..c0f668d 100644
+--- a/src/components/ImagePlaceholder.tsx
++++ b/src/components/ImagePlaceholder.tsx
+@@ -1,9 +1,88 @@
+-export default function ImagePlaceholder({ alt }: { alt: string }) {
++import type { CSSProperties } from 'react';
++import type { StageTone } from '../ink/ink';
++import { Stage } from '../ink/Stage';
++
++/*
++ * A missing information image becomes a ghosted preview on a media stage, shaped like its caption:
++ * grouped tiles for a board, two panels for a comparison, boxes joined by hairlines for a flow.
++ */
++type Shape = 'board' | 'compare' | 'flow';
++
++function shapeFor(alt: string): Shape {
++  const text = alt.toLowerCase();
++  if (/side by side|before and after|versus/.test(text)) return 'compare';
++  if (/timeline|moving from|flow|steps/.test(text)) return 'flow';
++  return 'board';
++}
++
++const bar = (width: number, key: number) => (
++  <i key={key} className="ghost-bar" style={{ width: `${width}%` } as CSSProperties} />
++);
++
++function Board() {
++  const tiles = [
++    [70, 45, 60],
++    [55, 80],
++    [65, 40, 50],
++    [85, 50],
++    [45, 70, 40],
++    [60, 75],
++  ];
++  return (
++    <div className="card ghost-grid" aria-hidden="true">
++      {tiles.map((widths, i) => (
++        <div className="ghost-tile" key={i}>
++          {widths.map((w, j) => (
++            bar(w, j)
++          ))}
++        </div>
++      ))}
++    </div>
++  );
++}
++
++function Compare() {
++  return (
++    <div className="card ghost-compare" aria-hidden="true">
++      <div className="ghost-tile">
++        {[90, 85, 70, 88, 60, 80, 75].map((w, j) => (
++          bar(w, j)
++        ))}
++      </div>
++      <div className="ghost-tile">
++        <i className="ghost-bar ghost-bar--mark" style={{ width: '55%' }} />
++        {[80, 45].map((w, j) => (
++          bar(w, j)
++        ))}
++      </div>
++    </div>
++  );
++}
++
++function Flow() {
++  return (
++    <div className="card ghost-flow" aria-hidden="true">
++      {[
++        [70, 45],
++        [60, 80],
++        [50, 65],
++      ].map((widths, i) => (
++        <div className="ghost-step" key={i}>
++          {i > 0 && <i className="ghost-link" />}
++          <div className="ghost-tile">
++            {widths.map((w, j) => bar(w, j))}
++          </div>
++        </div>
++      ))}
++    </div>
++  );
++}
++
++export default function ImagePlaceholder({ alt, tone, lines = 1 }: { alt: string; tone: StageTone; lines?: number }) {
++  const shape = shapeFor(alt);
+   return (
+-    <svg className="image-placeholder" viewBox="0 0 640 320" role="img" aria-label={alt}>
+-      <rect className="image-placeholder-bg" x="0" y="0" width="640" height="320" />
+-      <circle className="image-placeholder-shape" cx="220" cy="120" r="36" />
+-      <path className="image-placeholder-shape" d="M120 260 L260 150 L360 230 L440 170 L540 260 Z" />
+-    </svg>
++    <Stage tone={tone} variant="media" lines={lines} role="img" aria-label={alt}>
++      {shape === 'compare' ? <Compare /> : shape === 'flow' ? <Flow /> : <Board />}
++    </Stage>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 968c47e..74aace2 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,5 +1,7 @@
+ import { useEffect } from 'react';
+ import { Link, NavLink, Outlet, useLocation } from 'react-router';
++import { BrushDefs } from '../ink/Pictogram';
++import useRise from '../ink/useRise';
+ import NewsletterForm from './NewsletterForm';
+ 
+ const NAV_ITEMS = [
+@@ -19,18 +21,17 @@ export default function Layout() {
+     else window.scrollTo(0, 0);
+   }, [location.pathname]);
+ 
++  useRise(location.pathname);
++
+   return (
+     <div className="site-shell">
+-      <a className="skip-link" href="#main-content">
++      <BrushDefs />
++      <a className="skip-link btn btn--primary" href="#main-content">
+         Skip to content
+       </a>
+       <header className="site-header">
+         <div className="container site-header-inner">
+           <Link to="/" className="brand" data-testid="brand-link">
+-            <svg className="brand-mark" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+-              <path d="M4 4h12l4 4v12H4z" fill="none" stroke="currentColor" strokeWidth="2" />
+-              <path d="M8 11h8M8 15h6" stroke="currentColor" strokeWidth="2" />
+-            </svg>
+             <span>Field Notes</span>
+           </Link>
+           <nav aria-label="Primary" data-testid="primary-nav">
+@@ -52,9 +53,9 @@ export default function Layout() {
+       </main>
+ 
+       <footer className="site-footer">
+-        <div className="container site-footer-inner">
++        <div className="container">
+           <NewsletterForm />
+-          <p className="muted small">
++          <p className="footer-note">
+             Field Notes is written by a small product team. Opinions are our own and change as we learn.
+           </p>
+         </div>
+diff --git a/src/components/NewsletterForm.tsx b/src/components/NewsletterForm.tsx
+index ed061f8..d36809c 100644
+--- a/src/components/NewsletterForm.tsx
++++ b/src/components/NewsletterForm.tsx
+@@ -1,4 +1,8 @@
+-import { useId, useState, type FormEvent } from 'react';
++import { useId, useRef, useState, type FormEvent } from 'react';
++import { rubberStamp } from '../ink/drawings';
++import Pictogram from '../ink/Pictogram';
++import WriteIn from '../ink/WriteIn';
++import { CheckCircle } from '../ink/Working';
+ 
+ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+ 
+@@ -7,6 +11,7 @@ export default function NewsletterForm() {
+   const headingId = `${baseId}-heading`;
+   const inputId = `${baseId}-email`;
+   const errorId = `${baseId}-error`;
++  const inputRef = useRef<HTMLInputElement>(null);
+   const [email, setEmail] = useState('');
+   const [error, setError] = useState<string | null>(null);
+   const [subscribedEmail, setSubscribedEmail] = useState<string | null>(null);
+@@ -16,10 +21,12 @@ export default function NewsletterForm() {
+     const value = email.trim();
+     if (!value) {
+       setError('Enter your email address.');
++      inputRef.current?.focus();
+       return;
+     }
+     if (!EMAIL_PATTERN.test(value)) {
+       setError('Enter a valid email address, like name@example.com.');
++      inputRef.current?.focus();
+       return;
+     }
+     setError(null);
+@@ -28,13 +35,19 @@ export default function NewsletterForm() {
+   }
+ 
+   return (
+-    <section className="newsletter" aria-labelledby={headingId} data-testid="newsletter">
+-      <h2 id={headingId}>Subscribe to the newsletter</h2>
+-      <p className="muted">One email when a new post goes up. Never more than twice a month.</p>
++    <section className="newsletter" aria-labelledby={headingId} data-testid="newsletter" data-rise="text">
++      <div className="newsletter-intro">
++        <WriteIn as="h2" id={headingId} className="section-title" text="Subscribe to the newsletter" />
++        <p className="section-lede">One email when a new post goes up. Never more than twice a month.</p>
++      </div>
+       {subscribedEmail ? (
+-        <p className="form-success" role="status" data-testid="newsletter-success">
+-          Thanks for subscribing. New posts will arrive at {subscribedEmail}.
+-        </p>
++        <div className="newsletter-done">
++          <Pictogram drawing={rubberStamp} />
++          <p className="form-success" role="status" data-testid="newsletter-success">
++            <CheckCircle />
++            <span>Thanks for subscribing. New posts will arrive at {subscribedEmail}.</span>
++          </p>
++        </div>
+       ) : (
+         <form className="newsletter-form" noValidate onSubmit={handleSubmit} data-testid="newsletter-form">
+           <label htmlFor={inputId} className="field-label">
+@@ -42,6 +55,7 @@ export default function NewsletterForm() {
+           </label>
+           <div className="field-row">
+             <input
++              ref={inputRef}
+               id={inputId}
+               type="email"
+               name="email"
+@@ -54,7 +68,7 @@ export default function NewsletterForm() {
+               aria-describedby={error ? errorId : undefined}
+               data-testid="newsletter-email"
+             />
+-            <button type="submit" className="button button-primary" data-testid="newsletter-submit">
++            <button type="submit" className="btn btn--primary" data-testid="newsletter-submit">
+               Subscribe
+             </button>
+           </div>
+diff --git a/src/components/PostCard.tsx b/src/components/PostCard.tsx
+index 1a013b4..f6b61f0 100644
+--- a/src/components/PostCard.tsx
++++ b/src/components/PostCard.tsx
+@@ -1,5 +1,7 @@
+ import { Link } from 'react-router';
+ import type { Post } from '../data/posts';
++import { Plate } from '../ink/Stage';
++import { postArt } from '../ink/postArt';
+ import PostMeta from './PostMeta';
+ import TagChip from './TagChip';
+ 
+@@ -10,22 +12,26 @@ interface PostCardProps {
+ }
+ 
+ export default function PostCard({ post, testId = 'post-card', linkTestId = 'post-link' }: PostCardProps) {
++  const { drawing, tone } = postArt(post);
+   return (
+-    <article className="post-card" data-testid={testId}>
+-      <h3 className="post-card-title">
+-        <Link to={`/posts/${post.slug}`} data-testid={linkTestId}>
+-          {post.title}
+-        </Link>
+-      </h3>
+-      <PostMeta post={post} />
+-      <p>{post.excerpt}</p>
+-      <ul className="tag-list" aria-label="Tags">
+-        {post.tags.map((tag) => (
+-          <li key={tag}>
+-            <TagChip tag={tag} />
+-          </li>
+-        ))}
+-      </ul>
++    <article className="card card--media card--linked post-card" data-testid={testId}>
++      <Plate tone={tone} drawing={drawing} />
++      <div className="card-body">
++        <h3 className="card-title post-card-title">
++          <Link to={`/posts/${post.slug}`} className="stretched-link" data-testid={linkTestId}>
++            {post.title}
++          </Link>
++        </h3>
++        <PostMeta post={post} />
++        <p className="card-text">{post.excerpt}</p>
++        <ul className="tag-list" aria-label="Tags">
++          {post.tags.map((tag) => (
++            <li key={tag}>
++              <TagChip tag={tag} />
++            </li>
++          ))}
++        </ul>
++      </div>
+     </article>
+   );
+ }
+diff --git a/src/components/PostMeta.tsx b/src/components/PostMeta.tsx
+index 8e5233f..a1ab52d 100644
+--- a/src/components/PostMeta.tsx
++++ b/src/components/PostMeta.tsx
+@@ -4,7 +4,7 @@ import { formatDate, readingTime, type Post } from '../data/posts';
+ export default function PostMeta({ post, detailed = false }: { post: Post; detailed?: boolean }) {
+   const author = findAuthor(post.authorId);
+   return (
+-    <p className="post-meta muted small">
++    <p className={detailed ? 'post-meta post-meta--detailed' : 'post-meta'}>
+       <span data-testid={detailed ? 'article-author' : undefined}>{author.name}</span>
+       <span aria-hidden="true"> · </span>
+       <time dateTime={post.date} data-testid={detailed ? 'article-date' : undefined}>
+diff --git a/src/components/TableOfContents.tsx b/src/components/TableOfContents.tsx
+index 8c45cab..57b20e4 100644
+--- a/src/components/TableOfContents.tsx
++++ b/src/components/TableOfContents.tsx
+@@ -1,25 +1,56 @@
++import { useEffect, useState, type MouseEvent } from 'react';
+ import type { Block } from '../data/posts';
+ 
+ type Heading = Extract<Block, { type: 'heading' }>;
+ 
++const WIDE = '(min-width: 992px)';
++
++/** Beside the text from breakpoint.lg; below it, a collapsed disclosure after the lead. */
+ export default function TableOfContents({ blocks }: { blocks: Block[] }) {
++  const [wide, setWide] = useState(() => window.matchMedia(WIDE).matches);
++  const [open, setOpen] = useState(false);
++
++  useEffect(() => {
++    const query = window.matchMedia(WIDE);
++    const update = () => setWide(query.matches);
++    query.addEventListener('change', update);
++    return () => query.removeEventListener('change', update);
++  }, []);
++
+   const headings = blocks.filter((block): block is Heading => block.type === 'heading');
+   if (headings.length === 0) return null;
+ 
++  function keepOpen(event: MouseEvent) {
++    if (wide) event.preventDefault();
++  }
++
+   return (
+     <nav className="toc" aria-labelledby="toc-heading" data-testid="toc">
+-      <h2 id="toc-heading" className="toc-heading">
+-        On this page
+-      </h2>
+-      <ol className="toc-list">
+-        {headings.map((heading) => (
+-          <li key={heading.id} className={heading.level === 3 ? 'toc-item toc-item-nested' : 'toc-item'}>
+-            <a href={`#${heading.id}`} className="toc-link" data-testid="toc-link">
+-              {heading.text}
+-            </a>
+-          </li>
+-        ))}
+-      </ol>
++      <details
++        className="toc-disclosure"
++        open={wide || open}
++        onToggle={(event) => {
++          if (!wide) setOpen(event.currentTarget.open);
++        }}
++      >
++        <summary className="toc-summary" onClick={keepOpen} tabIndex={wide ? -1 : undefined}>
++          <h2 id="toc-heading" className="toc-heading">
++            On this page
++          </h2>
++          <svg className="icon toc-chevron" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
++            <path d="M4,6L8,10L12,6" />
++          </svg>
++        </summary>
++        <ol className="toc-list">
++          {headings.map((heading) => (
++            <li key={heading.id} className={heading.level === 3 ? 'toc-item toc-item-nested' : 'toc-item'}>
++              <a href={`#${heading.id}`} className="toc-link" data-testid="toc-link">
++                {heading.text}
++              </a>
++            </li>
++          ))}
++        </ol>
++      </details>
+     </nav>
+   );
+ }
+diff --git a/src/components/TagChip.tsx b/src/components/TagChip.tsx
+index ef5314f..9495249 100644
+--- a/src/components/TagChip.tsx
++++ b/src/components/TagChip.tsx
+@@ -2,7 +2,7 @@ import { TAG_LABELS, type TagId } from '../data/posts';
+ 
+ export default function TagChip({ tag }: { tag: TagId }) {
+   return (
+-    <span className="tag-chip" data-testid="post-tag">
++    <span className="badge tag-chip" data-testid="post-tag">
+       {TAG_LABELS[tag]}
+     </span>
+   );
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..6795e1c 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -1,7 +1,13 @@
+ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
++import '@fontsource/source-serif-4/400.css';
++import '@fontsource/source-serif-4/500.css';
++import '@fontsource/instrument-sans/400.css';
++import '@fontsource/instrument-sans/500.css';
++import '@fontsource/jetbrains-mono/400.css';
+ import App from './App';
++import '../design-system/tokens.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/AboutPage.tsx b/src/pages/AboutPage.tsx
+index 173a48c..b0e4b09 100644
+--- a/src/pages/AboutPage.tsx
++++ b/src/pages/AboutPage.tsx
+@@ -1,17 +1,26 @@
++import type { CSSProperties } from 'react';
+ import { Link } from 'react-router';
+ import { authors } from '../data/authors';
+ import { posts } from '../data/posts';
++import { fountainPen, openBook } from '../ink/drawings';
++import { avatarTone } from '../ink/ink';
++import Pictogram from '../ink/Pictogram';
++import WriteIn from '../ink/WriteIn';
+ 
+ export default function AboutPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>About Field Notes</h1>
+-        <p className="muted">A small publication about the unglamorous parts of making software.</p>
++      <div className="page-header masthead">
++        <Pictogram drawing={fountainPen} accent />
++        <WriteIn as="h1" when="load" className="page-title" text="About Field Notes" />
++        <p className="page-lede">A small publication about the unglamorous parts of making software.</p>
+       </div>
+ 
+-      <section className="prose" aria-labelledby="about-why-heading">
+-        <h2 id="about-why-heading">Why we write</h2>
++      <section className="section prose prose-section" aria-labelledby="about-why-heading" data-rise="text">
++        <div className="section-opener">
++          <Pictogram drawing={openBook} size="md" />
++          <WriteIn as="h2" id="about-why-heading" className="section-title" text="Why we write" />
++        </div>
+         <p>
+           Field Notes started as an internal wiki page where we collected things we wished someone had told us sooner.
+           Over time the page grew long enough that colleagues at other companies started asking for the link, so we
+@@ -27,19 +36,23 @@ export default function AboutPage() {
+         </p>
+       </section>
+ 
+-      <section className="authors" aria-labelledby="about-authors-heading">
+-        <h2 id="about-authors-heading">The authors</h2>
++      <section className="section authors" aria-labelledby="about-authors-heading">
++        <WriteIn as="h2" id="about-authors-heading" className="section-title" text="The authors" />
+         <ul className="author-list">
+-          {authors.map((author) => (
+-            <li key={author.id}>
+-              <article className="author-card" data-testid="author-card">
+-                <span className="avatar" aria-hidden="true">
++          {authors.map((author, i) => (
++            <li key={author.id} data-rise="card" style={{ '--rise-i': i } as CSSProperties}>
++              <article className="card author-card" data-testid="author-card">
++                <span
++                  className="avatar"
++                  aria-hidden="true"
++                  style={{ '--stage': `var(--color-stage-${avatarTone(author.name)})` } as CSSProperties}
++                >
+                   {author.initials}
+                 </span>
+-                <div>
+-                  <h3>{author.name}</h3>
+-                  <p className="muted small">{author.role}</p>
+-                  <p>{author.bio}</p>
++                <div className="author-text">
++                  <h3 className="card-title">{author.name}</h3>
++                  <p className="card-meta">{author.role}</p>
++                  <p className="card-text">{author.bio}</p>
+                 </div>
+               </article>
+             </li>
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index 4e9f0fb..17144c7 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -1,14 +1,21 @@
+-import { useState } from 'react';
++import { useState, type CSSProperties } from 'react';
+ import { Link } from 'react-router';
+ import PostCard from '../components/PostCard';
+ import PostMeta from '../components/PostMeta';
+ import TagChip from '../components/TagChip';
+ import { getFeaturedPost, posts, TAGS, type TagId } from '../data/posts';
++import { indexCard, notebook } from '../ink/drawings';
++import Pictogram from '../ink/Pictogram';
++import { postArt } from '../ink/postArt';
++import { DrawingStage } from '../ink/Stage';
++import WriteIn from '../ink/WriteIn';
++import { CloseIcon, SearchIcon } from '../ink/Working';
+ 
+ type TagFilter = TagId | 'all';
+ 
+ export default function HomePage() {
+   const featured = getFeaturedPost();
++  const featuredArt = postArt(featured);
+   const listPosts = posts.filter((post) => post.slug !== featured.slug);
+   const [activeTag, setActiveTag] = useState<TagFilter>('all');
+   const [query, setQuery] = useState('');
+@@ -29,57 +36,47 @@ export default function HomePage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Field Notes</h1>
+-        <p className="muted">Essays on building software, writing clearly and working well together.</p>
++      <div className="page-header masthead">
++        <Pictogram drawing={notebook} accent />
++        <WriteIn as="h1" when="load" className="page-title" text="Field Notes" />
++        <p className="page-lede">Essays on building software, writing clearly and working well together.</p>
+       </div>
+ 
+-      <section className="featured" aria-labelledby="featured-heading">
+-        <h2 id="featured-heading" className="section-label">
++      <section className="section featured" aria-labelledby="featured-heading">
++        <h2 id="featured-heading" className="eyebrow">
+           Featured
+         </h2>
+         <article className="featured-post" data-testid="featured-post">
+-          <h3 className="featured-title">
+-            <Link to={`/posts/${featured.slug}`} data-testid="featured-post-link">
+-              {featured.title}
+-            </Link>
+-          </h3>
+-          <PostMeta post={featured} />
+-          <p className="featured-excerpt">{featured.excerpt}</p>
+-          <ul className="tag-list" aria-label="Tags">
+-            {featured.tags.map((tag) => (
+-              <li key={tag}>
+-                <TagChip tag={tag} />
+-              </li>
+-            ))}
+-          </ul>
++          <DrawingStage tone={featuredArt.tone} drawing={featuredArt.drawing} lines={0} />
++          <div className="featured-body">
++            <h3 className="featured-title">
++              <Link to={`/posts/${featured.slug}`} className="stretched-link" data-testid="featured-post-link">
++                {featured.title}
++              </Link>
++            </h3>
++            <PostMeta post={featured} />
++            <p className="featured-excerpt">{featured.excerpt}</p>
++            <ul className="tag-list" aria-label="Tags">
++              {featured.tags.map((tag) => (
++                <li key={tag}>
++                  <TagChip tag={tag} />
++                </li>
++              ))}
++            </ul>
++          </div>
+         </article>
+       </section>
+ 
+-      <section className="post-list-section" aria-labelledby="posts-heading">
+-        <h2 id="posts-heading">More posts</h2>
++      <section className="section post-list-section" aria-labelledby="posts-heading">
++        <WriteIn as="h2" id="posts-heading" className="section-title" text="More posts" />
+ 
+         <div className="filter-bar">
+-          <div className="field">
+-            <label htmlFor="post-search" className="field-label">
+-              Search posts
+-            </label>
+-            <input
+-              id="post-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search by title or summary"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="post-search"
+-            />
+-          </div>
+           <div role="group" aria-label="Filter by tag" className="tag-filter" data-testid="tag-filter">
+             {filterOptions.map((option) => (
+               <button
+                 key={option.id}
+                 type="button"
+-                className="button tag-filter-button"
++                className="btn btn--tertiary chip tag-filter-button"
+                 aria-pressed={activeTag === option.id}
+                 onClick={() => setActiveTag(option.id)}
+                 data-testid={`tag-filter-${option.id}`}
+@@ -88,25 +85,48 @@ export default function HomePage() {
+               </button>
+             ))}
+           </div>
++          <div className="field search-field">
++            <label htmlFor="post-search" className="field-label visually-hidden">
++              Search posts
++            </label>
++            <div className="search-control">
++              <SearchIcon />
++              <input
++                id="post-search"
++                type="search"
++                className="input input--search"
++                placeholder="Search by title or summary"
++                value={query}
++                onChange={(event) => setQuery(event.target.value)}
++                data-testid="post-search"
++              />
++              {query && (
++                <button type="button" className="search-clear" aria-label="Clear search" onClick={() => setQuery('')}>
++                  <CloseIcon />
++                </button>
++              )}
++            </div>
++          </div>
+         </div>
+ 
+-        <p className="muted small" aria-live="polite" data-testid="result-count">
++        <p className="result-count" aria-live="polite" data-testid="result-count">
+           Showing {visible.length} of {listPosts.length} posts
+         </p>
+ 
+         {visible.length > 0 ? (
+-          <ul className="post-list">
+-            {visible.map((post) => (
+-              <li key={post.slug}>
++          <ul className="card-grid post-list">
++            {visible.map((post, i) => (
++              <li key={post.slug} data-rise="card" style={{ '--rise-i': i % 3 } as CSSProperties}>
+                 <PostCard post={post} />
+               </li>
+             ))}
+           </ul>
+         ) : (
+           <div className="empty-state" data-testid="posts-empty">
+-            <h3>No posts match these filters</h3>
+-            <p className="muted">Try a different tag or a shorter search.</p>
+-            <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++            <Pictogram drawing={indexCard} />
++            <WriteIn as="h3" className="empty-title" text="No posts match these filters" />
++            <p className="empty-text">Try a different tag or a shorter search.</p>
++            <button type="button" className="btn btn--secondary" onClick={clearFilters} data-testid="clear-filters">
+               Clear filters
+             </button>
+           </div>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index d0cb7f0..aa558bd 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,22 @@
+ import { Link } from 'react-router';
++import { lantern } from '../ink/drawings';
++import Pictogram from '../ink/Pictogram';
++import WriteIn from '../ink/WriteIn';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to the home page</Link>
++    <section className="empty-state empty-state--page" data-testid="not-found">
++      <Pictogram drawing={lantern} size="xl" accent />
++      <WriteIn as="h1" when="load" className="page-title" text="Page not found" />
++      <p className="empty-text">The page you are looking for does not exist or has moved.</p>
++      <div className="actions">
++        <Link to="/" className="btn btn--primary">
++          Go to the home page
++        </Link>
++        <Link to="/about" className="btn btn--secondary">
++          About this blog
++        </Link>
++      </div>
+     </section>
+   );
+ }
+diff --git a/src/pages/PostPage.tsx b/src/pages/PostPage.tsx
+index 2976cb4..cb60c32 100644
+--- a/src/pages/PostPage.tsx
++++ b/src/pages/PostPage.tsx
+@@ -1,3 +1,4 @@
++import type { CSSProperties } from 'react';
+ import { Link, useParams } from 'react-router';
+ import ArticleBody from '../components/ArticleBody';
+ import PostCard from '../components/PostCard';
+@@ -5,6 +6,12 @@ import PostMeta from '../components/PostMeta';
+ import TableOfContents from '../components/TableOfContents';
+ import TagChip from '../components/TagChip';
+ import { findPost, getRelatedPosts } from '../data/posts';
++import { lantern } from '../ink/drawings';
++import { nextTone } from '../ink/ink';
++import Pictogram from '../ink/Pictogram';
++import { postArt } from '../ink/postArt';
++import { DrawingStage } from '../ink/Stage';
++import WriteIn from '../ink/WriteIn';
+ 
+ export default function PostPage() {
+   const { slug } = useParams();
+@@ -12,18 +19,27 @@ export default function PostPage() {
+ 
+   if (!post) {
+     return (
+-      <div className="empty-state" data-testid="post-not-found">
+-        <h1>Post not found</h1>
+-        <p className="muted">There is no post at “{slug}”. It may have been renamed.</p>
+-        <Link to="/">Back to all posts</Link>
++      <div className="empty-state empty-state--page" data-testid="post-not-found">
++        <Pictogram drawing={lantern} size="xl" accent />
++        <WriteIn as="h1" when="load" className="page-title" text="Post not found" />
++        <p className="empty-text">There is no post at “{slug}”. It may have been renamed.</p>
++        <div className="actions">
++          <Link to="/" className="btn btn--primary">
++            Back to all posts
++          </Link>
++          <Link to="/about" className="btn btn--secondary">
++            About this blog
++          </Link>
++        </div>
+       </div>
+     );
+   }
+ 
+   const related = getRelatedPosts(post);
++  const { drawing, tone } = postArt(post);
+ 
+   return (
+-    <>
++    <div className="article-page" key={post.slug}>
+       <nav aria-label="Breadcrumb" className="breadcrumb">
+         <ol>
+           <li>
+@@ -33,39 +49,39 @@ export default function PostPage() {
+         </ol>
+       </nav>
+ 
+-      <div className="article-layout">
+-        <article className="article" data-testid="article">
+-          <header className="article-header">
+-            <h1 data-testid="article-title">{post.title}</h1>
+-            <PostMeta post={post} detailed />
+-            <ul className="tag-list" aria-label="Tags">
+-              {post.tags.map((tag) => (
+-                <li key={tag}>
+-                  <TagChip tag={tag} />
+-                </li>
+-              ))}
+-            </ul>
+-          </header>
+-          <ArticleBody blocks={post.body} />
+-        </article>
+-
++      <article className="article" data-testid="article">
++        <header className="article-header">
++          <WriteIn as="h1" when="load" className="article-title" data-testid="article-title" text={post.title} />
++          <PostMeta post={post} detailed />
++          <ul className="tag-list" aria-label="Tags">
++            {post.tags.map((tag) => (
++              <li key={tag}>
++                <TagChip tag={tag} />
++              </li>
++            ))}
++          </ul>
++        </header>
++        <div className="article-lead">
++          <DrawingStage tone={tone} drawing={drawing} lines={2} />
++        </div>
+         <aside className="article-aside">
+           <TableOfContents blocks={post.body} />
+         </aside>
+-      </div>
++        <ArticleBody blocks={post.body} figureTone={nextTone(tone, 1)} />
++      </article>
+ 
+       {related.length > 0 && (
+-        <section className="related" aria-labelledby="related-heading" data-testid="related-posts">
+-          <h2 id="related-heading">Related posts</h2>
+-          <ul className="post-list post-list-grid">
+-            {related.map((item) => (
+-              <li key={item.slug}>
++        <section className="section related" aria-labelledby="related-heading" data-testid="related-posts">
++          <WriteIn as="h2" id="related-heading" className="section-title" text="Related posts" />
++          <ul className="card-grid post-list">
++            {related.map((item, i) => (
++              <li key={item.slug} data-rise="card" style={{ '--rise-i': i } as CSSProperties}>
+                 <PostCard post={item} testId="related-post" linkTestId="related-post-link" />
+               </li>
+             ))}
+           </ul>
+         </section>
+       )}
+-    </>
++    </div>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 7b07d1b..6e2bcfb 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,57 +1,17 @@
+ /*
+- * Base styles for the Field Notes blog.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Field Notes on Inkleaf 1.1.0-rc.3. Every value comes from design-system/tokens.css; the rules follow
++ * the specification's recipes. Breakpoints: md 834px, lg 992px, xl 1200px.
+  */
++
++/* ---------- Root ---------- */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-header-bg: #ffffff;
+-  --color-footer-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-error: #b00020;
+-  --color-success: #2e7d32;
+-  --color-success-bg: #e8f5e9;
+-  --color-tag-bg: #eeeeee;
+-  --color-tag-text: #444444;
+-  --color-pressed-bg: #dde6f5;
+-  --color-quote-border: #cccccc;
+-  --color-code-bg: #f5f5f5;
+-  --color-code-text: #222222;
+-  --color-placeholder-bg: #eeeeee;
+-  --color-placeholder-shape: #cccccc;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-heading: var(--font-body);
+-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+-  --font-size-base: 16px;
+-  --font-size-small: 13px;
+-  --font-size-code: 14px;
+-  --font-size-h1: 28px;
+-  --font-size-h2: 21px;
+-  --font-size-h3: 17px;
+-  --line-height: 1.6;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --space-12: 48px;
+-  --container-width: 960px;
+-  --measure: 680px;
+-  --toc-width: 220px;
++  color-scheme: light dark;
++}
++:root[data-theme='light'] {
++  color-scheme: light;
++}
++:root[data-theme='dark'] {
++  color-scheme: dark;
+ }
+ 
+ *,
+@@ -63,50 +23,59 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ html {
+-  scroll-padding-top: var(--space-4);
++  scroll-padding-top: calc(var(--size-header) + var(--space-24));
++  -webkit-text-size-adjust: 100%;
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
++}
++
++pre,
++code,
++kbd,
++samp {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-small);
+ }
+ 
+ h1,
+ h2,
+-h3 {
+-  font-family: var(--font-heading);
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
+-}
+-
+-h1 {
+-  font-size: var(--font-size-h1);
+-}
+-
+-h2 {
+-  font-size: var(--font-size-h2);
+-}
+-
+-h3 {
+-  font-size: var(--font-size-h3);
++h3,
++h4,
++h5 {
++  margin: 0;
++  font-family: var(--font-family-serif);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++  text-wrap: balance;
++  max-width: var(--size-measure-heading);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-3);
++  margin: 0;
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: inherit;
++}
++
++button,
++input {
++  font: inherit;
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-ring) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
+@@ -124,26 +93,562 @@ a {
+ 
+ .skip-link {
+   position: absolute;
+-  left: -9999px;
++  left: calc(-100 * var(--space-96));
++  top: var(--space-16);
++  z-index: 30;
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-16);
++}
++
++.icon {
++  flex: none;
++  width: var(--size-icon);
++  height: var(--size-icon);
++  fill: none;
++  stroke: currentColor;
++  stroke-width: 1.5;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++}
++
++/* Inline links: ink text, a quiet underline that inks on hover. */
++.prose a,
++.article-body a {
++  color: var(--color-text-primary);
++  text-decoration: underline;
++  text-decoration-thickness: var(--border-width-hairline);
++  text-decoration-color: var(--color-border-strong);
++  text-underline-offset: 3px;
++  transition: text-decoration-color var(--motion-duration-press) var(--motion-easing-hover);
++}
++
++.prose a:hover,
++.article-body a:hover {
++  text-decoration-color: var(--color-text-primary);
++}
++
++/* ---------- Signature: cel-drawn ink pictogram ---------- */
++.picto {
++  display: block;
++  flex: none;
++  width: var(--size-picto-lg);
++  aspect-ratio: 1;
++  overflow: hidden;
++  color: var(--color-pictogram-ink);
++}
++.picto-ink {
++  fill: none;
++  stroke: currentColor;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++}
++.picto-fill {
++  fill: var(--picto-fill, var(--color-pictogram-fill));
++  transform: translate(3px, 2px);
++}
++.picto--sm {
++  width: var(--size-picto-sm);
++}
++.picto--sm .picto-fill {
++  transform: translate(6px, 5px);
++}
++.picto--md {
++  width: var(--size-picto-md);
++}
++.picto--xl {
++  width: var(--size-picto-xl);
++}
++.picto--hero {
++  width: var(--size-picto-hero);
++}
++@media (max-width: 833px) {
++  .picto--hero {
++    width: var(--size-picto-xl);
++  }
++}
++.cel-strip {
++  transform: translateX(calc((1 - var(--n)) * 120px));
++}
++.picto.is-ready .cel-strip {
++  transform: translateX(0);
++}
++.picto.is-playing .cel-strip {
++  animation: cel-run calc(var(--n) * var(--motion-duration-frame)) steps(var(--n), jump-none) forwards;
++}
++.picto.is-boiling .cel-strip {
++  animation: cel-boil calc(3 * var(--motion-duration-frame)) steps(3, jump-none) infinite;
++}
++@keyframes cel-run {
++  from {
++    transform: translateX(0);
++  }
++  to {
++    transform: translateX(calc((1 - var(--n)) * 120px));
++  }
++}
++@keyframes cel-boil {
++  from {
++    transform: translateX(calc((3 - var(--n)) * 120px));
++  }
++  to {
++    transform: translateX(calc((1 - var(--n)) * 120px));
++  }
++}
++@media (prefers-reduced-motion: reduce) {
++  .picto:is(.is-ready, .is-playing, .is-boiling) .cel-strip {
++    animation: none;
++    transform: translateX(calc((1 - var(--n)) * 120px));
++  }
++}
++
++/* ---------- Signature: pastel stage with wandering lines ---------- */
++.stage {
++  position: relative;
++  isolation: isolate;
++  overflow: hidden;
++  display: grid;
++  align-items: center;
++  margin: 0;
++  padding: var(--space-48);
++  border-radius: var(--radius-stage);
++  background: var(--stage);
++}
++.stage--media {
++  aspect-ratio: 16 / 9;
++}
++.stage-lines {
++  position: absolute;
++  inset: 0;
++  width: 100%;
++  height: 100%;
++  z-index: -1;
++  pointer-events: none;
++}
++.stage-lines path {
++  fill: none;
++  stroke: color-mix(in srgb, var(--stage) 70%, var(--color-stage-line-mix));
++  stroke-width: 8;
++  stroke-linecap: round;
++  vector-effect: non-scaling-stroke;
++  opacity: var(--opacity-stage-line);
++}
++.stage-content {
++  min-width: 0;
++}
++.stage-content > .card {
++  box-shadow:
++    inset 0 0 0 var(--border-width-hairline) var(--color-border-default),
++    var(--shadow-float);
++}
++.stage--drawing {
++  aspect-ratio: 4 / 3;
++  max-height: calc(var(--size-picto-hero) * 1.25);
++}
++.plate {
++  position: relative;
++  isolation: isolate;
++  aspect-ratio: 4 / 3;
++  max-height: calc(var(--size-picto-hero) * 1.25);
++  overflow: hidden;
++  border-radius: var(--radius-tile);
++  background: var(--stage);
++}
++.stage--drawing .picto,
++.plate .picto {
++  position: absolute;
++  left: 50%;
++  top: 50%;
++  width: auto;
++  height: min(92%, var(--size-picto-hero));
++  translate: -50% -50%;
++}
++:is(.stage--drawing, .plate) .picto.wrist-bottom {
++  top: auto;
++  bottom: 0;
++  translate: -50% 0;
++}
++:is(.stage--drawing, .plate) .picto.wrist-top {
++  top: 0;
++  translate: -50% 0;
++}
++:is(.stage--drawing, .plate) .picto.wrist-right {
++  left: auto;
++  right: 0;
++  translate: 0 -50%;
++}
++:is(.stage--drawing, .plate) .picto.wrist-left {
++  left: 0;
++  translate: 0 -50%;
++}
++@media (max-width: 833px) {
++  .stage {
++    padding: var(--space-24);
++    border-radius: var(--radius-card);
++  }
++}
++
++/* Ghosted preview: the system's own surfaces standing in for an information figure. */
++.ghost-figure {
++  margin: 0;
++  display: grid;
++  gap: var(--space-12);
++}
++.ghost-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-48) * 2), 1fr));
++  gap: var(--space-12);
++  padding: var(--space-16);
++}
++.ghost-compare {
++  display: grid;
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: var(--space-12);
++  padding: var(--space-16);
++}
++.ghost-flow {
++  display: flex;
++  align-items: center;
++  padding: var(--space-16);
++}
++.ghost-step {
++  display: flex;
++  flex: 1;
++  align-items: center;
++  min-width: 0;
++}
++.ghost-step .ghost-tile {
++  flex: 1;
++  min-width: 0;
++}
++.ghost-link {
++  flex: 0 0 var(--space-24);
++  height: var(--border-width-hairline);
++  background: var(--color-border-strong);
++}
++.ghost-tile {
++  display: grid;
++  gap: var(--space-8);
++  align-content: start;
++  padding: var(--space-12);
++  border-radius: var(--radius-tile);
++  background: var(--color-surface-subtle);
++  min-height: calc(var(--space-24) * 3);
++}
++.ghost-bar {
++  display: block;
++  height: var(--space-8);
++  border-radius: var(--radius-badge);
++  background: var(--color-border-default);
++}
++.ghost-bar--mark {
++  background: var(--color-text-primary);
++}
++
++/* ---------- Signature: serif headline that writes itself in ---------- */
++.write-in .w {
++  opacity: 0;
++  transition: opacity var(--motion-duration-reveal) var(--motion-easing-settle)
++    calc(var(--i) * var(--motion-duration-stagger));
++}
++.write-in.is-in .w {
++  opacity: 1;
++}
++@media (prefers-reduced-motion: reduce) {
++  .write-in .w {
++    opacity: 1;
++    transition: none;
++  }
++}
++
++/* ---------- Signature: written-loop working glyph ---------- */
++.working {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-8);
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
++}
++.btn .working {
++  font-size: inherit;
++  color: inherit;
++}
++.glyph {
++  width: calc(var(--size-icon) * 1.5);
++  height: var(--size-icon);
++  overflow: visible;
++}
++.glyph path {
++  fill: none;
++  stroke: var(--color-accent-glyph);
++  stroke-width: 1.75;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++  stroke-dasharray: 1;
++  stroke-dashoffset: 1;
++  animation: glyph-write var(--motion-duration-glyph) linear infinite;
++}
++@keyframes glyph-write {
++  0% {
++    stroke-dashoffset: 1;
++    animation-timing-function: steps(12, jump-start);
++  }
++  75%,
++  87.5% {
++    stroke-dashoffset: 0;
++    animation-timing-function: steps(2, jump-start);
++  }
++  100% {
++    stroke-dashoffset: -1;
++  }
++}
++.dot-breathe {
++  display: inline-block;
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: currentColor;
++  animation: breathe var(--motion-duration-breathe) var(--motion-easing-hover) infinite;
++}
++@keyframes breathe {
++  0%,
++  100% {
++    opacity: var(--opacity-breathe-low);
++  }
++  50% {
++    opacity: 1;
++  }
++}
++@media (prefers-reduced-motion: reduce) {
++  .glyph path {
++    animation: none;
++    stroke-dashoffset: 0;
++  }
++  .dot-breathe {
++    animation: none;
++  }
++}
++
++.check-circle {
++  flex: none;
++  width: var(--size-icon);
++  height: var(--size-icon);
++  margin-top: calc((1lh - var(--size-icon)) / 2);
++}
++.check-circle circle {
++  fill: var(--color-text-primary);
++}
++.check-circle path {
++  fill: none;
++  stroke: var(--color-surface-raised);
++  stroke-width: 1.75;
++  stroke-linecap: round;
++  stroke-linejoin: round;
+ }
+ 
+-.muted {
+-  color: var(--color-text-muted);
++/* ---------- Signature: ink-and-paper ring controls ---------- */
++.btn {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-8);
++  height: var(--size-control);
++  padding: 0 var(--space-16);
++  border: 0;
++  border-radius: var(--radius-control);
++  font: var(--font-weight-medium) var(--font-size-ui) / 1 var(--font-family-sans);
++  white-space: nowrap;
++  text-decoration: none;
++  cursor: pointer;
++  transition:
++    box-shadow var(--motion-duration-hover) var(--motion-easing-hover),
++    color var(--motion-duration-press) var(--motion-easing-hover),
++    background-color var(--motion-duration-press) var(--motion-easing-hover),
++    transform var(--motion-duration-press) var(--motion-easing-hover);
++}
++.btn--primary {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  box-shadow: 0 0 0 0 var(--color-action-primary-hover);
++}
++.btn--primary:hover {
++  box-shadow: 0 0 0 var(--border-width-ring) var(--color-action-primary-hover);
++}
++.btn--secondary {
++  background: var(--color-action-secondary);
++  color: var(--color-text-secondary);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-control);
++}
++.btn--secondary:hover {
++  color: var(--color-text-primary);
++  box-shadow: inset 0 0 0 var(--border-width-ring) var(--color-border-strong);
++}
++.btn--tertiary {
++  background: var(--color-action-tertiary);
++  color: var(--color-text-primary);
++}
++.btn--tertiary:hover {
++  background: var(--color-action-tertiary-hover);
++}
++.btn:active:not(:disabled) {
++  transform: scale(0.985);
++}
++.btn:focus-visible {
++  outline-offset: 4px;
++}
++.btn:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-disabled);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-default);
++  cursor: not-allowed;
++}
++.btn--block {
++  display: flex;
++  width: 100%;
++}
++@media (prefers-reduced-motion: reduce) {
++  .btn:active:not(:disabled) {
++    transform: none;
++  }
++}
++
++/* Filter chips: tertiary stone, selected ink. */
++.chip {
++  border-radius: var(--radius-chip);
++}
++.chip[aria-pressed='true'],
++.chip[aria-pressed='true']:hover {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+ }
+ 
+-.small {
++/* ---------- Fields ---------- */
++.field-label {
++  display: block;
++  margin-bottom: var(--space-8);
++  font-size: var(--font-size-ui);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-title);
++}
++.field-row {
++  display: flex;
++  gap: var(--space-12);
++  max-width: var(--size-form);
++}
++.input {
++  flex: 1 1 auto;
++  width: 100%;
++  min-width: 0;
++  height: var(--size-control);
++  flex-shrink: 0;
++  padding: 0 var(--space-12);
++  border: 0;
++  border-radius: var(--radius-control);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-ui);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-strong);
++  transition: box-shadow var(--motion-duration-hover) var(--motion-easing-hover);
++}
++.field-row .input {
++  flex-shrink: 1;
++}
++.input::placeholder {
++  color: var(--color-text-tertiary);
++  opacity: 1;
++}
++.input:hover {
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-check);
++}
++.input[aria-invalid='true'] {
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-status-danger);
++}
++.form-error {
++  margin-top: var(--space-6);
+   font-size: var(--font-size-small);
++  color: var(--color-status-danger);
++}
++@media (max-width: 833px) {
++  .field-row {
++    flex-direction: column;
++  }
++  .field-row .btn {
++    display: flex;
++    width: 100%;
++  }
++}
++
++.search-field {
++  flex: 0 1 calc(var(--space-64) * 5);
++  min-width: 0;
++}
++.search-control {
++  position: relative;
++  display: flex;
++  align-items: center;
++}
++.search-control > .icon {
++  position: absolute;
++  left: var(--space-12);
++  color: var(--color-text-tertiary);
++  pointer-events: none;
++}
++.input--search {
++  padding-left: var(--space-40);
++  padding-right: var(--space-40);
++  -webkit-appearance: none;
++  appearance: none;
++}
++.input--search::-webkit-search-cancel-button {
++  -webkit-appearance: none;
++  appearance: none;
++}
++.search-clear {
++  position: absolute;
++  right: var(--space-4);
++  display: inline-grid;
++  place-items: center;
++  width: var(--size-control-sm);
++  height: var(--size-control-sm);
++  padding: 0;
++  border: 0;
++  border-radius: var(--radius-chip);
++  background: transparent;
++  color: var(--color-text-secondary);
++  cursor: pointer;
++  transition: background-color var(--motion-duration-press) var(--motion-easing-hover);
++}
++.search-clear:hover {
++  background: var(--color-surface-hover);
++  color: var(--color-text-primary);
+ }
+ 
+-/* Layout */
++/* ---------- Badge ---------- */
++.tag-list {
++  list-style: none;
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-6);
++  margin: 0;
++  padding: 0;
++}
++.badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  height: var(--space-24);
++  padding: 0 var(--space-8);
++  border-radius: var(--radius-badge);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-medium);
++  line-height: 1;
++  white-space: nowrap;
++  color: var(--color-text-secondary);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-control);
++}
++
++/* ---------- Layout ---------- */
+ .site-shell {
+   display: flex;
+   flex-direction: column;
+@@ -152,411 +657,824 @@ a {
+ 
+ .container {
+   width: 100%;
+-  max-width: var(--container-width);
+-  margin: 0 auto;
+-  padding: 0 var(--space-4);
++  max-width: var(--size-container);
++  margin-inline: auto;
++  padding-inline: clamp(var(--space-20), 4vw, var(--space-64));
+ }
+ 
+ .site-header {
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  position: sticky;
++  top: 0;
++  z-index: 20;
++  background: var(--color-surface-default);
++  box-shadow: inset 0 calc(-1 * var(--border-width-hairline)) 0 var(--color-border-default);
++  animation: header-in var(--motion-duration-reveal) var(--motion-easing-settle) both;
++}
++@keyframes header-in {
++  from {
++    opacity: 0;
++    transform: translateY(calc(-1 * var(--motion-distance-rise)));
++  }
+ }
+ 
+ .site-header-inner {
+   display: flex;
+-  justify-content: space-between;
+   align-items: center;
+-  gap: var(--space-4);
+-  padding-top: var(--space-3);
+-  padding-bottom: var(--space-3);
++  justify-content: space-between;
++  gap: var(--space-16);
++  height: var(--size-header);
+ }
+ 
+ .brand {
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  font-weight: 700;
+-  color: var(--color-text);
++  min-height: var(--size-touch);
++  font-family: var(--font-family-serif);
++  font-size: var(--font-size-h5);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-primary);
+   text-decoration: none;
+ }
+ 
+-.brand-mark {
+-  flex-shrink: 0;
+-}
+-
+ .nav-list {
+   list-style: none;
+   display: flex;
+-  gap: var(--space-4);
++  gap: var(--space-16);
+   margin: 0;
+   padding: 0;
+ }
+ 
+ .nav-link {
+-  color: var(--color-link);
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control-sm);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-control);
++  font-size: var(--font-size-ui);
++  color: var(--color-text-secondary);
++  text-decoration: none;
++  transition: color var(--motion-duration-nav) var(--motion-easing-expo);
+ }
+-
++.nav-link:hover,
+ .nav-link.active {
+-  font-weight: 700;
+-  color: var(--color-text);
++  color: var(--color-text-primary);
++}
++.nav-link.active {
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .content {
+   flex: 1;
+-  padding-top: var(--space-6);
+-  padding-bottom: var(--space-12);
++  padding-bottom: var(--space-96);
+ }
+-
+ .content:focus {
+   outline: none;
+ }
+ 
+ .site-footer {
+-  background: var(--color-footer-bg);
+-  border-top: var(--border-width) solid var(--color-border);
++  box-shadow: inset 0 var(--border-width-hairline) 0 var(--color-border-default);
+ }
+-
+-.site-footer-inner {
+-  padding-top: var(--space-6);
+-  padding-bottom: var(--space-6);
++.footer-note {
++  padding: var(--space-24) 0;
++  box-shadow: inset 0 var(--border-width-hairline) 0 var(--color-border-default);
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
+ }
+ 
+-.page-header {
+-  margin-bottom: var(--space-6);
++/* Sections: wide gaps, so the drawings have room. */
++.section {
++  margin-top: var(--space-96);
+ }
+-
+-/* Controls */
+-.field {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
++@media (min-width: 1200px) {
++  .section {
++    margin-top: var(--space-128);
++  }
+ }
+-
+-.field-label {
+-  display: block;
+-  font-weight: 600;
+-  margin-bottom: var(--space-1);
++@media (max-width: 833px) {
++  .section {
++    margin-top: var(--space-64);
++  }
+ }
+ 
+-.field-row {
+-  display: flex;
+-  gap: var(--space-2);
+-  max-width: 480px;
++.section-title {
++  font-size: clamp(var(--font-size-plan), 5vw, var(--font-size-h2));
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++}
++.section-lede {
++  margin-top: var(--space-16);
++  max-width: var(--size-measure);
++  font-size: var(--font-size-lede);
++  line-height: var(--font-line-height-lede);
++  color: var(--color-text-secondary);
++}
++.eyebrow {
++  margin-bottom: var(--space-24);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-micro);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-micro);
++  text-transform: uppercase;
++  color: var(--color-text-tertiary);
+ }
+ 
+-.input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
+-  flex: 1;
++/* Masthead: drawing, space.24, h1, space.16, lede. */
++.page-header {
++  display: grid;
++  justify-items: start;
++  padding-top: var(--space-64);
++}
++.masthead .picto {
++  margin-bottom: var(--space-24);
++}
++.page-title {
++  font-size: clamp(var(--font-size-h3), 5vw, var(--font-size-h1));
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-tight);
++}
++.page-lede {
++  margin-top: var(--space-16);
++  max-width: var(--size-measure);
++  font-size: var(--font-size-lede);
++  line-height: var(--font-line-height-lede);
++  color: var(--color-text-secondary);
++  animation: rise-sm var(--motion-duration-rise) var(--motion-easing-settle) 200ms both;
++}
++@keyframes rise-sm {
++  from {
++    opacity: 0;
++    transform: translateY(var(--motion-distance-rise-sm));
++  }
+ }
+-
+-.input[aria-invalid='true'] {
+-  border-color: var(--color-error);
++@media (max-width: 833px) {
++  .page-header {
++    padding-top: var(--space-48);
++  }
++  .page-lede,
++  .section-lede {
++    font-size: var(--font-size-body-lg);
++  }
+ }
+ 
+-.button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
++/* Block rise: only script hides a block, and only below the fold. */
++[data-rise] {
++  transition:
++    opacity var(--motion-duration-rise) var(--motion-easing-settle) calc(var(--rise-i, 0) * 100ms),
++    transform var(--motion-duration-rise) var(--motion-easing-settle) calc(var(--rise-i, 0) * 100ms);
+ }
+-
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++[data-rise].is-rise-ready {
++  opacity: 0;
++  transform: translateY(var(--motion-distance-rise));
+ }
+-
+-.form-error {
+-  color: var(--color-error);
+-  font-size: var(--font-size-small);
+-  margin: var(--space-2) 0 0;
++[data-rise='text'].is-rise-ready {
++  transform: translateY(var(--motion-distance-rise-sm));
++}
++@media print {
++  [data-rise].is-rise-ready {
++    opacity: 1;
++    transform: none;
++  }
+ }
+ 
+-.form-success {
+-  background: var(--color-success-bg);
+-  color: var(--color-success);
+-  border-radius: var(--radius);
+-  padding: var(--space-2) var(--space-3);
+-  max-width: 480px;
++/* ---------- Card ---------- */
++.card {
++  background: var(--color-surface-raised);
++  border-radius: var(--radius-card);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-default);
++  padding: var(--space-32);
++}
++@media (max-width: 833px) {
++  .card {
++    padding: var(--space-24);
++  }
++}
++.card-title {
++  font-size: var(--font-size-h5);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-title);
++}
++.card-title a {
++  color: inherit;
++  text-decoration: underline;
++  text-decoration-color: transparent;
++  text-decoration-thickness: var(--border-width-hairline);
++  text-underline-offset: 3px;
++  transition: text-decoration-color var(--motion-duration-hover) var(--motion-easing-hover);
++}
++.card-text {
++  font-size: var(--font-size-ui);
++  line-height: var(--font-line-height-lede);
++  color: var(--color-text-secondary);
++}
++.card-meta {
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
+ }
+ 
+-.newsletter {
+-  margin-bottom: var(--space-4);
++/* A linked card: one stretched title link; hover lifts it a little and underlines the title. */
++.card--linked,
++.featured-post {
++  position: relative;
++}
++.stretched-link::after {
++  content: '';
++  position: absolute;
++  inset: 0;
++  z-index: 1;
++}
++.stretched-link:focus-visible {
++  outline: none;
++}
++.card--linked {
++  transition: box-shadow var(--motion-duration-hover) var(--motion-easing-hover);
++}
++.card--linked:hover {
++  box-shadow:
++    inset 0 0 0 var(--border-width-hairline) var(--color-border-default),
++    var(--shadow-hover);
++}
++.card--linked:hover .card-title a,
++.featured-post:hover .featured-title a {
++  text-decoration-color: currentColor;
++}
++.card--linked:has(.stretched-link:focus-visible),
++.featured-post:has(.stretched-link:focus-visible) {
++  outline: var(--border-width-ring) solid var(--color-focus-ring);
++  outline-offset: 4px;
+ }
+ 
+-/* Tags */
+-.tag-list {
+-  list-style: none;
++.card--media {
+   display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin: 0;
++  flex-direction: column;
++  width: 100%;
+   padding: 0;
++  overflow: hidden;
+ }
+-
+-.tag-chip {
+-  display: inline-block;
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-  border-radius: var(--radius-pill);
+-  padding: 0 var(--space-2);
+-  font-size: var(--font-size-small);
++.card--media .plate {
++  margin: var(--space-8) var(--space-8) 0;
++}
++.card--media .card-body {
++  display: grid;
++  gap: var(--space-8);
++  align-content: start;
++  padding: var(--space-20);
++}
++.card--media .card-body .tag-list {
++  margin-top: var(--space-4);
++}
++@media (max-width: 833px) {
++  .card--media .card-body {
++    padding: var(--space-12);
++  }
+ }
+ 
+-/* Home */
+-.section-label {
+-  font-size: var(--font-size-small);
+-  text-transform: uppercase;
+-  color: var(--color-text-muted);
++.card-grid {
++  list-style: none;
++  display: grid;
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: var(--space-24);
++  margin: var(--space-24) 0 0;
++  padding: 0;
++}
++.card-grid > li {
++  display: flex;
++  min-width: 0;
++}
++@media (min-width: 1200px) {
++  .card-grid {
++    gap: var(--space-32);
++  }
++}
++@media (max-width: 833px) {
++  .card-grid {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: var(--space-12);
++  }
++  .card-grid > li:last-child:nth-child(odd) {
++    grid-column: 1 / -1;
++  }
+ }
+ 
+-.featured {
+-  margin-bottom: var(--space-8);
++.post-meta {
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
++}
++.post-meta--detailed {
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
+ 
++/* ---------- Home ---------- */
+ .featured-post {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-6);
+-  background: var(--color-surface);
++  display: grid;
++  gap: var(--space-32);
++  align-items: center;
++}
++@media (min-width: 992px) {
++  .featured-post {
++    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
++    gap: var(--space-64);
++  }
++}
++.featured-post .stage {
++  border-radius: var(--radius-stage);
++}
++.featured-body {
++  display: grid;
++  gap: var(--space-16);
++  justify-items: start;
++  min-width: 0;
+ }
+-
+ .featured-title {
+-  font-size: var(--font-size-h1);
++  font-size: clamp(var(--font-size-h4), 3vw, var(--font-size-plan));
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-tight);
++}
++.featured-title a {
++  color: inherit;
++  text-decoration: underline;
++  text-decoration-color: transparent;
++  text-decoration-thickness: var(--border-width-hairline);
++  text-underline-offset: 4px;
++  transition: text-decoration-color var(--motion-duration-hover) var(--motion-easing-hover);
+ }
+-
+ .featured-excerpt {
+-  max-width: var(--measure);
++  max-width: var(--size-measure);
++  font-size: var(--font-size-body-lg);
++  line-height: var(--font-line-height-lede);
++  color: var(--color-text-secondary);
++}
++@media (max-width: 833px) {
++  .featured-excerpt {
++    font-size: var(--font-size-body);
++  }
+ }
+ 
+ .filter-bar {
+   display: flex;
+   flex-wrap: wrap;
+-  align-items: flex-end;
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 var(--space-3);
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--space-16);
++  margin-top: var(--space-24);
+ }
+-
+ .tag-filter {
+   display: flex;
+   flex-wrap: wrap;
+-  gap: var(--space-2);
++  gap: var(--space-8);
++  min-width: 0;
++}
++@media (max-width: 833px) {
++  .search-field {
++    flex-basis: 100%;
++  }
+ }
+ 
+-.tag-filter-button[aria-pressed='true'] {
+-  background: var(--color-pressed-bg);
+-  border-color: var(--color-primary);
+-  font-weight: 600;
++.result-count {
++  margin-top: var(--space-16);
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
+ }
+ 
+-.post-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
++/* ---------- Empty state, not found ---------- */
++.empty-state {
++  display: grid;
++  justify-items: center;
++  max-width: var(--size-dialog);
++  margin: var(--space-24) auto 0;
++  padding: var(--space-64) var(--space-24);
++  text-align: center;
++}
++.empty-state .picto {
++  margin-bottom: var(--space-24);
++}
++.empty-title {
++  font-size: var(--font-size-h4);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++}
++.empty-text {
++  margin-top: var(--space-8);
++  color: var(--color-text-secondary);
++}
++.empty-state > .btn {
++  margin-top: var(--space-24);
++}
++.empty-state--page {
++  max-width: var(--size-form);
++  padding-top: var(--space-96);
++}
++.empty-state--page .empty-text {
++  margin-top: var(--space-16);
++  font-size: var(--font-size-lede);
++  line-height: var(--font-line-height-lede);
++}
++.actions {
+   display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
++  flex-wrap: wrap;
++  justify-content: center;
++  gap: var(--space-12);
++  margin-top: var(--space-32);
++}
++@media (max-width: 833px) {
++  .empty-state--page {
++    padding: var(--space-64) 0;
++  }
++  .empty-state--page .empty-text {
++    font-size: var(--font-size-body-lg);
++  }
++  .actions {
++    flex-direction: column;
++    width: 100%;
++  }
++  .actions .btn {
++    display: flex;
++    width: 100%;
++  }
+ }
+ 
+-.post-list-grid {
++/* ---------- Newsletter ---------- */
++.newsletter {
+   display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
++  gap: var(--space-32);
++  padding-block: var(--space-96);
++}
++@media (min-width: 992px) {
++  .newsletter {
++    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
++    align-items: end;
++    gap: var(--space-64);
++  }
+ }
+-
+-.post-card {
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  padding-bottom: var(--space-4);
++@media (max-width: 833px) {
++  .newsletter {
++    padding-block: var(--space-64);
++  }
+ }
+-
+-.post-card-title {
+-  margin-bottom: var(--space-1);
++.newsletter-form {
++  width: 100%;
++  max-width: var(--size-form);
+ }
+-
+-.post-meta {
+-  margin-bottom: var(--space-2);
++.newsletter-done {
++  display: grid;
++  gap: var(--space-24);
++  justify-items: start;
++}
++.form-success {
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-8);
++  max-width: var(--size-form);
++  font-size: var(--font-size-ui);
++  line-height: var(--font-line-height-lede);
++  color: var(--color-text-primary);
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++/* ---------- Article ---------- */
++.article-page {
++  max-width: calc(var(--size-measure) + var(--size-sidebar) + var(--space-64));
++  margin-inline: auto;
++  font-size: var(--font-size-body-lg);
++}
++@media (max-width: 991px) {
++  .article-page {
++    max-width: var(--size-measure);
++  }
+ }
+ 
+-/* Article */
++.breadcrumb {
++  padding-top: var(--space-32);
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
++}
+ .breadcrumb ol {
+   list-style: none;
+   display: flex;
+   flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin: 0 0 var(--space-4);
++  gap: var(--space-8);
++  margin: 0 0 var(--space-16);
+   padding: 0;
+-  font-size: var(--font-size-small);
+ }
+-
+ .breadcrumb li + li::before {
+   content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
++  margin-right: var(--space-8);
++  color: var(--color-text-tertiary);
++}
++.breadcrumb a {
++  color: var(--color-text-secondary);
++  text-decoration: underline;
++  text-decoration-thickness: var(--border-width-hairline);
++  text-decoration-color: var(--color-border-strong);
++  text-underline-offset: 3px;
++  transition: color var(--motion-duration-press) var(--motion-easing-hover);
++}
++.breadcrumb a:hover {
++  color: var(--color-text-primary);
++  text-decoration-color: var(--color-text-primary);
+ }
+ 
+-.article-layout {
++.article {
+   display: grid;
+-  grid-template-columns: minmax(0, var(--measure)) var(--toc-width);
+-  gap: var(--space-8);
++  grid-template-columns: minmax(0, 1fr);
++  column-gap: var(--space-64);
+   align-items: start;
+ }
++@media (min-width: 992px) {
++  .article {
++    grid-template-columns: minmax(0, var(--size-measure)) var(--size-sidebar);
++  }
++  .article-header,
++  .article-lead,
++  .article-body {
++    grid-column: 1;
++  }
++  .article-aside {
++    grid-column: 2;
++    grid-row: 1 / span 3;
++    position: sticky;
++    top: calc(var(--size-header) + var(--space-24));
++    padding-top: var(--space-16);
++  }
++}
+ 
+ .article-header {
+-  margin-bottom: var(--space-6);
++  display: grid;
++  gap: var(--space-16);
++  justify-items: start;
++  padding-top: var(--space-16);
++}
++.article-title {
++  font-size: clamp(var(--font-size-h3), 5vw, var(--font-size-h2));
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-tight);
++}
++.article-lead {
++  margin-top: var(--space-40);
++}
++@media (max-width: 991px) {
++  .article-aside {
++    margin-top: var(--space-32);
++  }
+ }
+ 
+-.article-body h2,
++.article-body {
++  margin-top: var(--space-48);
++  font-size: var(--font-size-body-lg);
++  line-height: var(--font-line-height-body);
++}
++.article-body > * {
++  margin-top: var(--space-24);
++}
++.article-body > :first-child {
++  margin-top: 0;
++}
++.article-body h2 {
++  margin-top: var(--space-64);
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-heading);
++}
+ .article-body h3 {
+-  margin-top: var(--space-6);
++  margin-top: var(--space-48);
++  font-size: var(--font-size-h5);
++  line-height: var(--font-line-height-title);
++}
++.article-body > h2 + *,
++.article-body > h3 + * {
++  margin-top: var(--space-16);
++}
++@media (max-width: 833px) {
++  .article-body {
++    font-size: var(--font-size-body);
++  }
++  .article-body h2 {
++    margin-top: var(--space-48);
++  }
+ }
+ 
+ .body-quote {
+-  margin: var(--space-4) 0;
++  margin: var(--space-48) 0;
+ }
+-
+ .body-quote blockquote {
+   margin: 0;
+-  padding-left: var(--space-4);
+-  border-left: 3px solid var(--color-quote-border);
+-  font-style: italic;
++  font-family: var(--font-family-serif);
++  font-size: clamp(var(--font-size-h4), 4vw, var(--font-size-plan));
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-tight);
++  text-wrap: balance;
++}
++.body-quote-cite {
++  margin-top: var(--space-16);
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
++}
++.article-body > .body-quote + * {
++  margin-top: 0;
+ }
+ 
+ .code-block {
+-  background: var(--color-code-bg);
+-  color: var(--color-code-text);
+-  font-family: var(--font-mono);
+-  font-size: var(--font-size-code);
+-  border-radius: var(--radius);
+-  padding: var(--space-3) var(--space-4);
++  padding: var(--space-16) var(--space-20);
++  border-radius: var(--radius-tile);
++  background: var(--color-surface-subtle);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-default);
++  line-height: var(--font-line-height-body);
+   overflow-x: auto;
+-  margin: 0 0 var(--space-4);
++}
++.code-block code {
++  font-size: inherit;
+ }
+ 
+ .body-list {
+-  margin: 0 0 var(--space-4);
+-  padding-left: var(--space-6);
++  padding-left: var(--space-24);
+ }
+-
+ .body-list li + li {
+-  margin-top: var(--space-1);
++  margin-top: var(--space-8);
+ }
+-
+-.body-figure {
+-  margin: var(--space-4) 0;
++.body-list li::marker {
++  color: var(--color-text-tertiary);
+ }
+ 
+-.image-placeholder {
+-  display: block;
+-  width: 100%;
+-  height: auto;
+-  border-radius: var(--radius);
++.article-body > .body-figure {
++  margin-top: var(--space-40);
+ }
+-
+-.image-placeholder-bg {
+-  fill: var(--color-placeholder-bg);
++.article-body > .body-figure + * {
++  margin-top: var(--space-40);
+ }
+-
+-.image-placeholder-shape {
+-  fill: var(--color-placeholder-shape);
++.figure-caption {
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  line-height: var(--font-line-height-lede);
++  color: var(--color-text-tertiary);
+ }
+ 
+-.body-figure figcaption {
+-  margin-top: var(--space-2);
++/* Table of contents: beside the text from lg, a collapsed disclosure below it. */
++.toc {
++  font-size: var(--font-size-small);
+ }
+-
+-.article-aside {
+-  position: sticky;
+-  top: var(--space-4);
++.toc-summary {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--space-8);
++  min-height: var(--size-touch);
++  list-style: none;
++  cursor: pointer;
+ }
+-
+-.toc {
+-  border-left: var(--border-width) solid var(--color-border);
+-  padding-left: var(--space-4);
++.toc-summary::-webkit-details-marker {
++  display: none;
+ }
+-
+ .toc-heading {
+-  font-size: var(--font-size-small);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-micro);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-micro);
+   text-transform: uppercase;
+-  color: var(--color-text-muted);
++  color: var(--color-text-tertiary);
++}
++.toc-chevron {
++  color: var(--color-text-secondary);
++  transition: transform var(--motion-duration-open) var(--motion-easing-quart);
++}
++.toc-disclosure[open] .toc-chevron {
++  transform: rotate(180deg);
+ }
+-
+ .toc-list {
+   list-style: none;
++  display: grid;
++  gap: var(--space-4);
+   margin: 0;
+   padding: 0;
+-  font-size: var(--font-size-small);
++  box-shadow: inset var(--border-width-hairline) 0 0 var(--color-border-default);
+ }
+-
+-.toc-item + .toc-item {
+-  margin-top: var(--space-1);
++.toc-link {
++  display: block;
++  padding: var(--space-6) var(--space-12);
++  line-height: var(--font-line-height-title);
++  color: var(--color-text-secondary);
++  text-decoration: none;
++  transition: color var(--motion-duration-nav) var(--motion-easing-expo);
+ }
+-
+-.toc-item-nested {
+-  padding-left: var(--space-3);
++.toc-link:hover {
++  color: var(--color-text-primary);
++}
++.toc-item-nested .toc-link {
++  padding-left: var(--space-24);
++}
++@media (min-width: 992px) {
++  .toc-summary {
++    min-height: 0;
++    margin-bottom: var(--space-12);
++    cursor: default;
++  }
++  .toc-chevron {
++    display: none;
++  }
++}
++@media (max-width: 991px) {
++  .toc {
++    padding: 0 var(--space-16);
++    border-radius: var(--radius-tile);
++    background: var(--color-surface-raised);
++    box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-default);
++  }
++  .toc-list {
++    margin-bottom: var(--space-16);
++  }
+ }
+ 
+-.related {
+-  margin-top: var(--space-12);
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding-top: var(--space-6);
++.related .card-grid {
++  margin-top: var(--space-32);
+ }
+ 
+-/* About */
+-.prose {
+-  max-width: var(--measure);
+-  margin-bottom: var(--space-8);
++/* ---------- About ---------- */
++.prose-section {
++  max-width: var(--size-measure);
++  margin-inline: auto;
++}
++.section-opener {
++  display: grid;
++  justify-items: center;
++  gap: var(--space-24);
++  margin-bottom: var(--space-32);
++  text-align: center;
++}
++.prose p + p {
++  margin-top: var(--space-16);
++}
++.prose p {
++  font-size: var(--font-size-body-lg);
++  line-height: var(--font-line-height-body);
++}
++@media (max-width: 833px) {
++  .prose p {
++    font-size: var(--font-size-body);
++  }
+ }
+ 
+ .author-list {
+   list-style: none;
+-  margin: 0;
++  display: grid;
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: var(--space-24);
++  margin: var(--space-32) 0 0;
+   padding: 0;
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
+-  max-width: var(--measure);
+ }
+-
+-.author-card {
++.author-list > li {
+   display: flex;
+-  gap: var(--space-4);
+-  align-items: flex-start;
++  min-width: 0;
+ }
+-
+-.avatar {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  flex-shrink: 0;
+-  width: 44px;
+-  height: 44px;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-  font-weight: 700;
+-  font-size: var(--font-size-small);
++@media (min-width: 1200px) {
++  .author-list {
++    gap: var(--space-32);
++  }
+ }
+-
+-@media (max-width: 760px) {
+-  .article-layout {
++@media (max-width: 991px) {
++  .author-list {
+     grid-template-columns: minmax(0, 1fr);
+   }
+-
+-  .article-aside {
+-    position: static;
+-    grid-row: 1;
++}
++.author-card {
++  display: grid;
++  align-content: start;
++  gap: var(--space-16);
++  width: 100%;
++}
++.author-text {
++  display: grid;
++  gap: var(--space-4);
++}
++.author-text .card-text {
++  margin-top: var(--space-8);
++}
++.avatar {
++  display: inline-grid;
++  place-items: center;
++  width: var(--size-control);
++  height: var(--size-control);
++  border-radius: var(--radius-tile);
++  background: var(--stage);
++  font-family: var(--font-family-serif);
++  font-size: var(--font-size-h5);
++  font-weight: var(--font-weight-regular);
++  line-height: 1;
++  color: var(--color-text-primary);
++}
++
++/* ---------- Reduced motion, globally ---------- */
++@media (prefers-reduced-motion: reduce) {
++  *,
++  *::before,
++  *::after {
++    animation-duration: var(--motion-duration-instant) !important;
++    animation-delay: 0s !important;
++    animation-iteration-count: 1 !important;
++    transition-duration: var(--motion-duration-instant) !important;
++    transition-delay: 0s !important;
+   }
+ }

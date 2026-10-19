@@ -1,0 +1,2953 @@
+diff --git a/index.html b/index.html
+index 3114c26..0b55e8c 100644
+--- a/index.html
++++ b/index.html
+@@ -4,6 +4,12 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <link rel="icon" href="data:," />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500&family=JetBrains+Mono:wght@400&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&display=swap"
++    />
+     <title>Fieldhouse Supply</title>
+   </head>
+   <body>
+diff --git a/src/App.tsx b/src/App.tsx
+index e3dee45..00f1e0c 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -5,7 +5,6 @@ import ProductsPage from './pages/ProductsPage';
+ import ProductDetailPage from './pages/ProductDetailPage';
+ import CartPage from './pages/CartPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <CartProvider>
+diff --git a/src/components/Icons.tsx b/src/components/Icons.tsx
+index f025d98..f809b8e 100644
+--- a/src/components/Icons.tsx
++++ b/src/components/Icons.tsx
+@@ -1,30 +1,48 @@
++/* Outline icons: 1.5px stroke, round caps, currentColor. The check-circle is the only filled icon. */
+ interface IconProps {
+   className?: string;
+ }
+ 
+ export function CartIcon({ className = 'icon' }: IconProps) {
+   return (
+-    <svg className={className} viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
++    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+       <path
+         d="M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2"
+         fill="none"
+         stroke="currentColor"
+-        strokeWidth="1.8"
++        strokeWidth="1.5"
+         strokeLinecap="round"
+         strokeLinejoin="round"
+       />
+-      <circle cx="9" cy="19" r="1.5" fill="currentColor" />
+-      <circle cx="17" cy="19" r="1.5" fill="currentColor" />
++      <circle cx="9" cy="19" r="1.4" fill="none" stroke="currentColor" strokeWidth="1.5" />
++      <circle cx="17" cy="19" r="1.4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+     </svg>
+   );
+ }
+ 
+-export function ImageIcon({ className = 'icon' }: IconProps) {
++/** Success: ink circle with a raised-surface tick, 16px. */
++export function CheckCircleIcon({ className = 'icon check-circle' }: IconProps) {
+   return (
+-    <svg className={className} viewBox="0 0 24 24" width="40" height="40" aria-hidden="true" focusable="false">
+-      <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-      <circle cx="9" cy="10" r="1.8" fill="currentColor" />
+-      <path d="M4 17l5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
++    <svg className={className} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
++      <circle cx="8" cy="8" r="8" className="check-circle-disc" />
++      <path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" className="check-circle-tick" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
++    </svg>
++  );
++}
++
++export function ChevronDownIcon({ className = 'icon' }: IconProps) {
++  return (
++    <svg className={className} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
++      <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
++    </svg>
++  );
++}
++
++/** The 12px tick drawn over a checked checkbox. */
++export function TickIcon({ className = 'check-tick' }: IconProps) {
++  return (
++    <svg className={className} viewBox="0 0 12 12" aria-hidden="true" focusable="false">
++      <path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+     </svg>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 24ef3b6..e63b94d 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,53 +1,106 @@
+-import { Link, NavLink, Outlet } from 'react-router';
++import { useEffect, useRef, type RefObject } from 'react';
++import { Link, NavLink, Outlet, useLocation } from 'react-router';
+ import { useCart } from '../cart/CartContext';
+ import { CartIcon } from './Icons';
++import InkDefs from './ink/InkDefs';
++import { prefersReducedMotion } from './ink/Picto';
+ 
+ const NAV_ITEMS = [
+   { to: '/', label: 'Shop', testId: 'nav-shop', end: true },
+   { to: '/cart', label: 'Cart', testId: 'nav-cart', end: false },
+ ];
+ 
++const risenRoutes = new Set<string>();
++
++/**
++ * Block rise on a route's first visit: blocks below the fold start lowered and transparent, and settle in at 15%
++ * in view, once; siblings 100ms apart, at most 4. Without script and under reduced motion every block is final.
++ */
++function useBlockRise(container: RefObject<HTMLElement | null>, pathname: string) {
++  useEffect(() => {
++    const root = container.current;
++    if (!root || risenRoutes.has(pathname) || prefersReducedMotion()) return;
++    risenRoutes.add(pathname);
++    const blocks = Array.from(root.querySelectorAll<HTMLElement>('.rise')).filter(
++      (block) => block.getBoundingClientRect().top > window.innerHeight,
++    );
++    blocks.forEach((block) => {
++      const siblings = Array.from(block.parentElement?.children ?? []).filter((el) => el.classList.contains('rise'));
++      const index = Math.min(3, Math.max(0, siblings.indexOf(block)) % 4);
++      block.style.setProperty('--rise-delay', `${index * 100}ms`);
++      block.classList.add('is-rise-ready');
++    });
++    const observer = new IntersectionObserver(
++      (entries) => {
++        for (const entry of entries) {
++          if (!entry.isIntersecting) continue;
++          entry.target.classList.remove('is-rise-ready');
++          observer.unobserve(entry.target);
++        }
++      },
++      { threshold: 0.15 },
++    );
++    blocks.forEach((block) => observer.observe(block));
++    return () => {
++      observer.disconnect();
++      blocks.forEach((block) => block.classList.remove('is-rise-ready'));
++      risenRoutes.delete(pathname);
++    };
++  }, [container, pathname]);
++}
++
+ export default function Layout() {
+   const { itemCount } = useCart();
+   const itemLabel = itemCount === 1 ? '1 item' : `${itemCount} items`;
++  const { pathname } = useLocation();
++  const mainRef = useRef<HTMLElement>(null);
++  useBlockRise(mainRef, pathname);
+ 
+   return (
+     <div className="app-shell">
++      <InkDefs />
+       <a className="skip-link" href="#main-content">
+         Skip to content
+       </a>
+       <header className="site-header">
+-        <Link to="/" className="brand" data-testid="brand-link">
+-          Fieldhouse Supply
+-        </Link>
+-        <nav aria-label="Primary" className="site-nav" data-testid="primary-nav">
+-          <ul className="nav-list">
+-            {NAV_ITEMS.map((item) => (
+-              <li key={item.to}>
+-                <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
+-                  {item.label}
+-                </NavLink>
+-              </li>
+-            ))}
+-          </ul>
+-        </nav>
+-        <Link to="/cart" className="button cart-button" aria-label={`Cart, ${itemLabel}`} data-testid="cart-button">
+-          <CartIcon />
+-          <span className="cart-button-label" aria-hidden="true">
+-            Cart
+-          </span>
+-          <span className="badge" aria-hidden="true" data-testid="cart-count">
+-            {itemCount}
+-          </span>
+-        </Link>
++        <div className="site-header-inner">
++          <Link to="/" className="brand" data-testid="brand-link">
++            Fieldhouse Supply
++          </Link>
++          <nav aria-label="Primary" className="site-nav" data-testid="primary-nav">
++            <ul className="nav-list">
++              {NAV_ITEMS.map((item) => (
++                <li key={item.to}>
++                  <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
++                    {item.label}
++                  </NavLink>
++                </li>
++              ))}
++            </ul>
++          </nav>
++          <Link
++            to="/cart"
++            className="btn btn--secondary btn--sm cart-button"
++            aria-label={`Cart, ${itemLabel}`}
++            data-testid="cart-button"
++          >
++            <CartIcon />
++            <span className="cart-button-label" aria-hidden="true">
++              Cart
++            </span>
++            <span className="badge badge--count" aria-hidden="true" data-testid="cart-count">
++              {itemCount}
++            </span>
++          </Link>
++        </div>
+       </header>
+ 
+-      <main id="main-content" className="content" tabIndex={-1}>
++      <main id="main-content" className="content" tabIndex={-1} ref={mainRef}>
+         <Outlet />
+       </main>
+ 
+       <footer className="site-footer">
+-        <p className="muted small">Fieldhouse Supply · Free shipping on orders over $100 · Returns within 30 days</p>
++        <p className="site-footer-line">Fieldhouse Supply · Free shipping on orders over $100 · Returns within 30 days</p>
+       </footer>
+     </div>
+   );
+diff --git a/src/components/ProductImage.tsx b/src/components/ProductImage.tsx
+index e4a67f2..ddff4ee 100644
+--- a/src/components/ProductImage.tsx
++++ b/src/components/ProductImage.tsx
+@@ -1,21 +1,35 @@
+ import type { Product } from '../data/products';
+-import { ImageIcon } from './Icons';
++import { itemDrawings, itemStage } from '../ink/drawings';
++import Picto from './ink/Picto';
++import Stage from './ink/Stage';
+ 
+ interface ProductImageProps {
+   product: Product;
+   size?: 'card' | 'large';
+ }
+ 
+-/** Image placeholder: a tinted CSS box with an icon. No network images. */
++/**
++ * No product photos exist, so each product is shown as its own drawing: on a plate in the grid (final frame,
++ * no state classes) and on a 4:3 drawing stage on its detail page. The color follows the item everywhere.
++ */
+ export default function ProductImage({ product, size = 'card' }: ProductImageProps) {
++  const drawing = itemDrawings[product.slug];
++  const color = itemStage(product.slug);
++  const label = `${product.name} product photo placeholder`;
++
++  if (size === 'large') {
++    return (
++      <div className="product-image product-image-large" role="img" aria-label={label} data-testid="product-image">
++        <Stage color={color} variant="drawing" lines={product.slug.length}>
++          {drawing && <Picto drawing={drawing} weight={0.6} />}
++        </Stage>
++      </div>
++    );
++  }
++
+   return (
+-    <div
+-      className={`product-image product-image-${size} tone-${product.tone}`}
+-      role="img"
+-      aria-label={`${product.name} product photo placeholder`}
+-      data-testid="product-image"
+-    >
+-      <ImageIcon className="product-image-icon" />
++    <div className="product-image plate" data-stage={color} role="img" aria-label={label} data-testid="product-image">
++      {drawing && <Picto drawing={drawing} weight={0.7} play="still" />}
+     </div>
+   );
+ }
+diff --git a/src/components/QuantityStepper.tsx b/src/components/QuantityStepper.tsx
+index 13815b8..7289cab 100644
+--- a/src/components/QuantityStepper.tsx
++++ b/src/components/QuantityStepper.tsx
+@@ -28,7 +28,7 @@ export default function QuantityStepper({ id, label, value, onChange, testIdPref
+       <div className="stepper-controls">
+         <button
+           type="button"
+-          className="button stepper-button"
++          className="btn btn--secondary stepper-button"
+           aria-label={`Decrease quantity${suffix}`}
+           disabled={value <= 1}
+           onClick={() => set(value - 1)}
+@@ -49,7 +49,7 @@ export default function QuantityStepper({ id, label, value, onChange, testIdPref
+         />
+         <button
+           type="button"
+-          className="button stepper-button"
++          className="btn btn--secondary stepper-button"
+           aria-label={`Increase quantity${suffix}`}
+           disabled={value >= MAX_QUANTITY}
+           onClick={() => set(value + 1)}
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..623aa1a 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '../design-system/tokens.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/CartPage.tsx b/src/pages/CartPage.tsx
+index e453a07..c33948c 100644
+--- a/src/pages/CartPage.tsx
++++ b/src/pages/CartPage.tsx
+@@ -1,8 +1,14 @@
+ import { useRef, useState, type FormEvent } from 'react';
+ import { Link } from 'react-router';
+ import { useCart } from '../cart/CartContext';
++import { CheckCircleIcon } from '../components/Icons';
++import Picto from '../components/ink/Picto';
++import Stage from '../components/ink/Stage';
++import WriteIn from '../components/ink/WriteIn';
+ import QuantityStepper from '../components/QuantityStepper';
++import ScreenHeader from '../components/ScreenHeader';
+ import { FREE_SHIPPING_THRESHOLD, formatPrice } from '../data/products';
++import { basket, parcel, receipt } from '../ink/drawings';
+ 
+ type FieldName = 'name' | 'email' | 'address';
+ type FormValues = Record<FieldName, string>;
+@@ -58,177 +64,219 @@ export default function CartPage() {
+     setValues(EMPTY_FORM);
+   }
+ 
++  const errorCount = Object.values(errors).filter(Boolean).length;
++
+   if (confirmation) {
+     return (
+-      <section className="panel confirmation" data-testid="order-confirmation" aria-labelledby="confirmation-heading">
+-        <h1 id="confirmation-heading">Thank you for your order</h1>
+-        <p>
+-          {confirmation.name}, we have received your order of {confirmation.itemCount}{' '}
+-          {confirmation.itemCount === 1 ? 'item' : 'items'} totalling{' '}
+-          <strong data-testid="confirmation-total">{formatPrice(confirmation.total)}</strong>.
++      <section className="empty-state empty-state--page confirmation" data-testid="order-confirmation" aria-labelledby="confirmation-heading">
++        <Picto drawing={parcel} />
++        <WriteIn as="h1" id="confirmation-heading" text="Thank you for your order" className="empty-state-title" />
++        <p className="confirmation-done">
++          <CheckCircleIcon />
++          <span>
++            {confirmation.name}, we have received your order of {confirmation.itemCount}{' '}
++            {confirmation.itemCount === 1 ? 'item' : 'items'} totalling{' '}
++            <strong data-testid="confirmation-total">{formatPrice(confirmation.total)}</strong>.
++          </span>
+         </p>
+-        <p className="muted">A receipt has been sent to {confirmation.email}. Orders usually ship within two days.</p>
+-        <Link to="/" data-testid="continue-shopping">
+-          Continue shopping
+-        </Link>
++        <p className="empty-state-line">A receipt has been sent to {confirmation.email}. Orders usually ship within two days.</p>
++        <div className="empty-state-actions">
++          <Link to="/" className="btn btn--primary" data-testid="continue-shopping">
++            Continue shopping
++          </Link>
++        </div>
+       </section>
+     );
+   }
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Your cart</h1>
+-        <p className="muted">Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}.</p>
+-      </div>
++      <ScreenHeader
++        drawing={receipt}
++        title="Your cart"
++        lede={`Free shipping on orders over ${formatPrice(FREE_SHIPPING_THRESHOLD)}.`}
++      />
+ 
+       {cart.lines.length === 0 ? (
+-        <section className="panel empty-state" data-testid="cart-empty">
+-          <h2>Your cart is empty</h2>
+-          <p className="muted">Browse the shop and add something you like.</p>
+-          <Link to="/" data-testid="continue-shopping">
++        <section className="empty-state empty-state--first-run" data-testid="cart-empty">
++          <Stage color="sage" className="empty-stage">
++            <div className="ghost-skeleton" aria-hidden="true">
++              <div className="card ghost-card">
++                <i className="ghost-bar ghost-bar--70" />
++                <i className="ghost-bar ghost-bar--45" />
++              </div>
++              <div className="card ghost-card">
++                <i className="ghost-bar ghost-bar--60" />
++                <i className="ghost-bar ghost-bar--40" />
++              </div>
++            </div>
++            <Picto drawing={basket} className="empty-stage-picto" />
++          </Stage>
++          <WriteIn as="h2" when="view" text="Your cart is empty" className="empty-state-title" />
++          <p className="empty-state-line">Browse the shop and add something you like.</p>
++          <Link to="/" className="btn btn--primary" data-testid="continue-shopping">
+             Continue shopping
+           </Link>
+         </section>
+       ) : (
+         <div className="cart-layout">
+-          <section className="panel" aria-labelledby="cart-items-heading">
+-            <h2 id="cart-items-heading">Items</h2>
+-            <ul className="cart-lines">
+-              {cart.lines.map((line) => (
+-                <li key={line.id} className="cart-line" data-testid="cart-line">
+-                  <div className="cart-line-info">
+-                    <Link to={`/products/${line.slug}`} className="cart-line-name" data-testid="cart-line-name">
+-                      {line.product.name}
+-                    </Link>
+-                    <p className="muted small" data-testid="cart-line-variant">
+-                      {line.product.variantLabel}: {line.variant}
++          <div className="cart-main">
++            <section className="card cart-items rise" aria-labelledby="cart-items-heading">
++              <h2 id="cart-items-heading" className="card-title">
++                Items
++              </h2>
++              <ul className="cart-lines">
++                {cart.lines.map((line) => (
++                  <li key={line.id} className="cart-line" data-testid="cart-line">
++                    <div className="cart-line-info">
++                      <Link to={`/products/${line.slug}`} className="cart-line-name" data-testid="cart-line-name">
++                        {line.product.name}
++                      </Link>
++                      <p className="cart-line-meta" data-testid="cart-line-variant">
++                        {line.product.variantLabel}: {line.variant}
++                      </p>
++                      <p className="cart-line-meta">{formatPrice(line.product.price)} each</p>
++                    </div>
++                    <QuantityStepper
++                      id={`quantity-${line.id}`}
++                      label={`Quantity for ${line.product.name}`}
++                      hideLabel
++                      itemName={line.product.name}
++                      value={line.quantity}
++                      onChange={(quantity) => cart.setQuantity(line.id, quantity)}
++                      testIdPrefix="line-quantity"
++                    />
++                    <p className="price cart-line-total" data-testid="line-total">
++                      {formatPrice(line.lineTotal)}
+                     </p>
+-                    <p className="small">{formatPrice(line.product.price)} each</p>
+-                  </div>
+-                  <QuantityStepper
+-                    id={`quantity-${line.id}`}
+-                    label={`Quantity for ${line.product.name}`}
+-                    hideLabel
+-                    itemName={line.product.name}
+-                    value={line.quantity}
+-                    onChange={(quantity) => cart.setQuantity(line.id, quantity)}
+-                    testIdPrefix="line-quantity"
++                    <button
++                      type="button"
++                      className="btn btn--secondary btn--sm cart-line-remove"
++                      aria-label={`Remove ${line.product.name} from cart`}
++                      onClick={() => cart.removeItem(line.id)}
++                      data-testid="line-remove"
++                    >
++                      Remove
++                    </button>
++                  </li>
++                ))}
++              </ul>
++            </section>
++
++            <section className="card cart-checkout rise" aria-labelledby="checkout-heading">
++              <h2 id="checkout-heading" className="card-title">
++                Checkout
++              </h2>
++              <form className="checkout-form" noValidate onSubmit={handleSubmit} data-testid="checkout-form">
++                <div className="field">
++                  <label htmlFor="checkout-name" className="field-label">
++                    Full name
++                  </label>
++                  <input
++                    id="checkout-name"
++                    ref={(element) => {
++                      fieldRefs.current.name = element;
++                    }}
++                    className="input"
++                    autoComplete="name"
++                    value={values.name}
++                    onChange={(event) => updateField('name', event.target.value)}
++                    aria-invalid={errors.name ? true : undefined}
++                    aria-describedby={errors.name ? 'checkout-name-error' : undefined}
++                    data-testid="checkout-name"
+                   />
+-                  <p className="price cart-line-total" data-testid="line-total">
+-                    {formatPrice(line.lineTotal)}
+-                  </p>
+-                  <button
+-                    type="button"
+-                    className="link-button"
+-                    aria-label={`Remove ${line.product.name} from cart`}
+-                    onClick={() => cart.removeItem(line.id)}
+-                    data-testid="line-remove"
+-                  >
+-                    Remove
+-                  </button>
+-                </li>
+-              ))}
+-            </ul>
+-
+-            <dl className="summary" data-testid="order-summary">
+-              <div className="summary-row">
+-                <dt>Subtotal</dt>
+-                <dd data-testid="cart-subtotal">{formatPrice(cart.subtotal)}</dd>
+-              </div>
+-              <div className="summary-row">
+-                <dt>Shipping</dt>
+-                <dd data-testid="cart-shipping">{cart.shipping === 0 ? 'Free' : formatPrice(cart.shipping)}</dd>
+-              </div>
+-              <div className="summary-row summary-total">
+-                <dt>Total</dt>
+-                <dd data-testid="cart-total">{formatPrice(cart.total)}</dd>
+-              </div>
+-            </dl>
+-          </section>
+-
+-          <section className="panel" aria-labelledby="checkout-heading">
+-            <h2 id="checkout-heading">Checkout</h2>
+-            <form className="checkout-form" noValidate onSubmit={handleSubmit} data-testid="checkout-form">
+-              <div className="field">
+-                <label htmlFor="checkout-name" className="field-label">
+-                  Full name
+-                </label>
+-                <input
+-                  id="checkout-name"
+-                  ref={(element) => {
+-                    fieldRefs.current.name = element;
+-                  }}
+-                  className="input"
+-                  autoComplete="name"
+-                  value={values.name}
+-                  onChange={(event) => updateField('name', event.target.value)}
+-                  aria-invalid={errors.name ? true : undefined}
+-                  aria-describedby={errors.name ? 'checkout-name-error' : undefined}
+-                  data-testid="checkout-name"
+-                />
+-                {errors.name && (
+-                  <p id="checkout-name-error" className="field-error" data-testid="error-name">
+-                    {errors.name}
+-                  </p>
+-                )}
+-              </div>
++                  {errors.name && (
++                    <p id="checkout-name-error" className="field-error" data-testid="error-name">
++                      {errors.name}
++                    </p>
++                  )}
++                </div>
+ 
+-              <div className="field">
+-                <label htmlFor="checkout-email" className="field-label">
+-                  Email
+-                </label>
+-                <input
+-                  id="checkout-email"
+-                  ref={(element) => {
+-                    fieldRefs.current.email = element;
+-                  }}
+-                  type="email"
+-                  className="input"
+-                  autoComplete="email"
+-                  value={values.email}
+-                  onChange={(event) => updateField('email', event.target.value)}
+-                  aria-invalid={errors.email ? true : undefined}
+-                  aria-describedby={errors.email ? 'checkout-email-error' : undefined}
+-                  data-testid="checkout-email"
+-                />
+-                {errors.email && (
+-                  <p id="checkout-email-error" className="field-error" data-testid="error-email">
+-                    {errors.email}
+-                  </p>
+-                )}
+-              </div>
++                <div className="field">
++                  <label htmlFor="checkout-email" className="field-label">
++                    Email
++                  </label>
++                  <input
++                    id="checkout-email"
++                    ref={(element) => {
++                      fieldRefs.current.email = element;
++                    }}
++                    type="email"
++                    className="input"
++                    autoComplete="email"
++                    value={values.email}
++                    onChange={(event) => updateField('email', event.target.value)}
++                    aria-invalid={errors.email ? true : undefined}
++                    aria-describedby={errors.email ? 'checkout-email-error' : undefined}
++                    data-testid="checkout-email"
++                  />
++                  {errors.email && (
++                    <p id="checkout-email-error" className="field-error" data-testid="error-email">
++                      {errors.email}
++                    </p>
++                  )}
++                </div>
+ 
+-              <div className="field">
+-                <label htmlFor="checkout-address" className="field-label">
+-                  Shipping address
+-                </label>
+-                <textarea
+-                  id="checkout-address"
+-                  ref={(element) => {
+-                    fieldRefs.current.address = element;
+-                  }}
+-                  className="input textarea"
+-                  rows={3}
+-                  autoComplete="street-address"
+-                  value={values.address}
+-                  onChange={(event) => updateField('address', event.target.value)}
+-                  aria-invalid={errors.address ? true : undefined}
+-                  aria-describedby={errors.address ? 'checkout-address-error' : undefined}
+-                  data-testid="checkout-address"
+-                />
+-                {errors.address && (
+-                  <p id="checkout-address-error" className="field-error" data-testid="error-address">
+-                    {errors.address}
+-                  </p>
+-                )}
+-              </div>
++                <div className="field">
++                  <label htmlFor="checkout-address" className="field-label">
++                    Shipping address
++                  </label>
++                  <textarea
++                    id="checkout-address"
++                    ref={(element) => {
++                      fieldRefs.current.address = element;
++                    }}
++                    className="input textarea"
++                    rows={3}
++                    autoComplete="street-address"
++                    value={values.address}
++                    onChange={(event) => updateField('address', event.target.value)}
++                    aria-invalid={errors.address ? true : undefined}
++                    aria-describedby={errors.address ? 'checkout-address-error' : undefined}
++                    data-testid="checkout-address"
++                  />
++                  {errors.address && (
++                    <p id="checkout-address-error" className="field-error" data-testid="error-address">
++                      {errors.address}
++                    </p>
++                  )}
++                </div>
++
++                <div className="form-actions">
++                  {errorCount > 0 && (
++                    <p className="form-alert" role="alert">
++                      {errorCount === 1 ? '1 field needs attention' : `${errorCount} fields need attention`}
++                    </p>
++                  )}
++                  <button type="submit" className="btn btn--primary" data-testid="place-order">
++                    Place order
++                  </button>
++                </div>
++              </form>
++            </section>
++          </div>
+ 
+-              <button type="submit" className="button button-primary" data-testid="place-order">
+-                Place order
+-              </button>
+-            </form>
+-          </section>
++          <aside className="cart-side" aria-labelledby="summary-heading">
++            <section className="card cart-summary">
++              <h2 id="summary-heading" className="card-title">
++                Order summary
++              </h2>
++              <dl className="summary" data-testid="order-summary">
++                <div className="summary-row">
++                  <dt>Subtotal</dt>
++                  <dd data-testid="cart-subtotal">{formatPrice(cart.subtotal)}</dd>
++                </div>
++                <div className="summary-row">
++                  <dt>Shipping</dt>
++                  <dd data-testid="cart-shipping">{cart.shipping === 0 ? 'Free' : formatPrice(cart.shipping)}</dd>
++                </div>
++                <div className="summary-row summary-total">
++                  <dt>Total</dt>
++                  <dd data-testid="cart-total">{formatPrice(cart.total)}</dd>
++                </div>
++              </dl>
++            </section>
++          </aside>
+         </div>
+       )}
+     </>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 3582617..08b4f3c 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,39 @@
+ import { Link } from 'react-router';
++import Picto from '../components/ink/Picto';
++import WriteIn from '../components/ink/WriteIn';
++import { compass } from '../ink/drawings';
+ 
+-export default function NotFoundPage() {
++interface NotFoundViewProps {
++  testId: string;
++  title: string;
++  line: string;
++}
++
++/** Not found: a pictoXl drawing from the store's domain, a serif h1 and two actions. */
++export function NotFoundView({ testId, title, line }: NotFoundViewProps) {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Back to the shop</Link>
++    <section className="empty-state empty-state--page" data-testid={testId}>
++      <Picto drawing={compass} size="xl" />
++      <WriteIn as="h1" text={title} className="empty-state-title" />
++      <p className="empty-state-line">{line}</p>
++      <div className="empty-state-actions">
++        <Link to="/" className="btn btn--primary">
++          Back to the shop
++        </Link>
++        <Link to="/cart" className="btn btn--secondary">
++          View cart
++        </Link>
++      </div>
+     </section>
+   );
+ }
++
++export default function NotFoundPage() {
++  return (
++    <NotFoundView
++      testId="not-found"
++      title="Page not found"
++      line="The page you are looking for does not exist or has moved."
++    />
++  );
++}
+diff --git a/src/pages/ProductDetailPage.tsx b/src/pages/ProductDetailPage.tsx
+index fc75a5d..92a4fc3 100644
+--- a/src/pages/ProductDetailPage.tsx
++++ b/src/pages/ProductDetailPage.tsx
+@@ -1,9 +1,14 @@
+ import { useState } from 'react';
+ import { Link, useParams } from 'react-router';
+ import { useCart } from '../cart/CartContext';
++import { CheckCircleIcon } from '../components/Icons';
++import WriteIn from '../components/ink/WriteIn';
+ import ProductImage from '../components/ProductImage';
+ import QuantityStepper from '../components/QuantityStepper';
++import ScreenHeader from '../components/ScreenHeader';
+ import { categoryLabel, findProduct, formatPrice, type Product } from '../data/products';
++import { hanger } from '../ink/drawings';
++import { NotFoundView } from './NotFoundPage';
+ 
+ export default function ProductDetailPage() {
+   const { slug } = useParams();
+@@ -11,11 +16,11 @@ export default function ProductDetailPage() {
+ 
+   if (!product) {
+     return (
+-      <div className="empty-state" data-testid="product-not-found">
+-        <h1>Product not found</h1>
+-        <p className="muted">We could not find a product called “{slug}”.</p>
+-        <Link to="/">Back to the shop</Link>
+-      </div>
++      <NotFoundView
++        testId="product-not-found"
++        title="Product not found"
++        line={`We could not find a product called “${slug}”.`}
++      />
+     );
+   }
+ 
+@@ -41,27 +46,36 @@ function ProductDetail({ product }: { product: Product }) {
+ 
+   return (
+     <>
+-      <nav aria-label="Breadcrumb" className="breadcrumb">
+-        <ol>
+-          <li>
+-            <Link to="/">Shop</Link>
+-          </li>
+-          <li>
+-            <Link to={`/?category=${product.category}`}>{categoryLabel(product.category)}</Link>
+-          </li>
+-          <li aria-current="page">{product.name}</li>
+-        </ol>
+-      </nav>
++      <ScreenHeader
++        drawing={hanger}
++        title={product.name}
++        titleProps={{ 'data-testid': 'product-title' }}
++        lede={product.summary}
++        before={
++          <nav aria-label="Breadcrumb" className="breadcrumb">
++            <ol>
++              <li>
++                <Link to="/">Shop</Link>
++              </li>
++              <li>
++                <Link to={`/?category=${product.category}`}>{categoryLabel(product.category)}</Link>
++              </li>
++              <li aria-current="page">{product.name}</li>
++            </ol>
++          </nav>
++        }
++      />
+ 
+       <article className="product-detail">
+-        <ProductImage product={product} size="large" />
++        <div className="product-detail-media rise">
++          <ProductImage product={product} size="large" />
++        </div>
+ 
+-        <div className="product-detail-info">
+-          <h1 data-testid="product-title">{product.name}</h1>
++        <div className="product-detail-info rise">
+           <p className="price price-large" data-testid="product-detail-price">
+             {formatPrice(product.price)}
+           </p>
+-          <p>{product.description}</p>
++          <p className="product-description">{product.description}</p>
+ 
+           <form
+             className="purchase-form"
+@@ -80,6 +94,7 @@ function ProductDetail({ product }: { product: Product }) {
+                       <input
+                         id={optionId}
+                         type="radio"
++                        className="radio"
+                         name="variant"
+                         value={option}
+                         checked={variant === option}
+@@ -101,36 +116,43 @@ function ProductDetail({ product }: { product: Product }) {
+               testIdPrefix="quantity"
+             />
+ 
+-            {product.inStock ? (
+-              <button type="submit" className="button button-primary" data-testid="add-to-cart">
+-                Add to cart
+-              </button>
+-            ) : (
+-              <>
+-                <button type="submit" className="button button-primary" disabled data-testid="add-to-cart">
+-                  Sold out
++            <div className="form-actions">
++              {product.inStock ? (
++                <button type="submit" className="btn btn--primary btn--lg" data-testid="add-to-cart">
++                  Add to cart
+                 </button>
+-                <p className="muted small" data-testid="stock-note">
+-                  This item is out of stock. Check back soon.
+-                </p>
+-              </>
+-            )}
++              ) : (
++                <>
++                  <button type="submit" className="btn btn--primary btn--lg" disabled data-testid="add-to-cart">
++                    Sold out
++                  </button>
++                  <p className="field-hint" data-testid="stock-note">
++                    This item is out of stock. Check back soon.
++                  </p>
++                </>
++              )}
++            </div>
+           </form>
+ 
+           <div role="status" className="added-message" data-testid="added-message">
+             {confirmation && (
+               <p>
+-                {confirmation} <Link to="/cart">View cart</Link>
++                <CheckCircleIcon />
++                <span>
++                  {confirmation} <Link to="/cart">View cart</Link>
++                </span>
+               </p>
+             )}
+           </div>
+ 
+-          <h2>Details</h2>
+-          <ul className="detail-list">
+-            {product.details.map((detail) => (
+-              <li key={detail}>{detail}</li>
+-            ))}
+-          </ul>
++          <section className="product-details" aria-labelledby="details-heading">
++            <WriteIn as="h2" when="view" text="Details" id="details-heading" className="section-title" />
++            <ul className="detail-list">
++              {product.details.map((detail) => (
++                <li key={detail}>{detail}</li>
++              ))}
++            </ul>
++          </section>
+         </div>
+       </article>
+     </>
+diff --git a/src/pages/ProductsPage.tsx b/src/pages/ProductsPage.tsx
+index 2506d4f..9c50a05 100644
+--- a/src/pages/ProductsPage.tsx
++++ b/src/pages/ProductsPage.tsx
+@@ -1,7 +1,12 @@
+ import { useEffect, useMemo, useState } from 'react';
+ import { Link, useSearchParams } from 'react-router';
++import { ChevronDownIcon, TickIcon } from '../components/Icons';
++import Picto from '../components/ink/Picto';
++import WriteIn from '../components/ink/WriteIn';
+ import ProductImage from '../components/ProductImage';
++import ScreenHeader from '../components/ScreenHeader';
+ import { categories, categoryLabel, formatPrice, products, type CategoryId, type Product } from '../data/products';
++import { crate, hangTag } from '../ink/drawings';
+ 
+ type CategoryFilter = 'all' | CategoryId;
+ type SortKey = 'featured' | 'price-asc' | 'price-desc' | 'name';
+@@ -103,12 +108,13 @@ export default function ProductsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Shop all goods</h1>
+-        <p className="muted">Durable bags, clothing and kitchen goods made to be used every day.</p>
+-      </div>
++      <ScreenHeader
++        drawing={hangTag}
++        title="Shop all goods"
++        lede="Durable bags, clothing and kitchen goods made to be used every day."
++      />
+ 
+-      <section className="panel" aria-labelledby="catalog-heading">
++      <section className="catalog" aria-labelledby="catalog-heading">
+         <h2 id="catalog-heading" className="visually-hidden">
+           Products
+         </h2>
+@@ -129,43 +135,52 @@ export default function ProductsPage() {
+           </div>
+ 
+           <div className="toolbar-controls">
+-            <label className="field-inline">
+-              <input
+-                type="checkbox"
+-                checked={inStockOnly}
+-                onChange={(event) => toggleInStock(event.target.checked)}
+-                data-testid="in-stock-toggle"
+-              />
++            <label className="check-row">
++              <span className="check">
++                <input
++                  type="checkbox"
++                  checked={inStockOnly}
++                  onChange={(event) => toggleInStock(event.target.checked)}
++                  data-testid="in-stock-toggle"
++                />
++                <TickIcon />
++              </span>
+               In stock only
+             </label>
+             <div className="field-inline">
+-              <label htmlFor="sort-select">Sort by</label>
+-              <select
+-                id="sort-select"
+-                className="select"
+-                value={sort}
+-                onChange={(event) => selectSort(parseSort(event.target.value))}
+-                data-testid="sort-select"
+-              >
+-                {SORT_OPTIONS.map((option) => (
+-                  <option key={option.value} value={option.value}>
+-                    {option.label}
+-                  </option>
+-                ))}
+-              </select>
++              <label htmlFor="sort-select" className="field-label">
++                Sort by
++              </label>
++              <span className="select-wrap">
++                <select
++                  id="sort-select"
++                  className="select"
++                  value={sort}
++                  onChange={(event) => selectSort(parseSort(event.target.value))}
++                  data-testid="sort-select"
++                >
++                  {SORT_OPTIONS.map((option) => (
++                    <option key={option.value} value={option.value}>
++                      {option.label}
++                    </option>
++                  ))}
++                </select>
++                <ChevronDownIcon className="icon select-chevron" />
++              </span>
+             </div>
+           </div>
+         </div>
+ 
+-        <p className="muted small" role="status" data-testid="result-count">
++        <p className="result-count" role="status" data-testid="result-count">
+           Showing {countLabel}
+         </p>
+ 
+         {visible.length === 0 ? (
+           <div className="empty-state" data-testid="products-empty">
+-            <h3>No products match these filters</h3>
+-            <p className="muted">Try another category or include items that are out of stock.</p>
+-            <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++            <Picto drawing={crate} size="md" />
++            <WriteIn as="h3" when="view" text="No products match these filters" className="empty-state-title" />
++            <p className="empty-state-line">Try another category or include items that are out of stock.</p>
++            <button type="button" className="btn btn--primary" onClick={clearFilters} data-testid="clear-filters">
+               Clear filters
+             </button>
+           </div>
+@@ -175,19 +190,19 @@ export default function ProductsPage() {
+               <li key={product.slug} className="product-card" data-testid="product-card">
+                 <ProductImage product={product} />
+                 <div className="product-card-body">
+-                  <p className="muted small">{categoryLabel(product.category)}</p>
++                  <p className="product-card-category">{categoryLabel(product.category)}</p>
+                   <h3 className="product-card-title">
+                     <Link to={`/products/${product.slug}`} className="product-link" data-testid="product-link">
+                       {product.name}
+                     </Link>
+                   </h3>
+-                  <p className="small">{product.summary}</p>
++                  <p className="product-card-summary">{product.summary}</p>
+                   <p className="product-card-meta">
+                     <span className="price" data-testid="product-price">
+                       {formatPrice(product.price)}
+                     </span>
+                     {!product.inStock && (
+-                      <span className="tag tag-muted" data-testid="sold-out-tag">
++                      <span className="badge badge--outline" data-testid="sold-out-tag">
+                         Sold out
+                       </span>
+                     )}
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 651c82a..3f3003d 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,55 +1,35 @@
+ /*
+- * Base styles for the Fieldhouse Supply store.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Fieldhouse Supply on Inkleaf 1.1.0-rc.2. Every value comes from design-system/tokens.css (imported first in
++ * main.tsx); nothing here defines a raw color, size or radius. See design-system/components.md.
+  */
++
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-header-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-error: #b00020;
+-  --color-success-bg: #e3f2e5;
+-  --color-success-text: #1b5e20;
+-  --color-badge-bg: #b00020;
+-  --color-badge-text: #ffffff;
+-  --color-tag-bg: #e8e8e8;
+-  --color-tag-text: #444444;
+-  --color-disabled-bg: #e8e8e8;
+-  --color-disabled-text: #888888;
+-  --color-image-icon: #777777;
+-  --color-tone-sand: #ece4d4;
+-  --color-tone-olive: #dfe3d0;
+-  --color-tone-slate: #d9dee5;
+-  --color-tone-clay: #ead8cf;
+-  --color-tone-stone: #e4e4e4;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --font-size-price-large: 22px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --content-max-width: 1120px;
+-  --product-card-min: 220px;
++  /* Composed from tokens: the container's side padding. */
++  --gutter: clamp(var(--space-20), 4vw, var(--space-64));
++  --section-gap: var(--space-96);
++  color-scheme: light;
++}
++
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) {
++    color-scheme: dark;
++  }
++}
++
++:root[data-theme='dark'] {
++  color-scheme: dark;
++}
++
++@media (min-width: 1200px) {
++  :root {
++    --section-gap: var(--space-128);
++  }
++}
++
++@media (max-width: 833px) {
++  :root {
++    --section-gap: var(--space-64);
++  }
+ }
+ 
+ *,
+@@ -61,48 +41,64 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
++}
++
++pre,
++code,
++kbd,
++samp {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-small);
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
+-}
+-
+-h1 {
+-  font-size: var(--font-size-h1);
+-}
+-
+-h2 {
+-  font-size: var(--font-size-h2);
+-}
+-
+-h3 {
+-  font-size: var(--font-size-base);
++  margin: 0;
++  font-family: var(--font-family-serif);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++  text-wrap: balance;
++  max-width: var(--size-measure-heading);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-2);
++  margin: 0;
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
++  text-decoration-line: underline;
++  text-decoration-thickness: var(--border-width-hairline);
++  text-decoration-color: var(--color-border-strong);
++  text-underline-offset: 3px;
++  transition: text-decoration-color var(--motion-duration-press) var(--motion-easing-hover);
++}
++
++a:hover {
++  text-decoration-color: var(--color-text-primary);
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-ring) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
++strong {
++  font-weight: var(--font-weight-medium);
++}
++
+ .visually-hidden {
+   position: absolute;
+   width: 1px;
+@@ -118,30 +114,738 @@ a {
+ .skip-link {
+   position: absolute;
+   left: -9999px;
++  z-index: 20;
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-16);
++  top: var(--space-16);
++  padding: var(--space-8) var(--space-12);
++  border-radius: var(--radius-control);
++  background: var(--color-surface-raised);
++  box-shadow: var(--shadow-overlay);
++}
++
++.icon {
++  display: block;
++  flex-shrink: 0;
++  width: var(--size-icon);
++  height: var(--size-icon);
++}
++
++.check-circle-disc {
++  fill: var(--color-action-primary);
+ }
+ 
+-.muted {
+-  color: var(--color-text-muted);
++.check-circle-tick {
++  stroke: var(--color-surface-raised);
+ }
+ 
+-.small {
++.ink-defs {
++  position: absolute;
++}
++
++/* ---------- Motion: reduced motion, globally ---------- */
++@media (prefers-reduced-motion: reduce) {
++  *,
++  *::before,
++  *::after {
++    animation-duration: var(--motion-duration-instant) !important;
++    animation-delay: 0s !important;
++    animation-iteration-count: 1 !important;
++    transition-duration: var(--motion-duration-instant) !important;
++    transition-delay: 0s !important;
++  }
++}
++
++/* Block rise: only script hides a block (below the fold, first visit), removed at 15% in view. */
++.rise {
++  transition:
++    opacity var(--motion-duration-rise) var(--motion-easing-settle) var(--rise-delay, 0ms),
++    translate var(--motion-duration-rise) var(--motion-easing-settle) var(--rise-delay, 0ms);
++}
++
++.rise.is-rise-ready {
++  opacity: 0;
++  translate: 0 var(--motion-distance-rise);
++}
++
++@media print {
++  .rise.is-rise-ready {
++    opacity: 1;
++    translate: none;
++  }
++}
++
++@keyframes rise-in-sm {
++  from {
++    opacity: 0;
++    translate: 0 var(--motion-distance-rise-sm);
++  }
++}
++
++@keyframes header-in {
++  from {
++    opacity: 0;
++    translate: 0 calc(-1 * var(--motion-distance-rise));
++  }
++}
++
++/* ---------- Signature: cel-drawn ink pictogram ---------- */
++.picto {
++  display: block;
++  flex-shrink: 0;
++  width: var(--size-picto-lg);
++  aspect-ratio: 1;
++  overflow: hidden;
++  color: var(--color-pictogram-ink);
++}
++
++.picto-ink {
++  fill: none;
++  stroke: currentColor;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++}
++
++.picto-fill {
++  fill: var(--picto-fill, var(--color-pictogram-fill));
++  transform: translate(3px, 2px);
++}
++
++.picto--alt {
++  --picto-fill: var(--color-pictogram-fill-alt);
++}
++
++.picto--sm {
++  width: var(--size-picto-sm);
++}
++
++.picto--sm .picto-fill {
++  transform: translate(6px, 5px);
++}
++
++.picto--md {
++  width: var(--size-picto-md);
++}
++
++.picto--xl {
++  width: var(--size-picto-xl);
++}
++
++.cel-strip {
++  transform: translateX(calc((1 - var(--n)) * 120px));
++}
++
++.picto.is-ready .cel-strip {
++  transform: translateX(0);
++}
++
++.picto.is-playing .cel-strip {
++  animation: cel-run calc(var(--n) * var(--motion-duration-frame)) steps(var(--n), jump-none) forwards;
++}
++
++.picto.is-boiling .cel-strip {
++  animation: cel-boil calc(3 * var(--motion-duration-frame)) steps(3, jump-none) infinite;
++}
++
++@keyframes cel-run {
++  from {
++    transform: translateX(0);
++  }
++  to {
++    transform: translateX(calc((1 - var(--n)) * 120px));
++  }
++}
++
++@keyframes cel-boil {
++  from {
++    transform: translateX(calc((3 - var(--n)) * 120px));
++  }
++  to {
++    transform: translateX(calc((1 - var(--n)) * 120px));
++  }
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .picto:is(.is-ready, .is-playing, .is-boiling) .cel-strip {
++    animation: none;
++    transform: translateX(calc((1 - var(--n)) * 120px));
++  }
++}
++
++/* ---------- Signature: pastel stage with wandering lines, drawing stage and plate ---------- */
++[data-stage='sage'] {
++  --stage: var(--color-stage-sage);
++}
++
++[data-stage='lilac'] {
++  --stage: var(--color-stage-lilac);
++}
++
++[data-stage='apricot'] {
++  --stage: var(--color-stage-apricot);
++}
++
++[data-stage='lake'] {
++  --stage: var(--color-stage-lake);
++}
++
++.stage {
++  position: relative;
++  isolation: isolate;
++  overflow: hidden;
++  display: grid;
++  align-items: center;
++  margin: 0;
++  padding: var(--space-48);
++  border-radius: var(--radius-stage);
++  background: var(--stage);
++}
++
++.stage-lines {
++  position: absolute;
++  inset: 0;
++  width: 100%;
++  height: 100%;
++  z-index: -1;
++  pointer-events: none;
++}
++
++.stage-lines path {
++  fill: none;
++  stroke: color-mix(in srgb, var(--stage) 70%, var(--color-stage-line-mix));
++  stroke-width: 8;
++  stroke-linecap: round;
++  vector-effect: non-scaling-stroke;
++  opacity: var(--opacity-stage-line);
++}
++
++.stage-content > .card {
++  box-shadow: var(--shadow-float);
++}
++
++.stage--drawing {
++  aspect-ratio: 4 / 3;
++  max-height: calc(var(--size-picto-hero) * 1.25);
++}
++
++.plate {
++  position: relative;
++  isolation: isolate;
++  aspect-ratio: 4 / 3;
++  max-height: calc(var(--size-picto-hero) * 1.25);
++  overflow: hidden;
++  border-radius: var(--radius-tile);
++  background: var(--stage);
++}
++
++.stage--drawing .picto,
++.plate .picto {
++  position: absolute;
++  left: 50%;
++  top: 50%;
++  width: auto;
++  height: min(92%, var(--size-picto-hero));
++  translate: -50% -50%;
++}
++
++:is(.stage--drawing, .plate) .picto.wrist-bottom {
++  top: auto;
++  bottom: 0;
++  translate: -50% 0;
++}
++
++:is(.stage--drawing, .plate) .picto.wrist-top {
++  top: 0;
++  translate: -50% 0;
++}
++
++:is(.stage--drawing, .plate) .picto.wrist-right {
++  left: auto;
++  right: 0;
++  translate: 0 -50%;
++}
++
++:is(.stage--drawing, .plate) .picto.wrist-left {
++  left: 0;
++  translate: 0 -50%;
++}
++
++@media (max-width: 833px) {
++  .stage {
++    padding: var(--space-24);
++    border-radius: var(--radius-card);
++  }
++}
++
++/* Ghosted skeleton (first-run empty state): raised cards at 60% opacity, no text. */
++.ghost-skeleton {
++  display: grid;
++  gap: var(--space-12);
++  width: min(100%, var(--size-dialog));
++  margin-inline: auto;
++}
++
++.ghost-card {
++  display: grid;
++  gap: var(--space-8);
++  padding: var(--space-16);
++  opacity: 0.6;
++}
++
++.ghost-bar {
++  display: block;
++  height: var(--space-8);
++  border-radius: var(--radius-badge);
++  background: var(--color-border-default);
++}
++
++.ghost-bar--70 {
++  width: 70%;
++}
++
++.ghost-bar--60 {
++  width: 60%;
++}
++
++.ghost-bar--45 {
++  width: 45%;
++}
++
++.ghost-bar--40 {
++  width: 40%;
++}
++
++/* ---------- Signature: serif headline that writes itself in ---------- */
++.write-in .w {
++  opacity: 0;
++  transition: opacity var(--motion-duration-reveal) var(--motion-easing-settle)
++    calc(var(--i) * var(--motion-duration-stagger));
++}
++
++.write-in.is-in .w {
++  opacity: 1;
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .write-in .w {
++    opacity: 1;
++    transition: none;
++  }
++}
++
++/* ---------- Signature: written-loop working glyph and breathing dot ---------- */
++.working {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-8);
+   font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
+ 
+-.icon {
++.btn .working {
++  font-size: inherit;
++  color: inherit;
++}
++
++.glyph {
++  width: calc(var(--size-icon) * 1.5);
++  height: var(--size-icon);
++  overflow: visible;
++}
++
++.glyph path {
++  fill: none;
++  stroke: var(--color-accent-glyph);
++  stroke-width: 1.75;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++  stroke-dasharray: 1;
++  stroke-dashoffset: 1;
++  animation: glyph-write var(--motion-duration-glyph) linear infinite;
++}
++
++@keyframes glyph-write {
++  0% {
++    stroke-dashoffset: 1;
++    animation-timing-function: steps(12, jump-start);
++  }
++  75%,
++  87.5% {
++    stroke-dashoffset: 0;
++    animation-timing-function: steps(2, jump-start);
++  }
++  100% {
++    stroke-dashoffset: -1;
++  }
++}
++
++.dot-breathe {
++  display: inline-block;
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: currentColor;
++  animation: breathe var(--motion-duration-breathe) var(--motion-easing-hover) infinite;
++}
++
++@keyframes breathe {
++  0%,
++  100% {
++    opacity: var(--opacity-breathe-low);
++  }
++  50% {
++    opacity: 1;
++  }
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .glyph path {
++    animation: none;
++    stroke-dashoffset: 0;
++  }
++
++  .dot-breathe {
++    animation: none;
++  }
++}
++
++/* ---------- Signature: ink-and-paper ring controls ---------- */
++.btn {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-8);
++  height: var(--size-control);
++  padding: 0 var(--space-16);
++  border: 0;
++  border-radius: var(--radius-control);
++  font: var(--font-weight-medium) var(--font-size-ui) / 1 var(--font-family-sans);
++  white-space: nowrap;
++  text-decoration: none;
++  cursor: pointer;
++  transition:
++    box-shadow var(--motion-duration-hover) var(--motion-easing-hover),
++    color var(--motion-duration-press) var(--motion-easing-hover),
++    background-color var(--motion-duration-press) var(--motion-easing-hover),
++    transform var(--motion-duration-press) var(--motion-easing-hover);
++}
++
++.btn--primary {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  box-shadow: 0 0 0 0 var(--color-action-primary-hover);
++}
++
++.btn--primary:hover {
++  box-shadow: 0 0 0 var(--border-width-ring) var(--color-action-primary-hover);
++}
++
++.btn--secondary {
++  background: var(--color-action-secondary);
++  color: var(--color-text-secondary);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-control);
++}
++
++.btn--secondary:hover {
++  color: var(--color-text-primary);
++  box-shadow: inset 0 0 0 var(--border-width-ring) var(--color-border-strong);
++}
++
++.btn--tertiary {
++  background: var(--color-action-tertiary);
++  color: var(--color-text-primary);
++}
++
++.btn--tertiary:hover {
++  background: var(--color-action-tertiary-hover);
++}
++
++.btn:active:not(:disabled) {
++  transform: scale(0.985);
++}
++
++.btn:focus-visible {
++  outline-offset: 4px;
++}
++
++.btn--sm {
++  height: var(--size-control-sm);
++  padding: 0 var(--space-12);
++  font-size: var(--font-size-small);
++}
++
++.btn--lg {
++  height: var(--size-control-lg);
++  padding: 0 var(--space-24);
++  font-size: var(--font-size-body);
++}
++
++.btn--block {
++  display: flex;
++  width: 100%;
++}
++
++.btn:disabled,
++.btn:disabled:hover {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-disabled);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-default);
++  cursor: not-allowed;
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .btn:active:not(:disabled) {
++    transform: none;
++  }
++}
++
++/* Filter chips: tertiary, selected ink. */
++.chip {
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-16);
++  border: 0;
++  border-radius: var(--radius-chip);
++  background: var(--color-action-tertiary);
++  color: var(--color-text-primary);
++  font: var(--font-weight-medium) var(--font-size-ui) / 1 var(--font-family-sans);
++  cursor: pointer;
++  transition:
++    background-color var(--motion-duration-press) var(--motion-easing-hover),
++    color var(--motion-duration-press) var(--motion-easing-hover),
++    transform var(--motion-duration-press) var(--motion-easing-hover);
++}
++
++.chip:hover {
++  background: var(--color-action-tertiary-hover);
++}
++
++.chip[aria-pressed='true'] {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++}
++
++.chip:active {
++  transform: scale(0.985);
++}
++
++.chip:focus-visible {
++  outline-offset: 4px;
++}
++
++/* ---------- Badges ---------- */
++.badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  height: var(--space-24);
++  padding: 0 var(--space-8);
++  border-radius: var(--radius-badge);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-medium);
++  line-height: 1;
++  white-space: nowrap;
++  font-variant-numeric: tabular-nums;
++}
++
++.badge--outline {
++  color: var(--color-text-secondary);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-control);
++}
++
++.badge--count {
++  justify-content: center;
++  min-width: var(--space-20);
++  height: var(--space-20);
++  padding: 0 var(--space-6);
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++}
++
++/* ---------- Fields ---------- */
++.field {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-8);
++}
++
++.field-label {
++  font-size: var(--font-size-ui);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-title);
++  color: var(--color-text-primary);
++}
++
++.field-hint {
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
++}
++
++.field-error {
++  margin-top: calc(var(--space-6) - var(--space-8));
++  font-size: var(--font-size-small);
++  color: var(--color-status-danger);
++}
++
++.input,
++.select {
++  width: 100%;
++  min-width: 0;
++  height: var(--size-control);
++  flex-shrink: 0;
++  padding: 0 var(--space-12);
++  border: 0;
++  border-radius: var(--radius-control);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-strong);
++  font: var(--font-weight-regular) var(--font-size-ui) / var(--font-line-height-title) var(--font-family-sans);
++  transition: box-shadow var(--motion-duration-hover) var(--motion-easing-hover);
++}
++
++.input::placeholder {
++  color: var(--color-text-tertiary);
++}
++
++.input:hover,
++.select:hover {
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-check);
++}
++
++.input[aria-invalid='true'],
++.input[aria-invalid='true']:hover {
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-status-danger);
++}
++
++.input:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-disabled);
++}
++
++.textarea {
++  height: auto;
++  min-height: calc(var(--font-size-ui) * var(--font-line-height-title) * 3 + var(--space-24));
++  padding: var(--space-12);
++  resize: vertical;
++}
++
++.select-wrap {
++  position: relative;
++  display: inline-flex;
++  align-items: center;
++  min-width: 0;
++}
++
++.select {
++  appearance: none;
++  padding-right: var(--space-40);
++  cursor: pointer;
++}
++
++.select-chevron {
++  position: absolute;
++  right: var(--space-12);
++  color: var(--color-text-secondary);
++  pointer-events: none;
++}
++
++.field-inline {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++  min-width: 0;
++}
++
++.field-inline .field-label {
++  white-space: nowrap;
++}
++
++/* Checkbox and radio: the native input is the visible control. */
++.check-row {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-8);
++  min-height: var(--size-touch);
++  font-size: var(--font-size-ui);
++  cursor: pointer;
++}
++
++.check {
++  position: relative;
++  display: inline-grid;
++  place-items: center;
++  flex-shrink: 0;
++}
++
++.check input,
++.radio {
++  appearance: none;
+   display: block;
++  width: var(--size-icon-lg);
++  height: var(--size-icon-lg);
++  margin: 0;
++  border-radius: var(--radius-badge);
++  background: var(--color-surface-raised);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-check);
++  cursor: pointer;
++  transition:
++    background-color var(--motion-duration-press) var(--motion-easing-hover),
++    box-shadow var(--motion-duration-press) var(--motion-easing-hover);
++}
++
++.radio {
+   flex-shrink: 0;
++  border-radius: var(--radius-full);
++}
++
++.check input:hover,
++.radio:hover {
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-text-primary);
+ }
+ 
+-/* Layout */
++.check input:checked {
++  background: var(--color-action-primary);
++  box-shadow: none;
++}
++
++.radio:checked,
++.radio:checked:hover {
++  background: var(--color-text-on-action);
++  box-shadow: inset 0 0 0 5px var(--color-action-primary);
++}
++
++.check-tick {
++  position: absolute;
++  width: var(--space-12);
++  height: var(--space-12);
++  color: var(--color-text-on-action);
++  pointer-events: none;
++  opacity: 0;
++}
++
++.check input:checked + .check-tick {
++  opacity: 1;
++}
++
++/* ---------- Cards ---------- */
++.card {
++  background: var(--color-surface-raised);
++  border-radius: var(--radius-card);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-default);
++  padding: var(--space-24);
++}
++
++.card-title {
++  font-size: var(--font-size-h4);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++}
++
++/* ---------- Layout: header, container, footer ---------- */
+ .app-shell {
+   display: flex;
+   flex-direction: column;
+@@ -149,22 +853,44 @@ a {
+ }
+ 
+ .site-header {
++  position: sticky;
++  top: 0;
++  z-index: 10;
++  height: var(--size-header);
++  background: var(--color-surface-default);
++  box-shadow: inset 0 calc(-1 * var(--border-width-hairline)) 0 var(--color-border-default);
++  animation: header-in var(--motion-duration-reveal) var(--motion-easing-settle) both;
++}
++
++.site-header-inner,
++.content,
++.site-footer {
++  width: 100%;
++  max-width: calc(var(--size-container) + 2 * var(--gutter));
++  margin-inline: auto;
++  padding-inline: var(--gutter);
++}
++
++.site-header-inner {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-6);
+-  padding: var(--space-3) var(--space-6);
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-24);
++  height: 100%;
+ }
+ 
+ .brand {
+-  font-weight: bold;
+-  color: var(--color-text);
++  font-family: var(--font-family-serif);
++  font-size: var(--font-size-h5);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-title);
++  color: var(--color-text-primary);
+   text-decoration: none;
++  white-space: nowrap;
+ }
+ 
+ .site-nav {
+   flex: 1;
++  min-width: 0;
+ }
+ 
+ .nav-list {
+@@ -172,421 +898,649 @@ a {
+   margin: 0;
+   padding: 0;
+   display: flex;
+-  gap: var(--space-2);
++  gap: var(--space-16);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-1) var(--space-3);
+-  border-radius: var(--radius);
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control-sm);
++  padding: 0 var(--space-8);
++  border-radius: var(--radius-control);
++  font-size: var(--font-size-ui);
++  color: var(--color-text-secondary);
+   text-decoration: none;
++  transition: color var(--motion-duration-nav) var(--motion-easing-expo);
+ }
+ 
++.nav-link:hover,
+ .nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
++  color: var(--color-text-primary);
++}
++
++.nav-link.active {
++  font-weight: var(--font-weight-medium);
++}
++
++.cart-button .icon {
++  width: var(--size-icon);
++  height: var(--size-icon);
++}
++
++@media (max-width: 833px) {
++  .site-header-inner {
++    gap: var(--space-12);
++  }
++
++  .nav-list {
++    gap: var(--space-4);
++  }
++
++  .cart-button-label {
++    display: none;
++  }
+ }
+ 
+ .content {
+   flex: 1;
+-  width: 100%;
+-  max-width: var(--content-max-width);
+-  margin: 0 auto;
+-  padding: var(--space-6);
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-6);
++  padding-bottom: var(--section-gap);
++}
++
++.content:focus {
++  outline: none;
+ }
+ 
+ .site-footer {
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4) var(--space-6);
++  padding-block: var(--space-24);
++  box-shadow: inset 0 var(--border-width-hairline) 0 var(--color-border-default);
+ }
+ 
+-.site-footer p {
+-  margin: 0;
++.site-footer-line {
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
+ }
+ 
+-/* Controls */
+-.input,
+-.select {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
++/* ---------- Product screen header ---------- */
++.screen-header {
++  display: grid;
++  grid-template-columns: var(--size-picto-sm) 1fr auto;
++  column-gap: var(--space-16);
++  align-items: center;
++  padding: var(--space-48) 0 var(--space-32);
+ }
+ 
+-.textarea {
+-  resize: vertical;
++.screen-header-before {
++  grid-column: 1 / -1;
++  margin: calc(-1 * var(--space-24)) 0 var(--space-16);
+ }
+ 
+-.input[aria-invalid='true'] {
+-  border-color: var(--color-error);
++.screen-title {
++  font-size: var(--font-size-h3);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+-.button {
+-  font: inherit;
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  text-decoration: none;
+-  cursor: pointer;
++.screen-actions {
++  display: flex;
++  gap: var(--space-12);
+ }
+ 
+-.button:disabled {
+-  background: var(--color-disabled-bg);
+-  color: var(--color-disabled-text);
+-  cursor: not-allowed;
++.screen-lede,
++.screen-actions {
++  animation: rise-in-sm var(--motion-duration-rise) var(--motion-easing-settle) 200ms both;
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
+-  padding: var(--space-2) var(--space-4);
++.screen-lede {
++  grid-column: 1 / -1;
++  margin-top: var(--space-8);
++  max-width: var(--size-measure);
++  font-size: var(--font-size-body);
++  color: var(--color-text-secondary);
+ }
+ 
+-.link-button {
+-  font: inherit;
+-  background: none;
+-  border: none;
++.breadcrumb ol {
++  list-style: none;
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-8);
++  margin: 0;
+   padding: 0;
+-  color: var(--color-link);
+-  text-decoration: underline;
+-  cursor: pointer;
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
+ 
+-.field-inline {
++.breadcrumb a {
++  color: var(--color-text-secondary);
++}
++
++.breadcrumb a:hover {
++  color: var(--color-text-primary);
++}
++
++.breadcrumb li + li::before {
++  content: '/';
++  margin-right: var(--space-8);
++  color: var(--color-text-tertiary);
++}
++
++@media (max-width: 833px) {
++  .screen-header {
++    grid-template-columns: 1fr;
++    row-gap: var(--space-16);
++  }
++
++  .screen-title {
++    font-size: var(--font-size-h4);
++  }
++
++  .screen-lede {
++    margin-top: calc(var(--space-8) - var(--space-16));
++  }
++}
++
++/* ---------- Empty states, not found, confirmation ---------- */
++.empty-state {
+   display: flex;
++  flex-direction: column;
+   align-items: center;
+-  gap: var(--space-2);
++  text-align: center;
++  max-width: var(--size-dialog);
++  margin-inline: auto;
++  padding: var(--space-64) var(--space-24);
+ }
+ 
+-.field {
++.empty-state > .picto {
++  margin-bottom: var(--space-24);
++}
++
++.empty-state-title {
++  font-size: var(--font-size-h4);
++  font-weight: var(--font-weight-medium);
++}
++
++.empty-state-line {
++  margin-top: var(--space-8);
++  color: var(--color-text-secondary);
++}
++
++.empty-state > .btn,
++.empty-state-actions {
++  margin-top: var(--space-24);
++}
++
++.empty-state-actions {
+   display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
++  flex-wrap: wrap;
++  justify-content: center;
++  gap: var(--space-12);
+ }
+ 
+-.field-label {
+-  font-weight: bold;
+-  font-size: var(--font-size-small);
++.empty-state--page {
++  padding-top: var(--space-96);
+ }
+ 
+-.field-error {
+-  color: var(--color-error);
+-  font-size: var(--font-size-small);
+-  margin: 0;
++.empty-state--page h1.empty-state-title {
++  font-size: clamp(var(--font-size-h3), 5vw, var(--font-size-h1));
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-tight);
++}
++
++.empty-state--first-run {
++  max-width: none;
++  padding-top: 0;
++}
++
++.empty-stage {
++  width: min(100%, calc(var(--size-dialog) + 2 * var(--space-48)));
++  margin-bottom: var(--space-32);
+ }
+ 
+-/* Cart button */
+-.cart-button {
++.empty-stage .stage-content {
+   position: relative;
++  display: grid;
++  place-items: center;
+ }
+ 
+-.badge {
+-  display: inline-block;
+-  min-width: 20px;
+-  padding: 0 var(--space-1);
+-  border-radius: var(--radius-pill);
+-  background: var(--color-badge-bg);
+-  color: var(--color-badge-text);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
+-  text-align: center;
++.empty-stage-picto {
++  position: absolute;
+ }
+ 
+-/* Panels */
+-.panel {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++.confirmation-done {
++  display: flex;
++  align-items: baseline;
++  gap: var(--space-8);
++  margin-top: var(--space-16);
++  text-align: start;
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.confirmation-done .check-circle {
++  translate: 0 2px;
++}
++
++@media (max-width: 833px) {
++  .empty-state-actions {
++    flex-direction: column;
++    align-self: stretch;
++  }
++
++  .empty-state-actions .btn {
++    width: 100%;
++  }
+ }
+ 
+-/* Catalog toolbar */
++/* ---------- Product grid ---------- */
+ .toolbar {
+   display: flex;
+   flex-wrap: wrap;
+   justify-content: space-between;
+   align-items: center;
+-  gap: var(--space-3);
+-  margin-bottom: var(--space-3);
++  gap: var(--space-16) var(--space-24);
+ }
+ 
+-.toolbar-controls {
++.chip-group {
+   display: flex;
+   flex-wrap: wrap;
+-  align-items: center;
+-  gap: var(--space-4);
++  gap: var(--space-8);
+ }
+ 
+-.chip-group {
++.toolbar-controls {
+   display: flex;
+   flex-wrap: wrap;
+-  gap: var(--space-2);
+-}
+-
+-.chip {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius-pill);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  cursor: pointer;
++  align-items: center;
++  gap: var(--space-12) var(--space-24);
++  min-width: 0;
+ }
+ 
+-.chip[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.result-count {
++  margin: var(--space-24) 0 var(--space-16);
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
+ }
+ 
+-/* Product grid */
+ .product-grid {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(var(--product-card-min), 1fr));
+-  gap: var(--space-4);
++  grid-template-columns: repeat(4, minmax(0, 1fr));
++  gap: var(--space-24);
++  align-items: stretch;
+ }
+ 
+ .product-card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  overflow: hidden;
++  position: relative;
+   display: flex;
+   flex-direction: column;
++  min-width: 0;
++  border-radius: var(--radius-card);
++  background: var(--color-surface-raised);
++  box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-border-default);
++  transition: box-shadow var(--motion-duration-hover) var(--motion-easing-hover);
++}
++
++.product-card:hover {
++  box-shadow:
++    inset 0 0 0 var(--border-width-hairline) var(--color-border-default),
++    var(--shadow-hover);
++}
++
++.product-card:has(.product-link:focus-visible) {
++  outline: var(--border-width-ring) solid var(--color-focus-ring);
++  outline-offset: 4px;
++}
++
++.product-card .plate {
++  margin: var(--space-8) var(--space-8) 0;
+ }
+ 
+ .product-card-body {
+-  padding: var(--space-3);
++  display: flex;
++  flex-direction: column;
++  flex: 1;
++  gap: var(--space-4);
++  padding: var(--space-20);
+ }
+ 
+-.product-card-body p {
+-  margin-bottom: var(--space-1);
++.product-card-category {
++  font-size: var(--font-size-caption);
++  letter-spacing: var(--font-tracking-caption);
++  color: var(--color-text-tertiary);
+ }
+ 
+ .product-card-title {
+-  margin-bottom: var(--space-1);
++  font-size: var(--font-size-h5);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-title);
+ }
+ 
+-.product-card-meta {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++.product-link {
++  color: var(--color-text-primary);
++  text-decoration-color: transparent;
+ }
+ 
+-.price {
+-  font-weight: bold;
+-  font-variant-numeric: tabular-nums;
++.product-link::after {
++  content: '';
++  position: absolute;
++  inset: 0;
++  border-radius: var(--radius-card);
+ }
+ 
+-.price-large {
+-  font-size: var(--font-size-price-large);
++.product-link:focus-visible {
++  outline: none;
+ }
+ 
+-.tag {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.product-card:hover .product-link {
++  text-decoration-color: var(--color-text-primary);
+ }
+ 
+-.tag-muted {
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
++.product-card-summary {
++  font-size: var(--font-size-ui);
++  line-height: var(--font-line-height-lede);
++  color: var(--color-text-secondary);
+ }
+ 
+-/* Image placeholder */
+-.product-image {
++.product-card-meta {
+   display: flex;
+   align-items: center;
+-  justify-content: center;
+-  color: var(--color-image-icon);
+-  aspect-ratio: 4 / 3;
+-  width: 100%;
++  gap: var(--space-8);
++  margin-top: auto;
++  padding-top: var(--space-12);
+ }
+ 
+-.product-image-large {
+-  aspect-ratio: 1 / 1;
+-  border-radius: var(--radius);
++.price {
++  font-family: var(--font-family-sans);
++  font-weight: var(--font-weight-medium);
++  font-size: var(--font-size-ui);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+-.tone-sand {
+-  background: var(--color-tone-sand);
++@media (max-width: 1199px) {
++  .product-grid {
++    grid-template-columns: repeat(3, minmax(0, 1fr));
++  }
+ }
+ 
+-.tone-olive {
+-  background: var(--color-tone-olive);
+-}
++@media (max-width: 833px) {
++  .toolbar,
++  .toolbar-controls {
++    align-items: stretch;
++  }
++
++  .toolbar-controls {
++    width: 100%;
++    justify-content: space-between;
++  }
++
++  .product-grid {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: var(--space-12);
++  }
++
++  .product-card-body {
++    padding: var(--space-12);
++  }
++
++  .product-card-title {
++    font-size: var(--font-size-ui);
++  }
+ 
+-.tone-slate {
+-  background: var(--color-tone-slate);
++  .product-card-summary {
++    font-size: var(--font-size-small);
++  }
+ }
+ 
+-.tone-clay {
+-  background: var(--color-tone-clay);
++/* ---------- Product detail ---------- */
++.product-detail {
++  display: grid;
++  grid-template-columns: repeat(12, minmax(0, 1fr));
++  gap: var(--space-32);
++  align-items: start;
+ }
+ 
+-.tone-stone {
+-  background: var(--color-tone-stone);
++.product-detail-media {
++  grid-column: 1 / span 7;
++  min-width: 0;
+ }
+ 
+-/* Product detail */
+-.breadcrumb ol {
+-  list-style: none;
++.product-detail-info {
++  grid-column: 8 / -1;
+   display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin: 0;
+-  padding: 0;
+-  font-size: var(--font-size-small);
++  flex-direction: column;
++  min-width: 0;
+ }
+ 
+-.breadcrumb li + li::before {
+-  content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
++.price-large {
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+-.product-detail {
+-  display: grid;
+-  grid-template-columns: 1fr 1fr;
+-  gap: var(--space-8);
+-  align-items: start;
++.product-description {
++  margin-top: var(--space-16);
++  max-width: var(--size-measure);
++  color: var(--color-text-secondary);
+ }
+ 
+ .purchase-form {
+   display: flex;
+   flex-direction: column;
+-  align-items: flex-start;
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0;
++  gap: var(--space-24);
++  margin-top: var(--space-32);
+ }
+ 
+ .variant-fieldset {
++  min-width: 0;
+   border: none;
+   margin: 0;
+   padding: 0;
+ }
+ 
++.variant-fieldset legend {
++  padding: 0;
++  margin-bottom: var(--space-8);
++}
++
+ .variant-options {
+   display: flex;
+   flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin-top: var(--space-1);
++  gap: 0 var(--space-24);
+ }
+ 
+ .variant-option {
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-1);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
++  gap: var(--space-8);
++  min-height: var(--size-touch);
++  font-size: var(--font-size-ui);
+   cursor: pointer;
+ }
+ 
+ .stepper {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
++  gap: var(--space-8);
+ }
+ 
+ .stepper-controls {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-1);
++  gap: var(--space-8);
+ }
+ 
+ .stepper-button {
+-  width: 32px;
+-  height: 32px;
++  width: var(--size-control);
+   padding: 0;
++  font-size: var(--font-size-body);
+ }
+ 
+ .stepper-input {
+-  width: 56px;
+-  height: 32px;
++  width: calc(var(--size-control) * 1.5);
+   text-align: center;
++  font-variant-numeric: tabular-nums;
++  -moz-appearance: textfield;
++}
++
++.stepper-input::-webkit-outer-spin-button,
++.stepper-input::-webkit-inner-spin-button {
++  -webkit-appearance: none;
++  margin: 0;
++}
++
++.form-actions {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: var(--space-12) var(--space-16);
++  margin-top: calc(var(--space-32) - var(--space-24));
++}
++
++.added-message:not(:empty) {
++  margin-top: var(--space-24);
+ }
+ 
+ .added-message p {
+-  background: var(--color-success-bg);
+-  color: var(--color-success-text);
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: baseline;
++  gap: var(--space-8);
++  font-size: var(--font-size-ui);
++}
++
++.added-message .check-circle {
++  translate: 0 3px;
++}
++
++.product-details {
++  margin-top: var(--space-48);
++  padding-top: var(--space-24);
++  box-shadow: inset 0 var(--border-width-hairline) 0 var(--color-border-default);
++}
++
++.section-title {
++  font-size: var(--font-size-h4);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .detail-list {
+-  margin: 0;
+-  padding-left: var(--space-6);
++  margin: var(--space-12) 0 0;
++  padding-left: var(--space-20);
++  color: var(--color-text-secondary);
++}
++
++.detail-list li + li {
++  margin-top: var(--space-4);
++}
++
++@media (max-width: 991px) {
++  .product-detail-media,
++  .product-detail-info {
++    grid-column: 1 / -1;
++  }
+ }
+ 
+-/* Cart */
++@media (max-width: 833px) {
++  .form-actions {
++    flex-direction: column;
++    align-items: stretch;
++  }
++
++  .form-actions .btn {
++    width: 100%;
++  }
++}
++
++/* ---------- Cart ---------- */
+ .cart-layout {
+   display: grid;
+-  grid-template-columns: 3fr 2fr;
+-  gap: var(--space-6);
++  grid-template-columns: repeat(12, minmax(0, 1fr));
++  gap: var(--space-32);
+   align-items: start;
+ }
+ 
++.cart-main {
++  grid-column: 1 / span 8;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-24);
++  min-width: 0;
++}
++
++.cart-side {
++  grid-column: 9 / -1;
++  position: sticky;
++  top: calc(var(--size-header) + var(--space-24));
++  min-width: 0;
++}
++
+ .cart-lines {
+   list-style: none;
+-  margin: 0;
++  margin: var(--space-16) 0 0;
+   padding: 0;
+ }
+ 
+ .cart-line {
+   display: grid;
+-  grid-template-columns: 1fr auto auto auto;
++  grid-template-columns: minmax(0, 1fr) auto minmax(calc(var(--space-48) + var(--space-32)), auto) auto;
+   align-items: center;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  min-height: var(--size-row-dense);
++  padding: var(--space-16) 0;
++  box-shadow: inset 0 calc(-1 * var(--border-width-hairline)) 0 var(--color-border-default);
+ }
+ 
+-.cart-line-info p {
+-  margin: 0;
++.cart-line:last-child {
++  box-shadow: none;
++}
++
++.cart-line-info {
++  min-width: 0;
+ }
+ 
+ .cart-line-name {
+-  font-weight: bold;
++  font-size: var(--font-size-ui);
++  font-weight: var(--font-weight-medium);
++}
++
++.cart-line-meta {
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+ .cart-line-total {
+-  margin: 0;
+-  min-width: 80px;
+   text-align: right;
+ }
+ 
++.checkout-form {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-24);
++  max-width: var(--size-form);
++  margin-top: var(--space-24);
++}
++
++.form-alert {
++  width: 100%;
++  font-size: var(--font-size-small);
++  color: var(--color-status-danger);
++}
++
+ .summary {
+-  margin: var(--space-4) 0 0;
++  margin: var(--space-16) 0 0;
+ }
+ 
+ .summary-row {
+   display: flex;
+   justify-content: space-between;
+-  padding: var(--space-1) 0;
++  gap: var(--space-16);
++  padding: var(--space-8) 0;
++  font-size: var(--font-size-ui);
++}
++
++.summary-row dt {
++  color: var(--color-text-secondary);
+ }
+ 
+ .summary-row dd {
+@@ -595,44 +1549,38 @@ a {
+ }
+ 
+ .summary-total {
+-  border-top: var(--border-width) solid var(--color-border);
+-  margin-top: var(--space-2);
+-  padding-top: var(--space-2);
+-  font-weight: bold;
+-}
+-
+-.checkout-form {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
+-}
+-
+-.checkout-form .button-primary {
+-  align-self: flex-start;
++  margin-top: var(--space-8);
++  padding-top: var(--space-16);
++  box-shadow: inset 0 var(--border-width-hairline) 0 var(--color-border-default);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+-.confirmation {
+-  background: var(--color-success-bg);
+-  color: var(--color-success-text);
++.summary-total dt {
++  color: var(--color-text-primary);
+ }
+ 
+-@media (max-width: 900px) {
+-  .site-header {
+-    flex-wrap: wrap;
+-    gap: var(--space-3);
+-    padding: var(--space-3) var(--space-4);
++@media (max-width: 991px) {
++  .cart-main,
++  .cart-side {
++    grid-column: 1 / -1;
+   }
+ 
+-  .content {
+-    padding: var(--space-4);
++  .cart-side {
++    position: static;
+   }
++}
+ 
+-  .product-detail,
++@media (max-width: 833px) {
+   .cart-layout {
+-    grid-template-columns: 1fr;
++    gap: var(--space-24);
+   }
+ 
+   .cart-line {
+-    grid-template-columns: 1fr auto;
++    grid-template-columns: auto minmax(0, 1fr) auto;
++    row-gap: var(--space-12);
++  }
++
++  .cart-line-info {
++    grid-column: 1 / -1;
+   }
+ }

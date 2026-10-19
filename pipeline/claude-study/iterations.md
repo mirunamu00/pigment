@@ -272,3 +272,115 @@ wrists leaving the plate or stage edge, plate color by item, and the polish item
   (step 1 already bans shared silhouettes). Bundle 7,489 words by the lint's count (budget 7,500).
 - **Public changelog.** The 1.0.0 drawing-rules bullet now names the hairpin fingers, the four poses, the one-third
   cap and the one-word test for every drawing; the large-drawing bullet now names the taper and height-sized boxes.
+
+## 1.1.0-rc.1 — 2026-10-19 — generalize for any product (overfit review)
+
+Goal: the package is written for any product, not for the harness's four demo apps. Applies every item of
+`pipeline/claude-study/overfit-review-2026-10-19.md` to a candidate scaffolded from the published 1.0.0. Tokens,
+signature recipes, motion and everything else that passed are unchanged. No generation or critic round; validate
+and bundle only. Before → after:
+
+1. **Long-form and featured layout (Layout adaptation).** Before: "Blog featured post: a drawing stage (never a
+   plate), 7 of 12 columns beside the text … Article: … 'On this page' disclosure … Figures without an image are
+   omitted." After: "A featured item: its image or drawing stage (never a plate) beside its text from
+   `breakpoint.lg`; under it, above the text." and "A long-form page: its lead image or drawing spans the text
+   column; a contents list sits beside the text from `breakpoint.lg`; under it, a collapsed disclosure after the
+   lead. An image without a photo becomes a drawing of the page's or item's own subject (Imagery), never removed."
+   The content-deleting rule is gone and no longer contradicts Imagery.
+2. **Transaction summary.** Before: "Cart and checkout: items, then the form …; the summary a plain card in a side
+   column (4 of 12) …". After: "A transaction summary (totals, selection, booking) is a plain card in a narrow side
+   column (4 of 12) from `breakpoint.lg`, sticky at `size.header` + `space.24`; below it, after the main content."
+   "Store grid" → "Image card grids" (same values).
+3. **Stretched panels and stat rows.** Before: "A stretched chart card is … the chart `flex:1;min-height:240px` …
+   Stat cards: 2 per row under `breakpoint.md`." After: "A panel stretched to a taller neighbor is
+   `display:flex;flex-direction:column` and its main content (chart, list, map) takes `flex:1` (a chart at least
+   240px): no empty band. Stat rows wrap evenly whatever their count (equal columns, never one card alone on the
+   last row)." Same-kind rows "(plans, products, stats)" → "(offers, items, stats)".
+4. **Applying the concept rows.** Settings: "…glyph in save, 'Saved'; plans on a lilac stage" → "…glyph in a pending
+   save, then 'Saved'". Dashboard: "main chart on a sage stage; breathing dots for running jobs" → "the screen's
+   primary visualization on one stage; breathing dots for running work". Store → "Item list and detail" ("the
+   detail's main image on a stage"). Article or blog → "Long-form content" ("a featured item or lead image on a
+   drawing stage"). Card grid "feature and plan cards" → "feature and offer cards". Still 13 contexts, product
+   screens included.
+5. **Stage color map.** Before (Where): "the main dashboard chart (sage); plan cards and first-run empty states
+   (lilac); not-found (apricot)". After: "a dense screen's primary visualization or highlight panel; offer or choice
+   cards; first-run empty states … Stages take the next color in the rotation, plates their item's color." Rule 6,
+   stage Limits, card spec ("Feature or offer"), Typography ("Offer names"), pictogram Where: "plan" → "offer".
+   Verification: "every plan card is fully visible" → "every card on a stage is fully visible". Empty-state spec:
+   "a small lilac stage" → "a small stage (next color in the rotation)".
+6. **Switch.** Before: "Settings rows: …" and "Applies immediately, never behind a Save button." After: "Switch
+   rows: …" and "A switch that applies immediately needs no Save; inside a form, it follows the form's submit."
+7. **Misread examples.** Before (recipe step 5): "Seen: a key as a ball; a hat held up on a palm as a head …; a key
+   ring without a key as a magnifier; folded towels as a can". After: "Common misreads: a small object read as a
+   ball (enlarge its defining part); a held round or domed object read as a head (draw it alone or held by its edge
+   or handle); an object drawn without its defining part read as another; a folded or stacked item losing its
+   defining detail (show a fold, fringe or stripe)." Imagery: "(a tote is a tote; bans do not apply)" → "the item's
+   own subject, drawn as itself (subject bans do not apply)". Step 4 example "a key's toothed blade, not its bow" →
+   "an umbrella's canopy, not its handle". Clears the `prose.overfit` warning (Tote, Towels, Key Ring).
+8. **Subject bans.** Before (step 1): "(a store's empty search is about goods). Never vehicles, toys, a subject
+   this spec names, or (unless the screen is literally about it) a steaming mug, magnifier, receipt, envelope, lost
+   glove, sock or mitten." After: "(an empty result shows what was looked for). Never vehicles, toys or a subject
+   this spec names; skip the first object anyone would draw for the task (the stock symbol for search, mail or
+   payment) unless the screen is literally about that object."
+9. **"Every app."** Typography product h1 "identical in every app", Spacing "same in every app", Navigation
+   sidebar "in every product app" → "every product screen". Never: "One product's drawing on another product's card"
+   → "One item's drawing on another item's card". Rule 4 list sections "(posts, related, archive)" → "(item lists,
+   related, archive)"; "article title/prose" → "long-form page title/prose"; drawing stage "(featured post, article
+   or product without an image)" → "(a featured item's, long-form page's or item's main image without a photo)".
+10. **Minor.** Card "Numbered trio" → "Numbered steps (any count)"; "(fewer incidents is success)" → "(a falling
+    count of something bad is success)". Badge: `aria-label` ("3 items in cart") → "naming the count and what it
+    counts ('3 unread')"; "Current plan" → "'Current', 'Default'". Verification: "Each grid card's drawing names its
+    product and matches its detail page; its plate color is the same everywhere." → "An item's drawing and plate
+    color are the same wherever the item appears."
+
+Validate: 0 errors, 0 warnings (was 1 `prose.overfit` warning). Bundle rebuilt; size about the same (the
+rewrites are word-for-word swaps or shorter).
+
+## inkleaf 1.1.0-rc.2 (2026-10-19)
+
+From `showcase/runs/inkleaf/1.1.0-rc.1/author-brief-1.md` (evaluation 1 of 1.1.0-rc.1). Two majors, both
+regressions caused by the 1.1.0-rc.1 rewrite; the 4 minors are left alone. No generate or evaluate run.
+
+1. **Missing images split by purpose (major, signature).** Cause: the rc.1 line "An image without a photo becomes a
+   drawing of the page's or item's own subject" treated every missing image as an item photo, so information figures
+   became single object pictograms that did not match their captions. Rule written (Imagery): first ask what the
+   image is for. A thing becomes its own drawing on a plate or drawing stage; information (diagram, screenshot,
+   comparison, chart, flow; usually a caption about structure or data) becomes a ghosted preview on a media stage,
+   built from raised cards, subtle tiles, skeleton bars and hairlines, shaped like the caption (grid of tiles,
+   side-by-side panels, stacked rows, bars, joined boxes), never a pictogram. Added a ghosted-preview recipe (HTML +
+   CSS, tokens only), a Never entry, stage Where, the Long-form content row, and the long-form layout line now points
+   to both cases. Verification: "Read each figure's caption: the figure must show what the caption describes; a
+   caption about a layout, list, board or comparison never sits under a single object drawing." Why it generalizes:
+   any docs site, changelog, help center, case study or onboarding guide has figures that explain structure; a CRM
+   or booking product has item images. The test is the image's purpose, not the app.
+2. **Density floor for metric cards (major, spacingRhythm).** Cause: rc.1 rewrote "Stat cards: 2 per row under
+   breakpoint.md" as "Stat rows wrap evenly whatever their count", which one column satisfies. Rule written (Layout
+   adaptation): short metric cards (a label, a value, an optional change) sit at least two per row at every width;
+   four make 2x2 under `breakpoint.md`; rows wrap evenly via a 6-column grid (cards span 3, an odd count's last
+   three span 2); only cards with a chart, a list or a form take a full phone row. Verification: "At 390px, no
+   full-width card holds only one number; short metric cards sit two or more per row." Why it generalizes: any
+   analytics, CRM, billing, booking or admin overview leads with KPI cards; one per row pushes the content below the
+   first phone screen in every one of them.
+
+Validate: 0 errors, 0 warnings. Bundle rebuilt.
+
+
+## inkleaf 1.1.0-rc.3 (2026-10-19)
+
+From `showcase/runs/inkleaf/1.1.0-rc.2/author-brief-1.md` (evaluation 1 of 1.1.0-rc.2). One major, a regression
+caused by the spec; the 2 minors are left alone. No generate or evaluate run.
+
+1. **Which cards get a plate (major, signature).** Cause: the rc.2 Imagery rule only applied to a *missing* image, and
+   the Card grid and Long-form rows did not say whether a card whose data has no image field counts as missing one, so
+   an agent could read a no-image dataset as "nothing to replace" and ship text-only grids. Rule written (Imagery, new
+   bullet before the missing-image rules): a grid of items that each have their own subject (entries, articles,
+   products, places, listings, people's work) shows a plate on every card even when the data has no image field — the
+   item's own drawing, the same one on its detail page; the missing-image rules decide what goes on the plate, never
+   whether there is one; text-only cards are for link lists, resources, settings groups and metadata rows. Mirrored in
+   the Card grid and Long-form content rows of Applying the concept and the Card media variant. Verification: "Every
+   card grid of subject items has a plate on every card, whether or not the data has images." Why it generalizes: a
+   booking site's rooms, a CRM's accounts shown as cards, a shop's products, a portfolio, a recipe index or a docs
+   site's guides often come from data with no image column; the decision depends on whether each item has its own
+   subject, not on the data shape, and keeps link and resource lists text-only as the reference does.
+
+Validate: 0 errors, 0 warnings. Bundle rebuilt.
