@@ -517,3 +517,16 @@ validate: 0 error(s), 0 warning(s); bundle: ok.
    arrives with a plain heading; the rule turns it into the system's statement without inventing a part.
 
 validate: 0 error(s), 0 warning(s); bundle: ok.
+
+## graphite-blueprint 1.2.0-rc.5
+
+Answers evaluation 2 of rc.4 (hierarchy, major, 2 of 3 samples, caused by the spec).
+
+- Finding: the closing-statement rule read any last block, including a form, as a page close and rewrote its heading
+  into the display statement.
+- General rule written: only a block that ends a page with one final action for the reader (subscribe, sign up,
+  contact) is a page close; a form that is the main content of its screen (checkout, settings, multi-step flow) keeps
+  its plain section heading and never gets the statement or the dot field. Stated in Typography, the Page close row of
+  Applying the concept, and the Verification check.
+- Why it holds beyond the demo apps: booking, CRM and docs products all have main forms as their last block; the
+  trigger is the block's purpose (the final call to action), not its position.
