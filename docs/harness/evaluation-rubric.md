@@ -1,9 +1,9 @@
 # Evaluation rubric
 
-A template version passes when every hard gate passes in every sample, the critic finds no blocker and no
-major the prompt causes, and a human approves. `pnpm harness evaluate` computes the gates and writes
-`showcase/runs/<id>/<version>/eval-<iteration>.json` + `.md`. `pnpm harness critic-brief` writes the
-`design-critic` agent's assignment; `pnpm harness critic` merges its findings and settles the verdict.
+A template version passes when every hard gate passes in every sample, the review finds no blocker and no
+major the prompt causes — on the main apps and then on the holdout apps — and a human approves.
+`pnpm harness evaluate` computes the gates and writes `showcase/runs/<id>/<version>/eval-<iteration>.json` + `.md`;
+`pnpm harness review` reviews every checklist item and settles the verdict.
 
 ## Hard gates (per app, automated)
 
@@ -62,17 +62,32 @@ Reported, not gated — templates are derived, not cloned, so 100% would be a re
 Low overlaps mean the language did not carry over; overlaps near 1 with palette distance near 0 deserve a
 look for copying.
 
-## The critic
+## The review
 
-The `design-critic` agent judges the screenshots of every sample of every app side by side, with the
-reference. Its assignment is generated (`pnpm harness critic-brief <ref>` → `critic-brief-<n>.md`) and given
-to it verbatim: every candidate is judged under the same instructions, evidence and output format. Never
-write or edit a critic prompt by hand.
+The gates only show that nothing broke and the tokens were used. Whether the agents built the reference's design
+language is judged by the review, so the review is held to a coverage it cannot skip, and a stopping point it
+cannot extend:
+
+1. **Checklist.** `pnpm harness review <ref>` lists everything the runs produced as items: every captured screen at
+   every viewport and appearance the system has, every interaction state, each screen's drawings, each app's
+   motion. One item holds **every sample** of that screen, so recurrence is judged on the same item.
+2. **Comparison sheets.** Each item gets one image with the samples side by side (drawings next to each other,
+   originals listed under the sheet), and the reference gets its own sheet.
+3. **Reviewers.** One reviewer per app (two when an app has over 30 items), run by the harness in parallel with
+   read-only tools and a generated prompt. Each answers every item of its list with a note about what is on that
+   screen; a missing item or a contentless note ("ok") does not count. At most one minor per item and eight per
+   reviewer: a review lists what it sees, it does not hunt.
+4. **Coverage check.** Unanswered items go back to their reviewer once. If any are still unanswered, the review is
+   `incomplete` and gives **no verdict**.
+5. **Lead reviewer.** Merges duplicate findings, settles each finding's sample count, grades every finding with one
+   standard, and judges what no single reviewer can (one family across apps, reference fidelity, signatures). Its
+   file is merged into the evaluation; the report records coverage, reviewers and time.
+6. **Overrides.** The orchestrator never edits a critic file or a reviewer prompt. A severity it disagrees with is
+   changed with `critic --override "<phrase>=<severity>=<reason>"`, recorded in the file and the report.
 
 Besides the page captures, each run includes interaction-state captures (`state-*.png`: keyboard focus,
-hover, validation errors, dialogs, toasts, empty results) defined in each base app's `pigment.app.json`,
-and native-resolution crops of every drawing (`drawings/*.png`, listed in `shots.json` → `drawings`).
-Full-page screenshots are scaled down when read, so drawings are judged on the crops, next to the
+hover, validation errors, dialogs, toasts, empty results, loading) defined in each base app's `pigment.app.json`,
+and native-resolution crops of every drawing (`drawings/*.png`). Drawings are judged on the crops, next to the
 reference's crops (`pipeline/<slug>/reference/illustrations/`: `-i` large, `-g` small drawings).
 
 ### The reference is the measure
@@ -121,17 +136,20 @@ from a typical sample — and do not decide anything.
 | Polish | Alignment, optical balance, no default-browser leftovers, no generic look the reference doesn't have. Signature elements are not judged here |
 | Signature | Are the signature elements present in all four apps, placed as Applying the concept says, built to their recipes, as well crafted as the reference's at the same size (compare the crops), and moving as specified (check the motion frames)? For `schemaVersion: 2` packages |
 
-### Samples: judge the prompt, not one run
+### Stages: judge the prompt, not one run
 
 Every user's agent builds a different result from the same prompt, so one run is one sample. Fixing the
-small flaws of one sample and running again only draws a new sample with new small flaws. Candidates are
-judged on three samples, gathered in two steps so a failing candidate costs one sample, not three:
+small flaws of one sample and running again only draws a new sample with new small flaws. A candidate goes through
+three stages, and the harness refuses them out of order:
 
-1. **Screen:** `generate` (one sample), `evaluate`, `critic-brief`, critic, `critic`. A failing gate or a
-   blocker or major sends the candidate back to the author.
-2. **Confirm:** only a candidate that passes the screen gets `generate --samples 2`, then
-   `evaluate --samples 3` (the screen run plus the two new ones), `critic-brief`, critic, `critic`. Publish
-   only after this passes.
+1. **Screen:** one sample of the four main apps — `generate`, `evaluate`, `review`. A failing gate, a blocker or
+   a gating major sends the candidate back to the author.
+2. **Confirm:** only after a passing screen — `generate --samples 2 --holdout` (two more samples of the main apps,
+   one run of each holdout app), `evaluate --samples 3` (the screen run plus the two new ones), `review`.
+3. **Holdout check:** only after a passing confirm — `evaluate --holdout`, `review --holdout`. The holdout apps
+   (a landing page, a docs site) have structures the main apps don't; they show whether the system carries to
+   products it was never tuned on. They run with the confirm but are judged only now, so a candidate that failed
+   on the main apps never learns from them. Publish needs this stage passed.
 
 Judging three samples:
 
@@ -139,6 +157,8 @@ Judging three samples:
 - **A finding counts against the prompt when it recurs** — in two or more samples, or in every app of one
   sample — or when the spec itself causes it. A major seen once, in one app of one sample, is variance: it
   is listed with "1 of 3" and does not fail the candidate. A blocker fails it wherever it appears.
+- **Holdout apps run once,** so a major seen only there counts against the prompt only when the spec causes it;
+  a blocker there fails the candidate.
 - Every finding says in how many samples it appears.
 
 ## When to stop

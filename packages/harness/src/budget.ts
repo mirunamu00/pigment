@@ -1,6 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import type { EvalReport } from "@pigment/schema";
+import { AppId, type EvalReport } from "@pigment/schema";
+import { holdoutApps } from "./appdir.ts";
 import { paths } from "./paths.ts";
 import { readJson } from "./util.ts";
 
@@ -82,44 +83,78 @@ export function familyCost(id: string, version: string, runsRoot = paths.runs): 
   return { family: versionFamily(version), ...total };
 }
 
-/** The latest evaluation of a version, if any. */
-export function latestEval(id: string, version: string, runsRoot = paths.runs): EvalReport | null {
-  const dir = join(runsRoot, id, version);
-  if (!existsSync(dir)) return null;
-  const last = readdirSync(dir)
-    .filter((f) => /^eval-\d+\.json$/.test(f))
-    .sort((a, b) => parseInt(a.slice(5)) - parseInt(b.slice(5)))
-    .at(-1);
-  return last ? readJson<EvalReport>(join(dir, last)) : null;
+export type EvalScope = "main" | "holdout";
+
+/** What an evaluation covers: the main apps (screen and confirm) or only the holdout apps (the final check). */
+export function evalScope(report: EvalReport): EvalScope {
+  if (report.scope) return report.scope;
+  return report.runs.length > 0 && report.runs.every((r) => !AppId.safeParse(r.app).success) ? "holdout" : "main";
 }
 
-/** Candidates of the family whose latest evaluation passed (gates and critic). */
-export function passedCandidates(id: string, version: string, runsRoot = paths.runs): Array<{ version: string; samples: number }> {
-  const out: Array<{ version: string; samples: number }> = [];
+/** The latest evaluation of a version for one scope (the main apps by default), if any. */
+export function latestEval(id: string, version: string, runsRoot = paths.runs, scope: EvalScope = "main"): EvalReport | null {
+  const dir = join(runsRoot, id, version);
+  if (!existsSync(dir)) return null;
+  const files = readdirSync(dir)
+    .filter((f) => /^eval-\d+\.json$/.test(f))
+    .sort((a, b) => parseInt(b.slice(5)) - parseInt(a.slice(5)));
+  for (const f of files) {
+    const report = readJson<EvalReport>(join(dir, f));
+    if (evalScope(report) === scope) return report;
+  }
+  return null;
+}
+
+/**
+ * Where a candidate stands. The main apps come first: a screen on one sample, then a confirm on three. Only a
+ * candidate that passed the confirm gets the final check on the holdout apps, which it must pass to be published.
+ */
+export type CandidateStage = "screen" | "confirm" | "holdout" | "done" | "failed";
+
+export function candidateStage(id: string, version: string, runsRoot = paths.runs, hasHoldouts = holdoutApps().length > 0): { stage: CandidateStage; samples: number } {
+  const main = latestEval(id, version, runsRoot, "main");
+  if (!main) return { stage: "screen", samples: 0 };
+  const perApp = new Map<string, number>();
+  // Samples count the main apps only: an older evaluation may also hold one run of each holdout app.
+  const holdouts = new Set(holdoutApps());
+  for (const r of main.runs) if (!holdouts.has(r.app)) perApp.set(r.app, (perApp.get(r.app) ?? 0) + 1);
+  const samples = perApp.size ? Math.min(...perApp.values()) : 0;
+  if (main.verdict !== "pass") return { stage: main.verdict === "fail" ? "failed" : samples >= CONFIRM_SAMPLES ? "confirm" : "screen", samples };
+  if (samples < CONFIRM_SAMPLES) return { stage: "confirm", samples };
+  if (!hasHoldouts) return { stage: "done", samples };
+  const holdout = latestEval(id, version, runsRoot, "holdout");
+  if (!holdout || holdout.verdict === "pending-review") return { stage: "holdout", samples };
+  return { stage: holdout.verdict === "pass" ? "done" : "failed", samples };
+}
+
+/** Candidates of the family that passed their latest main evaluation, with the stage they reached. */
+export function passedCandidates(id: string, version: string, runsRoot = paths.runs, hasHoldouts = holdoutApps().length > 0): Array<{ version: string; samples: number; stage: CandidateStage }> {
+  const out: Array<{ version: string; samples: number; stage: CandidateStage }> = [];
   for (const v of familyVersions(id, version, runsRoot)) {
-    const report = latestEval(id, v, runsRoot);
-    if (report?.verdict !== "pass") continue;
-    const perApp = new Map<string, number>();
-    for (const r of report.runs) perApp.set(r.app, (perApp.get(r.app) ?? 0) + 1);
-    out.push({ version: v, samples: perApp.size ? Math.min(...perApp.values()) : 0 });
+    const main = latestEval(id, v, runsRoot, "main");
+    if (main?.verdict !== "pass") continue;
+    const { stage, samples } = candidateStage(id, v, runsRoot, hasHoldouts);
+    if (stage === "failed") continue;
+    out.push({ version: v, samples, stage });
   }
   return out;
 }
 
+function nextStep(id: string, p: { version: string; samples: number; stage: CandidateStage }): string {
+  if (p.stage === "done") return `${id}@${p.version} passed the confirm and the holdout check. Offer it for publishing and list its leftover flaws`;
+  if (p.stage === "holdout") return `${id}@${p.version} passed the confirm on ${p.samples} samples. Run its holdout check (generate --holdout, evaluate --holdout, review --holdout)`;
+  return `${id}@${p.version} passed the screen. Confirm it (generate --samples 2, evaluate --samples 3, review)`;
+}
+
 /**
- * Why a new candidate must not be made, or null. A passed candidate means: publish it (leftover minor flaws are
- * the user's call, not another round), and the iteration cap means: stop and report.
+ * Why a new candidate must not be made, or null. A passed candidate means: finish it (confirm, holdout check,
+ * publish), and the iteration cap means: stop and report.
  */
-export function candidateBlock(id: string, version: string, runsRoot = paths.runs): string | null {
-  const passed = passedCandidates(id, version, runsRoot).filter((p) => p.version !== version);
-  const confirmed = passed.find((p) => p.samples >= CONFIRM_SAMPLES);
-  if (confirmed) {
-    return `${id}@${confirmed.version} passed on ${confirmed.samples} samples. Offer it for publishing and list its leftover flaws; make another candidate only when the user asks for one (--after-pass).`;
-  }
-  const screened = passed.at(-1);
-  if (screened) {
-    return `${id}@${screened.version} passed the screen. Confirm it (generate --samples 2, evaluate --samples 3) instead of making another candidate (--after-pass if the user asked for one).`;
-  }
+export function candidateBlock(id: string, version: string, runsRoot = paths.runs, hasHoldouts = holdoutApps().length > 0): string | null {
+  const passed = passedCandidates(id, version, runsRoot, hasHoldouts).filter((p) => p.version !== version);
+  const order: CandidateStage[] = ["done", "holdout", "confirm", "screen"];
+  const best = passed.sort((a, b) => order.indexOf(a.stage) - order.indexOf(b.stage))[0];
+  if (best) return `${nextStep(id, best)} instead of making another candidate (--after-pass if the user asked for one).`;
   const n = candidateNumber(version);
   if (n !== null && n > MAX_CANDIDATES) {
     return `candidate ${n} is past the cap of ${MAX_CANDIDATES} (the first plus three fix iterations). Stop and report the failure analysis to the user; go on only when they ask (--past-cap).`;
@@ -127,16 +162,22 @@ export function candidateBlock(id: string, version: string, runsRoot = paths.run
   return null;
 }
 
-/** Why a generation must not start, or null: a candidate of the family already passed. */
-export function generationBlock(id: string, version: string, runsRoot = paths.runs): string | null {
-  const passed = passedCandidates(id, version, runsRoot);
-  const other = passed.find((p) => p.samples >= CONFIRM_SAMPLES && p.version !== version) ?? passed.find((p) => p.version !== version);
-  if (other) {
-    return other.samples >= CONFIRM_SAMPLES
-      ? `${id}@${other.version} already passed on ${other.samples} samples — publish it instead of generating more (--after-pass if the user asked for this run).`
-      : `${id}@${other.version} passed the screen — confirm that candidate instead (--after-pass if the user asked for this run).`;
-  }
+/**
+ * Why a generation must not start, or null. Main-app runs stop once a candidate has three passing samples;
+ * holdout runs start only then.
+ */
+export function generationBlock(id: string, version: string, runsRoot = paths.runs, kind: EvalScope = "main", hasHoldouts = holdoutApps().length > 0): string | null {
+  const passed = passedCandidates(id, version, runsRoot, hasHoldouts);
   const self = passed.find((p) => p.version === version);
-  if (self && self.samples >= CONFIRM_SAMPLES) return `${id}@${version} already passed on ${self.samples} samples — nothing left to confirm (--after-pass if the user asked for this run).`;
+  if (kind === "holdout") {
+    if (!self || self.stage === "screen" || self.stage === "confirm") {
+      return `${id}@${version} has not passed the confirm on ${CONFIRM_SAMPLES} samples of the main apps — the holdout check comes after that.`;
+    }
+    if (self.stage === "done") return `${id}@${version} already passed the holdout check — publish it.`;
+    return null;
+  }
+  const other = passed.find((p) => p.version !== version);
+  if (other) return `${nextStep(id, other)} instead of generating more (--after-pass if the user asked for this run).`;
+  if (self && self.samples >= CONFIRM_SAMPLES) return `${nextStep(id, self)} — no more main-app samples are needed (--after-pass if the user asked for this run).`;
   return null;
 }

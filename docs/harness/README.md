@@ -14,10 +14,9 @@ reference URL
    │  6. generate   pnpm harness generate <id>@<version>       → showcase/runs/<id>/<version>/<app>/<runId>/  (agent restyles each base app; one sample to screen, two more + holdout apps to confirm; refuses after a pass)
    │               pnpm harness reshoot <id>@<version>        → capture the latest runs again after the capture code changes (no agent run)
    │  7. evaluate   pnpm harness evaluate <id>@<version> [--samples 3] → gates in every sample, measured layout defects, reference similarity
-   │               pnpm harness critic-brief <id>@<version>   → the critic's generated assignment
-   │               design-critic agent                         → findings: blocker / major / minor, general prompt fixes
-   │               pnpm harness critic <id>@<version> <file>  → pass = no blocker, no major the prompt causes
-   │  8. iterate    pnpm harness author-brief <id>@<rc> --next <rc+1> → the author's generated assignment, then back to 4 (at most 4 candidates, each recorded; stop at the first confirmed pass)
+   │               pnpm harness review <id>@<version>          → checklist of every screen × sample, reviewers per app, a lead reviewer; incomplete coverage = no verdict
+   │               pnpm harness evaluate|review --holdout      → the holdout check, only after the main apps passed the confirm
+   │  8. iterate    pnpm harness author-brief <id>@<rc> --next <rc+1> → the author's generated assignment, then back to 4 (at most 4 candidates, each recorded; stop at the first candidate that passes the holdout check)
    │  9. approve    the user reviews screenshots + report      (human gate)
    └ 10. publish    pnpm harness publish <id>@<version>        → frozen version, registry, gallery assets
 ```

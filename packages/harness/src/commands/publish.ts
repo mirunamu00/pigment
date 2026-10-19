@@ -1,6 +1,7 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { AppId, EvalReport, Registry } from "@pigment/schema";
+import { candidateStage, latestEval } from "../budget.ts";
 import { paths, rel, runsDir, templateDir } from "../paths.ts";
 import { loadTemplate } from "../template.ts";
 import { fail, hashDir, listFiles, ok, readJson, timestamp, writeJson } from "../util.ts";
@@ -14,13 +15,6 @@ export function readRegistry(): Registry {
 
 export function readPublished(): Record<string, string> {
   return existsSync(paths.published) ? readJson<Record<string, string>>(paths.published) : {};
-}
-
-function latestEval(id: string, version: string): EvalReport | null {
-  const dir = runsDir(id, version);
-  if (!existsSync(dir)) return null;
-  const evals = readdirSync(dir).filter((f) => /^eval-\d+\.json$/.test(f)).sort((a, b) => parseInt(a.slice(5)) - parseInt(b.slice(5)));
-  return evals.length ? EvalReport.parse(readJson(join(dir, evals[evals.length - 1]!))) : null;
 }
 
 /** Manifest fields that describe a system without changing what an agent builds from it. */
@@ -83,6 +77,18 @@ export function publish(id: string, version: string, approvedBy: string, carryFr
   const report = latestEval(id, evaluated);
   if (!report) fail(`no evaluation for ${id}@${evaluated}`);
   if (report.verdict !== "pass") fail(`latest evaluation is "${report.verdict}" — it must be "pass" (gates and critic)`);
+  // A candidate is published only after the confirm on the main apps and the final check on the holdout apps.
+  // A published version carried over for a metadata-only change keeps the evaluation it was published on.
+  if (!(carryFrom && published[`${id}@${carryFrom}`])) {
+    const { stage, samples } = candidateStage(id, evaluated);
+    if (stage !== "done") {
+      fail(
+        stage === "holdout"
+          ? `${id}@${evaluated} passed the confirm but not yet the holdout check (generate --holdout, evaluate --holdout, review --holdout)`
+          : `${id}@${evaluated} is at the ${stage} stage (${samples} main sample(s) passed) — it needs the confirm on 3 samples and the holdout check`,
+      );
+    }
+  }
 
   // Flip status and rebuild the bundle with the final manifest, then validate what will actually be frozen —
   // a stale bundle (e.g. one copied by scaffold before a rename) can pass while the final one doesn't.

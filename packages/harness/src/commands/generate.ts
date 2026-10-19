@@ -80,7 +80,9 @@ export async function generate(id: string, version: string, options: GenerateOpt
   const known = [...baseApps(), ...holdoutApps()];
   const apps = (options.apps ?? (baseApps() as RunAppId[])).filter((a) => known.includes(a));
   const holdout = options.holdout ? (holdoutApps() as RunAppId[]).filter((a) => !apps.includes(a)) : [];
-  const block = generationBlock(id, version);
+  // Runs of only the holdout apps are the final check, allowed once the main apps passed the confirm.
+  const onlyHoldouts = apps.length > 0 && apps.every((a) => holdoutApps().includes(a));
+  const block = generationBlock(id, version, undefined, onlyHoldouts ? "holdout" : "main");
   if (block && !options.afterPass) fail(`not generating: ${block}`);
   // One generation per machine at a time: each base app serves on a fixed port, so two generations (of any
   // templates) test and capture each other's apps; a restart whose predecessor lived on also doubles memory use.
