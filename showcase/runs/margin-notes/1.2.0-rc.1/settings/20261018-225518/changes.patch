@@ -1,0 +1,2497 @@
+diff --git a/index.html b/index.html
+index 6285f3e..37782fc 100644
+--- a/index.html
++++ b/index.html
+@@ -4,6 +4,12 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <link rel="icon" href="data:," />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=Caveat&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap"
++    />
+     <title>Account Settings</title>
+   </head>
+   <body>
+diff --git a/src/App.tsx b/src/App.tsx
+index 3f09961..3efffac 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,26 +1,29 @@
+ import { Navigate, Route, Routes } from 'react-router';
+ import Layout from './components/Layout';
++import { StudioFilters } from './components/Studio';
+ import ProfilePage from './pages/ProfilePage';
+ import NotificationsPage from './pages/NotificationsPage';
+ import SecurityPage from './pages/SecurityPage';
+ import BillingPage from './pages/BillingPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+-    <Routes>
+-      <Route index element={<Navigate to="/settings/profile" replace />} />
+-      <Route path="settings" element={<Layout />}>
++    <>
++      <StudioFilters />
++      <Routes>
+         <Route index element={<Navigate to="/settings/profile" replace />} />
+-        <Route path="profile" element={<ProfilePage />} />
+-        <Route path="notifications" element={<NotificationsPage />} />
+-        <Route path="security" element={<SecurityPage />} />
+-        <Route path="billing" element={<BillingPage />} />
+-        <Route path="*" element={<NotFoundPage />} />
+-      </Route>
+-      <Route element={<Layout />}>
+-        <Route path="*" element={<NotFoundPage />} />
+-      </Route>
+-    </Routes>
++        <Route path="settings" element={<Layout />}>
++          <Route index element={<Navigate to="/settings/profile" replace />} />
++          <Route path="profile" element={<ProfilePage />} />
++          <Route path="notifications" element={<NotificationsPage />} />
++          <Route path="security" element={<SecurityPage />} />
++          <Route path="billing" element={<BillingPage />} />
++          <Route path="*" element={<NotFoundPage />} />
++        </Route>
++        <Route element={<Layout />}>
++          <Route path="*" element={<NotFoundPage />} />
++        </Route>
++      </Routes>
++    </>
+   );
+ }
+diff --git a/src/components/ConfirmDialog.tsx b/src/components/ConfirmDialog.tsx
+index 0ac9dd1..4e8b238 100644
+--- a/src/components/ConfirmDialog.tsx
++++ b/src/components/ConfirmDialog.tsx
+@@ -1,4 +1,5 @@
+ import { useEffect, useRef, type ReactNode } from 'react';
++import { CloseIcon } from './Icons';
+ 
+ interface ConfirmDialogProps {
+   open: boolean;
+@@ -31,7 +32,8 @@ export default function ConfirmDialog({
+     if (!dialog) return;
+     if (open && !dialog.open) {
+       dialog.showModal();
+-      cancelRef.current?.focus();
++      // Least destructive control first, with its focus ring showing.
++      cancelRef.current?.focus({ focusVisible: true } as FocusOptions);
+     } else if (!open && dialog.open) {
+       dialog.close();
+     }
+@@ -46,9 +48,20 @@ export default function ConfirmDialog({
+       onClose={() => {
+         if (open) onCancel();
+       }}
++      onClick={(event) => {
++        // A click on the scrim (the dialog element itself, outside its content box) closes it.
++        if (event.target !== event.currentTarget) return;
++        const box = event.currentTarget.getBoundingClientRect();
++        const inside =
++          event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
++        if (!inside) onCancel();
++      }}
+       data-testid={testId}
+     >
+       <h2 id={`${testId}-title`}>{title}</h2>
++      <button type="button" className="button button-ghost button-icon dialog-close" aria-label="Close" onClick={onCancel}>
++        <CloseIcon />
++      </button>
+       <div id={`${testId}-body`} className="dialog-body">
+         {children}
+       </div>
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 8802b51..ecc7769 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,5 +1,9 @@
+-import { NavLink, Outlet } from 'react-router';
++import { useEffect, useRef, useState } from 'react';
++import { NavLink, Outlet, useLocation } from 'react-router';
+ import { currentUser } from '../data/account';
++import { MenuIcon } from './Icons';
++import { PencilNote } from './Studio';
++import { ToastProvider } from './Toast';
+ 
+ const SECTIONS = [
+   { to: '/settings/profile', label: 'Profile', testId: 'nav-profile' },
+@@ -9,40 +13,87 @@ const SECTIONS = [
+ ];
+ 
+ export default function Layout() {
++  const [menuOpen, setMenuOpen] = useState(false);
++  const menuButtonRef = useRef<HTMLButtonElement>(null);
++  const sidebarRef = useRef<HTMLElement>(null);
++  const location = useLocation();
++
++  // The mobile section sheet closes on navigation, Escape and an outside click.
++  useEffect(() => setMenuOpen(false), [location.pathname]);
++
++  useEffect(() => {
++    if (!menuOpen) return;
++    function onKeyDown(event: KeyboardEvent) {
++      if (event.key === 'Escape') {
++        setMenuOpen(false);
++        menuButtonRef.current?.focus();
++      }
++    }
++    function onPointerDown(event: PointerEvent) {
++      const target = event.target as Node;
++      if (!sidebarRef.current?.contains(target) && !menuButtonRef.current?.contains(target)) setMenuOpen(false);
++    }
++    document.addEventListener('keydown', onKeyDown);
++    document.addEventListener('pointerdown', onPointerDown);
++    return () => {
++      document.removeEventListener('keydown', onKeyDown);
++      document.removeEventListener('pointerdown', onPointerDown);
++    };
++  }, [menuOpen]);
++
+   return (
+-    <div className="app-shell">
+-      <a className="skip-link" href="#main-content">
+-        Skip to content
+-      </a>
+-      <header className="topbar">
+-        <div className="brand">Account Settings</div>
+-        <div className="person" data-testid="current-user">
+-          <span className="avatar avatar-small" aria-hidden="true">
+-            {currentUser.initials}
+-          </span>
+-          <span>{currentUser.name}</span>
+-        </div>
+-      </header>
++    <ToastProvider>
++      <div className="app-shell">
++        <a className="skip-link" href="#main-content">
++          Skip to content
++        </a>
++        <header className="topbar">
++          <div className="container topbar-inner">
++            <div className="brand">Account Settings</div>
++            <div className="topbar-end">
++              <div className="person" data-testid="current-user">
++                <span className="avatar avatar-small" aria-hidden="true">
++                  {currentUser.initials}
++                </span>
++                <span className="person-name">{currentUser.name}</span>
++              </div>
++              <button
++                ref={menuButtonRef}
++                type="button"
++                className="button button-ghost button-icon menu-button"
++                aria-label="Sections menu"
++                aria-expanded={menuOpen}
++                aria-controls="settings-sidebar"
++                onClick={() => setMenuOpen((open) => !open)}
++              >
++                <MenuIcon />
++              </button>
++            </div>
++          </div>
++        </header>
+ 
+-      <div className="settings-layout">
+-        <aside className="sidebar">
+-          <nav aria-label="Settings sections" data-testid="settings-nav">
+-            <ul className="nav-list">
+-              {SECTIONS.map((section) => (
+-                <li key={section.to}>
+-                  <NavLink to={section.to} className="nav-link" data-testid={section.testId}>
+-                    {section.label}
+-                  </NavLink>
+-                </li>
+-              ))}
+-            </ul>
+-          </nav>
+-        </aside>
++        <div className="container settings-layout">
++          <aside ref={sidebarRef} id="settings-sidebar" className="sidebar" data-open={menuOpen ? 'true' : 'false'}>
++            <nav aria-label="Settings sections" data-testid="settings-nav" className="sidebar-nav">
++              <p className="eyebrow sidebar-eyebrow">Settings</p>
++              <ul className="nav-list">
++                {SECTIONS.map((section) => (
++                  <li key={section.to}>
++                    <NavLink to={section.to} className="nav-link" data-testid={section.testId}>
++                      {section.label}
++                    </NavLink>
++                  </li>
++                ))}
++              </ul>
++              <PencilNote placement="below">pick a section</PencilNote>
++            </nav>
++          </aside>
+ 
+-        <main id="main-content" className="content" tabIndex={-1}>
+-          <Outlet />
+-        </main>
++          <main id="main-content" className="content" tabIndex={-1}>
++            <Outlet />
++          </main>
++        </div>
+       </div>
+-    </div>
++    </ToastProvider>
+   );
+ }
+diff --git a/src/pages/BillingPage.tsx b/src/pages/BillingPage.tsx
+index 54b10a4..3a16c96 100644
+--- a/src/pages/BillingPage.tsx
++++ b/src/pages/BillingPage.tsx
+@@ -1,11 +1,15 @@
+ import { useState } from 'react';
+ import ConfirmDialog from '../components/ConfirmDialog';
++import { CheckIcon } from '../components/Icons';
++import SuccessStatus from '../components/SuccessStatus';
++import { useToast } from '../components/Toast';
+ import { initialPlanId, invoices, paymentMethod, plans, type Plan, type PlanId } from '../data/billing';
+ 
+ export default function BillingPage() {
+   const [currentPlanId, setCurrentPlanId] = useState<PlanId>(initialPlanId);
+   const [pendingPlan, setPendingPlan] = useState<Plan | null>(null);
+   const [message, setMessage] = useState('');
++  const showToast = useToast();
+ 
+   const currentPlan = plans.find((plan) => plan.id === currentPlanId) ?? plans[0];
+ 
+@@ -13,6 +17,7 @@ export default function BillingPage() {
+     if (!pendingPlan) return;
+     setCurrentPlanId(pendingPlan.id);
+     setMessage(`Your plan is now ${pendingPlan.name}.`);
++    showToast(`Your plan is now ${pendingPlan.name}.`);
+     setPendingPlan(null);
+   }
+ 
+@@ -25,7 +30,7 @@ export default function BillingPage() {
+         </p>
+       </div>
+ 
+-      <section className="panel" aria-labelledby="plans-heading">
++      <section className="panel panel--bare" aria-labelledby="plans-heading">
+         <h2 id="plans-heading">Plans</h2>
+         <ul className="plan-grid">
+           {plans.map((plan) => {
+@@ -45,9 +50,7 @@ export default function BillingPage() {
+                 <ul className="feature-list">
+                   {plan.features.map((feature) => (
+                     <li key={feature}>
+-                      <svg className="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+-                        <path d="M3 8.5l3 3l7-7" fill="none" stroke="currentColor" strokeWidth="2" />
+-                      </svg>
++                      <CheckIcon size={16} />
+                       <span>{feature}</span>
+                     </li>
+                   ))}
+@@ -70,46 +73,52 @@ export default function BillingPage() {
+             );
+           })}
+         </ul>
+-        <p role="status" className="status-message" data-testid="plan-status">
+-          {message}
+-        </p>
++        <SuccessStatus message={message} testId="plan-status" />
+       </section>
+ 
+-      <section className="panel" aria-labelledby="payment-heading">
++      <section className="panel panel--fit" aria-labelledby="payment-heading">
+         <h2 id="payment-heading">Payment method</h2>
+         <div className="payment-method" data-testid="payment-method">
+           <svg className="card-icon" viewBox="0 0 32 22" width="32" height="22" aria-hidden="true" focusable="false">
+             <rect x="1" y="1" width="30" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-            <rect x="1" y="6" width="30" height="4" fill="currentColor" />
++            <path d="M1 8h30" fill="none" stroke="currentColor" strokeWidth="1.5" />
+           </svg>
+           <span>
+             {paymentMethod.brand} ending in {paymentMethod.last4}
+           </span>
+-          <span className="muted small">Expires {paymentMethod.expires}</span>
++          <span className="muted small">
++            Expires <span className="mono">{paymentMethod.expires}</span>
++          </span>
+         </div>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="invoices-heading">
++      <section className="panel panel--table" aria-labelledby="invoices-heading">
+         <h2 id="invoices-heading">Invoices</h2>
+         <div className="table-wrap">
+-          <table className="table" data-testid="invoices-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Invoice</th>
+-                <th scope="col">Date</th>
+-                <th scope="col" className="numeric">
++          <table className="table table--stack" role="table" data-testid="invoices-table">
++            <colgroup>
++              <col />
++              <col className="col-date" />
++              <col className="col-amount" />
++              <col className="col-status" />
++            </colgroup>
++            <thead role="rowgroup">
++              <tr role="row">
++                <th scope="col" role="columnheader">Invoice</th>
++                <th scope="col" role="columnheader">Date</th>
++                <th scope="col" role="columnheader" className="numeric">
+                   Amount
+                 </th>
+-                <th scope="col">Status</th>
++                <th scope="col" role="columnheader">Status</th>
+               </tr>
+             </thead>
+-            <tbody>
++            <tbody role="rowgroup">
+               {invoices.map((invoice) => (
+-                <tr key={invoice.id} data-testid="invoice-row">
+-                  <td>{invoice.id}</td>
+-                  <td>{invoice.date}</td>
+-                  <td className="numeric">{invoice.amount}</td>
+-                  <td>
++                <tr key={invoice.id} role="row" data-testid="invoice-row">
++                  <td role="cell" className="cell-primary mono" data-label="Invoice">{invoice.id}</td>
++                  <td role="cell" className="mono" data-label="Date">{invoice.date}</td>
++                  <td role="cell" className="numeric" data-label="Amount">{invoice.amount}</td>
++                  <td role="cell" data-label="Status">
+                     <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
+                       {invoice.status}
+                     </span>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 9781ca6..658621e 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,21 @@
+ import { Link } from 'react-router';
++import { Bloom, PencilNote, Tape } from '../components/Studio';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The settings page you are looking for does not exist or has moved.</p>
+-      <Link to="/settings/profile">Go to profile settings</Link>
+-    </section>
++    <div className="empty-wrap">
++      <Bloom variant="empty" />
++      <section className="empty-state" data-testid="not-found">
++        <Tape />
++        <h1>Page not found</h1>
++        <p className="muted">The settings page you are looking for does not exist or has moved.</p>
++        <span className="note-anchor">
++          <Link to="/settings/profile" className="button">
++            Go to profile settings
++          </Link>
++          <PencilNote>back to profile</PencilNote>
++        </span>
++      </section>
++    </div>
+   );
+ }
+diff --git a/src/pages/ProfilePage.tsx b/src/pages/ProfilePage.tsx
+index 89f0a81..87e2c5b 100644
+--- a/src/pages/ProfilePage.tsx
++++ b/src/pages/ProfilePage.tsx
+@@ -1,4 +1,7 @@
+ import { useState, type ChangeEvent, type FormEvent } from 'react';
++import { FieldError, FormErrorCallout } from '../components/FieldError';
++import SuccessStatus from '../components/SuccessStatus';
++import { useToast } from '../components/Toast';
+ import { BIO_MAX_LENGTH, currentUser, initialProfile, timeZones, type Profile } from '../data/account';
+ 
+ type ProfileErrors = Partial<Record<keyof Profile, string>>;
+@@ -19,6 +22,7 @@ export default function ProfilePage() {
+   const [profile, setProfile] = useState<Profile>(initialProfile);
+   const [errors, setErrors] = useState<ProfileErrors>({});
+   const [saved, setSaved] = useState(false);
++  const showToast = useToast();
+ 
+   function update(field: keyof Profile) {
+     return (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+@@ -38,6 +42,7 @@ export default function ProfilePage() {
+       return;
+     }
+     setSaved(true);
++    showToast('Profile saved');
+   }
+ 
+   function handleReset() {
+@@ -63,6 +68,7 @@ export default function ProfilePage() {
+       </div>
+ 
+       <form className="panel form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
++        <FormErrorCallout count={Object.keys(errors).length} />
+         <div className="avatar-row">
+           <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
+             {initials}
+@@ -102,9 +108,9 @@ export default function ProfilePage() {
+               data-testid="profile-name"
+             />
+             {errors.fullName && (
+-              <p id="profile-fullName-error" className="field-error" data-testid="error-name">
++              <FieldError id="profile-fullName-error" testId="error-name">
+                 {errors.fullName}
+-              </p>
++              </FieldError>
+             )}
+           </div>
+ 
+@@ -124,9 +130,9 @@ export default function ProfilePage() {
+               data-testid="profile-email"
+             />
+             {errors.email && (
+-              <p id="profile-email-error" className="field-error" data-testid="error-email">
++              <FieldError id="profile-email-error" testId="error-email">
+                 {errors.email}
+-              </p>
++              </FieldError>
+             )}
+           </div>
+ 
+@@ -149,6 +155,7 @@ export default function ProfilePage() {
+             <label htmlFor="profile-timeZone" className="field-label">
+               Time zone
+             </label>
++            <span className="select-wrap">
+             <select
+               id="profile-timeZone"
+               className="input"
+@@ -165,10 +172,11 @@ export default function ProfilePage() {
+                 </option>
+               ))}
+             </select>
++            </span>
+             {errors.timeZone && (
+-              <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
++              <FieldError id="profile-timeZone-error" testId="error-timezone">
+                 {errors.timeZone}
+-              </p>
++              </FieldError>
+             )}
+           </div>
+ 
+@@ -190,23 +198,21 @@ export default function ProfilePage() {
+               {profile.bio.length} / {BIO_MAX_LENGTH} characters
+             </p>
+             {errors.bio && (
+-              <p id="profile-bio-error" className="field-error" data-testid="error-bio">
++              <FieldError id="profile-bio-error" testId="error-bio">
+                 {errors.bio}
+-              </p>
++              </FieldError>
+             )}
+           </div>
+         </div>
+ 
+-        <div className="form-actions">
++        <div className="form-actions form-actions--bar">
+           <button type="submit" className="button button-primary" data-testid="profile-save">
+             Save changes
+           </button>
+           <button type="button" className="button" onClick={handleReset} data-testid="profile-reset">
+             Reset
+           </button>
+-          <p role="status" className="status-message" data-testid="profile-status">
+-            {saved ? 'Saved' : ''}
+-          </p>
++          <SuccessStatus message={saved ? 'Saved' : ''} testId="profile-status" />
+         </div>
+       </form>
+     </>
+diff --git a/src/pages/SecurityPage.tsx b/src/pages/SecurityPage.tsx
+index 3498f5d..5f0ae74 100644
+--- a/src/pages/SecurityPage.tsx
++++ b/src/pages/SecurityPage.tsx
+@@ -1,4 +1,7 @@
+ import { useState, type FormEvent } from 'react';
++import { FieldError, FormErrorCallout } from '../components/FieldError';
++import SuccessStatus from '../components/SuccessStatus';
++import { useToast } from '../components/Toast';
+ import { initialSessions, type Session } from '../data/sessions';
+ 
+ interface PasswordForm {
+@@ -47,6 +50,7 @@ export default function SecurityPage() {
+   const [updated, setUpdated] = useState(false);
+   const [sessions, setSessions] = useState<Session[]>(initialSessions);
+   const [sessionMessage, setSessionMessage] = useState('');
++  const showToast = useToast();
+ 
+   const strength = strengthOf(form.next);
+ 
+@@ -62,11 +66,13 @@ export default function SecurityPage() {
+     }
+     setForm(EMPTY_FORM);
+     setUpdated(true);
++    showToast('Password updated');
+   }
+ 
+   function revoke(session: Session) {
+     setSessions((current) => current.filter((item) => item.id !== session.id));
+     setSessionMessage(`Signed out of ${session.device}.`);
++    showToast(`Signed out of ${session.device}.`);
+   }
+ 
+   return (
+@@ -76,9 +82,10 @@ export default function SecurityPage() {
+         <p className="muted">Manage your password and the devices signed in to your account.</p>
+       </div>
+ 
+-      <section className="panel" aria-labelledby="password-heading">
++      <section className="panel panel--narrow" aria-labelledby="password-heading">
+         <h2 id="password-heading">Change password</h2>
+         <form className="form" noValidate onSubmit={handleSubmit} data-testid="password-form">
++          <FormErrorCallout count={Object.keys(errors).length} />
+           <div className="form-stack">
+             {FIELDS.map((field) => {
+               const id = `password-${field.key}`;
+@@ -118,9 +125,9 @@ export default function SecurityPage() {
+                     </p>
+                   )}
+                   {errors[field.key] && (
+-                    <p id={`${id}-error`} className="field-error" data-testid={`error-${field.testId}`}>
++                    <FieldError id={`${id}-error`} testId={`error-${field.testId}`}>
+                       {errors[field.key]}
+-                    </p>
++                    </FieldError>
+                   )}
+                 </div>
+               );
+@@ -130,32 +137,36 @@ export default function SecurityPage() {
+             <button type="submit" className="button button-primary" data-testid="password-submit">
+               Update password
+             </button>
+-            <p role="status" className="status-message" data-testid="password-status">
+-              {updated ? 'Password updated' : ''}
+-            </p>
++            <SuccessStatus message={updated ? 'Password updated' : ''} testId="password-status" />
+           </div>
+         </form>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="sessions-heading">
++      <section className="panel panel--table" aria-labelledby="sessions-heading">
+         <h2 id="sessions-heading">Active sessions</h2>
+         <p className="muted small">Revoke a session to sign that device out immediately.</p>
+         <div className="table-wrap">
+-          <table className="table" data-testid="sessions-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Device</th>
+-                <th scope="col">Location</th>
+-                <th scope="col">Last active</th>
+-                <th scope="col">
++          <table className="table table--stack" role="table" data-testid="sessions-table">
++            <colgroup>
++              <col />
++              <col className="col-location" />
++              <col className="col-active" />
++              <col className="col-actions" />
++            </colgroup>
++            <thead role="rowgroup">
++              <tr role="row">
++                <th scope="col" role="columnheader">Device</th>
++                <th scope="col" role="columnheader">Location</th>
++                <th scope="col" role="columnheader">Last active</th>
++                <th scope="col" role="columnheader" className="cell-actions">
+                   <span className="visually-hidden">Actions</span>
+                 </th>
+               </tr>
+             </thead>
+-            <tbody>
++            <tbody role="rowgroup">
+               {sessions.map((session) => (
+-                <tr key={session.id} data-testid="session-row">
+-                  <td>
++                <tr key={session.id} role="row" data-testid="session-row">
++                  <td role="cell" className="cell-primary" data-label="Device">
+                     {session.device}
+                     {session.current && (
+                       <span className="pill pill-neutral small" data-testid="current-session">
+@@ -163,13 +174,13 @@ export default function SecurityPage() {
+                       </span>
+                     )}
+                   </td>
+-                  <td>{session.location}</td>
+-                  <td>{session.lastActive}</td>
+-                  <td className="cell-actions">
++                  <td role="cell" data-label="Location">{session.location}</td>
++                  <td role="cell" data-label="Last active">{session.lastActive}</td>
++                  <td role="cell" className="cell-actions" data-label="Actions">
+                     {!session.current && (
+                       <button
+                         type="button"
+-                        className="button button-danger"
++                        className="button button-sm button-danger"
+                         onClick={() => revoke(session)}
+                         data-testid={`revoke-${session.id}`}
+                       >
+@@ -187,9 +198,7 @@ export default function SecurityPage() {
+             No other devices are signed in.
+           </p>
+         )}
+-        <p role="status" className="status-message" data-testid="sessions-status">
+-          {sessionMessage}
+-        </p>
++        <SuccessStatus message={sessionMessage} testId="sessions-status" />
+       </section>
+     </>
+   );
+diff --git a/src/styles/base.css b/src/styles/base.css
+index bfb6f76..449bc42 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,60 +1,74 @@
+ /*
+- * Base styles for the Account Settings app.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Account Settings styles on margin-notes@1.2.0-rc.1.
++ * Token values live in tokens.css (copied from the design package, never edited).
++ * This file only composes them; see design-system/components.md.
+  */
++@import './tokens.css';
++
++/* Legacy names from the original stylesheet, aliased onto the design tokens. */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-danger-bg: #fdecee;
+-  --color-switch-off: #bbbbbb;
+-  --color-switch-on: #0645ad;
+-  --color-switch-thumb: #ffffff;
+-  --color-strength-weak: #b00020;
+-  --color-strength-fair: #7a5a00;
+-  --color-strength-strong: #2e7d32;
+-  --color-pill-neutral-bg: #e8e8e8;
+-  --color-pill-neutral-text: #444444;
+-  --color-pill-current-bg: #e3f2e5;
+-  --color-pill-current-text: #1b5e20;
+-  --color-pill-due-bg: #fff4d6;
+-  --color-pill-due-text: #7a5a00;
+-  --color-backdrop: rgba(0, 0, 0, 0.4);
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-raised);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-default);
++  --color-text: var(--color-text-body);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-primary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-status-success);
++  --color-negative: var(--color-status-danger);
++  --color-danger-bg: var(--color-status-danger-subtle);
++  --color-backdrop: var(--color-surface-overlay);
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --line-height: var(--font-line-height-ui);
++  --radius: var(--radius-control);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hairline);
+   --sidebar-width: 220px;
+-  --content-max-width: 880px;
+-  --avatar-size-large: 72px;
+-  --switch-width: 40px;
+-  --switch-height: 22px;
++
++  /* Layout grid (Layout adaptation): 4 / 8 / 12 columns. */
++  --gutter: var(--space-16);
++  --grid-gap: var(--space-16);
++  --grid-columns: 4;
++  --col: calc((min(100vw, var(--size-container) + 2 * var(--gutter)) - 2 * var(--gutter) - (var(--grid-columns) - 1) * var(--grid-gap)) / var(--grid-columns));
++  --action-bar-height: 76px;
++}
++
++@media (min-width: 860px) {
++  :root {
++    --gutter: var(--space-40);
++    --grid-gap: var(--space-24);
++    --grid-columns: 8;
++  }
++}
++
++@media (min-width: 1200px) {
++  :root {
++    --grid-gap: var(--space-32);
++    --grid-columns: 12;
++  }
+ }
+ 
++@media (prefers-reduced-motion: reduce) {
++  :root {
++    --motion-duration-fast: var(--motion-duration-instant);
++    --motion-duration-overlay: var(--motion-duration-instant);
++  }
++
++  *,
++  *::before,
++  *::after,
++  ::backdrop {
++    animation: none !important;
++    transition-duration: var(--motion-duration-instant) !important;
++  }
++}
++
++/* Root */
+ *,
+ *::before,
+ *::after {
+@@ -64,48 +78,75 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-body);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-ui);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-semibold);
++  text-wrap: balance;
+ }
+ 
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-size: clamp(32px, 4vw, var(--font-size-h1article));
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-h1article);
+ }
+ 
+ h2 {
+   font-size: var(--font-size-h2);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-h2);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-base);
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-title);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-2);
++  margin: 0;
++}
++
++strong {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
++  text-decoration: underline;
++  text-decoration-thickness: 1px;
++  text-underline-offset: 3px;
++  transition: color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++a:hover {
++  color: var(--color-action-primary-hover);
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-strong) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
++:focus:not(:focus-visible) {
++  outline: none;
++}
++
+ .visually-hidden {
+   position: absolute;
+   width: 1px;
+@@ -124,23 +165,37 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  position: fixed;
++  left: var(--gutter);
++  top: var(--space-12);
++  z-index: 60;
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-16);
++  border-radius: var(--radius-control);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-size: var(--font-size-ui);
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+   font-size: var(--font-size-small);
+ }
+ 
++.mono,
+ .numeric {
++  font-family: var(--font-family-mono);
+   font-variant-numeric: tabular-nums;
++}
++
++.numeric {
+   text-align: right;
+ }
+ 
+@@ -148,7 +203,23 @@ a {
+   flex-shrink: 0;
+ }
+ 
++.eyebrow {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-caption);
++  line-height: var(--font-line-height-ui);
++  letter-spacing: var(--font-tracking-eyebrow);
++  text-transform: uppercase;
++  color: var(--color-text-tertiary);
++}
++
+ /* Layout */
++.container {
++  width: 100%;
++  max-width: calc(var(--size-container) + 2 * var(--gutter));
++  margin-inline: auto;
++  padding-inline: var(--gutter);
++}
++
+ .app-shell {
+   min-height: 100vh;
+   display: flex;
+@@ -156,130 +227,360 @@ a {
+ }
+ 
+ .topbar {
++  background: var(--color-surface-default);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-default);
++}
++
++.topbar-inner {
++  height: var(--size-header-mobile);
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
+ }
+ 
+ .brand {
+-  font-weight: bold;
++  min-width: 0;
++  color: var(--color-text-primary);
++  font-size: var(--font-size-lead);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: var(--font-tracking-title);
++  white-space: nowrap;
++}
++
++.topbar-end {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++}
++
++.person {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-ui);
++}
++
++.avatar {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
++  box-shadow: var(--elevation-rest);
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  flex-shrink: 0;
++}
++
++.avatar-small {
++  width: 28px;
++  height: 28px;
++  font-size: var(--font-size-caption);
++}
++
++.avatar-large {
++  width: 64px;
++  height: 64px;
++  font-size: var(--font-size-panel-title);
++  letter-spacing: var(--font-tracking-title);
+ }
+ 
+ .settings-layout {
++  position: relative;
+   flex: 1;
+-  display: flex;
++  display: grid;
++  grid-template-columns: minmax(0, 1fr);
++}
++
++.settings-layout > * {
++  min-width: 0;
+ }
+ 
++/* Sidebar: section navigation. Under breakpoint.md it is the menu sheet below the header. */
+ .sidebar {
+-  width: var(--sidebar-width);
+-  flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
++  display: none;
++}
++
++.sidebar[data-open='true'] {
++  display: block;
++  position: absolute;
++  z-index: 30;
++  top: var(--space-4);
++  left: var(--gutter);
++  right: var(--gutter);
+   padding: var(--space-4);
++  border-radius: var(--radius-media);
++  background: var(--color-surface-lifted);
++  box-shadow: var(--elevation-pinned);
++}
++
++.sidebar-nav {
++  position: relative;
++}
++
++.sidebar-eyebrow {
++  padding: var(--space-8) var(--space-10) var(--space-4);
+ }
+ 
+ .nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: grid;
++  gap: 2px;
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border: var(--border-width) solid transparent;
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  height: var(--size-touch);
++  padding: 0 var(--space-10);
++  border-radius: var(--radius-inner);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-ui);
+   text-decoration: none;
++  transition:
++    color var(--motion-duration-fast) var(--motion-easing-standard),
++    background-color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.nav-link:hover {
++  color: var(--color-text-primary);
++  background: var(--color-surface-subtle);
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  font-weight: bold;
++.nav-link.active,
++.nav-link[aria-current='page'] {
++  color: var(--color-text-primary);
++  background: var(--color-surface-subtle);
++  font-weight: var(--font-weight-medium);
++}
++
++.button.menu-button {
++  width: var(--size-touch);
++  height: var(--size-touch);
+ }
+ 
+ .content {
+-  flex: 1;
+   min-width: 0;
+-  max-width: var(--content-max-width);
+-  padding: var(--space-6);
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-6);
++  padding-bottom: var(--space-56);
+ }
+ 
+-.person {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++.content > * + * {
++  margin-top: var(--space-40);
+ }
+ 
+-.avatar {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-weight: bold;
+-  flex-shrink: 0;
++.content > .page-header + * {
++  margin-top: 0;
+ }
+ 
+-.avatar-small {
+-  width: 28px;
+-  height: 28px;
++@media (max-width: 859px) {
++  .person-name {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    overflow: hidden;
++    clip-path: inset(50%);
++    white-space: nowrap;
++  }
++}
++
++@media (min-width: 860px) {
++  .topbar-inner {
++    height: var(--size-header);
++  }
++
++  .button.menu-button {
++    display: none;
++  }
++
++  .settings-layout {
++    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
++    column-gap: var(--space-32);
++  }
++
++  .sidebar,
++  .sidebar[data-open='true'] {
++    display: block;
++    position: static;
++    padding: var(--space-64) 0 0;
++    background: none;
++    box-shadow: none;
++    border-radius: 0;
++  }
++
++  .sidebar-nav {
++    position: sticky;
++    top: var(--space-24);
++    /* Keeps the pencil note inside the narrow navigation column. */
++    --note-x: var(--space-16);
++  }
++
++  .sidebar-eyebrow {
++    padding: 0 var(--space-10) var(--space-8);
++  }
++
++  .nav-link {
++    height: var(--size-control-sm);
++  }
++
++  .content > * + * {
++    margin-top: var(--space-56);
++  }
++
++  .content {
++    padding-bottom: var(--space-96);
++  }
++}
++
++@media (min-width: 1200px) {
++  .settings-layout {
++    column-gap: var(--space-56);
++  }
++
++  /* Settings forms: at most 8 columns of the 12-column grid. */
++  .content {
++    max-width: calc(8 * var(--col) + 7 * var(--grid-gap));
++  }
++}
++
++/* Page header */
++.page-header {
++  padding: var(--space-40) 0 var(--space-40);
++}
++
++.page-header > p:first-of-type {
++  max-width: 560px;
++  margin-top: var(--space-16);
++  color: var(--color-text-body);
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-article);
++}
++
++.page-header > p.small {
++  margin-top: var(--space-8);
++  color: var(--color-text-secondary);
+   font-size: var(--font-size-small);
+ }
+ 
+-.avatar-large {
+-  width: var(--avatar-size-large);
+-  height: var(--avatar-size-large);
+-  font-size: var(--font-size-h2);
++@media (min-width: 860px) {
++  .page-header {
++    padding-top: var(--space-64);
++  }
+ }
+ 
+-/* Panels */
++/* Cards */
+ .panel,
+ .card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++  position: relative;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-12);
++  min-width: 0;
++  padding: var(--space-20);
++  border: 0;
++  border-radius: var(--radius-panel);
++  background: var(--color-surface-raised);
++  box-shadow: var(--elevation-rest);
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.panel > h2 {
++  font-size: var(--font-size-panel-title);
++  line-height: var(--font-line-height-card);
++  letter-spacing: var(--font-tracking-title);
++}
++
++.card h3 {
++  font-size: var(--font-size-card-title);
++  line-height: var(--font-line-height-card);
++  letter-spacing: var(--font-tracking-title);
++}
++
++/* Unframed section: its cards sit on the page (no section backgrounds). */
++.panel--bare {
++  padding: 0;
++  background: none;
++  box-shadow: none;
++  border-radius: 0;
++  gap: var(--space-16);
++}
++
++.panel--fit {
++  align-self: start;
++  width: fit-content;
++  max-width: 100%;
++}
++
++/* A panel that is the table frame: the table spans the card. */
++.panel--table {
++  padding: var(--space-20) 0;
++  overflow: clip;
++}
++
++.panel--table > :not(.table-wrap) {
++  margin-inline: var(--space-20);
++}
++
++@media (min-width: 860px) {
++  .panel,
++  .card {
++    padding: var(--space-24);
++  }
++
++  .panel--bare {
++    padding: 0;
++  }
++
++  .panel--table {
++    padding: var(--space-24) 0;
++  }
++
++  .panel--table > :not(.table-wrap) {
++    margin-inline: var(--space-24);
++  }
++}
++
++@media (min-width: 1200px) {
++  .panel--narrow {
++    max-width: calc(5 * var(--col) + 4 * var(--grid-gap));
++  }
+ }
+ 
+ /* Forms */
+ .form {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-4);
++  gap: var(--space-20);
+ }
+ 
+ .form-grid {
+   display: grid;
+-  grid-template-columns: repeat(2, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: minmax(0, 1fr);
++  gap: var(--space-20) var(--space-24);
+ }
+ 
+ .form-stack {
+   display: grid;
+-  gap: var(--space-4);
+-  max-width: 400px;
++  gap: var(--space-20);
++}
++
++.form-grid > *,
++.form-stack > * {
++  min-width: 0;
++}
++
++@media (min-width: 860px) {
++  .form-grid {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
+ }
+ 
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
+-}
+-
+-.field p {
+-  margin: 0;
++  gap: var(--space-6);
+ }
+ 
+ .field-wide {
+@@ -287,98 +588,316 @@ a {
+ }
+ 
+ .field-label {
+-  font-weight: bold;
+   margin: 0;
++  color: var(--color-text-primary);
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++}
++
++.field-label .muted {
++  font-weight: var(--font-weight-regular);
++}
++
++.field > .muted.small,
++.field-hint {
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-small);
++}
++
++/* An error replaces the field's hint. */
++.field:has(.field-error) > [id$='-hint'],
++.field:has(.field-error) > .strength {
++  display: none;
+ }
+ 
+ .field-error {
+-  color: var(--color-negative);
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-6);
++  color: var(--color-status-danger);
+   font-size: var(--font-size-small);
+ }
+ 
++.field-error .icon {
++  margin-top: 2px;
++}
++
+ .input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  box-sizing: border-box;
++  width: 100%;
+   min-width: 0;
++  height: var(--size-control);
++  flex-shrink: 0;
++  margin: 0;
++  padding: 0 var(--space-12);
++  border: var(--border-width-hairline) solid var(--color-border-control);
++  border-radius: var(--radius-control);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font: inherit;
++  font-size: var(--font-size-ui);
++  transition: border-color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.input::placeholder {
++  color: var(--color-text-tertiary);
++}
++
++.input:hover {
++  border-color: var(--color-border-strong);
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-negative);
++  border-color: var(--color-status-danger);
++}
++
++.input[readonly] {
++  background: var(--color-surface-subtle);
++}
++
++.input:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-tertiary);
++  cursor: not-allowed;
++}
++
++input::-webkit-search-cancel-button,
++input::-webkit-search-decoration {
++  -webkit-appearance: none;
+ }
+ 
+ .textarea {
++  height: auto;
++  min-height: 96px;
++  padding: var(--space-10) var(--space-12);
++  line-height: var(--font-line-height-ui);
+   resize: vertical;
+ }
+ 
++select.input {
++  appearance: none;
++  padding-right: var(--space-32);
++  cursor: pointer;
++}
++
++.select-wrap {
++  position: relative;
++  display: block;
++}
++
++.select-wrap::after {
++  content: '';
++  position: absolute;
++  top: 50%;
++  right: var(--space-12);
++  width: var(--size-icon);
++  height: var(--size-icon);
++  translate: 0 -50%;
++  pointer-events: none;
++  background: var(--color-text-secondary);
++  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4l4-4' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
++    center / contain no-repeat;
++}
++
+ .form-actions {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+-  gap: var(--space-3);
+-}
++  gap: var(--space-8);
++}
++
++.form-actions .status-message {
++  margin-left: var(--space-4);
++}
++
++/* Mobile primary action bar (Profile save). */
++@media (max-width: 859px) {
++  .form-actions--bar {
++    position: fixed;
++    left: 0;
++    right: 0;
++    bottom: 0;
++    z-index: 20;
++    flex-wrap: nowrap;
++    height: var(--action-bar-height);
++    padding: var(--space-12);
++    background: var(--color-surface-bar);
++    box-shadow: var(--elevation-action-bar);
++  }
+ 
+-.status-message {
+-  margin: 0;
+-  color: var(--color-positive);
++  .form-actions--bar .button {
++    height: 52px;
++    border-radius: var(--radius-callout);
++  }
++
++  .form-actions--bar .button-primary {
++    flex: 1;
++  }
++
++  .content:has(.form-actions--bar) {
++    padding-bottom: calc(var(--action-bar-height) + var(--space-16));
++  }
+ }
+ 
+ .avatar-row {
+   display: flex;
+-  align-items: center;
+-  gap: var(--space-4);
++  align-items: flex-start;
++  gap: var(--space-16);
++}
++
++.avatar-row > div {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-6);
++  min-width: 0;
++}
++
++.avatar-row .button {
++  margin-top: var(--space-6);
+ }
+ 
+-.avatar-row p {
+-  margin: 0 0 var(--space-1);
++/* Callout */
++.callout {
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-10);
++  padding: var(--space-14) var(--space-16);
++  border-radius: var(--radius-callout);
++  font-size: var(--font-size-small);
++  color: var(--color-text-primary);
++}
++
++.callout .icon {
++  margin-top: 2px;
++}
++
++.callout--danger {
++  background: var(--color-status-danger-subtle);
++  box-shadow: inset var(--border-width-bar) 0 0 var(--color-status-danger);
++}
++
++.callout--danger .icon {
++  color: var(--color-status-danger);
+ }
+ 
+ /* Buttons */
+ .button {
+-  font: inherit;
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
++  justify-content: center;
++  gap: var(--space-8);
++  height: var(--size-control);
++  flex-shrink: 0;
++  margin: 0;
++  padding: 0 var(--space-16);
++  border: var(--border-width-hairline) solid var(--color-border-control);
++  border-radius: var(--radius-control);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font: inherit;
++  font-size: var(--font-size-ui);
++  line-height: 1;
++  white-space: nowrap;
++  text-decoration: none;
+   cursor: pointer;
++  transition:
++    background-color var(--motion-duration-fast) var(--motion-easing-standard),
++    border-color var(--motion-duration-fast) var(--motion-easing-standard),
++    color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.button:hover {
++  border-color: var(--color-border-strong);
++  color: var(--color-text-primary);
++}
++
++.button:active {
++  background: var(--color-surface-subtle);
+ }
+ 
+ .button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++  border-color: var(--color-action-primary);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-weight: var(--font-weight-medium);
++}
++
++.button-primary:hover {
++  border-color: var(--color-action-primary-hover);
++  background: var(--color-action-primary-hover);
++  color: var(--color-text-on-action);
++}
++
++.button-primary:active {
++  border-color: var(--color-action-primary-active);
++  background: var(--color-action-primary-active);
++}
++
++.button-ghost {
++  border-color: transparent;
++  background: transparent;
++  color: var(--color-text-secondary);
+ }
+ 
+-.button-danger {
+-  color: var(--color-negative);
++.button-ghost:hover {
++  border-color: transparent;
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
+ }
+ 
+-.button-danger:hover {
+-  background: var(--color-danger-bg);
++.button-icon {
++  width: var(--size-control);
++  padding: 0;
++}
++
++.button-sm {
++  height: var(--size-control-sm);
++  padding: 0 var(--space-12);
++  font-size: var(--font-size-small);
++}
++
++.button-sm.button-icon {
++  width: var(--size-control-sm);
++}
++
++.button:disabled,
++.button[aria-disabled='true'] {
++  border-color: transparent;
++  background: var(--color-surface-subtle);
++  color: var(--color-text-tertiary);
++  cursor: not-allowed;
+ }
+ 
+ /* Fieldsets and switches */
+ .fieldset {
+-  margin: 0;
++  margin-inline: 0;
++  margin-bottom: 0;
+   min-width: 0;
+ }
+ 
+ .legend {
+-  font-weight: bold;
+-  font-size: var(--font-size-h2);
+-  padding: 0 var(--space-1);
++  float: left;
++  width: 100%;
++  padding: 0;
++  color: var(--color-text-primary);
++  font-size: var(--font-size-panel-title);
++  font-weight: var(--font-weight-semibold);
++  line-height: var(--font-line-height-card);
++  letter-spacing: var(--font-tracking-title);
++}
++
++.legend + * {
++  clear: both;
++}
++
++.fieldset > .muted.small {
++  color: var(--color-text-secondary);
+ }
+ 
+ .switch-list {
+   list-style: none;
+-  margin: 0;
++  margin: var(--space-4) 0 0;
+   padding: 0;
+ }
+ 
+@@ -386,213 +905,706 @@ a {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-top: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  min-height: var(--size-touch);
++  padding: var(--space-14) 0;
++  border-top: var(--border-width-hairline) solid var(--color-border-default);
+ }
+ 
+-.switch-text p {
+-  margin: 0;
++.switch-row:last-child {
++  padding-bottom: 0;
++}
++
++.switch-text {
++  display: flex;
++  flex-direction: column;
++  gap: 2px;
++  min-width: 0;
++}
++
++.switch-text .field-label {
++  font-size: var(--font-size-ui);
++  cursor: pointer;
++}
++
++.switch-text .muted {
++  color: var(--color-text-secondary);
+ }
+ 
+ .switch {
+   appearance: none;
++  box-sizing: border-box;
+   position: relative;
+-  width: var(--switch-width);
+-  height: var(--switch-height);
++  flex: none;
++  width: 36px;
++  height: 20px;
+   margin: 0;
+-  flex-shrink: 0;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-switch-off);
++  padding: 0;
++  border: var(--border-width-hairline) solid var(--color-text-tertiary);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
+   cursor: pointer;
++  transition:
++    background-color var(--motion-duration-fast) var(--motion-easing-standard),
++    border-color var(--motion-duration-fast) var(--motion-easing-standard);
+ }
+ 
+-.switch::after {
++.switch::before {
+   content: '';
+   position: absolute;
+-  top: 3px;
+-  left: 3px;
+-  width: calc(var(--switch-height) - 6px);
+-  height: calc(var(--switch-height) - 6px);
+-  border-radius: 50%;
+-  background: var(--color-switch-thumb);
++  top: 1px;
++  left: 1px;
++  width: 16px;
++  height: 16px;
++  border-radius: var(--radius-full);
++  background: var(--color-text-tertiary);
++  pointer-events: none;
++  transition:
++    translate var(--motion-duration-fast) var(--motion-easing-standard),
++    background-color var(--motion-duration-fast) var(--motion-easing-standard);
+ }
+ 
+-.switch:checked {
+-  background: var(--color-switch-on);
++.switch:hover {
++  border-color: var(--color-text-secondary);
+ }
+ 
+-.switch:checked::after {
+-  left: calc(var(--switch-width) - var(--switch-height) + 3px);
++.switch:hover:not(:checked)::before {
++  background: var(--color-text-secondary);
+ }
+ 
+-/* Password strength */
+-.strength-none {
+-  color: var(--color-text-muted);
++.switch:checked,
++.switch[aria-checked='true'] {
++  border-color: var(--color-action-primary);
++  background: var(--color-action-primary);
+ }
+ 
+-.strength-weak {
+-  color: var(--color-strength-weak);
++.switch:checked::before,
++.switch[aria-checked='true']::before {
++  translate: 16px 0;
++  background: var(--color-text-on-action);
++  box-shadow: var(--elevation-segment);
+ }
+ 
+-.strength-fair {
+-  color: var(--color-strength-fair);
++.switch:disabled {
++  border-color: var(--color-border-strong);
++  background: var(--color-surface-subtle);
++  cursor: not-allowed;
+ }
+ 
+-.strength-strong {
+-  color: var(--color-strength-strong);
++/* Password strength: a toned dot carries the level next to the words. */
++.strength {
++  display: flex;
++  align-items: center;
++  gap: var(--space-6);
++  color: var(--color-text-secondary);
++}
++
++.strength:not(.strength-none)::before {
++  content: '';
++  width: 6px;
++  height: 6px;
++  border-radius: var(--radius-full);
++  background: currentColor;
++  flex: none;
++}
++
++.strength-weak::before {
++  background: var(--color-status-danger) !important;
++}
++
++.strength-fair::before {
++  background: var(--color-status-warning) !important;
++}
++
++.strength-strong::before {
++  background: var(--color-status-success) !important;
+ }
+ 
+ /* Tables */
+ .table-wrap {
+-  overflow-x: auto;
++  min-width: 0;
+ }
+ 
+ .table {
+   width: 100%;
+   border-collapse: collapse;
++  table-layout: fixed;
++  font-size: var(--font-size-small);
+ }
+ 
+ .table th,
+ .table td {
++  height: var(--size-row);
++  padding: 0 var(--space-12);
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+   vertical-align: middle;
++  border-bottom: var(--border-width-hairline) solid var(--color-border-default);
++  overflow-wrap: anywhere;
++}
++
++.table th:first-child,
++.table td:first-child {
++  padding-left: var(--space-24);
++}
++
++.table th:last-child,
++.table td:last-child {
++  padding-right: var(--space-24);
+ }
+ 
+ .table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  border-top: var(--border-width-hairline) solid var(--color-border-default);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-medium);
++}
++
++.table td {
++  color: var(--color-text-body);
++}
++
++.table tbody tr:last-child td {
++  border-bottom: 0;
++}
++
++.table tbody tr {
++  transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
++}
++
++.table tbody tr:hover {
++  background: color-mix(in srgb, var(--color-surface-subtle) 50%, transparent);
+ }
+ 
+ .table .numeric {
+   text-align: right;
+ }
+ 
++.table .cell-primary {
++  color: var(--color-text-primary);
++}
++
+ .cell-actions {
+   text-align: right;
+ }
+ 
++.col-status {
++  width: 120px;
++}
++
++.col-date {
++  width: 140px;
++}
++
++.col-amount {
++  width: 112px;
++}
++
++.col-location {
++  width: 160px;
++}
++
++.col-active {
++  width: 128px;
++}
++
++.col-actions {
++  width: 112px;
++}
++
++@media (max-width: 859px) {
++  .table--stack thead {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    overflow: hidden;
++    clip-path: inset(50%);
++  }
++
++  .table--stack,
++  .table--stack :is(tbody, tr, td) {
++    display: block;
++  }
++
++  .table--stack tr {
++    padding: var(--space-14) var(--space-20);
++    border-bottom: var(--border-width-hairline) solid var(--color-border-default);
++  }
++
++  .table--stack tbody tr:first-child {
++    border-top: var(--border-width-hairline) solid var(--color-border-default);
++  }
++
++  .table--stack tbody tr:last-child {
++    border-bottom: 0;
++  }
++
++  .table--stack td,
++  .table--stack td:first-child,
++  .table--stack td:last-child {
++    display: grid;
++    grid-template-columns: minmax(96px, 38%) 1fr;
++    gap: var(--space-12);
++    height: auto;
++    padding: var(--space-4) 0;
++    border-bottom: 0;
++    text-align: left;
++  }
++
++  .table--stack td.numeric {
++    text-align: left;
++  }
++
++  .table--stack td > * {
++    justify-self: start;
++  }
++
++  .table--stack td:not(.cell-primary, .cell-actions)::before {
++    content: attr(data-label);
++    font-family: var(--font-family-sans);
++    font-size: var(--font-size-caption);
++    color: var(--color-text-tertiary);
++  }
++
++  .table--stack td.cell-primary {
++    display: block;
++    padding-bottom: var(--space-6);
++    font-size: var(--font-size-ui);
++    font-weight: var(--font-weight-medium);
++  }
++
++  .table--stack td.cell-actions {
++    display: flex;
++    gap: var(--space-8);
++    padding-top: var(--space-12);
++  }
++
++  .table--stack td.cell-actions:empty {
++    display: none;
++  }
++
++  .table--stack .cell-actions > * {
++    flex: 1;
++    height: var(--size-touch);
++  }
++}
++
++/* Badges (pill-* are the original class names) */
++.badge,
+ .pill {
+-  display: inline-block;
+-  margin: 0 0 0 var(--space-2);
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  min-height: 22px;
++  margin: 0;
++  padding: 0 var(--space-8);
++  border-radius: var(--radius-full);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-title);
++  white-space: nowrap;
++  vertical-align: middle;
+ }
+ 
+-.pill-neutral {
+-  background: var(--color-pill-neutral-bg);
+-  color: var(--color-pill-neutral-text);
++.pill-neutral,
++.pill-current,
++.badge--neutral {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
+ }
+ 
+ .pill-paid,
+-.pill-current {
+-  background: var(--color-pill-current-bg);
+-  color: var(--color-pill-current-text);
++.pill-due,
++.badge--success {
++  background: var(--color-status-success-subtle);
++  color: var(--color-status-success);
+ }
+ 
+ .pill-due {
+-  background: var(--color-pill-due-bg);
+-  color: var(--color-pill-due-text);
++  background: var(--color-status-warning-subtle);
++  color: var(--color-status-warning);
+ }
+ 
+-.table .pill,
+-.plan-card .pill {
+-  margin-left: 0;
++.pill-paid::before,
++.pill-due::before {
++  content: '';
++  width: 6px;
++  height: 6px;
++  border-radius: var(--radius-full);
++  background: currentColor;
++  flex: none;
++}
++
++td .pill-neutral {
++  margin-left: var(--space-8);
++}
++
++.badge--success {
++  white-space: normal;
++  padding-block: 3px;
++}
++
++/* An empty live region stays in the tree but takes no space or gap. */
++.status-message:empty {
++  position: absolute;
++  width: 1px;
++  height: 1px;
++  overflow: hidden;
++  clip-path: inset(50%);
++}
++
++/* On lifted surfaces (dark: lifted equals subtle) a neutral badge keeps a hairline edge. */
++.plan-card[data-current='true'] .pill-current {
++  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+ }
+ 
+ /* Billing */
+ .plan-grid {
+   list-style: none;
+-  margin: 0 0 var(--space-3);
++  margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
++  gap: var(--grid-gap);
+ }
+ 
+ .plan-card {
+-  display: flex;
+-  flex-direction: column;
+   align-items: flex-start;
+-  gap: var(--space-2);
+ }
+ 
+-.plan-card-current {
+-  border-color: var(--color-primary);
++.plan-card[data-current='true'] {
++  background: var(--color-surface-lifted);
++  box-shadow: var(--elevation-pinned);
+ }
+ 
+ .plan-price {
+-  margin: 0;
++  display: flex;
++  align-items: baseline;
++  flex-wrap: wrap;
++  gap: var(--space-6);
+ }
+ 
+ .plan-amount {
+-  font-size: var(--font-size-h1);
+-  font-weight: bold;
++  color: var(--color-text-primary);
++  font-size: var(--font-size-h2);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: var(--font-tracking-h2);
++  line-height: var(--font-line-height-title);
++}
++
++.plan-price .muted {
++  color: var(--color-text-tertiary);
+ }
+ 
+ .feature-list {
+   list-style: none;
+-  margin: 0;
++  margin: var(--space-4) 0 var(--space-8);
+   padding: 0;
+   flex: 1;
++  display: grid;
++  align-content: start;
++  gap: var(--space-8);
++  font-size: var(--font-size-ui);
+ }
+ 
+ .feature-list li {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-8);
++}
++
++.feature-list .icon {
++  color: var(--color-text-secondary);
++}
++
++.plan-card .button {
++  align-self: stretch;
++}
++
++/* "Current plan" is a marker: a neutral badge, never shaped like the buttons beside it. */
++.plan-card .pill {
++  align-self: flex-start;
+ }
+ 
+ .payment-method {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-3);
++  flex-wrap: wrap;
++  gap: var(--space-8) var(--space-12);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-ui);
++}
++
++.card-icon {
++  color: var(--color-text-secondary);
++  flex: none;
++}
++
++.payment-method .muted {
++  color: var(--color-text-tertiary);
+ }
+ 
+ /* Dialog */
+ .dialog {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  padding: var(--space-6);
+-  max-width: 440px;
+-  width: calc(100% - var(--space-8));
++  position: fixed;
++  inset: 0;
++  margin: auto;
++  height: fit-content;
++  width: min(var(--size-dialog), 100vw - var(--space-32));
++  max-width: none;
++  max-height: calc(100dvh - var(--space-64));
++  overflow: auto;
++  padding: var(--space-24);
++  border: 0;
++  border-radius: var(--radius-panel);
++  background: var(--color-surface-lifted);
++  box-shadow: var(--elevation-pinned);
++  color: var(--color-text-body);
++}
++
++.dialog[open] {
++  animation: overlay-in var(--motion-duration-overlay) var(--motion-easing-standard);
+ }
+ 
+ .dialog::backdrop {
+-  background: var(--color-backdrop);
++  background: var(--color-surface-overlay);
++}
++
++.dialog[open]::backdrop {
++  animation: fade-in var(--motion-duration-overlay) var(--motion-easing-standard);
++}
++
++.dialog > h2 {
++  padding-right: var(--space-40);
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-title);
++}
++
++.dialog-close {
++  position: absolute;
++  top: var(--space-16);
++  right: var(--space-16);
++}
++
++.dialog-body {
++  margin-top: var(--space-8);
++  font-size: var(--font-size-body);
+ }
+ 
+ .dialog-actions {
+   display: flex;
+   justify-content: flex-end;
+-  gap: var(--space-2);
+-  margin-top: var(--space-4);
++  gap: var(--space-8);
++  margin-top: var(--space-24);
+ }
+ 
+-@media (max-width: 900px) {
+-  .settings-layout {
+-    flex-direction: column;
++@media (max-width: 859px) {
++  .dialog-actions {
++    flex-direction: column-reverse;
+   }
+ 
+-  .sidebar {
+-    width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++  .dialog-actions .button {
++    width: 100%;
+   }
++}
+ 
+-  .nav-list {
+-    display: flex;
+-    flex-wrap: wrap;
+-    gap: var(--space-2);
++@keyframes overlay-in {
++  from {
++    opacity: 0;
++    translate: 0 4px;
+   }
++}
++
++@keyframes fade-in {
++  from {
++    opacity: 0;
++  }
++}
++
++/* Toast */
++.toast-region {
++  position: fixed;
++  z-index: 50;
++  right: var(--space-16);
++  left: var(--space-16);
++  bottom: var(--space-16);
++  display: flex;
++  flex-direction: column;
++  align-items: flex-end;
++  gap: var(--space-8);
++  pointer-events: none;
++}
++
++body:has(.form-actions--bar) .toast-region {
++  bottom: calc(var(--action-bar-height) + var(--space-16));
++}
++
++.toast {
++  display: flex;
++  align-items: center;
++  gap: var(--space-10);
++  min-height: var(--size-control-lg);
++  max-width: 420px;
++  padding: var(--space-12) var(--space-16);
++  border-radius: var(--radius-callout);
++  background: var(--color-action-primary);
++  box-shadow: var(--elevation-segment);
++  color: var(--color-text-on-action);
++  font-size: var(--font-size-ui);
++  pointer-events: auto;
++  animation: overlay-in var(--motion-duration-overlay) var(--motion-easing-standard);
++}
++
++@media (min-width: 860px) {
++  .toast-region,
++  body:has(.form-actions--bar) .toast-region {
++    left: auto;
++    right: var(--space-24);
++    bottom: var(--space-24);
++  }
++}
++
++/* Empty state (page-level: tape, bloom and a note) */
++.empty-wrap {
++  position: relative;
++  max-width: 480px;
++  padding-top: var(--space-56);
++}
++
++.empty-state {
++  position: relative;
++  z-index: 1;
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-12);
++  padding: var(--space-40) var(--space-32);
++  border-radius: var(--radius-panel);
++  background: var(--color-surface-lifted);
++  box-shadow: var(--elevation-pinned);
++  text-align: left;
++}
++
++.empty-state > h1 {
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-title);
++}
++
++.empty-state > p {
++  color: var(--color-text-secondary);
++}
++
++.empty-state > .note-anchor {
++  margin-top: var(--space-12);
++}
++
++.empty-wrap + * {
++  margin-top: 0;
++}
++
++/* Studio details */
++.bloom {
++  position: absolute;
++  z-index: 0;
++  pointer-events: none;
++  mask-image: radial-gradient(closest-side at 50% 45%, black 50%, transparent);
++}
++
++.bloom-paint {
++  filter: url(#mn-wash);
++  opacity: var(--opacity-bloom);
++}
++
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) .bloom-paint {
++    filter: url(#mn-wash-night);
++  }
++}
++
++:root[data-theme='dark'] .bloom-paint {
++  filter: url(#mn-wash-night);
++}
++
++.bloom--empty {
++  top: 0;
++  right: -16px;
++  width: 176px;
++  height: 96px;
++}
++
++@media (min-width: 860px) {
++  .bloom--empty {
++    right: -140px;
++    width: 280px;
++    height: 180px;
++  }
++}
++
++.tape {
++  position: absolute;
++  z-index: 2;
++  pointer-events: none;
++  width: 88px;
++  height: 24px;
++  top: -12px;
++  left: 24px;
++  transform: rotate(-4deg);
++  background: var(--color-decor-tape);
++  box-shadow: var(--shadow-tape);
++  clip-path: polygon(2% 0, 98% 5%, 100% 32%, 97% 62%, 100% 100%, 3% 95%, 0 68%, 2% 34%);
++}
++
++.tape--alt {
++  transform: rotate(5deg);
++  left: auto;
++  right: 24px;
++}
++
++.note-anchor {
++  position: relative;
++  width: fit-content;
++}
++
++.note {
++  position: absolute;
++  z-index: 1;
++  display: flex;
++  gap: 2px;
++  white-space: nowrap;
++  pointer-events: none;
++  transform: rotate(-2deg);
++  transform-origin: 0 100%;
++  font: 400 var(--font-size-h3) / var(--font-line-height-hand) var(--font-family-hand);
++  color: var(--color-decor-pencil);
++}
++
++.note path {
++  fill: none;
++  stroke: currentColor;
++  stroke-width: 1.4;
++  stroke-linecap: round;
++}
++
++.note--beside {
++  left: calc(100% + 12px);
++  bottom: 50%;
++}
++
++.note--below {
++  left: var(--note-x, 24px);
++  top: calc(100% + 6px);
++  align-items: flex-end;
++  transform-origin: 0 0;
++}
++
++.note--below svg {
++  transform: scaleY(-1);
++}
+ 
+-  .form-grid,
+-  .plan-grid {
+-    grid-template-columns: 1fr;
++@media (max-width: 1199px) {
++  .note {
++    display: none;
+   }
+ }

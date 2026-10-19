@@ -391,3 +391,71 @@ screen (critic-1.json, 1 of 1 sample). No generate or evaluate run.
 - Variance, left alone: per-category vs per-item store banners (minor, reference does per-category; now covered by the
   general rule), empty-state title size, key ring and tea-towel name-test misses, headstone-like strip props, user menu
   focus, password form width (all minor).
+
+## 2026-10-19 — update: generalization (1.3.0)
+
+Goal: the package is written for any product, not for the harness's demo apps. Answers
+`overfit-review-2026-10-19.md` (verdict: structurally fitted). Built on the published 1.2.0; design language, tokens,
+the signature recipes and the 1.2.0 drawing fixes kept. No generate or evaluate run; only validate and bundle.
+
+1.3.0-rc.1 (2026-10-19), one change per review item:
+- (1) Item sprites, Imagery and Verification. Before: a parts catalogue ("a pan's handle 30–40%", "two handles are
+  two separate loops", "a ring or loop never reads as a magnifier", "a sleeve flares from the shoulder", "two fronts,
+  a lid on its pot", a top-down `disc()`), a name-test list of past misreads (padlock, bucket, magnifier, toaster,
+  gate, table…), grid arithmetic ("(1248−4×16)÷5", "192px inner", "314px at 390", "minmax(236px,1fr), at most 5
+  columns"), `pct()` and a mandatory per-sprite report table. After: five short steps — one silhouette (one
+  4-connected region, `ol` outside only; a part attached in the real object touches the body fill against fill and
+  angles away from it, 1 unit out every 1–3 rows, never a straight bar parallel to the body; background only where the
+  real object is open), 2–3 defining parts (2+ units thick, the naming part 30–60% of the width, real width ÷ height
+  ±0.2), size (19–23 visible units; `item()` and `.pic` make the ink about half the window at any grid width), set-mates
+  differ in outline at 1x (never only hue or an inner detail; two of length, w÷h, openings, part count), a name test
+  from the outline alone. Item grids are a content kind in Layout: `.items`, auto-fill, 240px+. Verification: no
+  `pct()`, no sprite table; one general sprite check; report renumbered (variant table, per scene, files).
+- (2) Block meters, rule 9, Game-window chrome, Verification. Before: "scores, quotas and every n-of-m count (Showing n
+  of m)", "counts (n of m, m ≤ 20): a block per item, '2 of 6' 12/18 above", "Every 'Showing n of m' or 'n of m on'
+  count has its block meter". After: progress against a real, fixed maximum (a quota, steps done, capacity, items
+  enabled out of a set) is a block meter; search and filter result counts stay caption text; the m ≤ 20 patch and the
+  quoted strings dropped. Card: a KPI tile carries a meter only when its value has a real maximum.
+- (3) Scenes per screen, Pixel stage step 1 and Never. Before: "every scene (hero, each strip, each detail or content
+  page) has its own lead … each detail page in a set gets its own Banner lead … no sibling's page uses … its sign word
+  naming that item"; Never "the same scene on two screens". After: each kind of screen has its own scene; detail
+  pages of one kind share their kind's Banner or vary it by category (one lead or sign word per category), never a
+  scene per record; Never "the same scene on two kinds of screen". Emblem-lead and pictogram rules kept.
+- (4) Panels, Layout. Before: "grow the shorter (plot up to `size.chart`, more list rows) or trim the longer (5–8
+  activity items + 'View all')", `.panels{grid-template-columns:2fr 1fr}`. After: bottoms level by adding to the
+  shorter or trimming the longer (a trimmed list ends in "View all"); widths follow content (`.wide` takes two shares,
+  flex-wrap at 320px). `size.chart` moved to Charts as the plot's maximum height so the token keeps a use.
+- (5) Catalogue row, Applying. Before: "Catalogue grid and cart … Item detail: its own Banner and lead per Pixel stage
+  step 1; the picture window sticky or as tall as the purchase column, neither column ending 160px+ above the other".
+  After: a general Layout rule for two-column layouts (the shorter column sticks under the header or grows, neither
+  ending 160px+ above the other); the row is "Catalogue, listing and cart" with `.items`, result counts as captions,
+  totals in a Window and quantity steppers in a `.controls` row as generic cart guidance; item detail takes its kind's
+  Banner.
+- (6) Footer sign-up form, Game-window chrome and Typography. Before: "A footer sign-up or contact form is a 2px-framed
+  panel"; "standalone sections (sign-up, contact, also in the footer) open with such an h2". After: a small
+  standalone form outside the main content is a 2px-framed `color.surface.subtle` panel opened by a section heading,
+  never a full Window; "a standalone section or small form, wherever it sits, opens with such an h2".
+- (7) KPI tiles, Layout. Before: "KPI tiles 4/2/1 columns". After: `.kpis`, one row of `--n` tiles; under
+  `breakpoint.lg` they wrap evenly (`--n-md` = the count up to 3, else half rounded up; never a lone tile under a full
+  row); one column under `breakpoint.sm`.
+- (8) Minor. Card clamps: three patched clauses → one rule by card kind (summary 4 lines, item 3, tiles 2, never 1; a
+  clamp never cuts a text that would fit in one more line). "(plan, option)" → "a card used as a choice in a group";
+  "Item card (product, listing)" → "an image, a name and a value, in `.items`", "price" → "value (a price, a rate, a
+  score)". Layout: "an image field (avatar, cover)" → "an image field".
+- validate: 0 errors, 0 warnings. Bundle rebuilt.
+
+1.3.0-rc.2 (2026-10-19): answers critic-1 on 1.3.0-rc.1 (one major, signature, caused by the spec; 5 minors left alone).
+- (1) Item sprite size. Seen: two grid sprites well under half their window (about 28–38%) while the rest stayed in
+  band; rc.1 had replaced the 40–50% band and its computed check with "ink about half the window", so a tall item drawn
+  narrower than 19 visible units went uncaught. General rule written (Imagery step 3 "Size: 40–50% of the window,
+  checked"): every item sprite is 19–23 visible units wide and its visible ink spans 40–50% of the `.pic` window's inner
+  width at the narrowest and widest width its grid reaches and on the detail page; an item taller than wide keeps
+  19–23 visible columns and gets more rows, never narrower, and its height is never capped (the window grows); the
+  check is computed from the code with a generic `pct()` (visible columns × unit ÷ inner width, flags REDRAW outside
+  the band or outside 19–23), with the two fixes (widen the body; one visible column more or fewer when floor rounding
+  drops a narrow window under 40%). Verification restores the sprite table (`sprite | visible units | ink px | window
+  px | %`, a row per sprite at the narrowest and widest grid window and on detail) as report part (1); the sprite line
+  says "19–23 visible units wide (a tall item gets taller, never narrower)". Why it holds beyond the demo apps: any
+  product that shows items without photos (a listing, a library, an inventory, a booking of rooms or gear) draws them
+  in the same `.pic` window, and tall objects exist in every domain; the band and check carry no grid arithmetic, column
+  count or object name from the demos — window widths come from the project's own grid.
