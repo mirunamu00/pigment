@@ -1,0 +1,43 @@
+```json
+{
+  "items": [
+    { "id": "docs--page--home--desktop-light", "status": "ok", "note": "The landing hero sits on paper with a regular-weight display title, a centred lead and one small pink 'Get started' CTA. Four tilted ink-outlined stickers (a coin with a check, a star, a terminal tag and a play coin) are cropped by the hero edges and stay clear of the text. Below an ink rule are four outlined link cards and a quick-start code box, and pink appears only on the CTA, like the reference's hero." },
+    { "id": "docs--page--home--mobile-light", "status": "ok", "note": "At phone width the hero stacks the title, lead and pink CTA, and the stickers render small and static in a row under the CTA, as the drift rule asks. The four link cards are full width with even gaps and the code box fits inside the 16px gutter. Nothing overlaps." },
+    { "id": "docs--page--home--desktop-dark", "status": "ok", "note": "The dark ground carries the same hero: the stickers keep their ink-and-pink fills and outlines, the pink CTA stays the only pink action, and the link cards are raised dark cards with light borders. Hierarchy matches the light theme and all text is legible." },
+    { "id": "docs--page--home--mobile-dark", "status": "ok", "note": "The stacked hero in dark has the static sticker row under the pink CTA, then raised outlined link cards and the code box. Spacing matches the light mobile version and nothing is cut off." },
+    { "id": "docs--page--docs-getting-started-installation--desktop-light", "status": "ok", "note": "A teal band runs the full width of the content column, with the breadcrumb, the title, a lead and pill tabs whose selected pill is raised, all in ink. The body below has outlined code boxes with Copy buttons, outlined callouts that label their status with text and icon, numbered steps and outlined prev/next cards. The section owns its color the way the reference's category headers do." },
+    { "id": "docs--page--docs-getting-started-installation--mobile-light", "status": "ok", "note": "The band collapses to the breadcrumb, title, lead and a pill strip, and the 'On this page' links follow as a pill row. Code blocks scroll inside their own box: a long output line is cut at the box edge, not the page edge. The callouts and prev/next cards are full width and evenly spaced." },
+    { "id": "docs--page--docs-getting-started-installation--desktop-dark", "status": "ok", "note": "In dark, the teal band keeps ink text and its selected tab is ink-filled. The body uses raised dark code boxes and callouts with light outlines. The hierarchy runs band title, h2 sections, then code, the same as in light." },
+    { "id": "docs--page--docs-getting-started-installation--mobile-dark", "status": "ok", "note": "In dark at phone width, the collapsed teal band has a readable ink breadcrumb and title. The callouts keep their colored status label next to an icon, and the step numbers are outlined circles. Nothing is clipped except the intended horizontal scroll inside code boxes." },
+    { "id": "docs--page--docs-guides-configuration--desktop-light", "status": "ok", "note": "A yellow band titles the Guides section, with breadcrumb and pill tabs. The long reference page sets its option tables in bordered boxes with hairline rows and small mono values, alongside JSON code boxes and outlined note, warning and danger callouts. The right-hand 'On this page' column lines up with the band's content edge." },
+    { "id": "docs--page--docs-guides-configuration--mobile-light", "status": "finding", "note": "The yellow band collapses correctly and the option tables reflow into stacked label/value blocks. But when a description holds inline code, the code chip breaks out into the label column on its own line ('Named sets of overrides, selected with' / '--profile' / '.'), so the sentence is split apart." },
+    { "id": "docs--page--docs-guides-configuration--desktop-dark", "status": "ok", "note": "The yellow band keeps ink text on dark ground. The option tables are dark bordered boxes with hairline rows, and the JSON code boxes and callouts are raised with light outlines. The density matches the dense data-screen rules and every column is readable." },
+    { "id": "docs--page--docs-guides-configuration--mobile-dark", "status": "finding", "note": "The stacked option blocks in dark show the same split as in light: inline code inside a description ('--profile', 'false') drops into the label column as a separate line, and the rest of the sentence sits on another row." },
+    { "id": "docs--page--changelog--desktop-light", "status": "ok", "note": "A yellow band titles the changelog. Each release has a version h2, a small date and a one-line summary, then entries marked by outlined pills with icon and word (Added, Changed, Fixed), so status is never shown by color alone. Releases are separated by rules, and a right-hand jump list sits beside them." },
+    { "id": "docs--page--changelog--mobile-light", "status": "ok", "note": "At phone width the band collapses to the title and lead, the version jump links become a pill row, and each entry keeps its outlined status pill left of a wrapping description. Spacing is even and nothing is cut off." },
+    { "id": "docs--page--changelog--desktop-dark", "status": "ok", "note": "In dark, the yellow band keeps ink text, the header's current-page pill (Changelog) is paper-filled, and the status pills keep their outline with a colored icon and label. The release rhythm matches the light theme." },
+    { "id": "docs--page--changelog--mobile-dark", "status": "ok", "note": "The dark mobile changelog has the collapsed yellow band, a paper-filled current-page pill in the header, and outlined status pills beside entries whose inline code chips wrap cleanly. Every line is legible." }
+  ],
+  "findings": [
+    {
+      "severity": "major",
+      "area": "polish",
+      "summary": "When a table reflows into stacked label/value blocks at phone width, inline code inside a value cell is laid out as its own grid item. The code chip and the rest of the sentence drop into the label column on separate lines, so descriptions read broken ('Named sets of overrides, selected with' / '--profile' / '.', 'Set to' / 'false' / 'for tasks…').",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.6/review-3-holdout/sheets/docs--page--docs-guides-configuration--mobile-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.6/review-3-holdout/sheets/docs--page--docs-guides-configuration--mobile-dark.png",
+        "showcase/runs/hardlift/0.1.0-rc.6/docs/20261019-222324-s1/screenshots/docs-guides-configuration-mobile-light.png"
+      ],
+      "items": [
+        "docs--page--docs-guides-configuration--mobile-light",
+        "docs--page--docs-guides-configuration--mobile-dark"
+      ],
+      "promptFix": "In the phone-width table reflow, each cell becomes exactly two grid items: its label (generated from the column header, for example via a data-label attribute and ::before) and one value wrapper that holds the cell's whole content. Never make the cell's child nodes the grid or flex items. Inline code, links and emphasis inside a value stay in the text flow and wrap with the sentence. At 390px, check that each value reads as one uninterrupted line of text in the value column.",
+      "holdoutOnly": true
+    }
+  ]
+}
+```

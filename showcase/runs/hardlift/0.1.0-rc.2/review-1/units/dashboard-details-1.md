@@ -1,0 +1,82 @@
+```json
+{
+  "items": [
+    { "id": "dashboard--state--search-focus--desktop-light", "status": "ok", "note": "The filter field has focus. It shows an ink border with the pink halo ring outside it and a clear button. The table has narrowed to the one matching row, and the 'Showing 1 of 8 projects' count says what happened." },
+    { "id": "dashboard--state--search-focus--desktop-dark", "status": "ok", "note": "In dark mode the focused filter field keeps the pink halo on a raised dark field with paper text. The one-row result and its count are readable against the black ground." },
+    { "id": "dashboard--state--search-focus--mobile-light", "status": "ok", "note": "At 390px the filter field sits on its own row with the pink halo ring. The one-row table scrolls inside its bordered box, so the cut-off Status column is the spec's own pattern and the page does not scroll sideways." },
+    { "id": "dashboard--state--row-hover--desktop-light", "status": "ok", "note": "The hovered first row gets a subtle gray fill with no lift, as the spec says. Its 2px-lift arrow row action and the underlined project link stay crisp." },
+    { "id": "dashboard--state--row-hover--desktop-dark", "status": "finding", "note": "Every body row sits on the same dark raised gray. At normal size the hovered row's subtle fill can't be told apart from the rows around it, so in dark mode the hover reads as nothing." },
+    { "id": "dashboard--state--row-hover--mobile-light", "status": "ok", "note": "On mobile the second row shows the gray hover fill inside the bordered, horizontally scrolling table. The Project and Owner columns stay readable." },
+    { "id": "dashboard--state--keyboard-focus--desktop-light", "status": "ok", "note": "The focused sidebar pill has a 2px ink outline that follows its full radius, set off from the ink-filled current-page pill above. It is clearly the spec's ring, not the browser default." },
+    { "id": "dashboard--state--keyboard-focus--desktop-dark", "status": "ok", "note": "In dark mode the focused nav pill gets a pink outline, which stands out well against the black sidebar. The paper-filled current pill sits above it." },
+    { "id": "dashboard--state--keyboard-focus--mobile-light", "status": "ok", "note": "In the mobile top pill strip, the focused pill has a 2px ink outline next to the ink-filled current pill. The two read as different states." },
+    { "id": "dashboard--state--user-menu-open--desktop-light", "status": "finding", "note": "The menu opens as a raised panel with an ink border and a hard offset shadow, and its rows are separated by hairline rules. That follows the spec. But the trigger turns pink while the pink Refresh CTA is still on screen, and the email address breaks in the middle of the word ('exam / ple')." },
+    { "id": "dashboard--state--user-menu-open--desktop-dark", "status": "finding", "note": "The dark menu panel has a light-tinted hard shadow and readable paper text. It has the same pink trigger next to the pink Refresh, and the same email broken mid-word." },
+    { "id": "dashboard--state--user-menu-open--mobile-light", "status": "finding", "note": "On mobile the panel drops over the teal band and covers the title and Refresh, which is correct layering for a menu. The email still wraps mid-word, and the trigger is filled pink." },
+    { "id": "dashboard--state--empty-filter--desktop-light", "status": "finding", "note": "A bordered empty panel holds a small pink question-coin sticker, a sentence, a hint and a pink 'Clear filters' lift button, so the next step is clear. But this puts two pink actions in one viewport with Refresh in the band, and the sticker is about 28px where the empty-state recipe asks for 160px." },
+    { "id": "dashboard--state--empty-filter--desktop-dark", "status": "finding", "note": "The dark empty panel is laid out the same way: a coin sticker, the message, and a pink Clear filters button. It is readable, but there are still two pink actions on screen with the band's Refresh." },
+    { "id": "dashboard--state--empty-filter--mobile-light", "status": "finding", "note": "On mobile the empty card fills the width with the sticker, message and pink Clear filters. The pink Refresh in the band is also in view higher up the scroll, so the screen has two pink actions." },
+    { "id": "dashboard--state--loading--desktop-light", "status": "ok", "note": "Each stat card swaps its number for a turning pink coin and 'Loading...', and the band button becomes 'Refreshing...' with a small coin. There is no spinner or skeleton, which fits the loading rule." },
+    { "id": "dashboard--state--loading--desktop-dark", "status": "ok", "note": "In dark mode the loading coins show pink with light rims on the raised cards, the band button reads 'Refreshing...', and every label is legible." },
+    { "id": "dashboard--state--loading--mobile-light", "status": "ok", "note": "In the 2x2 mobile stat grid each card shows a coin and 'Loading...', and the band button shows the refreshing label. The rest of the page stays usable." },
+    { "id": "dashboard--drawings--home", "status": "ok", "note": "The one drawing is a small pink coin sticker in the chart card's corner. It has a heavy ink rim offset down-right and a plus glyph, built to the coin recipe at size.sticker scale, and reads as a coin. This is the 'one 32px sticker' that the spec's dashboard row allows." }
+  ],
+  "findings": [
+    {
+      "severity": "major",
+      "area": "signature",
+      "summary": "Two pink actions share one viewport: the band's pink Refresh is joined by a pink empty-state button, and by the user-menu trigger turning pink when open. This breaks the rule that pink is rationed to one action.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/dashboard/20261019-123257/screenshots/state-empty-filter-desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/dashboard/20261019-123257/screenshots/state-user-menu-open-desktop-light.png"
+      ],
+      "items": [
+        "dashboard--state--empty-filter--desktop-light",
+        "dashboard--state--empty-filter--desktop-dark",
+        "dashboard--state--empty-filter--mobile-light",
+        "dashboard--state--user-menu-open--desktop-light",
+        "dashboard--state--user-menu-open--desktop-dark",
+        "dashboard--state--user-menu-open--mobile-light"
+      ],
+      "promptFix": "Pink belongs to the single most important action in view. When a component that normally carries a pink action (an empty state, a dialog, a form submit) appears on a screen that already has one, give the screen-level action the ink or ghost style, or the component's button, so only one pink action is ever visible. Open menu triggers and selected controls use the raised or ink fill, never pink."
+    },
+    {
+      "severity": "minor",
+      "area": "componentStates",
+      "summary": "In dark mode the table-row hover fill is the same as the rows' raised background, so the hovered row can't be seen.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "evidence": ["showcase/runs/hardlift/0.1.0-rc.2/dashboard/20261019-123257/screenshots/state-row-hover-desktop-dark.png"],
+      "items": ["dashboard--state--row-hover--desktop-dark"]
+    },
+    {
+      "severity": "minor",
+      "area": "polish",
+      "summary": "The account email in the user menu breaks in the middle of a word ('northwind.exam / ple') instead of truncating or breaking at a sensible point.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "evidence": ["showcase/runs/hardlift/0.1.0-rc.2/dashboard/20261019-123257/screenshots/state-user-menu-open-desktop-light.png"],
+      "items": [
+        "dashboard--state--user-menu-open--desktop-light",
+        "dashboard--state--user-menu-open--desktop-dark",
+        "dashboard--state--user-menu-open--mobile-light"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "signature",
+      "summary": "The empty state's sticker is a roughly 28px coin, not the larger empty-state sticker. The spec gives two sizes for this case (160px for empty states, a 32px sticker or none on dense screens) and doesn't say which applies to an empty panel inside a dashboard.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "evidence": ["showcase/runs/hardlift/0.1.0-rc.2/dashboard/20261019-123257/screenshots/state-empty-filter-desktop-light.png"],
+      "items": ["dashboard--state--empty-filter--desktop-light"]
+    }
+  ]
+}
+```

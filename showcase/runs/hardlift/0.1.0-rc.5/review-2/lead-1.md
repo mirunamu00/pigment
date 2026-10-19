@@ -1,0 +1,174 @@
+```json
+{
+  "findings": [
+    {
+      "severity": "blocker",
+      "area": "componentStates",
+      "summary": "The save-confirmation toast lands on top of the form's action row. On desktop it hides most of the pink 'Save changes' button and its label, and its pink close button adds a second pink control. At phone width the bottom-pinned toast covers the lower half of both Save and Reset. This is a regression: review 1 of this version showed an inline 'Saved' check that covered nothing.",
+      "samples": 2,
+      "of": 3,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.5/settings/20261019-210158-s2/screenshots/state-profile-saved-desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/settings/20261019-210158-s1/screenshots/state-profile-saved-mobile-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/settings--state--profile-saved--desktop-dark.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/settings--state--profile-saved--mobile-light.png"
+      ],
+      "items": [
+        "settings--state--profile-saved--desktop-light",
+        "settings--state--profile-saved--desktop-dark",
+        "settings--state--profile-saved--mobile-light"
+      ],
+      "promptFix": "A toast never covers content or controls. Pin it to a viewport corner outside the content column. Where content reaches that corner (narrow screens, or forms whose actions sit at the bottom-left), either reserve bottom padding on the page equal to the toast height plus space.16, or show the confirmation inline beside the action that triggered it. The toast's own controls are ghost or ink, never pink. After the toast appears, check in each theme and at 390px that the button which triggered it is still fully visible."
+    },
+    {
+      "severity": "blocker",
+      "area": "polish",
+      "summary": "At phone width, once the page is scrolled, the scroll-bound hero drift moves the coin, star and speech-bubble stickers up over the pink 'Read the featured post' CTA. The coin covers most of the label, so the page's main action becomes unreadable and partly hidden. The keyboard-focus capture at the top of the page shows no overlap, so the overlap depends on scroll position.",
+      "samples": 1,
+      "of": 3,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.5/blog/20261019-210158-s2/screenshots/state-newsletter-error-mobile-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/blog--state--newsletter-error--mobile-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/blog--state--newsletter-success--mobile-light.png"
+      ],
+      "items": [
+        "blog--state--newsletter-error--mobile-light",
+        "blog--state--newsletter-success--mobile-light"
+      ],
+      "promptFix": "Drifting or decorative shapes never cover text or controls at any scroll position or width. Place each shape so that its whole travel path, from the start of the drift range to the end, stays in empty hero space or past the hero's edges. Keep shapes below text and controls in the stacking order (lower z-index, pointer-events: none). Under breakpoint.md, either shrink the shapes and move them to the hero's edges, or render them static below the content. Check at 390px, scrolled to the top, the middle and the end of the hero, that every label in the hero is fully visible."
+    },
+    {
+      "severity": "blocker",
+      "area": "polish",
+      "summary": "At phone width, the sessions table reflows into stacked blocks, but each block's Revoke button collapses to a box about two letters wide. The label spills past both sides of the border, so the row action is broken and hard to hit. This shows on the security page and in its password-mismatch state, in light and dark. It is a regression from review 1 of this version, where every Revoke button was a proper button.",
+      "samples": 1,
+      "of": 3,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.5/settings/20261019-210158-s1/screenshots/settings-security-mobile-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/settings/20261019-210158-s1/screenshots/state-password-mismatch-mobile-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/settings--page--settings-security--mobile-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/settings--page--settings-security--mobile-dark.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/settings--state--password-mismatch--mobile-light.png"
+      ],
+      "items": [
+        "settings--page--settings-security--mobile-light",
+        "settings--page--settings-security--mobile-dark",
+        "settings--state--password-mismatch--mobile-light"
+      ],
+      "promptFix": "When a table row reflows into a stacked block, its action buttons keep their intrinsic width and the standard button padding (flex: none, width: max-content, white-space: nowrap) and at least size.hit height. Give the action its own line or a right-aligned slot, and never let it inherit a fixed or shrinking column width from the desktop cell. Check at 390px, in each theme, that every button label sits fully inside its border."
+    },
+    {
+      "severity": "major",
+      "area": "componentStates",
+      "summary": "While refreshing, the band's action button turns into a borderless pale-gray box with pale-gray 'Refreshing…' text that is barely readable on the teal band, in light and dark. The spec's generic disabled recipe (subtle fill, disabled text, hairline border) conflicts with its own ban on disabled-looking text on a band or colored fill and with the 4.5:1 floor. The other samples keep the ink or paper button with a turning coin.",
+      "samples": 1,
+      "of": 3,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.5/dashboard/20261019-210158-s2/screenshots/state-loading-desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/dashboard--state--loading--desktop-dark.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/dashboard--state--loading--mobile-light.png"
+      ],
+      "items": [
+        "dashboard--state--loading--desktop-light",
+        "dashboard--state--loading--desktop-dark",
+        "dashboard--state--loading--mobile-light"
+      ],
+      "promptFix": "A busy button is not a disabled button. It keeps its variant's fill, ink border and full-contrast label, and shows the busy state with the small turning coin, a changed label and aria-busy. The gray disabled recipe applies only on paper or raised surfaces. On a band, pink or any other colored fill, a disabled or busy control keeps its normal fill and border, drops the lift and uses aria-disabled. Every state of a control must meet 4.5:1 against the fill directly behind it."
+    },
+    {
+      "severity": "major",
+      "area": "signature",
+      "summary": "The settings band changes color on every sub-page: teal on profile, yellow on notifications, periwinkle on security, lime on billing. These are tabs of one sub-nav, and the spec assigns band colors to sections. So the color becomes per-page decoration and stops working as the area's identity, the way the reference's category bands do.",
+      "samples": 1,
+      "of": 3,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/settings--page--settings-profile--desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/settings--page--settings-notifications--desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/settings--page--settings-security--desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/settings--page--settings-billing--desktop-light.png"
+      ],
+      "items": [
+        "settings--page--settings-notifications--desktop-light",
+        "settings--page--settings-security--desktop-light",
+        "settings--page--settings-billing--desktop-light"
+      ],
+      "promptFix": "Choose the band color once per section, meaning everything reachable from one sub-nav or sharing one parent page, and use that same color on every page in it. Tabs, sub-pages and detail pages inside a section never get their own band color. Before finishing, open every page of each section and check that their bands match."
+    },
+    {
+      "severity": "minor",
+      "area": "spacingRhythm",
+      "summary": "On the desktop overview, the chart card ends about 60px above the taller recent-activity card beside it, which leaves an empty pocket in the row, in light and dark. Sample 3 stretches both cards to the same height.",
+      "samples": 2,
+      "of": 3,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/dashboard--page--home--desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/dashboard--page--home--desktop-dark.png"
+      ],
+      "items": [
+        "dashboard--page--home--desktop-light",
+        "dashboard--page--home--desktop-dark"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "spacingRhythm",
+      "summary": "At phone width, one run starts the first block after the header band almost flush against the band's ink rule, leaving about 8px where the other runs leave a section gap. It shows as the About heading and the article contents strip sitting tight under the band, in light and dark.",
+      "samples": 1,
+      "of": 3,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/blog--page--about--mobile-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/blog--page--about--mobile-dark.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/blog--page--posts-release-notes-people-read--mobile-dark.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/blog/20261019-210158-s2/screenshots/about-mobile-light.png"
+      ],
+      "items": [
+        "blog--page--about--mobile-light",
+        "blog--page--about--mobile-dark",
+        "blog--page--posts-shipping-a-design-system--mobile-dark",
+        "blog--page--posts-release-notes-people-read--mobile-dark"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "signature",
+      "summary": "In one sample, the product stickers are drawn with an outline of about 2px at roughly 250px display size, where the recipe asks for a heavy outline. They read lighter, closer to line icons than to the reference's bold sticker art. The other two samples hold the heavy weight.",
+      "samples": 1,
+      "of": 3,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/commerce--drawings--home.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/commerce/20261019-210158-s1/drawings/products-merino-crew-sweater-d1.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/commerce--drawings--products-merino-crew-sweater.png"
+      ],
+      "items": [
+        "commerce--drawings--home"
+      ]
+    }
+  ],
+  "referenceFidelity": 4,
+  "crossAppConsistency": 4,
+  "hierarchy": 4,
+  "spacingRhythm": 4,
+  "componentStates": 3,
+  "polish": 3,
+  "signature": 4,
+  "notes": [
+    "Review: 131/131 checklist items by 8 reviewers and the lead reviewer (showcase/runs/hardlift/0.1.0-rc.5/review-2). I opened the blog newsletter-error mobile capture and the settings profile-saved desktop capture myself. Both blockers are real. The stickers sit on the pink CTA and hide its label, and the 'Saved' toast covers the Save button's label.",
+    "Merged: the settings-pages blocker (Revoke collapses on the security page) and the settings-details blocker (the same collapse in the password-mismatch state) are one problem from the same sample, so they are one blocker.",
+    "Regraded: the loading-button finding is now marked as caused by the spec. The spec's generic disabled-button recipe (subtle fill, disabled text, hairline border) is what that sample followed, and it conflicts with the spec's own rule against disabled-looking text on a band. It stays major, not blocker: the label is faint but readable, and the state is short-lived.",
+    "Regressions from review 1 of this version: (1) the save confirmation moved from an inline check to a toast that covers the action row in 2 of 3 samples; (2) the reflowed Revoke buttons collapse in 1 of 3 samples. Both rc.4 majors (hidden table columns, two pink actions in the empty-filter state) stay fixed in all three samples.",
+    "Not re-raised (earlier minors): Shop isn't marked current on product pages (rc.3/rc.4); the spec contradicts itself on pink vs ink for switches that are on (rc.3/rc.4); the empty-filter sticker is icon-sized (rc.4 review 2); the leftover column-label strip on mobile tables and the abstract design-system figure (rc.5 review 1).",
+    "Family: the four apps read as one system. They share paper and ink, regular-weight display type, one full-width band per section with an ink rule, ink current-page pills (paper in dark), outlined cards, the hard offset lift, pink price tags and the same dark mapping. The one family break is the sample whose settings band changes color on every tab.",
+    "Recognition: someone who knows the reference would recognize it. The yellow sticker hero has tilted, edge-cropped coins, the shop is a dense wall of distinct flat sticker products on band-color squares, and the pink pill is the one loud action.",
+    "Signature elements hold across apps: section bands, outline pills, sticker art, turning-coin loading, the hard lift and one pink action per viewport. Exceptions are the per-tab settings band colors (1 sample) and thinner sticker outlines (1 sample).",
+    "Not passing: three blockers (a toast over the save action, hero stickers over the CTA, collapsed Revoke buttons) and two majors (gray busy button on a band, a band color per settings tab). Two of the blockers and one major are caused by the spec."
+  ]
+}
+```

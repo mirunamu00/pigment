@@ -1,0 +1,266 @@
+```json
+{
+  "findings": [
+    {
+      "severity": "major",
+      "area": "componentStates",
+      "summary": "Linked product cards don't lift on hover. They don't move -4px and get no hard offset shadow, so in both themes a hovered card looks the same as one at rest. The hard lift on linked cards in a grid is one of the system's four signature elements.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/commerce/20261019-123257/screenshots/state-card-hover-desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/commerce/20261019-123257/screenshots/state-card-hover-desktop-dark.png"
+      ],
+      "items": [
+        "commerce--state--card-hover--desktop-light",
+        "commerce--state--card-hover--desktop-dark"
+      ],
+      "promptFix": "When a whole card is a link, put the lift (the -4px translate and shadow.md) on the card's outer bordered box, meaning the anchor itself or the element that wraps it and receives the pointer. Don't put it on an inner element or leave it off. Keep 8px of clearance so no ancestor's overflow clips the shadow. Check it by hovering one card and seeing it move off the page with the offset shadow behind it."
+    },
+    {
+      "severity": "major",
+      "area": "signature",
+      "summary": "More than one pink action shows in the same viewport. A component's own pink button (the empty-state 'Clear filters', the newsletter Subscribe) appears next to a screen-level pink action (Refresh), and an open menu trigger also turns pink. This breaks the rule that pink is kept for one main action per viewport.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/dashboard/20261019-123257/screenshots/state-empty-filter-desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/dashboard/20261019-123257/screenshots/state-user-menu-open-desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/blog--state--search-empty--mobile-light.png"
+      ],
+      "items": [
+        "dashboard--state--empty-filter--desktop-light",
+        "dashboard--state--empty-filter--desktop-dark",
+        "dashboard--state--empty-filter--mobile-light",
+        "dashboard--state--user-menu-open--desktop-light",
+        "dashboard--state--user-menu-open--desktop-dark",
+        "dashboard--state--user-menu-open--mobile-light",
+        "blog--state--search-empty--desktop-light",
+        "blog--state--search-empty--desktop-dark",
+        "blog--state--search-empty--mobile-light"
+      ],
+      "promptFix": "Pink goes to the single most important action in view. Some components bring their own pink button (an empty state, a form, a dialog). When one of them appears where a pink action is already visible, decide which action matters most right now and give the other one lift--ink or lift--ghost, so only one pink action is ever visible. Open menu triggers, selected controls and toggled states use the raised or ink fill, never pink."
+    },
+    {
+      "severity": "major",
+      "area": "signature",
+      "summary": "Every image and figure uses the same generic 'picture' glyph (mountains and sun, or a framed-image icon) on a band-color square. That covers all 11 product tiles, both product detail images, and both article figures under different captions. Nothing tells one item from another, and the figures read as missing images. The spec asks for original sticker objects drawn from basic shapes, and the reference's colorful product wall works because each tile is different.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/blog/20261019-123257/drawings/posts-shipping-a-design-system-d1.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/blog--drawings--posts-release-notes-people-read.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/commerce--drawings--home.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/commerce--drawings--products-canvas-field-tote.png"
+      ],
+      "items": [
+        "blog--drawings--posts-shipping-a-design-system",
+        "blog--drawings--posts-release-notes-people-read",
+        "commerce--drawings--home",
+        "commerce--drawings--products-canvas-field-tote",
+        "commerce--drawings--products-merino-crew-sweater"
+      ],
+      "promptFix": "Don't draw a generic 'image' glyph (mountains and sun, a picture frame) as a placeholder or an illustration. Where a real photo will be supplied later, the placeholder is a band-color square holding a simple sticker object drawn from the basic shapes (ellipse, rounded rect, tag, coin, star, arrow) that hints at that item's own kind. Where a figure stands for an idea, build an original sticker scene that shows that figure's subject. Two items or figures never share one drawing."
+    },
+    {
+      "severity": "minor",
+      "area": "polish",
+      "summary": "On mobile, tables keep every desktop column and scroll inside their box with no cue that they scroll. Only the first one or two columns fit, the next one is cut mid-word or mid-icon, and status, dates and row actions such as 'Revoke' are off-screen.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/dashboard--page--projects--mobile-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/dashboard--page--team--mobile-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/settings--page--settings-security--mobile-light.png"
+      ],
+      "items": [
+        "dashboard--page--home--mobile-light",
+        "dashboard--page--home--mobile-dark",
+        "dashboard--page--projects--mobile-light",
+        "dashboard--page--projects--mobile-dark",
+        "dashboard--page--team--mobile-light",
+        "dashboard--page--team--mobile-dark",
+        "settings--page--settings-security--mobile-light",
+        "settings--page--settings-security--mobile-dark"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "signature",
+      "summary": "On the product detail page the price is plain large text instead of the pink price tag used on the cards.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/commerce--page--products-canvas-field-tote--desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/commerce--page--products-merino-crew-sweater--desktop-light.png"
+      ],
+      "items": [
+        "commerce--page--products-canvas-field-tote--desktop-light"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "crossAppConsistency",
+      "summary": "The spec's placeholder rule ('a band color with an ink glyph') conflicts with its 'one band color per screen' rule. As a result, the shop grid cycles through four band colors under a teal band.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/commerce--page--home--desktop-light.png"
+      ],
+      "items": [
+        "commerce--page--home--desktop-light"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "signature",
+      "summary": "On mobile, the landing hero shows only two small corner slivers of its stickers, so the sticker hero almost disappears.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/blog--page--home--mobile-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/blog--page--home--mobile-dark.png"
+      ],
+      "items": [
+        "blog--page--home--mobile-light",
+        "blog--page--home--mobile-dark"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "componentStates",
+      "summary": "Confirmation messages are drawn in the wrong form. The subscribe confirmation is a raised, hard-shadowed card nested inside the raised newsletter card. The profile 'Saved' message is a box the size of a button inside the action row, so it reads as a third button rather than a toast.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/review-1/sheets/blog--state--newsletter-success--desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/settings/20261019-123257/screenshots/state-profile-saved-desktop-light.png"
+      ],
+      "items": [
+        "blog--state--newsletter-success--desktop-light",
+        "blog--state--newsletter-success--desktop-dark",
+        "blog--state--newsletter-success--mobile-light",
+        "settings--state--profile-saved--desktop-light",
+        "settings--state--profile-saved--desktop-dark",
+        "settings--state--profile-saved--mobile-light"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "componentStates",
+      "summary": "When a field is both invalid and focused, the pink focus halo replaces its red error border, so while focused the error shows only in the message below the field.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/settings/20261019-123257/screenshots/state-profile-errors-desktop-dark.png",
+        "showcase/runs/hardlift/0.1.0-rc.2/settings/20261019-123257/screenshots/state-password-mismatch-desktop-light.png"
+      ],
+      "items": [
+        "settings--state--profile-errors--desktop-light",
+        "settings--state--profile-errors--desktop-dark",
+        "settings--state--profile-errors--mobile-light",
+        "settings--state--password-mismatch--desktop-light",
+        "settings--state--password-mismatch--desktop-dark",
+        "settings--state--password-mismatch--mobile-light"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "componentStates",
+      "summary": "In dark mode the table-row hover fill is the same color as the rows' raised background, so you can't see which row is hovered.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/dashboard/20261019-123257/screenshots/state-row-hover-desktop-dark.png"
+      ],
+      "items": [
+        "dashboard--state--row-hover--desktop-dark"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "signature",
+      "summary": "The sticker in the dashboard's empty state is about 28px, not the 160px empty-state size. The spec doesn't say which size to use for an empty panel on a dense screen.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/dashboard/20261019-123257/screenshots/state-empty-filter-desktop-light.png"
+      ],
+      "items": [
+        "dashboard--state--empty-filter--desktop-light"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "polish",
+      "summary": "The account email in the user menu breaks in the middle of a word instead of being truncated.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/dashboard/20261019-123257/screenshots/state-user-menu-open-desktop-light.png"
+      ],
+      "items": [
+        "dashboard--state--user-menu-open--desktop-light",
+        "dashboard--state--user-menu-open--desktop-dark",
+        "dashboard--state--user-menu-open--mobile-light"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "polish",
+      "summary": "The spec bans translucency but gives no rule for a modal backdrop, so the dialog uses a gray translucent scrim that turns the band color murky.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/settings/20261019-123257/screenshots/state-plan-dialog-desktop-light.png"
+      ],
+      "items": [
+        "settings--state--plan-dialog--desktop-light",
+        "settings--state--plan-dialog--desktop-dark",
+        "settings--state--plan-dialog--mobile-light"
+      ]
+    },
+    {
+      "severity": "minor",
+      "area": "spacingRhythm",
+      "summary": "On the desktop dashboard, the chart card is much shorter than the activity card beside it, which leaves a block of empty paper under the chart.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.2/dashboard/20261019-123257/screenshots/home-desktop-light.png"
+      ],
+      "items": [
+        "dashboard--page--home--desktop-light"
+      ]
+    }
+  ],
+  "referenceFidelity": 4,
+  "crossAppConsistency": 5,
+  "hierarchy": 4,
+  "spacingRhythm": 4,
+  "componentStates": 3,
+  "polish": 4,
+  "signature": 3,
+  "notes": [
+    "No blockers. Nothing on any screen overlaps, gets cut off in a way that breaks a task, or loses contrast, and the identity holds.",
+    "The four apps clearly look like one family. They share paper and ink, regular-weight display type, one full-width band color per section with an ink rule under it, ink-filled current-page pills, outlined cards, pink price tags and pink primary buttons. Dark mode maps the same way in every app (black ground, charcoal raised surfaces, paper-filled current pill).",
+    "Someone who knows the reference would recognize it. The blog hero, with tilted pink coins and tags cropped at the edge of a yellow band, carries the reference's landing page. The shop's flooded band plus pill strip over a dense, colorful grid carries the marketplace.",
+    "Of the signature elements, the bands and outline pills hold everywhere. The sticker art holds in the hero, the empty cart and the loading coins, but it falls back to a generic image glyph for every product and figure. The hard lift is visible on buttons and row actions but missing on linked cards, which is where the reference shows it most.",
+    "Three majors stop this candidate from passing: the card lift, the one-pink-action rule (the spec needs to say which pink action yields), and the generic image glyph used in place of sticker objects (the spec's placeholder wording invites it)."
+  ]
+}
+```
