@@ -11,6 +11,7 @@ import { swatchPage } from "./commands/check-analysis.ts";
 import { judgeCritic, layoutCounts, shareOnScale } from "./commands/evaluate.ts";
 import { runQueue, sampleRunIds } from "./commands/generate.ts";
 import { galleryRuns } from "./commands/publish.ts";
+import { layFixedLayers } from "./commands/shoot.ts";
 import { estimateTokens } from "./commands/validate.ts";
 import { layoutChecks } from "./layout.ts";
 import { baseAppTerms, overfitMentions } from "./overfit.ts";
@@ -236,4 +237,26 @@ test("kept copies skip the app's build output and dependencies, never a design p
   assert.ok(existsSync(join(to, "src/main.tsx")));
   assert.ok(existsSync(join(to, "design-packages/demo-1.0.0/dist/tokens.css")));
   for (const gone of ["dist", "node_modules", "test-results"]) assert.ok(!existsSync(join(to, gone)), gone);
+});
+
+test("full-page captures lay fixed and sticky layers out where a reader would see them", async () => {
+  browser ??= await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+  await page.setContent(`<style>body{margin:0}main{height:3000px}</style>
+    <header id="h" style="position:sticky;top:0;height:40px;background:#000"></header>
+    <div id="top" style="position:fixed;top:0;left:0;width:100px;height:20px"></div>
+    <div id="bar" style="position:fixed;bottom:0;left:0;width:100%;height:50px"></div>
+    <div id="toast" style="position:fixed;top:300px;left:0;width:100px;height:40px"></div>
+    <div id="veil" style="position:fixed;inset:0;background:rgba(0,0,0,0.5)"></div>
+    <main></main>`);
+  await page.evaluate(() => window.scrollTo(0, 1000));
+  await layFixedLayers(page);
+  const at = (id: string) => page.evaluate((i) => document.getElementById(i)!.getBoundingClientRect().top + window.scrollY, id);
+  assert.equal(await at("h"), 0, "sticky header back in the flow at the top");
+  assert.equal(await at("top"), 0, "top-pinned element at the page top");
+  assert.equal(Math.round(await at("bar")), (await page.evaluate(() => document.documentElement.scrollHeight)) - 50, "bottom bar at the page end");
+  assert.equal(await at("toast"), 1300, "a floating layer stays where it was seen");
+  assert.equal(await at("veil"), 1000, "the overlay box stays in view");
+  assert.match(await page.evaluate(() => getComputedStyle(document.getElementById("veil")!).boxShadow), /rgba\(0, 0, 0, 0\.5\)/);
+  await page.close();
 });
