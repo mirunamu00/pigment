@@ -36,13 +36,16 @@ published version: see [`updating.md`](updating.md) (the `template-update` skill
 | `content/templates/<id>/<version>/` | The product: the design prompt package (manifest, tokens, principles, components, agent instructions) |
 | `content/_template/` | Skeleton copied by `pnpm harness scaffold` |
 | `showcase/base-apps/` | The four neutral apps every template is applied to (dashboard, commerce, blog, settings), and the holdout apps used only to confirm (`"holdout": true`) |
-| `showcase/runs/` | Agent outputs per template version and app, with screenshots and reports |
+| `showcase/runs/` | Per template version and app: the evaluation, critic and run records, agent reports and patches (kept in git). Screenshots, motion frames and drawing crops stay local; the gallery copies what it shows into `apps/web/public/showcase` |
 | `packages/harness/` | The CLI behind every `pnpm harness` command |
 | `packages/schema/` | Data contracts (zod + emitted JSON Schema) |
-| `docs/harness/` | The rules: prompt writing, evaluation rubric, analysis guide |
+| `docs/harness/` | The rules: prompt writing, evaluation rubric, analysis guide, and the audits that shaped them |
 
 ## Rules that never bend
 
+- The demo apps are the **test, not the target**. A template is handed to agents for products we have never
+  seen; every fix is the general principle behind a finding, and the author never reads the demo apps. See
+  `prompt-writing-rules.md` → Generalize.
 - A template is a **derived design language**, never a clone. No logos, brand names, copied copy, copied
   illustrations or proprietary fonts from the reference. See `prompt-writing-rules.md` → Provenance.
 - Published versions are **immutable**. Fixes ship as a new version ([`updating.md`](updating.md)).

@@ -75,28 +75,34 @@ for offline setups.
 ## The gallery
 
 Every screenshot is a real coding agent restyling the same four neutral apps with one system —
-unedited output, cropped to the first screen.
+unedited output, cropped to the first screen. Four systems so far:
 
 <table>
   <tr>
     <td width="50%"><img src="docs/assets/margin-notes-dashboard-light.png" alt="Dashboard restyled with Margin Notes" /></td>
-    <td width="50%"><img src="docs/assets/margin-notes-commerce-light.png" alt="Store restyled with Margin Notes" /></td>
+    <td width="50%"><img src="docs/assets/inkleaf-dashboard-light.png" alt="Dashboard restyled with Inkleaf" /></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/assets/margin-notes-blog-dark.png" alt="Blog restyled with Margin Notes, dark mode" /></td>
-    <td width="50%"><img src="docs/assets/margin-notes-settings-dark.png" alt="Settings restyled with Margin Notes, dark mode" /></td>
+    <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/margin-notes">Margin Notes</a></b> — warm paper, near-black ink, hairlines; the only color is a watercolor wash kept to the margins.</td>
+    <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/inkleaf">Inkleaf</a></b> — warm ink on cream paper, a text serif, hand-drawn ink pictograms and pastel stages that hold product UI.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/assets/night-cartridge-blog-dark.png" alt="Blog restyled with Night Cartridge" /></td>
+    <td width="50%"><img src="docs/assets/graphite-blueprint-commerce-dark.png" alt="Store restyled with Graphite Blueprint" /></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/night-cartridge">Night Cartridge</a></b> — a 16-bit console booted as a product: night-blue ground, pixel type, small scenes that move in stepped frames. Dark only.</td>
+    <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/graphite-blueprint">Graphite Blueprint</a></b> — a near-black instrument panel: graphite greys, hairlines, one indigo, real UI on spotlit stages.</td>
   </tr>
 </table>
-
-<p align="center"><b><a href="https://pigmentui.com/s/margin-notes">Margin Notes 1.0.0</a></b> — warm paper, near-black ink, hairlines; the only color is a watercolor wash kept to the margins.</p>
 
 ## Why it works
 
 | Principle | What it means |
 | --- | --- |
 | **Measured, not adjectival** | Every rule carries a value: color, type, spacing, radius, elevation and motion — light and dark. |
-| **Rules, not page templates** | Decision rules that fit a dashboard, a store, a blog and a settings page alike. |
-| **Proven before publishing** | Every system — and every update — is applied by an agent to four reference apps, gated on builds, tests, accessibility and design adherence. |
+| **Rules, not page templates** | Decision rules for any product. A system is tested on four demo apps but never written for them: a lint flags rules that name a demo app's screens, data or copy. |
+| **Proven before publishing** | Every system — and every update — is applied by an agent to four reference apps, then to two more of a different shape (a landing page and a docs site) that never steer the design. Three samples, gated on builds, tests, accessibility and design adherence, then reviewed against the reference. |
 | **Yours to keep** | Your project keeps its own copy. Updates come with a dated changelog and land only when you ask. |
 
 ## What your agent gets
@@ -116,7 +122,12 @@ approving the analysis and the final result:
 ```
 reference ─▶ capture & measure ─▶ analysis ─▶ design prompt ─▶ validate
           ─▶ agent applies it to 4 apps ─▶ evaluate ─▶ critic review ─▶ iterate ─▶ publish
+                   screen on one sample, confirm on three plus two holdout apps
 ```
+
+The critic grades what it finds as blocker, major or minor. A candidate passes with no blocker and no major
+the prompt causes; minors are listed, never chased. Revisions are written from a generated brief as general
+principles — the author never reads the demo apps.
 
 Systems are **derived design languages, never clones** — no logos, names, copy, imagery or proprietary
 fonts carry over. Details in [`docs/harness/`](docs/harness/README.md).
@@ -150,7 +161,7 @@ whole pipeline and stops for approval after the analysis and before publishing.
 | `packages/harness` | `pnpm harness` — capture → prompt → demo runs → evaluation → publish |
 | `packages/content` · `packages/schema` | Read-only content access and the data contracts |
 | `content/templates` | The systems themselves |
-| `showcase/base-apps` | The four neutral apps every system is tested on |
+| `showcase/base-apps` | The four neutral apps every system is tested on, and two holdout apps (landing, docs) used only to confirm |
 
 | Variable | Default | |
 | --- | --- | --- |
