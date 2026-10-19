@@ -2,7 +2,7 @@ import { join, relative } from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
 import { chromium, type Page } from "playwright";
 import { appMeta, preview } from "../appdir.ts";
-import { extractStyles, mergeSamples, settle, type StyleSample } from "../extract.ts";
+import { extractStyles, mergeSamples, settle, shimNames, type StyleSample } from "../extract.ts";
 import { layoutChecks, type LayoutReport } from "../layout.ts";
 import { drawingCrops, motionEvidence } from "../probe.ts";
 import { writeJson } from "../util.ts";
@@ -27,21 +27,38 @@ export interface ShotResult {
 }
 
 /**
- * A full-page capture keeps fixed elements where they sit in the first viewport, so a bar pinned to the bottom
- * of the screen lands in the middle of a long page. Moves bottom-pinned elements to the end of the page for the
- * capture (the page itself is unchanged for every measurement before it).
+ * A full-page capture keeps fixed and sticky elements where they sit in the current viewport, so after a state's
+ * steps scrolled the page a sticky header is painted mid-page, a bar pinned to the bottom lands mid-page and a
+ * dimming overlay stops one viewport down. Lays them out for the capture (measurements are taken before it):
+ * sticky elements go back to their place in the flow, top-pinned ones to the page top, bottom-pinned ones to the
+ * page end, floating ones (a dialog, a toast) stay where they were seen, and an overlay dims the whole page.
  */
-async function pinFixedToPageEnd(page: Page): Promise<void> {
+export async function layFixedLayers(page: Page): Promise<void> {
+  await shimNames(page);
   await page.evaluate(() => {
     const docH = document.documentElement.scrollHeight;
-    if (docH <= innerHeight + 1) return;
+    const sy = window.scrollY;
+    const set = (el: HTMLElement, props: Record<string, string>) => {
+      for (const [k, v] of Object.entries(props)) el.style.setProperty(k, v, "important");
+    };
     for (const el of Array.from(document.querySelectorAll<HTMLElement>("body *"))) {
-      if (getComputedStyle(el).position !== "fixed") continue;
+      const cs = getComputedStyle(el);
+      if (cs.position === "sticky") {
+        set(el, { position: "relative", top: "auto", bottom: "auto" });
+        continue;
+      }
+      if (cs.position !== "fixed") continue;
       const r = el.getBoundingClientRect();
-      if (r.height === 0 || r.top < innerHeight / 2) continue;
-      el.style.setProperty("position", "absolute", "important");
-      el.style.setProperty("top", `${docH - (innerHeight - r.top)}px`, "important");
-      el.style.setProperty("bottom", "auto", "important");
+      if (r.height === 0 || r.width === 0) continue;
+      if (r.height >= innerHeight * 0.9 && r.width >= innerWidth * 0.9) {
+        // An overlay: keep its box (and the dialog inside it) where it was seen, and spread its dimming over the page.
+        set(el, { position: "absolute", top: `${sy}px`, bottom: "auto", height: `${innerHeight}px` });
+        const bg = cs.backgroundColor;
+        if (bg && bg !== "transparent" && !/rgba\(.*,\s*0\)$/.test(bg)) set(el, { "box-shadow": `0 0 0 ${docH}px ${bg}` });
+        continue;
+      }
+      const top = r.top <= 8 ? r.top : r.top >= innerHeight / 2 && r.bottom >= innerHeight - 8 ? docH - (innerHeight - r.top) : r.top + sy;
+      set(el, { position: "absolute", top: `${top}px`, bottom: "auto" });
     }
   });
 }
@@ -100,7 +117,7 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
             if (findings) (result.layout ??= []).push({ route: route.path, viewport, scheme, findings });
           }
           const file = join(outDir, "screenshots", `${slug}-${viewport}-${scheme}.png`);
-          await pinFixedToPageEnd(page).catch(() => {});
+          await layFixedLayers(page).catch(() => {});
           await page.screenshot({ path: file, fullPage: true });
           result.screenshots.push({ route: route.path, viewport, scheme, file: `screenshots/${slug}-${viewport}-${scheme}.png` });
           if (viewport === "desktop") samples.push(await extractStyles(page, scheme));
@@ -170,6 +187,7 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
             else if (step.action === "fill") await target.fill(step.value ?? "");
           }
           await page.waitForTimeout(300);
+          await layFixedLayers(page).catch(() => {});
           const file = `screenshots/state-${state.name}-${viewport}-${scheme}.png`;
           await page.screenshot({ path: join(outDir, file), fullPage: true });
           result.screenshots.push({ route: `state:${state.name}`, viewport, scheme, file });
