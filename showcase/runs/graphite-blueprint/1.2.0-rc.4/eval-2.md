@@ -1,6 +1,6 @@
 # graphite-blueprint@1.2.0-rc.4 — evaluation 2
 
-Verdict: **pending-review** · 2026-10-19T08:00:53.192Z
+Verdict: **fail** · 2026-10-19T08:00:53.192Z
 
 Agent spend: this candidate $74 · family $135 over 26 runs
 
@@ -266,3 +266,17 @@ Agent spend: this candidate $74 · family $135 over 26 runs
 | reference-fontSize-overlap | pass | 0.921 | reported |
 | reference-radius-overlap | pass | 1 | reported |
 | reference-spacing-overlap | pass | 0.931 | reported |
+
+## Critic findings
+
+| Severity | Area | Samples | Finding |
+| --- | --- | --- | --- |
+| major (spec) | hierarchy | 2 of 3 | When a screen's last block is a form (a checkout under the cart), the closing-statement rule rewrites its plain heading into the 96px two-tone display statement over the dot field ('All set? Fill this in.', 'Almost yours. Where to?'). The form drops below a large headline and the cart page goes from a side-by-side layout to a stacked one. The reference uses its statement only to close a page over its action pills, never above a form (pipeline/linear-study/reference/screenshots/p1-desktop-light.png). The rule is followed, so this is the spec's reading of 'closing block', not an agent slip. |
+| minor | polish | 1 of 3 | The pinned status column of a table draws a vertical hairline along its left edge on desktop (dashboard projects table, billing invoices table). It reads as a stray divider in an otherwise horizontal-rule table. The reference's tables have no vertical rules. |
+| minor | polish | 1 of 3 | Store header: the full-width header border sits 1px above the page opener's own rule, so two hairlines show under the header on the shop page (measured double-rule, real but small). |
+| minor | signature | 3 of 3 | Blog plate captions carry a count ('585 WORDS', '3 PARTS') that is real but tells the posts apart weakly. The store's captions ('18 OZ', 'BRASS') carry more. Carried over from the earlier round. |
+| minor | componentStates | 1 of 3 | On the newsletter form, the input and its button end 2px apart in the one sample that puts them on one row (measured uneven-row). It is visible at 2x as the button sitting slightly lower than the field. |
+
+## Reasons
+
+- critic major (2 of 3, spec): When a screen's last block is a form (a checkout under the cart), the closing-statement rule rewrites its plain heading into the 96px two-tone display statement over the dot field ('All set? Fill this in.', 'Almost yours. Where to?'). The form drops below a large headline and the cart page goes from a side-by-side layout to a stacked one. The reference uses its statement only to close a page over its action pills, never above a form (pipeline/linear-study/reference/screenshots/p1-desktop-light.png). The rule is followed, so this is the spec's reading of 'closing block', not an agent slip.
