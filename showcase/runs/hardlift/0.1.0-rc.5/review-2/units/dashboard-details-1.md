@@ -1,0 +1,70 @@
+I've reviewed all 19 items: 18 are fine, and there is one major finding and one minor finding.
+
+- **Major:** in sample 1's loading state, the band's "Refreshing…" button turns into a borderless gray box with pale gray text, in both themes. That breaks the spec's ban on disabled-looking text on a band and the 4.5:1 contrast floor. Samples 2 and 3 keep the ink button with a turning coin.
+- **Minor:** the empty-state sticker in all three samples is only about 20px. It's hard to tell what it is, and it's a second sticker on a screen that already has one. The spec contradicts itself here: it asks for a 160px sticker in empty states but only one small sticker on dense screens.
+
+No regressions against rc.4 or the first rc.5 review.
+
+```json
+{
+  "items": [
+    { "id": "dashboard--state--search-focus--desktop-light", "status": "ok", "note": "The filter field shows the ink border with a pink halo ring and a clear ×. Below it, the table narrows to the single matching row and the count reads 'Showing 1 of 8'. The teal band, ink Refresh and outlined stat cards are unchanged in all three samples." },
+    { "id": "dashboard--state--search-focus--desktop-dark", "status": "ok", "note": "On the dark ground the focused filter keeps a readable pink halo around the raised field. Refresh turns paper-filled on the teal band, the chart bars turn paper and the single result row stays legible." },
+    { "id": "dashboard--state--search-focus--mobile-light", "status": "ok", "note": "At phone width the band collapses to the title plus an ink Refresh. The focused filter shows the pink halo, and the one matching project appears as a stacked label/value block inside the bordered box." },
+    { "id": "dashboard--state--row-hover--desktop-light", "status": "ok", "note": "The hovered first table row takes a flat subtle fill with no lift or shadow, as the table-row rule asks. Linked project names stay underlined, and the outlined status pills carry an icon beside each word." },
+    { "id": "dashboard--state--row-hover--desktop-dark", "status": "ok", "note": "The dark table keeps 1px rules and a subtle row fill with no shadow. Text and status pills stay readable on the raised box, and the paper-filled current-page pill in the sidebar matches the dark mapping." },
+    { "id": "dashboard--state--row-hover--mobile-light", "status": "ok", "note": "The stacked row blocks take the subtle fill on the hovered block (the first or second, depending on the sample), without lifting. Every field and status pill stays visible inside the bordered list." },
+    { "id": "dashboard--state--keyboard-focus--desktop-light", "status": "ok", "note": "The focused 'Projects' sidebar pill shows a clear ink outline ring that follows the pill radius, directly under the ink current-page 'Overview' pill. It is easy to tell where focus is." },
+    { "id": "dashboard--state--keyboard-focus--desktop-dark", "status": "ok", "note": "In dark mode the focus ring on 'Projects' is pink and clearly visible against the near-black sidebar, separate from the paper-filled current-page pill above it." },
+    { "id": "dashboard--state--keyboard-focus--mobile-light", "status": "ok", "note": "In the top pill strip, 'Projects' gets an ink outline ring next to the ink 'Overview' current pill. The rest of the phone layout (band, stat grid, stacked rows) is intact." },
+    { "id": "dashboard--state--user-menu-open--desktop-light", "status": "ok", "note": "The account trigger shows a raised fill with an up chevron. Its menu is a raised, ink-bordered panel with a hard offset shadow, overlapping the band cleanly, listing the email, Account settings, My team and Sign out. No pink appears on the trigger." },
+    { "id": "dashboard--state--user-menu-open--desktop-dark", "status": "ok", "note": "The dark menu panel is raised on the near-black ground with an ink-light border and the 35%-white hard shadow. Its items stay readable over the teal band." },
+    { "id": "dashboard--state--user-menu-open--mobile-light", "status": "ok", "note": "On mobile the menu drops from the avatar button as an outlined panel with a hard shadow, covering part of the band without clipping. All four entries are fully visible and inside the viewport." },
+    { "id": "dashboard--state--empty-filter--desktop-light", "status": "finding", "note": "The no-match state is an outlined card with one sentence, a hint line and the only pink button, 'Clear filters', while Refresh stays ink. The filter keeps its pink halo. The sticker above the message is only about 20px and hard to tell what it is." },
+    { "id": "dashboard--state--empty-filter--desktop-dark", "status": "finding", "note": "In dark mode the empty card is raised on the dark ground. The pink 'Clear filters' is the single pink action, with Refresh paper-filled. The same tiny sticker sits above the message." },
+    { "id": "dashboard--state--empty-filter--mobile-light", "status": "finding", "note": "At phone width the empty card holds the tiny sticker, a 'No projects match your filters' heading, a hint and a pink 'Clear filters' lift button. The message and the next step are clear." },
+    { "id": "dashboard--state--loading--desktop-light", "status": "finding", "note": "Stat cards show the pink turning coin with 'Loading…', replacing a spinner. Samples 2 and 3 keep an ink 'Refreshing…' button with a coin. In sample 1 the band button becomes a borderless pale-gray box with pale-gray text that is barely readable on the teal band." },
+    { "id": "dashboard--state--loading--desktop-dark", "status": "finding", "note": "The dark loading state shows coins on raised stat cards. In sample 1 the band's 'Refreshing…' is a dark-gray, borderless box with dim gray text on teal. Samples 2 and 3 show a paper-filled button with a coin." },
+    { "id": "dashboard--state--loading--mobile-light", "status": "finding", "note": "On mobile the coin-and-'Loading…' cards fill the stat grid. Sample 1 again has a disabled-looking, borderless gray 'Refreshing…' on the band. Samples 2 and 3 keep the ink button with a coin and keep each stat's label." },
+    { "id": "dashboard--drawings--home", "status": "ok", "note": "The crop is the throughput card: flat ink bars on a baseline with value labels, plus one small outlined sticker icon (an arrow in sample 1, a coin in samples 2 and 3) beside the heading. Sample 2 highlights the latest bar in pink. It is flat with no gradient, matching the dashboard's 'one optional 32px sticker' allowance." }
+  ],
+  "findings": [
+    {
+      "severity": "major",
+      "area": "componentStates",
+      "summary": "While refreshing, the band's action button turns into a borderless, low-contrast gray box with pale gray text ('Refreshing…'), in light and dark. This breaks the ban on disabled-looking text on a band or colored fill, the 4.5:1 contrast floor and the 'everything is outlined' rule. The other samples keep the ink or paper button with a turning coin.",
+      "samples": 1,
+      "of": 3,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.5/dashboard/20261019-210158-s2/screenshots/state-loading-desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/dashboard--state--loading--desktop-dark.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/dashboard--state--loading--mobile-light.png"
+      ],
+      "items": [
+        "dashboard--state--loading--desktop-light",
+        "dashboard--state--loading--desktop-dark",
+        "dashboard--state--loading--mobile-light"
+      ],
+      "promptFix": "A busy or disabled button keeps its variant's fill, ink border and full-contrast label. Show the busy state with the small turning coin and a changed label (and aria-busy / aria-disabled), never by graying out the fill or text. On a band or other colored fill, every state of a control must still meet 4.5:1 against the fill behind it."
+    },
+    {
+      "severity": "minor",
+      "area": "signature",
+      "summary": "The empty-state sticker is drawn at about 20px, too small to read as an object, and it is a second sticker on a dense screen that already has one beside the chart heading. The spec asks for one 160px sticker in empty states but also limits dense screens to one small sticker, and it doesn't say which rule wins for an empty state inside a dashboard panel.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/dashboard--state--empty-filter--desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.5/review-2/sheets/dashboard--state--empty-filter--mobile-light.png"
+      ],
+      "items": [
+        "dashboard--state--empty-filter--desktop-light",
+        "dashboard--state--empty-filter--desktop-dark",
+        "dashboard--state--empty-filter--mobile-light"
+      ]
+    }
+  ]
+}
+```

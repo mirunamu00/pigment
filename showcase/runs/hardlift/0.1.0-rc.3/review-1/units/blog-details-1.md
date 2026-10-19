@@ -1,0 +1,27 @@
+16개 항목을 모두 검토했고, 새로 발견된 문제는 없습니다. 이전 rc.2 검토에서 지적된 메이저 2건과 마이너 1건이 이번 블로그 화면에서는 고쳐진 것을 확인했습니다.
+
+- **분홍 버튼 하나 규칙:** 검색 결과 없음 화면의 "필터 지우기" 버튼이 이제 검정 버튼입니다.
+- **일반 이미지 아이콘 문제:** 글 그림이 각 주제에 맞는 스티커 장면으로 바뀌었습니다.
+- **구독 완료 메시지:** 카드 안에 카드가 겹치던 문제가 없어졌습니다.
+
+```json
+{ "items": [
+  { "id": "blog--state--newsletter-error--desktop-light", "status": "ok", "note": "The footer newsletter row keeps its flat paper ground. The email field holding 'nope' gets a red error border, and under it a red warning icon and the line 'Enter a valid email address, like name@example.com' say what went wrong and how to fix it. The pink Subscribe lift button stays next to the field, and nothing overlaps." },
+  { "id": "blog--state--newsletter-error--desktop-dark", "status": "ok", "note": "On the black ground the field has a charcoal fill with a red border, and the warning icon and message read clearly in light text below it. The pink Subscribe button keeps its ink border, and contrast is good everywhere in the row." },
+  { "id": "blog--state--newsletter-error--mobile-light", "status": "ok", "note": "At 390px the form stacks into one column: label, a full-width field with a red border, the pink Subscribe button, then the warning icon and message wrapping onto two lines. Nothing is cut off and the message sits right under the action." },
+  { "id": "blog--state--newsletter-success--desktop-light", "status": "ok", "note": "The form is replaced by one raised card with an ink border and the hard shadow.md at the lower right. It holds a pink check dot and 'Thanks for subscribing. New posts will arrive at reader@example.com', which follows the toast/confirmation recipe. The section around it is now flat, so the card is no longer nested inside another raised card." },
+  { "id": "blog--state--newsletter-success--desktop-dark", "status": "ok", "note": "The same confirmation card shows up as charcoal with a light border and a light offset shadow on the black footer. The pink check and the two-line message are easy to read." },
+  { "id": "blog--state--newsletter-success--mobile-light", "status": "ok", "note": "The confirmation card fills the column width with its hard offset shadow fully visible on the right and bottom. The message wraps cleanly in two lines next to the pink check." },
+  { "id": "blog--state--search-empty--desktop-light", "status": "ok", "note": "The search field holding 'zzzz no match' has the pink halo focus ring, and the count reads 'Showing 0 of 6 posts'. Below it, an outlined panel holds a large magnifier sticker (ink outline, pink handle) and 'No posts match these filters / Try a different tag or a shorter search'. The Clear filters button is now ink, so the newsletter's Subscribe is the only pink action." },
+  { "id": "blog--state--search-empty--desktop-dark", "status": "ok", "note": "The empty panel is charcoal with a light border. The magnifier sticker keeps its pink handle, and Clear filters flips to the paper-filled inverse button, so only one pink action is in view. The halo on the focused search field is clearly visible." },
+  { "id": "blog--state--search-empty--mobile-light", "status": "ok", "note": "On mobile the empty panel fills the column. It stacks the sticker, the heading, the hint and the ink Clear filters button in the center, and the pill strip above scrolls past the edge as intended. Nothing is cut off." },
+  { "id": "blog--state--keyboard-focus--desktop-light", "status": "ok", "note": "Keyboard focus lands on the ink 'Home' current-page pill in the header. It shows a 2px outline at an offset that follows the pill's full radius, set apart from the pill's own fill, and the rest of the page stays at rest." },
+  { "id": "blog--state--keyboard-focus--desktop-dark", "status": "ok", "note": "In dark mode the paper-filled Home pill carries an offset focus outline in the focus color that stands out against both the pill and the charcoal header. No browser-default blue ring." },
+  { "id": "blog--state--keyboard-focus--mobile-light", "status": "ok", "note": "On mobile the focused Home pill shows the same rounded offset outline, and it fits inside the header without clipping against the yellow band below." },
+  { "id": "blog--drawings--home", "status": "ok", "note": "The hero stickers are a pink coin with a plus glyph and a paper rim offset down-right, a pink price tag with a hole and two bars, a white star and a white note card. All have heavy ink outlines and are cropped by the band edges on the yellow band, like the reference's tilted coins and tags spilling off the hero." },
+  { "id": "blog--drawings--posts-shipping-a-design-system", "status": "ok", "note": "The figure is a subject-specific sticker scene: a yellow board holding six button-shaped chips (pink and white, ink outlines) beside a tilted tag, matching the caption about grouping buttons into a few jobs. It is no longer the generic image glyph from the last round." },
+  { "id": "blog--drawings--posts-release-notes-people-read", "status": "ok", "note": "A dense ruled document, a pink arrow and a tilted yellow sticky note with three short lines show a long release log turned into a short readable note. The shapes are outlined in ink and filled with band and pink tokens, and the drawing differs from the other figure." },
+  { "id": "blog--motion", "status": "ok", "note": "The frames show the hero coin and star with the scroll-bound 'drift' animation (linear, one iteration, not time-based). They stay still while the page is not scrolled, and nothing loops." }
+],
+"findings": [] }
+```

@@ -426,7 +426,10 @@ export function mergeCritic(
   if (options.overrides?.length) writeJson(criticFile, critic);
   report.critic = critic;
   if (options.review) report.review = options.review;
-  const gatesOk = report.verdict !== "fail";
+  // A critic merged earlier may have failed the report: only the gates' own reasons say whether the gates failed,
+  // so merging again (after an override, or a rerun review) judges the new critic on its own.
+  report.reasons = report.reasons.filter((r) => !r.startsWith("critic"));
+  const gatesOk = report.reasons.length === 0;
   const judged = judgeCritic(critic);
   report.reasons.push(...judged.reasons);
   report.verdict = gatesOk && judged.ok ? "pass" : "fail";

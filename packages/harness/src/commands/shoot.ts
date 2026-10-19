@@ -171,7 +171,10 @@ export async function shootApp(appDir: string, outDir: string): Promise<ShotResu
           isMobile: viewport === "mobile",
           deviceScaleFactor: viewport === "mobile" ? 2 : 1,
           colorScheme: scheme,
-          reducedMotion: "reduce",
+          // States show hover lifts, open menus and toasts as people with normal motion see them; a system that
+          // drops translation under reduced motion would otherwise look as if it never had the affordance.
+          // The page captures and the reduced-motion gate above still run with "reduce".
+          reducedMotion: "no-preference",
         });
         const page = await context.newPage();
         try {

@@ -1,0 +1,1923 @@
+diff --git a/index.html b/index.html
+index 6285f3e..dae7f88 100644
+--- a/index.html
++++ b/index.html
+@@ -4,6 +4,12 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <link rel="icon" href="data:," />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&family=Noto+Sans+KR:wght@400;700&display=swap"
++    />
+     <title>Account Settings</title>
+   </head>
+   <body>
+diff --git a/src/components/ConfirmDialog.tsx b/src/components/ConfirmDialog.tsx
+index 0ac9dd1..f1cd0bf 100644
+--- a/src/components/ConfirmDialog.tsx
++++ b/src/components/ConfirmDialog.tsx
+@@ -1,4 +1,5 @@
+ import { useEffect, useRef, type ReactNode } from 'react';
++import Icon from './Icon';
+ 
+ interface ConfirmDialogProps {
+   open: boolean;
+@@ -48,15 +49,20 @@ export default function ConfirmDialog({
+       }}
+       data-testid={testId}
+     >
+-      <h2 id={`${testId}-title`}>{title}</h2>
++      <div className="dialog-head">
++        <h2 id={`${testId}-title`}>{title}</h2>
++        <button type="button" className="lift lift--ghost lift--icon lift--sm" onClick={onCancel} aria-label="Close">
++          <Icon name="close" />
++        </button>
++      </div>
+       <div id={`${testId}-body`} className="dialog-body">
+         {children}
+       </div>
+       <div className="dialog-actions">
+-        <button ref={cancelRef} type="button" className="button" onClick={onCancel} data-testid={`${testId}-cancel`}>
++        <button ref={cancelRef} type="button" className="lift lift--ghost" onClick={onCancel} data-testid={`${testId}-cancel`}>
+           Cancel
+         </button>
+-        <button type="button" className="button button-primary" onClick={onConfirm} data-testid={`${testId}-confirm`}>
++        <button type="button" className="lift" onClick={onConfirm} data-testid={`${testId}-confirm`}>
+           {confirmLabel}
+         </button>
+       </div>
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 8802b51..aaebf83 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,5 +1,7 @@
++import { useState } from 'react';
+ import { NavLink, Outlet } from 'react-router';
+ import { currentUser } from '../data/account';
++import { BandSlotContext } from './PageBand';
+ 
+ const SECTIONS = [
+   { to: '/settings/profile', label: 'Profile', testId: 'nav-profile' },
+@@ -9,6 +11,8 @@ const SECTIONS = [
+ ];
+ 
+ export default function Layout() {
++  const [bandSlot, setBandSlot] = useState<HTMLElement | null>(null);
++
+   return (
+     <div className="app-shell">
+       <a className="skip-link" href="#main-content">
+@@ -20,17 +24,19 @@ export default function Layout() {
+           <span className="avatar avatar-small" aria-hidden="true">
+             {currentUser.initials}
+           </span>
+-          <span>{currentUser.name}</span>
++          <span className="person-name">{currentUser.name}</span>
+         </div>
+       </header>
+ 
++      <div className="band-slot" ref={setBandSlot} />
++
+       <div className="settings-layout">
+         <aside className="sidebar">
+           <nav aria-label="Settings sections" data-testid="settings-nav">
+             <ul className="nav-list">
+               {SECTIONS.map((section) => (
+                 <li key={section.to}>
+-                  <NavLink to={section.to} className="nav-link" data-testid={section.testId}>
++                  <NavLink to={section.to} className="pill nav-link" data-testid={section.testId}>
+                     {section.label}
+                   </NavLink>
+                 </li>
+@@ -40,7 +46,9 @@ export default function Layout() {
+         </aside>
+ 
+         <main id="main-content" className="content" tabIndex={-1}>
+-          <Outlet />
++          <BandSlotContext.Provider value={bandSlot}>
++            <Outlet />
++          </BandSlotContext.Provider>
+         </main>
+       </div>
+     </div>
+diff --git a/src/pages/BillingPage.tsx b/src/pages/BillingPage.tsx
+index 54b10a4..e62748d 100644
+--- a/src/pages/BillingPage.tsx
++++ b/src/pages/BillingPage.tsx
+@@ -1,5 +1,9 @@
+ import { useState } from 'react';
+ import ConfirmDialog from '../components/ConfirmDialog';
++import Icon from '../components/Icon';
++import PageBand from '../components/PageBand';
++import StatusToast from '../components/StatusToast';
++import Sticker from '../components/Sticker';
+ import { initialPlanId, invoices, paymentMethod, plans, type Plan, type PlanId } from '../data/billing';
+ 
+ export default function BillingPage() {
+@@ -18,15 +22,17 @@ export default function BillingPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Billing</h1>
+-        <p className="muted">
++      <PageBand title="Billing">
++        <p className="band-meta">
+           You are on the <strong data-testid="current-plan-name">{currentPlan.name}</strong> plan.
+         </p>
+-      </div>
++      </PageBand>
+ 
+-      <section className="panel" aria-labelledby="plans-heading">
+-        <h2 id="plans-heading">Plans</h2>
++      <section className="section" aria-labelledby="plans-heading">
++        <div className="section-heading">
++          <h2 id="plans-heading">Plans</h2>
++          <Sticker kind="coin" />
++        </div>
+         <ul className="plan-grid">
+           {plans.map((plan) => {
+             const isCurrent = plan.id === currentPlanId;
+@@ -38,28 +44,31 @@ export default function BillingPage() {
+                 data-current={isCurrent ? 'true' : 'false'}
+                 aria-current={isCurrent ? 'true' : undefined}
+               >
+-                <h3>{plan.name}</h3>
++                <div className="plan-card-head">
++                  <h3 className="card-title">{plan.name}</h3>
++                  {isCurrent && (
++                    <p className="badge" data-testid="current-plan-badge">
++                      <Icon name="check" size={16} className="icon-success" />
++                      Current plan
++                    </p>
++                  )}
++                </div>
+                 <p className="plan-price">
+-                  <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
++                  <span className="badge badge-accent plan-amount">{plan.price}</span>{' '}
++                  <span className="muted small">{plan.period}</span>
+                 </p>
+                 <ul className="feature-list">
+                   {plan.features.map((feature) => (
+                     <li key={feature}>
+-                      <svg className="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+-                        <path d="M3 8.5l3 3l7-7" fill="none" stroke="currentColor" strokeWidth="2" />
+-                      </svg>
++                      <Icon name="check" size={16} />
+                       <span>{feature}</span>
+                     </li>
+                   ))}
+                 </ul>
+-                {isCurrent ? (
+-                  <p className="pill pill-current" data-testid="current-plan-badge">
+-                    Current plan
+-                  </p>
+-                ) : (
++                {!isCurrent && (
+                   <button
+                     type="button"
+-                    className="button"
++                    className="lift lift--ghost"
+                     onClick={() => setPendingPlan(plan)}
+                     data-testid={`choose-plan-${plan.id}`}
+                   >
+@@ -70,18 +79,13 @@ export default function BillingPage() {
+             );
+           })}
+         </ul>
+-        <p role="status" className="status-message" data-testid="plan-status">
+-          {message}
+-        </p>
++        <StatusToast message={message} testId="plan-status" />
+       </section>
+ 
+-      <section className="panel" aria-labelledby="payment-heading">
++      <section className="section" aria-labelledby="payment-heading">
+         <h2 id="payment-heading">Payment method</h2>
+-        <div className="payment-method" data-testid="payment-method">
+-          <svg className="card-icon" viewBox="0 0 32 22" width="32" height="22" aria-hidden="true" focusable="false">
+-            <rect x="1" y="1" width="30" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-            <rect x="1" y="6" width="30" height="4" fill="currentColor" />
+-          </svg>
++        <div className="card payment-method" data-testid="payment-method">
++          <Icon name="card" className="card-icon" />
+           <span>
+             {paymentMethod.brand} ending in {paymentMethod.last4}
+           </span>
+@@ -89,7 +93,7 @@ export default function BillingPage() {
+         </div>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="invoices-heading">
++      <section className="section" aria-labelledby="invoices-heading">
+         <h2 id="invoices-heading">Invoices</h2>
+         <div className="table-wrap">
+           <table className="table" data-testid="invoices-table">
+@@ -110,7 +114,12 @@ export default function BillingPage() {
+                   <td>{invoice.date}</td>
+                   <td className="numeric">{invoice.amount}</td>
+                   <td>
+-                    <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
++                    <span className="badge">
++                      {invoice.status === 'Paid' ? (
++                        <Icon name="check" size={16} className="icon-success" />
++                      ) : (
++                        <Icon name="clock" size={16} className="icon-warning" />
++                      )}
+                       {invoice.status}
+                     </span>
+                   </td>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 9781ca6..ec97d78 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,16 @@
+ import { Link } from 'react-router';
++import PageBand from '../components/PageBand';
++import Sticker from '../components/Sticker';
+ 
+ export default function NotFoundPage() {
+   return (
+     <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The settings page you are looking for does not exist or has moved.</p>
+-      <Link to="/settings/profile">Go to profile settings</Link>
++      <PageBand title="Page not found" tone="red" />
++      <Sticker kind="signpost" size="lg" className="sticker--error" />
++      <p>The settings page you are looking for does not exist or has moved.</p>
++      <Link to="/settings/profile" className="lift">
++        Go to profile settings
++      </Link>
+     </section>
+   );
+ }
+diff --git a/src/pages/NotificationsPage.tsx b/src/pages/NotificationsPage.tsx
+index 040835b..d8ba565 100644
+--- a/src/pages/NotificationsPage.tsx
++++ b/src/pages/NotificationsPage.tsx
+@@ -1,4 +1,5 @@
+ import { useState } from 'react';
++import PageBand from '../components/PageBand';
+ import { notificationGroups } from '../data/notifications';
+ 
+ function initialState(): Record<string, boolean> {
+@@ -21,13 +22,12 @@ export default function NotificationsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Notifications</h1>
+-        <p className="muted">Choose what you hear about and where. Changes apply right away.</p>
+-        <p className="small" data-testid="notifications-count">
++      <PageBand title="Notifications">
++        <p className="band-meta">Choose what you hear about and where. Changes apply right away.</p>
++        <p className="band-count" data-testid="notifications-count">
+           {onCount} of {total} notifications on
+         </p>
+-      </div>
++      </PageBand>
+ 
+       {notificationGroups.map((group) => (
+         <fieldset key={group.id} className="panel fieldset" data-testid={`notification-group-${group.id}`}>
+@@ -37,6 +37,7 @@ export default function NotificationsPage() {
+             {group.settings.map((setting) => {
+               const inputId = `switch-${setting.id}`;
+               const descriptionId = `${inputId}-description`;
++              const isOn = enabled[setting.id] ?? false;
+               return (
+                 <li key={setting.id} className="switch-row">
+                   <div className="switch-text">
+@@ -47,16 +48,21 @@ export default function NotificationsPage() {
+                       {setting.description}
+                     </p>
+                   </div>
+-                  <input
+-                    id={inputId}
+-                    type="checkbox"
+-                    role="switch"
+-                    className="switch"
+-                    checked={enabled[setting.id] ?? false}
+-                    onChange={() => toggle(setting.id)}
+-                    aria-describedby={descriptionId}
+-                    data-testid={inputId}
+-                  />
++                  <div className="switch-control">
++                    <span className="switch-state" aria-hidden="true">
++                      {isOn ? 'On' : 'Off'}
++                    </span>
++                    <input
++                      id={inputId}
++                      type="checkbox"
++                      role="switch"
++                      className="switch"
++                      checked={isOn}
++                      onChange={() => toggle(setting.id)}
++                      aria-describedby={descriptionId}
++                      data-testid={inputId}
++                    />
++                  </div>
+                 </li>
+               );
+             })}
+diff --git a/src/pages/ProfilePage.tsx b/src/pages/ProfilePage.tsx
+index 89f0a81..21b65af 100644
+--- a/src/pages/ProfilePage.tsx
++++ b/src/pages/ProfilePage.tsx
+@@ -1,4 +1,8 @@
+ import { useState, type ChangeEvent, type FormEvent } from 'react';
++import FieldError from '../components/FieldError';
++import Icon from '../components/Icon';
++import PageBand from '../components/PageBand';
++import StatusToast from '../components/StatusToast';
+ import { BIO_MAX_LENGTH, currentUser, initialProfile, timeZones, type Profile } from '../data/account';
+ 
+ type ProfileErrors = Partial<Record<keyof Profile, string>>;
+@@ -55,31 +59,33 @@ export default function ProfilePage() {
+       .map((part) => part[0]?.toUpperCase())
+       .join('') || currentUser.initials;
+ 
++  const errorCount = Object.keys(errors).length;
++
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Profile</h1>
+-        <p className="muted">This information is shown to people in your workspace.</p>
+-      </div>
++      <PageBand title="Profile">
++        <p className="band-meta">This information is shown to people in your workspace.</p>
++      </PageBand>
+ 
+       <form className="panel form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
++        {errorCount > 0 && (
++          <p className="form-summary" role="alert">
++            <Icon name="alert" size={16} />
++            <span>
++              {errorCount === 1 ? 'Fix the field marked below, then save again.' : `Fix the ${errorCount} fields marked below, then save again.`}
++            </span>
++          </p>
++        )}
++
+         <div className="avatar-row">
+           <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
+             {initials}
+           </span>
+           <div>
+             <p className="field-label">Profile photo</p>
+-            <p className="muted small">A placeholder with your initials is shown until you upload a photo.</p>
+-            <button type="button" className="button" data-testid="change-photo">
+-              <svg className="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+-                <path
+-                  d="M4 7h3l2-2h6l2 2h3v12H4z M12 10a3 3 0 1 0 0 6a3 3 0 0 0 0-6"
+-                  fill="none"
+-                  stroke="currentColor"
+-                  strokeWidth="2"
+-                  strokeLinejoin="round"
+-                />
+-              </svg>
++            <p className="field-hint">A placeholder with your initials is shown until you upload a photo.</p>
++            <button type="button" className="lift lift--ghost lift--sm" data-testid="change-photo">
++              <Icon name="camera" size={16} />
+               <span>Change photo</span>
+             </button>
+           </div>
+@@ -102,9 +108,9 @@ export default function ProfilePage() {
+               data-testid="profile-name"
+             />
+             {errors.fullName && (
+-              <p id="profile-fullName-error" className="field-error" data-testid="error-name">
++              <FieldError id="profile-fullName-error" testId="error-name">
+                 {errors.fullName}
+-              </p>
++              </FieldError>
+             )}
+           </div>
+ 
+@@ -124,9 +130,9 @@ export default function ProfilePage() {
+               data-testid="profile-email"
+             />
+             {errors.email && (
+-              <p id="profile-email-error" className="field-error" data-testid="error-email">
++              <FieldError id="profile-email-error" testId="error-email">
+                 {errors.email}
+-              </p>
++              </FieldError>
+             )}
+           </div>
+ 
+@@ -149,26 +155,29 @@ export default function ProfilePage() {
+             <label htmlFor="profile-timeZone" className="field-label">
+               Time zone
+             </label>
+-            <select
+-              id="profile-timeZone"
+-              className="input"
+-              value={profile.timeZone}
+-              onChange={update('timeZone')}
+-              aria-invalid={errors.timeZone ? true : undefined}
+-              aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
+-              data-testid="profile-timezone"
+-            >
+-              <option value="">Select a time zone</option>
+-              {timeZones.map((zone) => (
+-                <option key={zone.value} value={zone.value}>
+-                  {zone.label}
+-                </option>
+-              ))}
+-            </select>
++            <span className="select-wrap">
++              <select
++                id="profile-timeZone"
++                className="input"
++                value={profile.timeZone}
++                onChange={update('timeZone')}
++                aria-invalid={errors.timeZone ? true : undefined}
++                aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
++                data-testid="profile-timezone"
++              >
++                <option value="">Select a time zone</option>
++                {timeZones.map((zone) => (
++                  <option key={zone.value} value={zone.value}>
++                    {zone.label}
++                  </option>
++                ))}
++              </select>
++              <Icon name="chevron" />
++            </span>
+             {errors.timeZone && (
+-              <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
++              <FieldError id="profile-timeZone-error" testId="error-timezone">
+                 {errors.timeZone}
+-              </p>
++              </FieldError>
+             )}
+           </div>
+ 
+@@ -186,27 +195,25 @@ export default function ProfilePage() {
+               aria-describedby={errors.bio ? 'profile-bio-hint profile-bio-error' : 'profile-bio-hint'}
+               data-testid="profile-bio"
+             />
+-            <p id="profile-bio-hint" className="muted small" data-testid="bio-count">
++            <p id="profile-bio-hint" className="field-hint" data-testid="bio-count">
+               {profile.bio.length} / {BIO_MAX_LENGTH} characters
+             </p>
+             {errors.bio && (
+-              <p id="profile-bio-error" className="field-error" data-testid="error-bio">
++              <FieldError id="profile-bio-error" testId="error-bio">
+                 {errors.bio}
+-              </p>
++              </FieldError>
+             )}
+           </div>
+         </div>
+ 
+         <div className="form-actions">
+-          <button type="submit" className="button button-primary" data-testid="profile-save">
++          <button type="submit" className="lift" data-testid="profile-save">
+             Save changes
+           </button>
+-          <button type="button" className="button" onClick={handleReset} data-testid="profile-reset">
++          <button type="button" className="lift lift--ghost" onClick={handleReset} data-testid="profile-reset">
+             Reset
+           </button>
+-          <p role="status" className="status-message" data-testid="profile-status">
+-            {saved ? 'Saved' : ''}
+-          </p>
++          <StatusToast message={saved ? 'Saved' : ''} testId="profile-status" />
+         </div>
+       </form>
+     </>
+diff --git a/src/pages/SecurityPage.tsx b/src/pages/SecurityPage.tsx
+index 3498f5d..d20d58a 100644
+--- a/src/pages/SecurityPage.tsx
++++ b/src/pages/SecurityPage.tsx
+@@ -1,4 +1,9 @@
+ import { useState, type FormEvent } from 'react';
++import FieldError from '../components/FieldError';
++import Icon from '../components/Icon';
++import PageBand from '../components/PageBand';
++import StatusToast from '../components/StatusToast';
++import Sticker from '../components/Sticker';
+ import { initialSessions, type Session } from '../data/sessions';
+ 
+ interface PasswordForm {
+@@ -69,16 +74,27 @@ export default function SecurityPage() {
+     setSessionMessage(`Signed out of ${session.device}.`);
+   }
+ 
++  const errorCount = Object.keys(errors).length;
++
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Security</h1>
+-        <p className="muted">Manage your password and the devices signed in to your account.</p>
+-      </div>
++      <PageBand title="Security">
++        <p className="band-meta">Manage your password and the devices signed in to your account.</p>
++      </PageBand>
+ 
+-      <section className="panel" aria-labelledby="password-heading">
++      <section className="panel section" aria-labelledby="password-heading">
+         <h2 id="password-heading">Change password</h2>
+         <form className="form" noValidate onSubmit={handleSubmit} data-testid="password-form">
++          {errorCount > 0 && (
++            <p className="form-summary" role="alert">
++              <Icon name="alert" size={16} />
++              <span>
++                {errorCount === 1
++                  ? 'Fix the field marked below, then update again.'
++                  : `Fix the ${errorCount} fields marked below, then update again.`}
++              </span>
++            </p>
++          )}
+           <div className="form-stack">
+             {FIELDS.map((field) => {
+               const id = `password-${field.key}`;
+@@ -114,32 +130,35 @@ export default function SecurityPage() {
+                       data-testid="password-strength"
+                       data-level={strength.level}
+                     >
+-                      {strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}
++                      {strength.level !== 'none' && (
++                        <Icon name={strength.level === 'strong' ? 'check' : strength.level === 'fair' ? 'info' : 'alert'} size={16} />
++                      )}
++                      <span>{strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}</span>
+                     </p>
+                   )}
+                   {errors[field.key] && (
+-                    <p id={`${id}-error`} className="field-error" data-testid={`error-${field.testId}`}>
+-                      {errors[field.key]}
+-                    </p>
++                    <FieldError id={`${id}-error`} testId={`error-${field.testId}`}>
++                      {errors[field.key] ?? ''}
++                    </FieldError>
+                   )}
+                 </div>
+               );
+             })}
+           </div>
+           <div className="form-actions">
+-            <button type="submit" className="button button-primary" data-testid="password-submit">
++            <button type="submit" className="lift" data-testid="password-submit">
+               Update password
+             </button>
+-            <p role="status" className="status-message" data-testid="password-status">
+-              {updated ? 'Password updated' : ''}
+-            </p>
++            <StatusToast message={updated ? 'Password updated' : ''} testId="password-status" />
+           </div>
+         </form>
+       </section>
+ 
+-      <section className="panel" aria-labelledby="sessions-heading">
+-        <h2 id="sessions-heading">Active sessions</h2>
+-        <p className="muted small">Revoke a session to sign that device out immediately.</p>
++      <section className="section" aria-labelledby="sessions-heading">
++        <div>
++          <h2 id="sessions-heading">Active sessions</h2>
++          <p className="muted small">Revoke a session to sign that device out immediately.</p>
++        </div>
+         <div className="table-wrap">
+           <table className="table" data-testid="sessions-table">
+             <thead>
+@@ -156,12 +175,15 @@ export default function SecurityPage() {
+               {sessions.map((session) => (
+                 <tr key={session.id} data-testid="session-row">
+                   <td>
+-                    {session.device}
+-                    {session.current && (
+-                      <span className="pill pill-neutral small" data-testid="current-session">
+-                        This device
+-                      </span>
+-                    )}
++                    <span className="cell-main">
++                      {session.device}
++                      {session.current && (
++                        <span className="badge" data-testid="current-session">
++                          <Icon name="check" size={16} className="icon-success" />
++                          This device
++                        </span>
++                      )}
++                    </span>
+                   </td>
+                   <td>{session.location}</td>
+                   <td>{session.lastActive}</td>
+@@ -169,11 +191,14 @@ export default function SecurityPage() {
+                     {!session.current && (
+                       <button
+                         type="button"
+-                        className="button button-danger"
++                        className="lift lift--ghost lift--sm lift--row"
+                         onClick={() => revoke(session)}
+                         data-testid={`revoke-${session.id}`}
+                       >
+-                        Revoke<span className="visually-hidden"> {session.device}</span>
++                        <Icon name="signOut" size={16} />
++                        <span>
++                          Revoke<span className="visually-hidden"> {session.device}</span>
++                        </span>
+                       </button>
+                     )}
+                   </td>
+@@ -181,15 +206,14 @@ export default function SecurityPage() {
+               ))}
+             </tbody>
+           </table>
++          {sessions.length === 1 && (
++            <div className="table-empty">
++              <Sticker kind="key" />
++              <p data-testid="sessions-empty">No other devices are signed in.</p>
++            </div>
++          )}
+         </div>
+-        {sessions.length === 1 && (
+-          <p className="muted small" data-testid="sessions-empty">
+-            No other devices are signed in.
+-          </p>
+-        )}
+-        <p role="status" className="status-message" data-testid="sessions-status">
+-          {sessionMessage}
+-        </p>
++        <StatusToast message={sessionMessage} testId="sessions-status" />
+       </section>
+     </>
+   );
+diff --git a/src/styles/base.css b/src/styles/base.css
+index bfb6f76..c4fb1e8 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,58 +1,74 @@
+ /*
+- * Base styles for the Account Settings app.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Base styles for the Account Settings app, on the Hardlift design system.
++ * Token values live in tokens.css (copied from the design package, do not edit);
++ * signature elements live in signature.css. Components use semantic tokens only.
+  */
++@import './tokens.css';
++@import './signature.css';
++
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-danger-bg: #fdecee;
+-  --color-switch-off: #bbbbbb;
+-  --color-switch-on: #0645ad;
+-  --color-switch-thumb: #ffffff;
+-  --color-strength-weak: #b00020;
+-  --color-strength-fair: #7a5a00;
+-  --color-strength-strong: #2e7d32;
+-  --color-pill-neutral-bg: #e8e8e8;
+-  --color-pill-neutral-text: #444444;
+-  --color-pill-current-bg: #e3f2e5;
+-  --color-pill-current-text: #1b5e20;
+-  --color-pill-due-bg: #fff4d6;
+-  --color-pill-due-text: #7a5a00;
+-  --color-backdrop: rgba(0, 0, 0, 0.4);
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
+-  --content-max-width: 880px;
+-  --avatar-size-large: 72px;
+-  --switch-width: 40px;
+-  --switch-height: 22px;
++  color-scheme: light;
++  /* The settings area owns one band color; bands and stickers follow it. */
++  --area-band: var(--color-band-teal);
++
++  /* Legacy variable names, aliased to Hardlift tokens so older rules keep working. */
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-raised);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-default);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-secondary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-status-success);
++  --color-negative: var(--color-status-danger);
++  --color-danger-bg: var(--color-surface-subtle);
++  --color-switch-off: var(--color-surface-raised);
++  --color-switch-on: var(--color-action-primary);
++  --color-switch-thumb: var(--color-surface-raised);
++  --color-strength-weak: var(--color-status-danger);
++  --color-strength-fair: var(--color-status-warning);
++  --color-strength-strong: var(--color-status-success);
++  --color-backdrop: var(--color-scrim);
++  --font-body: var(--font-family-body);
++  --font-size-base: var(--font-size-md);
++  --font-size-small: var(--font-size-sm);
++  --font-size-h1: var(--font-size-3xl);
++  --font-size-h2: var(--font-size-2xl);
++  --line-height: var(--font-line-height-ui);
++  --radius: var(--radius-sm);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-thin);
++  --space-1: var(--space-4);
++  --space-2: var(--space-8);
++  --space-3: var(--space-12);
++  --space-6: var(--space-24);
++  --content-max-width: var(--size-container);
++
++  /* Component sizes composed from tokens. */
++  --sidebar-width: calc(var(--space-64) * 3 + var(--space-48));
++  --header-height: calc(var(--size-control) + var(--space-32));
++  --avatar-size-large: calc(var(--size-control) + var(--space-24));
++  --avatar-size-small: calc(var(--size-control-sm) - var(--space-4));
++  --switch-width: var(--size-control);
++  --switch-height: calc(var(--space-24) + var(--space-4));
++  --switch-knob: calc(var(--space-16) + var(--space-4));
++  /* Widths the specification states in pixels. */
++  --toast-max-width: 420px;
++  --dialog-width: 480px;
++  --form-stack-width: 440px;
++}
++
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) {
++    color-scheme: dark;
++  }
++}
++:root[data-theme='dark'] {
++  color-scheme: dark;
+ }
+ 
+ *,
+@@ -67,43 +83,61 @@ body {
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-body);
++  font-size: var(--font-size-md);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-ui);
++  letter-spacing: var(--font-tracking-body);
++  overflow-x: clip;
+ }
+ 
+ h1,
+ h2,
+-h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++h3,
++legend {
++  margin: 0;
++  font-weight: var(--font-weight-regular);
++  letter-spacing: var(--font-tracking-display);
+ }
+ 
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-size: var(--font-size-3xl);
++  line-height: var(--font-line-height-h1);
+ }
+ 
+ h2 {
+-  font-size: var(--font-size-h2);
++  font-size: var(--font-size-2xl);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-base);
++  font-size: var(--font-size-xl);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-2);
++  margin: 0;
++}
++
++strong {
++  font-weight: var(--font-weight-bold);
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-secondary);
++  text-decoration: underline;
++  transition: color var(--motion-duration-fast) linear;
++}
++
++a:hover {
++  color: var(--color-text-primary);
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
+-  outline-offset: 2px;
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: var(--border-width-thick);
+ }
+ 
+ .visually-hidden {
+@@ -124,19 +158,23 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
++  left: var(--space-16);
++  top: var(--space-16);
+   z-index: 10;
++  padding: var(--space-12) var(--space-16);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
+ }
+ 
+ .numeric {
+@@ -148,7 +186,7 @@ a {
+   flex-shrink: 0;
+ }
+ 
+-/* Layout */
++/* ---------- Shell ---------- */
+ .app-shell {
+   min-height: 100vh;
+   display: flex;
+@@ -159,127 +197,180 @@ a {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  min-height: var(--header-height);
++  padding: var(--space-16) var(--space-64);
++  background: var(--color-surface-raised);
++  border-bottom: var(--border-width-thin) solid var(--color-border-default);
+ }
+ 
+ .brand {
+-  font-weight: bold;
++  font-size: var(--font-size-xl);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-display);
++  white-space: nowrap;
+ }
+ 
+-.settings-layout {
+-  flex: 1;
++.person {
+   display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  min-width: 0;
+ }
+ 
+-.sidebar {
+-  width: var(--sidebar-width);
++.person-name {
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++/* Avatar placeholder: the area's sticker color with an ink glyph, square-cornered frame. */
++.avatar {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
+   flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--area-band);
++  color: var(--color-text-on-band);
++}
++
++.avatar-small {
++  width: var(--avatar-size-small);
++  height: var(--avatar-size-small);
++  border-radius: var(--radius-sm);
++  font-size: var(--font-size-sm);
++}
++
++.avatar-large {
++  width: var(--avatar-size-large);
++  height: var(--avatar-size-large);
++  font-size: var(--font-size-xl);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.band-inner {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-8);
++}
++
++.band-meta {
++  max-width: 60ch;
++}
++
++.band-count {
++  display: inline-flex;
++  align-self: flex-start;
++  align-items: center;
++  gap: var(--space-8);
++  padding: var(--space-4) var(--space-12);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
++}
++
++.settings-layout {
++  flex: 1;
++  display: grid;
++  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
++  gap: var(--space-48);
++  width: 100%;
++  max-width: calc(var(--size-container) + 2 * var(--space-64));
++  margin-inline: auto;
++  padding: var(--space-32) var(--space-64) var(--space-64);
+ }
+ 
+ .nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-4);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border: var(--border-width) solid transparent;
+-  border-radius: var(--radius);
+-  text-decoration: none;
+-}
+-
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  font-weight: bold;
++  width: 100%;
+ }
+ 
+ .content {
+-  flex: 1;
+   min-width: 0;
+-  max-width: var(--content-max-width);
+-  padding: var(--space-6);
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-6);
++  gap: var(--space-24);
+ }
+ 
+-.person {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++.content:focus {
++  outline: none;
+ }
+ 
+-.avatar {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-weight: bold;
+-  flex-shrink: 0;
++.content:focus-visible {
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
+ }
+ 
+-.avatar-small {
+-  width: 28px;
+-  height: 28px;
+-  font-size: var(--font-size-small);
++/* A product-screen section break: a 1px ink rule, then the section heading. */
++.section {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-16);
+ }
+ 
+-.avatar-large {
+-  width: var(--avatar-size-large);
+-  height: var(--avatar-size-large);
+-  font-size: var(--font-size-h2);
++.section + .section {
++  padding-top: var(--space-24);
++  border-top: var(--border-width-thin) solid var(--color-border-default);
++}
++
++.section-heading {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
+ }
+ 
+-/* Panels */
++/* ---------- Cards ---------- */
+ .panel,
+ .card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  padding: var(--space-16);
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.panel {
++  padding: var(--space-24);
++}
++
++.card-title {
++  font-size: var(--font-size-lg);
++  line-height: var(--font-line-height-ui);
+ }
+ 
+-/* Forms */
++/* ---------- Forms ---------- */
+ .form {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-4);
++  gap: var(--space-24);
+ }
+ 
+ .form-grid {
+   display: grid;
+-  grid-template-columns: repeat(2, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: var(--space-16) var(--space-24);
+ }
+ 
+ .form-stack {
+   display: grid;
+-  gap: var(--space-4);
+-  max-width: 400px;
++  gap: var(--space-16);
++  max-width: var(--form-stack-width);
+ }
+ 
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
+-}
+-
+-.field p {
+-  margin: 0;
++  gap: var(--space-8);
++  min-width: 0;
+ }
+ 
+ .field-wide {
+@@ -287,98 +378,219 @@ a {
+ }
+ 
+ .field-label {
+-  font-weight: bold;
+   margin: 0;
++  font-size: var(--font-size-md);
++  line-height: var(--font-line-height-ui);
+ }
+ 
+-.field-error {
+-  color: var(--color-negative);
+-  font-size: var(--font-size-small);
++.field-hint {
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
++}
++
++.field-error,
++.form-summary {
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-8);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
++}
++
++.field-error .icon,
++.form-summary .icon {
++  color: var(--color-status-danger);
++}
++
++.form-summary {
++  padding: var(--space-12) var(--space-16);
++  border: var(--border-width-thin) solid var(--color-status-danger);
++  border-radius: var(--radius-sm);
++  font-size: var(--font-size-md);
++  line-height: var(--font-line-height-ui);
++}
++
++.form-summary .icon {
++  margin-top: var(--space-4);
+ }
+ 
+ .input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  width: 100%;
+   min-width: 0;
++  min-height: var(--size-control);
++  padding: var(--space-12) var(--space-16);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font: var(--font-size-md) / var(--font-line-height-ui) var(--font-family-body);
++  transition: box-shadow var(--motion-duration-fast) linear;
++}
++
++.input::placeholder {
++  color: var(--color-text-secondary);
++}
++
++.input:focus-visible {
++  border-color: var(--color-border-default);
++  box-shadow: 0 0 0 var(--border-width-thick) var(--color-accent-halo);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: var(--border-width-thick);
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-negative);
++  border-color: var(--color-status-danger);
++}
++
++.input:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-disabled);
++  border-color: var(--color-border-hairline);
+ }
+ 
+ .textarea {
++  min-height: calc(var(--space-96));
+   resize: vertical;
+ }
+ 
++.select-wrap {
++  position: relative;
++  display: block;
++}
++
++.select-wrap .input {
++  appearance: none;
++  padding-right: calc(var(--space-16) + var(--size-icon) + var(--space-8));
++  cursor: pointer;
++}
++
++.select-wrap .icon {
++  position: absolute;
++  right: var(--space-12);
++  top: 50%;
++  translate: 0 -50%;
++  pointer-events: none;
++  color: var(--color-text-primary);
++}
++
+ .form-actions {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+-  gap: var(--space-3);
+-}
+-
+-.status-message {
+-  margin: 0;
+-  color: var(--color-positive);
++  gap: var(--space-16);
++  padding-top: var(--space-24);
++  border-top: var(--border-width-thin) solid var(--color-border-hairline);
+ }
+ 
+ .avatar-row {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-4);
++  gap: var(--space-24);
++}
++
++.avatar-row > div {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-8);
+ }
+ 
+-.avatar-row p {
+-  margin: 0 0 var(--space-1);
++/* ---------- Toast / confirmation ---------- */
++.status-toast {
++  margin: 0;
++}
++
++/* Empty: keep the live region in the accessibility tree, but take no space. */
++.status-toast:empty {
++  position: absolute;
+ }
+ 
+-/* Buttons */
+-.button {
+-  font: inherit;
++.status-toast:not(:empty) {
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
++  gap: var(--space-12);
++  max-width: var(--toast-max-width);
++  min-height: var(--size-control);
++  padding: var(--space-12) var(--space-16);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  box-shadow: var(--shadow-md) var(--color-shadow-hard);
++  animation: toast-in var(--motion-duration-base) var(--motion-easing-out);
++}
++
++.status-toast-icon {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  flex-shrink: 0;
++  width: var(--size-icon);
++  height: var(--size-icon);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++@keyframes toast-in {
++  from { translate: 0 var(--space-16); }
++  to { translate: 0 0; }
+ }
+ 
+-.button-danger {
+-  color: var(--color-negative);
++/* ---------- Badges ---------- */
++.badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-4);
++  min-height: var(--size-icon);
++  margin: 0;
++  padding: 0 var(--space-8);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
++  white-space: nowrap;
++  vertical-align: middle;
+ }
+ 
+-.button-danger:hover {
+-  background: var(--color-danger-bg);
++.badge-accent {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+ }
+ 
+-/* Fieldsets and switches */
++.badge .icon-success { color: var(--color-status-success); }
++.badge .icon-warning { color: var(--color-status-warning); }
++.badge .icon-info { color: var(--color-status-info); }
++
++/* ---------- Switches ---------- */
+ .fieldset {
+   margin: 0;
+   min-width: 0;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-8);
+ }
+ 
+ .legend {
+-  font-weight: bold;
+-  font-size: var(--font-size-h2);
+-  padding: 0 var(--space-1);
++  float: left;
++  width: 100%;
++  padding: 0;
++  font-size: var(--font-size-xl);
++  line-height: var(--font-line-height-title);
++}
++
++.legend + * {
++  clear: both;
+ }
+ 
+ .switch-list {
+   list-style: none;
+-  margin: 0;
++  margin: var(--space-8) 0 0;
+   padding: 0;
+ }
+ 
+@@ -386,13 +598,35 @@ a {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
++  gap: var(--space-16);
++  min-height: var(--size-hit);
++  padding: var(--space-16) 0;
++  border-top: var(--border-width-thin) solid var(--color-border-hairline);
++}
++
++.switch-row:last-child {
++  padding-bottom: 0;
++}
++
++.switch-text {
++  display: flex;
++  flex-direction: column;
+   gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-top: var(--border-width) solid var(--color-border);
++  min-width: 0;
+ }
+ 
+-.switch-text p {
+-  margin: 0;
++.switch-control {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++  flex-shrink: 0;
++}
++
++.switch-state {
++  min-width: 3ch;
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
++  text-align: right;
+ }
+ 
+ .switch {
+@@ -402,197 +636,399 @@ a {
+   height: var(--switch-height);
+   margin: 0;
+   flex-shrink: 0;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-switch-off);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-raised);
+   cursor: pointer;
++  transition: background-color var(--motion-duration-base) var(--motion-easing-standard);
++}
++
++/* larger touch target without changing the 48x28 track */
++.switch::before {
++  content: '';
++  position: absolute;
++  inset: calc((var(--switch-height) - var(--size-hit)) / 2) 0;
++}
++
++.switch:hover {
++  box-shadow: inset 0 0 0 var(--border-width-thin) var(--color-border-default);
+ }
+ 
+ .switch::after {
+   content: '';
+   position: absolute;
+-  top: 3px;
+-  left: 3px;
+-  width: calc(var(--switch-height) - 6px);
+-  height: calc(var(--switch-height) - 6px);
+-  border-radius: 50%;
+-  background: var(--color-switch-thumb);
++  top: 50%;
++  left: calc(var(--space-4) - var(--border-width-thin));
++  width: var(--switch-knob);
++  height: var(--switch-knob);
++  translate: 0 -50%;
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
++  transition: left var(--motion-duration-base) var(--motion-easing-standard);
+ }
+ 
+ .switch:checked {
+-  background: var(--color-switch-on);
++  background: var(--color-action-primary);
+ }
+ 
+ .switch:checked::after {
+-  left: calc(var(--switch-width) - var(--switch-height) + 3px);
++  left: calc(var(--switch-width) - var(--switch-knob) - var(--space-4) - var(--border-width-thin));
++  background: var(--color-surface-raised);
++}
++
++.switch:disabled {
++  background: var(--color-surface-subtle);
++  border-color: var(--color-border-hairline);
++  cursor: not-allowed;
++}
++
++/* ---------- Password strength ---------- */
++.strength {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
+ }
+ 
+-/* Password strength */
+ .strength-none {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+-.strength-weak {
+-  color: var(--color-strength-weak);
++.strength-weak .icon {
++  color: var(--color-status-danger);
+ }
+ 
+-.strength-fair {
+-  color: var(--color-strength-fair);
++.strength-fair .icon {
++  color: var(--color-status-warning);
+ }
+ 
+-.strength-strong {
+-  color: var(--color-strength-strong);
++.strength-strong .icon {
++  color: var(--color-status-success);
+ }
+ 
+-/* Tables */
++/* ---------- Tables ---------- */
+ .table-wrap {
++  /* positioned so visually-hidden header labels stay inside the scrolling box */
++  position: relative;
+   overflow-x: auto;
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
+ }
+ 
+ .table {
+   width: 100%;
+   border-collapse: collapse;
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
+ }
+ 
+ .table th,
+ .table td {
++  height: var(--size-hit);
++  padding: var(--space-8) var(--space-12);
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+   vertical-align: middle;
++  white-space: nowrap;
+ }
+ 
+ .table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
++  font-weight: var(--font-weight-regular);
++  border-bottom: var(--border-width-thick) solid var(--color-border-default);
+ }
+ 
+-.table .numeric {
+-  text-align: right;
+-}
+-
+-.cell-actions {
+-  text-align: right;
++.table tbody tr + tr td {
++  border-top: var(--border-width-thin) solid var(--color-border-hairline);
+ }
+ 
+-.pill {
+-  display: inline-block;
+-  margin: 0 0 0 var(--space-2);
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.table tbody tr:hover td {
++  background: var(--color-surface-subtle);
+ }
+ 
+-.pill-neutral {
+-  background: var(--color-pill-neutral-bg);
+-  color: var(--color-pill-neutral-text);
++.table .numeric {
++  text-align: right;
+ }
+ 
+-.pill-paid,
+-.pill-current {
+-  background: var(--color-pill-current-bg);
+-  color: var(--color-pill-current-text);
++.cell-main {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
+ }
+ 
+-.pill-due {
+-  background: var(--color-pill-due-bg);
+-  color: var(--color-pill-due-text);
++.table td.cell-actions {
++  /* a 36px row action keeps the 44px row height */
++  padding-block: var(--space-4);
++  text-align: right;
+ }
+ 
+-.table .pill,
+-.plan-card .pill {
+-  margin-left: 0;
++.table-empty {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++  padding: var(--space-12);
++  border-top: var(--border-width-thin) solid var(--color-border-hairline);
+ }
+ 
+-/* Billing */
++/* ---------- Billing ---------- */
+ .plan-grid {
+   list-style: none;
+-  margin: 0 0 var(--space-3);
++  margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: var(--space-24);
+ }
+ 
+ .plan-card {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+-  gap: var(--space-2);
++  gap: var(--space-12);
+ }
+ 
+ .plan-card-current {
+-  border-color: var(--color-primary);
++  border-width: var(--border-width-thick);
++  padding: calc(var(--space-16) - var(--border-width-thin));
++}
++
++.plan-card-head {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--space-8);
++  width: 100%;
+ }
+ 
+ .plan-price {
+-  margin: 0;
++  display: flex;
++  align-items: baseline;
++  flex-wrap: wrap;
++  gap: var(--space-8);
+ }
+ 
+ .plan-amount {
+-  font-size: var(--font-size-h1);
+-  font-weight: bold;
++  font-variant-numeric: tabular-nums;
+ }
+ 
+ .feature-list {
+   list-style: none;
+   margin: 0;
+-  padding: 0;
++  padding: var(--space-12) 0 0;
+   flex: 1;
++  width: 100%;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-8);
++  border-top: var(--border-width-thin) solid var(--color-border-hairline);
+ }
+ 
+ .feature-list li {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-8);
+ }
+ 
+ .payment-method {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-3);
++  flex-wrap: wrap;
++  gap: var(--space-12);
++}
++
++.card-icon {
++  flex-shrink: 0;
++}
++
++/* ---------- Error / empty ---------- */
++.empty-state {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-24);
++  padding: var(--space-24) 0;
+ }
+ 
+-/* Dialog */
++.empty-state p {
++  max-width: 60ch;
++  font-size: var(--font-size-lg);
++}
++
++/* ---------- Dialog ---------- */
+ .dialog {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  padding: var(--space-6);
+-  max-width: 440px;
+-  width: calc(100% - var(--space-8));
++  width: min(var(--dialog-width), calc(100vw - 2 * var(--space-16)));
++  max-width: none;
++  padding: var(--space-24);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  box-shadow: var(--shadow-lg) var(--color-shadow-hard);
++}
++
++.dialog[open] {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-16);
++  animation: dialog-in var(--motion-duration-slow) var(--motion-easing-out);
++}
++
++@keyframes dialog-in {
++  from { translate: 0 var(--space-8); }
++  to { translate: 0 0; }
+ }
+ 
+ .dialog::backdrop {
+-  background: var(--color-backdrop);
++  background: var(--color-scrim);
++}
++
++.dialog-head {
++  display: flex;
++  align-items: flex-start;
++  justify-content: space-between;
++  gap: var(--space-16);
++}
++
++.dialog-head h2 {
++  font-size: var(--font-size-xl);
++  line-height: var(--font-line-height-title);
++  padding-top: var(--space-8);
+ }
+ 
+ .dialog-actions {
+   display: flex;
+   justify-content: flex-end;
+-  gap: var(--space-2);
+-  margin-top: var(--space-4);
++  flex-wrap: wrap;
++  gap: var(--space-12);
++  padding-top: var(--space-8);
+ }
+ 
+-@media (max-width: 900px) {
++/* ---------- Under breakpoint.lg / breakpoint.md ---------- */
++@media (max-width: 1023px) {
++  .plan-grid {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
++}
++
++@media (max-width: 767px) {
++  h1 {
++    font-size: var(--font-size-2xl);
++  }
++
++  h2 {
++    font-size: var(--font-size-xl);
++    line-height: var(--font-line-height-title);
++  }
++
++  .topbar {
++    min-height: calc(var(--size-control) + var(--space-16));
++    padding: var(--space-12) var(--space-16);
++  }
++
++  .brand {
++    font-size: var(--font-size-lg);
++  }
++
+   .settings-layout {
++    display: flex;
+     flex-direction: column;
++    gap: var(--space-24);
++    padding: 0 var(--space-16) var(--space-48);
+   }
+ 
++  /* The sub-nav becomes a horizontally scrolling pill strip under the band. */
+   .sidebar {
+-    width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    margin-inline: calc(-1 * var(--space-16));
++    border-bottom: var(--border-width-thin) solid var(--color-border-default);
++  }
++
++  .sidebar nav {
++    overflow-x: auto;
++    scrollbar-width: none;
+   }
+ 
+   .nav-list {
+-    display: flex;
+-    flex-wrap: wrap;
+-    gap: var(--space-2);
++    flex-direction: row;
++    width: max-content;
++    padding: var(--space-12) var(--space-16);
++  }
++
++  .nav-link {
++    width: auto;
+   }
+ 
+   .form-grid,
+   .plan-grid {
+-    grid-template-columns: 1fr;
++    grid-template-columns: minmax(0, 1fr);
++  }
++
++  .panel {
++    padding: var(--space-16);
++  }
++
++  .avatar-row {
++    align-items: flex-start;
++    gap: var(--space-16);
++  }
++
++  .switch-row {
++    align-items: flex-start;
++  }
++
++  /* Tables scroll inside their box with the first column sticky. */
++  .table th:first-child,
++  .table td:first-child {
++    position: sticky;
++    left: 0;
++    z-index: 1;
++    background: var(--color-surface-raised);
++    border-right: var(--border-width-thin) solid var(--color-border-hairline);
++  }
++
++  .table th:first-child {
++    background: var(--color-surface-subtle);
++  }
++
++  .table tbody tr:hover td:first-child {
++    background: var(--color-surface-subtle);
++  }
++
++  .form-actions .lift {
++    flex: 1 1 auto;
++  }
++
++  .status-toast:not(:empty) {
++    width: 100%;
++    max-width: none;
++  }
++
++  .dialog-actions .lift {
++    flex: 1 1 auto;
++  }
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .status-toast:not(:empty),
++  .dialog[open] {
++    animation: none;
++  }
++
++  .switch,
++  .switch::after,
++  .input,
++  a {
++    transition: none;
++  }
++}
++
++@media (forced-colors: active) {
++  .switch:checked {
++    background: Highlight;
++  }
++
++  .status-toast-icon,
++  .avatar {
++    forced-color-adjust: auto;
+   }
+ }

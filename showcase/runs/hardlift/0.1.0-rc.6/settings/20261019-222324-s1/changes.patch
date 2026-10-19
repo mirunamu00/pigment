@@ -1,0 +1,2618 @@
+diff --git a/README.md b/README.md
+index af8aa5c..8eb3bf0 100644
+--- a/README.md
++++ b/README.md
+@@ -6,8 +6,8 @@ tests prove nothing broke.
+ 
+ ## What it contains
+ 
+-- Top bar with the signed-in user and a left sidebar with the four settings sections
+-  (Profile, Notifications, Security, Billing).
++- Top bar with the signed-in user and, on every page, a color band holding the page title and a
++  pill nav for the four settings sections (Profile, Notifications, Security, Billing).
+ - Profile: avatar placeholder with initials, text inputs, a time zone select and a bio textarea
+   with a character count. Save validates (inline errors, `aria-invalid`, focus moves to the first
+   invalid field) and announces "Saved" in a `role="status"` region.
+diff --git a/index.html b/index.html
+index 6285f3e..427b76e 100644
+--- a/index.html
++++ b/index.html
+@@ -4,6 +4,12 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <link rel="icon" href="data:," />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,700&display=swap"
++    />
+     <title>Account Settings</title>
+   </head>
+   <body>
+diff --git a/src/components/ConfirmDialog.tsx b/src/components/ConfirmDialog.tsx
+index 0ac9dd1..7afcb84 100644
+--- a/src/components/ConfirmDialog.tsx
++++ b/src/components/ConfirmDialog.tsx
+@@ -1,4 +1,5 @@
+ import { useEffect, useRef, type ReactNode } from 'react';
++import { CloseIcon } from './Icons';
+ 
+ interface ConfirmDialogProps {
+   open: boolean;
+@@ -48,15 +49,28 @@ export default function ConfirmDialog({
+       }}
+       data-testid={testId}
+     >
+-      <h2 id={`${testId}-title`}>{title}</h2>
++      <div className="dialog-head">
++        <h2 id={`${testId}-title`} className="dialog-title">
++          {title}
++        </h2>
++        <button type="button" className="lift lift--ghost lift--icon" onClick={onCancel} aria-label="Close">
++          <CloseIcon />
++        </button>
++      </div>
+       <div id={`${testId}-body`} className="dialog-body">
+         {children}
+       </div>
+       <div className="dialog-actions">
+-        <button ref={cancelRef} type="button" className="button" onClick={onCancel} data-testid={`${testId}-cancel`}>
++        <button
++          ref={cancelRef}
++          type="button"
++          className="lift lift--ghost"
++          onClick={onCancel}
++          data-testid={`${testId}-cancel`}
++        >
+           Cancel
+         </button>
+-        <button type="button" className="button button-primary" onClick={onConfirm} data-testid={`${testId}-confirm`}>
++        <button type="button" className="lift" onClick={onConfirm} data-testid={`${testId}-confirm`}>
+           {confirmLabel}
+         </button>
+       </div>
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 8802b51..f8b51ab 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,13 +1,6 @@
+-import { NavLink, Outlet } from 'react-router';
++import { Outlet } from 'react-router';
+ import { currentUser } from '../data/account';
+ 
+-const SECTIONS = [
+-  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile' },
+-  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications' },
+-  { to: '/settings/security', label: 'Security', testId: 'nav-security' },
+-  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing' },
+-];
+-
+ export default function Layout() {
+   return (
+     <div className="app-shell">
+@@ -24,25 +17,10 @@ export default function Layout() {
+         </div>
+       </header>
+ 
+-      <div className="settings-layout">
+-        <aside className="sidebar">
+-          <nav aria-label="Settings sections" data-testid="settings-nav">
+-            <ul className="nav-list">
+-              {SECTIONS.map((section) => (
+-                <li key={section.to}>
+-                  <NavLink to={section.to} className="nav-link" data-testid={section.testId}>
+-                    {section.label}
+-                  </NavLink>
+-                </li>
+-              ))}
+-            </ul>
+-          </nav>
+-        </aside>
+-
+-        <main id="main-content" className="content" tabIndex={-1}>
+-          <Outlet />
+-        </main>
+-      </div>
++      {/* Each page renders its own PageBand (title + section pill nav) at the top of main. */}
++      <main id="main-content" className="content" tabIndex={-1}>
++        <Outlet />
++      </main>
+     </div>
+   );
+ }
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..687035e 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import './styles/tokens.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/BillingPage.tsx b/src/pages/BillingPage.tsx
+index 54b10a4..af8d535 100644
+--- a/src/pages/BillingPage.tsx
++++ b/src/pages/BillingPage.tsx
+@@ -1,5 +1,7 @@
+ import { useState } from 'react';
+ import ConfirmDialog from '../components/ConfirmDialog';
++import { CardIcon, CheckIcon, ClockIcon, DoneDot } from '../components/Icons';
++import PageBand from '../components/PageBand';
+ import { initialPlanId, invoices, paymentMethod, plans, type Plan, type PlanId } from '../data/billing';
+ 
+ export default function BillingPage() {
+@@ -18,108 +20,114 @@ export default function BillingPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Billing</h1>
+-        <p className="muted">
++      <PageBand title="Billing" sticker="coin">
++        <p className="band-lead">
+           You are on the <strong data-testid="current-plan-name">{currentPlan.name}</strong> plan.
+         </p>
+-      </div>
++      </PageBand>
+ 
+-      <section className="panel" aria-labelledby="plans-heading">
+-        <h2 id="plans-heading">Plans</h2>
+-        <ul className="plan-grid">
+-          {plans.map((plan) => {
+-            const isCurrent = plan.id === currentPlanId;
+-            return (
+-              <li
+-                key={plan.id}
+-                className={isCurrent ? 'card plan-card plan-card-current' : 'card plan-card'}
+-                data-testid={`plan-card-${plan.id}`}
+-                data-current={isCurrent ? 'true' : 'false'}
+-                aria-current={isCurrent ? 'true' : undefined}
+-              >
+-                <h3>{plan.name}</h3>
+-                <p className="plan-price">
+-                  <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
+-                </p>
+-                <ul className="feature-list">
+-                  {plan.features.map((feature) => (
+-                    <li key={feature}>
+-                      <svg className="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+-                        <path d="M3 8.5l3 3l7-7" fill="none" stroke="currentColor" strokeWidth="2" />
+-                      </svg>
+-                      <span>{feature}</span>
+-                    </li>
+-                  ))}
+-                </ul>
+-                {isCurrent ? (
+-                  <p className="pill pill-current" data-testid="current-plan-badge">
+-                    Current plan
++      <div className="page-body">
++        <section className="section" aria-labelledby="plans-heading">
++          <h2 id="plans-heading">Plans</h2>
++          <ul className="plan-grid">
++            {plans.map((plan) => {
++              const isCurrent = plan.id === currentPlanId;
++              return (
++                <li
++                  key={plan.id}
++                  className={isCurrent ? 'card plan-card plan-card-current' : 'card plan-card'}
++                  data-testid={`plan-card-${plan.id}`}
++                  data-current={isCurrent ? 'true' : 'false'}
++                  aria-current={isCurrent ? 'true' : undefined}
++                >
++                  <h3 className="card-title">{plan.name}</h3>
++                  <p className="plan-price">
++                    <span className="price-tag">{plan.price}</span> <span className="muted small">{plan.period}</span>
+                   </p>
+-                ) : (
+-                  <button
+-                    type="button"
+-                    className="button"
+-                    onClick={() => setPendingPlan(plan)}
+-                    data-testid={`choose-plan-${plan.id}`}
+-                  >
+-                    Switch to {plan.name}
+-                  </button>
+-                )}
+-              </li>
+-            );
+-          })}
+-        </ul>
+-        <p role="status" className="status-message" data-testid="plan-status">
+-          {message}
+-        </p>
+-      </section>
++                  <ul className="feature-list">
++                    {plan.features.map((feature) => (
++                      <li key={feature}>
++                        <CheckIcon />
++                        <span>{feature}</span>
++                      </li>
++                    ))}
++                  </ul>
++                  {isCurrent ? (
++                    <p className="badge badge--status" data-testid="current-plan-badge">
++                      <CheckIcon className="status-success" />
++                      Current plan
++                    </p>
++                  ) : (
++                    <button
++                      type="button"
++                      className="lift lift--ghost"
++                      aria-haspopup="dialog"
++                      onClick={() => setPendingPlan(plan)}
++                      data-testid={`choose-plan-${plan.id}`}
++                    >
++                      Switch to {plan.name}
++                    </button>
++                  )}
++                </li>
++              );
++            })}
++          </ul>
++          <p role="status" className="status-message" data-testid="plan-status">
++            {message && <DoneDot />}
++            {message}
++          </p>
++        </section>
+ 
+-      <section className="panel" aria-labelledby="payment-heading">
+-        <h2 id="payment-heading">Payment method</h2>
+-        <div className="payment-method" data-testid="payment-method">
+-          <svg className="card-icon" viewBox="0 0 32 22" width="32" height="22" aria-hidden="true" focusable="false">
+-            <rect x="1" y="1" width="30" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-            <rect x="1" y="6" width="30" height="4" fill="currentColor" />
+-          </svg>
+-          <span>
+-            {paymentMethod.brand} ending in {paymentMethod.last4}
+-          </span>
+-          <span className="muted small">Expires {paymentMethod.expires}</span>
+-        </div>
+-      </section>
++        <section className="section" aria-labelledby="payment-heading">
++          <h2 id="payment-heading">Payment method</h2>
++          <div className="card payment-method" data-testid="payment-method">
++            <CardIcon />
++            <span>
++              {paymentMethod.brand} ending in {paymentMethod.last4}
++            </span>
++            <span className="muted small">Expires {paymentMethod.expires}</span>
++          </div>
++        </section>
+ 
+-      <section className="panel" aria-labelledby="invoices-heading">
+-        <h2 id="invoices-heading">Invoices</h2>
+-        <div className="table-wrap">
+-          <table className="table" data-testid="invoices-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Invoice</th>
+-                <th scope="col">Date</th>
+-                <th scope="col" className="numeric">
+-                  Amount
+-                </th>
+-                <th scope="col">Status</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {invoices.map((invoice) => (
+-                <tr key={invoice.id} data-testid="invoice-row">
+-                  <td>{invoice.id}</td>
+-                  <td>{invoice.date}</td>
+-                  <td className="numeric">{invoice.amount}</td>
+-                  <td>
+-                    <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
+-                      {invoice.status}
+-                    </span>
+-                  </td>
++        <section className="section" aria-labelledby="invoices-heading">
++          <h2 id="invoices-heading">Invoices</h2>
++          <div className="table-box">
++            <table className="table table--stack" data-testid="invoices-table">
++              <thead>
++                <tr>
++                  <th scope="col">Invoice</th>
++                  <th scope="col">Date</th>
++                  <th scope="col" className="numeric">
++                    Amount
++                  </th>
++                  <th scope="col">Status</th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
+-      </section>
++              </thead>
++              <tbody>
++                {invoices.map((invoice) => (
++                  <tr key={invoice.id} data-testid="invoice-row">
++                    <td className="cell-primary">{invoice.id}</td>
++                    <td data-label="Date">{invoice.date}</td>
++                    <td data-label="Amount" className="numeric">
++                      {invoice.amount}
++                    </td>
++                    <td data-label="Status">
++                      <span className="badge badge--status">
++                        {invoice.status === 'Paid' ? (
++                          <CheckIcon className="status-success" />
++                        ) : (
++                          <ClockIcon className="status-warning" />
++                        )}
++                        {invoice.status}
++                      </span>
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++        </section>
++      </div>
+ 
+       <ConfirmDialog
+         open={pendingPlan !== null}
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 9781ca6..c096c8d 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,18 @@
+ import { Link } from 'react-router';
++import PageBand from '../components/PageBand';
++import Sticker from '../components/Sticker';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The settings page you are looking for does not exist or has moved.</p>
+-      <Link to="/settings/profile">Go to profile settings</Link>
++    <section className="error-page" data-testid="not-found">
++      <PageBand title="Page not found" tone="error" />
++      <div className="page-body empty-state">
++        <Sticker kind="arrow" size="lg" />
++        <p className="muted">The settings page you are looking for does not exist or has moved.</p>
++        <Link to="/settings/profile" className="lift">
++          Go to profile settings
++        </Link>
++      </div>
+     </section>
+   );
+ }
+diff --git a/src/pages/NotificationsPage.tsx b/src/pages/NotificationsPage.tsx
+index 040835b..81b008d 100644
+--- a/src/pages/NotificationsPage.tsx
++++ b/src/pages/NotificationsPage.tsx
+@@ -1,4 +1,5 @@
+ import { useState } from 'react';
++import PageBand from '../components/PageBand';
+ import { notificationGroups } from '../data/notifications';
+ 
+ function initialState(): Record<string, boolean> {
+@@ -21,48 +22,55 @@ export default function NotificationsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Notifications</h1>
+-        <p className="muted">Choose what you hear about and where. Changes apply right away.</p>
+-        <p className="small" data-testid="notifications-count">
++      <PageBand title="Notifications" sticker="bubble">
++        <p className="band-lead">Choose what you hear about and where. Changes apply right away.</p>
++        <p className="band-meta" data-testid="notifications-count">
+           {onCount} of {total} notifications on
+         </p>
+-      </div>
++      </PageBand>
+ 
+-      {notificationGroups.map((group) => (
+-        <fieldset key={group.id} className="panel fieldset" data-testid={`notification-group-${group.id}`}>
+-          <legend className="legend">{group.title}</legend>
+-          <p className="muted small">{group.description}</p>
+-          <ul className="switch-list">
+-            {group.settings.map((setting) => {
+-              const inputId = `switch-${setting.id}`;
+-              const descriptionId = `${inputId}-description`;
+-              return (
+-                <li key={setting.id} className="switch-row">
+-                  <div className="switch-text">
+-                    <label htmlFor={inputId} className="field-label">
+-                      {setting.label}
+-                    </label>
+-                    <p id={descriptionId} className="muted small">
+-                      {setting.description}
+-                    </p>
+-                  </div>
+-                  <input
+-                    id={inputId}
+-                    type="checkbox"
+-                    role="switch"
+-                    className="switch"
+-                    checked={enabled[setting.id] ?? false}
+-                    onChange={() => toggle(setting.id)}
+-                    aria-describedby={descriptionId}
+-                    data-testid={inputId}
+-                  />
+-                </li>
+-              );
+-            })}
+-          </ul>
+-        </fieldset>
+-      ))}
++      <div className="page-body">
++        {notificationGroups.map((group) => (
++          <fieldset key={group.id} className="card fieldset form-card" data-testid={`notification-group-${group.id}`}>
++            <legend className="legend">{group.title}</legend>
++            <p className="muted small">{group.description}</p>
++            <ul className="switch-list">
++              {group.settings.map((setting) => {
++                const inputId = `switch-${setting.id}`;
++                const descriptionId = `${inputId}-description`;
++                const isOn = enabled[setting.id] ?? false;
++                return (
++                  <li key={setting.id} className="switch-row">
++                    <div className="switch-text">
++                      <label htmlFor={inputId} className="field-label">
++                        {setting.label}
++                      </label>
++                      <p id={descriptionId} className="muted small">
++                        {setting.description}
++                      </p>
++                    </div>
++                    <div className="switch-control">
++                      <span className="switch-state" aria-hidden="true">
++                        {isOn ? 'On' : 'Off'}
++                      </span>
++                      <input
++                        id={inputId}
++                        type="checkbox"
++                        role="switch"
++                        className="switch"
++                        checked={isOn}
++                        onChange={() => toggle(setting.id)}
++                        aria-describedby={descriptionId}
++                        data-testid={inputId}
++                      />
++                    </div>
++                  </li>
++                );
++              })}
++            </ul>
++          </fieldset>
++        ))}
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProfilePage.tsx b/src/pages/ProfilePage.tsx
+index 89f0a81..89c199f 100644
+--- a/src/pages/ProfilePage.tsx
++++ b/src/pages/ProfilePage.tsx
+@@ -1,4 +1,6 @@
+ import { useState, type ChangeEvent, type FormEvent } from 'react';
++import { AlertIcon, CameraIcon, ChevronDownIcon, DoneDot } from '../components/Icons';
++import PageBand from '../components/PageBand';
+ import { BIO_MAX_LENGTH, currentUser, initialProfile, timeZones, type Profile } from '../data/account';
+ 
+ type ProfileErrors = Partial<Record<keyof Profile, string>>;
+@@ -57,158 +59,159 @@ export default function ProfilePage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Profile</h1>
+-        <p className="muted">This information is shown to people in your workspace.</p>
+-      </div>
+-
+-      <form className="panel form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
+-        <div className="avatar-row">
+-          <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
+-            {initials}
+-          </span>
+-          <div>
+-            <p className="field-label">Profile photo</p>
+-            <p className="muted small">A placeholder with your initials is shown until you upload a photo.</p>
+-            <button type="button" className="button" data-testid="change-photo">
+-              <svg className="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+-                <path
+-                  d="M4 7h3l2-2h6l2 2h3v12H4z M12 10a3 3 0 1 0 0 6a3 3 0 0 0 0-6"
+-                  fill="none"
+-                  stroke="currentColor"
+-                  strokeWidth="2"
+-                  strokeLinejoin="round"
+-                />
+-              </svg>
+-              <span>Change photo</span>
+-            </button>
+-          </div>
+-        </div>
+-
+-        <div className="form-grid">
+-          <div className="field">
+-            <label htmlFor="profile-fullName" className="field-label">
+-              Full name
+-            </label>
+-            <input
+-              id="profile-fullName"
+-              type="text"
+-              className="input"
+-              autoComplete="name"
+-              value={profile.fullName}
+-              onChange={update('fullName')}
+-              aria-invalid={errors.fullName ? true : undefined}
+-              aria-describedby={errors.fullName ? 'profile-fullName-error' : undefined}
+-              data-testid="profile-name"
+-            />
+-            {errors.fullName && (
+-              <p id="profile-fullName-error" className="field-error" data-testid="error-name">
+-                {errors.fullName}
+-              </p>
+-            )}
+-          </div>
+-
+-          <div className="field">
+-            <label htmlFor="profile-email" className="field-label">
+-              Email
+-            </label>
+-            <input
+-              id="profile-email"
+-              type="email"
+-              className="input"
+-              autoComplete="email"
+-              value={profile.email}
+-              onChange={update('email')}
+-              aria-invalid={errors.email ? true : undefined}
+-              aria-describedby={errors.email ? 'profile-email-error' : undefined}
+-              data-testid="profile-email"
+-            />
+-            {errors.email && (
+-              <p id="profile-email-error" className="field-error" data-testid="error-email">
+-                {errors.email}
+-              </p>
+-            )}
+-          </div>
+-
+-          <div className="field">
+-            <label htmlFor="profile-jobTitle" className="field-label">
+-              Job title <span className="muted small">(optional)</span>
+-            </label>
+-            <input
+-              id="profile-jobTitle"
+-              type="text"
+-              className="input"
+-              autoComplete="organization-title"
+-              value={profile.jobTitle}
+-              onChange={update('jobTitle')}
+-              data-testid="profile-job-title"
+-            />
++      <PageBand title="Profile" sticker="name-tag">
++        <p className="band-lead">This information is shown to people in your workspace.</p>
++      </PageBand>
++
++      <div className="page-body">
++        <form className="card form form-card" noValidate onSubmit={handleSubmit} data-testid="profile-form">
++          <div className="avatar-row">
++            <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
++              {initials}
++            </span>
++            <div className="avatar-copy">
++              <p className="field-label">Profile photo</p>
++              <p className="muted small">A placeholder with your initials is shown until you upload a photo.</p>
++              <button type="button" className="lift lift--ghost lift--sm" data-testid="change-photo">
++                <CameraIcon size={16} />
++                <span>Change photo</span>
++              </button>
++            </div>
+           </div>
+ 
+-          <div className="field">
+-            <label htmlFor="profile-timeZone" className="field-label">
+-              Time zone
+-            </label>
+-            <select
+-              id="profile-timeZone"
+-              className="input"
+-              value={profile.timeZone}
+-              onChange={update('timeZone')}
+-              aria-invalid={errors.timeZone ? true : undefined}
+-              aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
+-              data-testid="profile-timezone"
+-            >
+-              <option value="">Select a time zone</option>
+-              {timeZones.map((zone) => (
+-                <option key={zone.value} value={zone.value}>
+-                  {zone.label}
+-                </option>
+-              ))}
+-            </select>
+-            {errors.timeZone && (
+-              <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
+-                {errors.timeZone}
++          <div className="form-grid">
++            <div className="field">
++              <label htmlFor="profile-fullName" className="field-label">
++                Full name
++              </label>
++              <input
++                id="profile-fullName"
++                type="text"
++                className="input"
++                autoComplete="name"
++                value={profile.fullName}
++                onChange={update('fullName')}
++                aria-invalid={errors.fullName ? true : undefined}
++                aria-describedby={errors.fullName ? 'profile-fullName-error' : undefined}
++                data-testid="profile-name"
++              />
++              {errors.fullName && (
++                <p id="profile-fullName-error" className="field-error" data-testid="error-name">
++                  <AlertIcon />
++                  {errors.fullName}
++                </p>
++              )}
++            </div>
++
++            <div className="field">
++              <label htmlFor="profile-email" className="field-label">
++                Email
++              </label>
++              <input
++                id="profile-email"
++                type="email"
++                className="input"
++                autoComplete="email"
++                value={profile.email}
++                onChange={update('email')}
++                aria-invalid={errors.email ? true : undefined}
++                aria-describedby={errors.email ? 'profile-email-error' : undefined}
++                data-testid="profile-email"
++              />
++              {errors.email && (
++                <p id="profile-email-error" className="field-error" data-testid="error-email">
++                  <AlertIcon />
++                  {errors.email}
++                </p>
++              )}
++            </div>
++
++            <div className="field">
++              <label htmlFor="profile-jobTitle" className="field-label">
++                Job title <span className="muted small">(optional)</span>
++              </label>
++              <input
++                id="profile-jobTitle"
++                type="text"
++                className="input"
++                autoComplete="organization-title"
++                value={profile.jobTitle}
++                onChange={update('jobTitle')}
++                data-testid="profile-job-title"
++              />
++            </div>
++
++            <div className="field">
++              <label htmlFor="profile-timeZone" className="field-label">
++                Time zone
++              </label>
++              <div className="select-wrap">
++                <select
++                  id="profile-timeZone"
++                  className="input select"
++                  value={profile.timeZone}
++                  onChange={update('timeZone')}
++                  aria-invalid={errors.timeZone ? true : undefined}
++                  aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
++                  data-testid="profile-timezone"
++                >
++                  <option value="">Select a time zone</option>
++                  {timeZones.map((zone) => (
++                    <option key={zone.value} value={zone.value}>
++                      {zone.label}
++                    </option>
++                  ))}
++                </select>
++                <ChevronDownIcon className="select-chevron" />
++              </div>
++              {errors.timeZone && (
++                <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
++                  <AlertIcon />
++                  {errors.timeZone}
++                </p>
++              )}
++            </div>
++
++            <div className="field field-wide">
++              <label htmlFor="profile-bio" className="field-label">
++                Bio
++              </label>
++              <textarea
++                id="profile-bio"
++                className="input textarea"
++                rows={4}
++                value={profile.bio}
++                onChange={update('bio')}
++                aria-invalid={errors.bio ? true : undefined}
++                aria-describedby={errors.bio ? 'profile-bio-hint profile-bio-error' : 'profile-bio-hint'}
++                data-testid="profile-bio"
++              />
++              <p id="profile-bio-hint" className="muted small" data-testid="bio-count">
++                {profile.bio.length} / {BIO_MAX_LENGTH} characters
+               </p>
+-            )}
++              {errors.bio && (
++                <p id="profile-bio-error" className="field-error" data-testid="error-bio">
++                  <AlertIcon />
++                  {errors.bio}
++                </p>
++              )}
++            </div>
+           </div>
+ 
+-          <div className="field field-wide">
+-            <label htmlFor="profile-bio" className="field-label">
+-              Bio
+-            </label>
+-            <textarea
+-              id="profile-bio"
+-              className="input textarea"
+-              rows={4}
+-              value={profile.bio}
+-              onChange={update('bio')}
+-              aria-invalid={errors.bio ? true : undefined}
+-              aria-describedby={errors.bio ? 'profile-bio-hint profile-bio-error' : 'profile-bio-hint'}
+-              data-testid="profile-bio"
+-            />
+-            <p id="profile-bio-hint" className="muted small" data-testid="bio-count">
+-              {profile.bio.length} / {BIO_MAX_LENGTH} characters
++          <div className="form-actions">
++            <button type="submit" className="lift" data-testid="profile-save">
++              Save changes
++            </button>
++            <button type="button" className="lift lift--ghost" onClick={handleReset} data-testid="profile-reset">
++              Reset
++            </button>
++            <p role="status" className="status-message" data-testid="profile-status">
++              {saved && <DoneDot />}
++              {saved ? 'Saved' : ''}
+             </p>
+-            {errors.bio && (
+-              <p id="profile-bio-error" className="field-error" data-testid="error-bio">
+-                {errors.bio}
+-              </p>
+-            )}
+           </div>
+-        </div>
+-
+-        <div className="form-actions">
+-          <button type="submit" className="button button-primary" data-testid="profile-save">
+-            Save changes
+-          </button>
+-          <button type="button" className="button" onClick={handleReset} data-testid="profile-reset">
+-            Reset
+-          </button>
+-          <p role="status" className="status-message" data-testid="profile-status">
+-            {saved ? 'Saved' : ''}
+-          </p>
+-        </div>
+-      </form>
++        </form>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/SecurityPage.tsx b/src/pages/SecurityPage.tsx
+index 3498f5d..3cc8a42 100644
+--- a/src/pages/SecurityPage.tsx
++++ b/src/pages/SecurityPage.tsx
+@@ -1,4 +1,6 @@
+ import { useState, type FormEvent } from 'react';
++import { AlertIcon, DoneDot } from '../components/Icons';
++import PageBand from '../components/PageBand';
+ import { initialSessions, type Session } from '../data/sessions';
+ 
+ interface PasswordForm {
+@@ -71,126 +73,132 @@ export default function SecurityPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Security</h1>
+-        <p className="muted">Manage your password and the devices signed in to your account.</p>
+-      </div>
+-
+-      <section className="panel" aria-labelledby="password-heading">
+-        <h2 id="password-heading">Change password</h2>
+-        <form className="form" noValidate onSubmit={handleSubmit} data-testid="password-form">
+-          <div className="form-stack">
+-            {FIELDS.map((field) => {
+-              const id = `password-${field.key}`;
+-              const describedBy = [
+-                field.key === 'next' ? 'password-strength' : null,
+-                errors[field.key] ? `${id}-error` : null,
+-              ]
+-                .filter(Boolean)
+-                .join(' ');
+-              return (
+-                <div className="field" key={field.key}>
+-                  <label htmlFor={id} className="field-label">
+-                    {field.label}
+-                  </label>
+-                  <input
+-                    id={id}
+-                    type="password"
+-                    className="input"
+-                    autoComplete={field.autoComplete}
+-                    value={form[field.key]}
+-                    onChange={(event) => {
+-                      setForm((current) => ({ ...current, [field.key]: event.target.value }));
+-                      setUpdated(false);
+-                    }}
+-                    aria-invalid={errors[field.key] ? true : undefined}
+-                    aria-describedby={describedBy || undefined}
+-                    data-testid={field.testId}
+-                  />
+-                  {field.key === 'next' && (
+-                    <p
+-                      id="password-strength"
+-                      className={`strength strength-${strength.level} small`}
+-                      data-testid="password-strength"
+-                      data-level={strength.level}
+-                    >
+-                      {strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}
+-                    </p>
+-                  )}
+-                  {errors[field.key] && (
+-                    <p id={`${id}-error`} className="field-error" data-testid={`error-${field.testId}`}>
+-                      {errors[field.key]}
+-                    </p>
+-                  )}
+-                </div>
+-              );
+-            })}
+-          </div>
+-          <div className="form-actions">
+-            <button type="submit" className="button button-primary" data-testid="password-submit">
+-              Update password
+-            </button>
+-            <p role="status" className="status-message" data-testid="password-status">
+-              {updated ? 'Password updated' : ''}
+-            </p>
+-          </div>
+-        </form>
+-      </section>
++      <PageBand title="Security" sticker="lock">
++        <p className="band-lead">Manage your password and the devices signed in to your account.</p>
++      </PageBand>
+ 
+-      <section className="panel" aria-labelledby="sessions-heading">
+-        <h2 id="sessions-heading">Active sessions</h2>
+-        <p className="muted small">Revoke a session to sign that device out immediately.</p>
+-        <div className="table-wrap">
+-          <table className="table" data-testid="sessions-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Device</th>
+-                <th scope="col">Location</th>
+-                <th scope="col">Last active</th>
+-                <th scope="col">
+-                  <span className="visually-hidden">Actions</span>
+-                </th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {sessions.map((session) => (
+-                <tr key={session.id} data-testid="session-row">
+-                  <td>
+-                    {session.device}
+-                    {session.current && (
+-                      <span className="pill pill-neutral small" data-testid="current-session">
+-                        This device
+-                      </span>
+-                    )}
+-                  </td>
+-                  <td>{session.location}</td>
+-                  <td>{session.lastActive}</td>
+-                  <td className="cell-actions">
+-                    {!session.current && (
+-                      <button
+-                        type="button"
+-                        className="button button-danger"
+-                        onClick={() => revoke(session)}
+-                        data-testid={`revoke-${session.id}`}
++      <div className="page-body">
++        <section className="section" aria-labelledby="password-heading">
++          <h2 id="password-heading">Change password</h2>
++          <form className="card form form-card" noValidate onSubmit={handleSubmit} data-testid="password-form">
++            <div className="form-stack">
++              {FIELDS.map((field) => {
++                const id = `password-${field.key}`;
++                const describedBy = [
++                  field.key === 'next' ? 'password-strength' : null,
++                  errors[field.key] ? `${id}-error` : null,
++                ]
++                  .filter(Boolean)
++                  .join(' ');
++                return (
++                  <div className="field" key={field.key}>
++                    <label htmlFor={id} className="field-label">
++                      {field.label}
++                    </label>
++                    <input
++                      id={id}
++                      type="password"
++                      className="input"
++                      autoComplete={field.autoComplete}
++                      value={form[field.key]}
++                      onChange={(event) => {
++                        setForm((current) => ({ ...current, [field.key]: event.target.value }));
++                        setUpdated(false);
++                      }}
++                      aria-invalid={errors[field.key] ? true : undefined}
++                      aria-describedby={describedBy || undefined}
++                      data-testid={field.testId}
++                    />
++                    {field.key === 'next' && (
++                      <p
++                        id="password-strength"
++                        className={`strength strength-${strength.level} small`}
++                        data-testid="password-strength"
++                        data-level={strength.level}
+                       >
+-                        Revoke<span className="visually-hidden"> {session.device}</span>
+-                      </button>
++                        {strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}
++                      </p>
+                     )}
+-                  </td>
++                    {errors[field.key] && (
++                      <p id={`${id}-error`} className="field-error" data-testid={`error-${field.testId}`}>
++                        <AlertIcon />
++                        {errors[field.key]}
++                      </p>
++                    )}
++                  </div>
++                );
++              })}
++            </div>
++            <div className="form-actions">
++              <button type="submit" className="lift" data-testid="password-submit">
++                Update password
++              </button>
++              <p role="status" className="status-message" data-testid="password-status">
++                {updated && <DoneDot />}
++                {updated ? 'Password updated' : ''}
++              </p>
++            </div>
++          </form>
++        </section>
++
++        <section className="section" aria-labelledby="sessions-heading">
++          <h2 id="sessions-heading">Active sessions</h2>
++          <p className="muted small">Revoke a session to sign that device out immediately.</p>
++          <div className="table-box">
++            <table className="table table--stack" data-testid="sessions-table">
++              <thead>
++                <tr>
++                  <th scope="col">Device</th>
++                  <th scope="col">Location</th>
++                  <th scope="col">Last active</th>
++                  <th scope="col">
++                    <span className="visually-hidden">Actions</span>
++                  </th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
+-        {sessions.length === 1 && (
+-          <p className="muted small" data-testid="sessions-empty">
+-            No other devices are signed in.
++              </thead>
++              <tbody>
++                {sessions.map((session) => (
++                  <tr key={session.id} data-testid="session-row">
++                    <td className="cell-primary">
++                      <span className="cell-device">
++                        {session.device}
++                        {session.current && (
++                          <span className="badge" data-testid="current-session">
++                            This device
++                          </span>
++                        )}
++                      </span>
++                    </td>
++                    <td data-label="Location">{session.location}</td>
++                    <td data-label="Last active">{session.lastActive}</td>
++                    <td className="cell-actions">
++                      {!session.current && (
++                        <button
++                          type="button"
++                          className="lift lift--ghost lift--sm lift--row"
++                          onClick={() => revoke(session)}
++                          data-testid={`revoke-${session.id}`}
++                        >
++                          Revoke<span className="visually-hidden"> {session.device}</span>
++                        </button>
++                      )}
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++            {sessions.length === 1 && (
++              <p className="table-empty muted small" data-testid="sessions-empty">
++                No other devices are signed in.
++              </p>
++            )}
++          </div>
++          <p role="status" className="status-message" data-testid="sessions-status">
++            {sessionMessage && <DoneDot />}
++            {sessionMessage}
+           </p>
+-        )}
+-        <p role="status" className="status-message" data-testid="sessions-status">
+-          {sessionMessage}
+-        </p>
+-      </section>
++        </section>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index bfb6f76..f99aba9 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,58 +1,80 @@
+ /*
+- * Base styles for the Account Settings app.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Account Settings styles on the Hardlift design system (hardlift@0.1.0-rc.6).
++ * Token values live in tokens.css (copied from the design package, do not edit).
++ * Components use semantic tokens only; see design-system/components.md.
+  */
++
++/* Legacy variable names, aliased onto Hardlift tokens so older references keep working.
++ * --space-4 and --space-8 are now the Hardlift tokens (4px / 8px), not the old 16px / 32px. */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-danger-bg: #fdecee;
+-  --color-switch-off: #bbbbbb;
+-  --color-switch-on: #0645ad;
+-  --color-switch-thumb: #ffffff;
+-  --color-strength-weak: #b00020;
+-  --color-strength-fair: #7a5a00;
+-  --color-strength-strong: #2e7d32;
+-  --color-pill-neutral-bg: #e8e8e8;
+-  --color-pill-neutral-text: #444444;
+-  --color-pill-current-bg: #e3f2e5;
+-  --color-pill-current-text: #1b5e20;
+-  --color-pill-due-bg: #fff4d6;
+-  --color-pill-due-text: #7a5a00;
+-  --color-backdrop: rgba(0, 0, 0, 0.4);
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-raised);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-default);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-secondary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-status-success);
++  --color-negative: var(--color-status-danger);
++  --color-danger-bg: var(--color-surface-subtle);
++  --color-switch-off: var(--color-surface-raised);
++  --color-switch-on: var(--color-action-inverse);
++  --color-switch-thumb: var(--color-surface-raised);
++  --color-strength-weak: var(--color-status-danger);
++  --color-strength-fair: var(--color-status-warning);
++  --color-strength-strong: var(--color-status-success);
++  --color-pill-neutral-bg: var(--color-surface-raised);
++  --color-pill-neutral-text: var(--color-text-primary);
++  --color-pill-current-bg: var(--color-surface-raised);
++  --color-pill-current-text: var(--color-text-primary);
++  --color-pill-due-bg: var(--color-surface-raised);
++  --color-pill-due-text: var(--color-text-primary);
++  --color-backdrop: var(--color-scrim);
++
++  --font-body: var(--font-family-body);
++  --font-size-base: var(--font-size-md);
++  --font-size-small: var(--font-size-sm);
++  --font-size-h1: var(--font-size-3xl);
++  --font-size-h2: var(--font-size-2xl);
++  --line-height: var(--font-line-height-ui);
++
++  --radius: var(--radius-sm);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-thin);
++  --space-1: var(--space-4);
++  --space-2: var(--space-8);
++  --space-3: var(--space-12);
++  --space-6: var(--space-24);
+   --sidebar-width: 220px;
+   --content-max-width: 880px;
+   --avatar-size-large: 72px;
+-  --switch-width: 40px;
+-  --switch-height: 22px;
++  --switch-width: var(--size-control);
++  --switch-height: calc(var(--space-24) + var(--space-4));
++
++  --header-height: calc(var(--size-control) + var(--space-32));
++  --page-gutter: var(--space-64);
++
++  color-scheme: light;
++}
++
++:root[data-theme='dark'] {
++  color-scheme: dark;
++}
++
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) {
++    color-scheme: dark;
++  }
++}
++
++@media (max-width: 767px) {
++  :root {
++    --page-gutter: var(--space-16);
++  }
+ }
+ 
+ *,
+@@ -67,43 +89,59 @@ body {
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-body);
++  font-size: var(--font-size-md);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-ui);
++  letter-spacing: var(--font-tracking-body);
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  font-weight: var(--font-weight-regular);
++  letter-spacing: var(--font-tracking-display);
+ }
+ 
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-size: var(--font-size-3xl);
++  line-height: var(--font-line-height-h1);
+ }
+ 
+ h2 {
+-  font-size: var(--font-size-h2);
++  font-size: var(--font-size-2xl);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-base);
++  font-size: var(--font-size-xl);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-2);
++  margin: 0;
++}
++
++strong {
++  font-weight: var(--font-weight-bold);
+ }
+ 
+-a {
+-  color: var(--color-link);
++a:not([class]) {
++  color: var(--color-text-secondary);
++  text-decoration: underline;
++  transition: color var(--motion-duration-fast) linear;
++}
++
++a:not([class]):hover {
++  color: var(--color-text-primary);
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
+-  outline-offset: 2px;
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: var(--border-width-thick);
+ }
+ 
+ .visually-hidden {
+@@ -124,19 +162,23 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
++  left: var(--space-8);
++  top: var(--space-8);
+   z-index: 10;
++  padding: var(--space-8) var(--space-12);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
+ }
+ 
+ .numeric {
+@@ -148,138 +190,537 @@ a {
+   flex-shrink: 0;
+ }
+ 
+-/* Layout */
+-.app-shell {
+-  min-height: 100vh;
++.status-success {
++  color: var(--color-status-success);
++}
++
++.status-warning {
++  color: var(--color-status-warning);
++}
++
++.status-danger {
++  color: var(--color-status-danger);
++}
++
++/* ------------------------------------------------------------------ */
++/* Signature: hard-lift buttons                                        */
++/* ------------------------------------------------------------------ */
++.lift {
++  position: relative;
++  display: inline-flex;
++  flex: none;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-8);
++  height: var(--size-control);
++  padding: var(--space-12) var(--space-16);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  font: var(--font-size-md) / var(--font-line-height-ui) var(--font-family-body);
++  font-weight: var(--font-weight-regular);
++  white-space: nowrap;
++  text-decoration: none;
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  cursor: pointer;
++  transition:
++    translate var(--motion-duration-base) var(--motion-easing-standard),
++    box-shadow var(--motion-duration-base) var(--motion-easing-standard),
++    background-color var(--motion-duration-base) var(--motion-easing-standard);
++}
++
++@media (hover: hover) {
++  .lift:hover {
++    translate: -4px -4px;
++    box-shadow: var(--shadow-md) var(--color-shadow-hard);
++  }
++}
++
++.lift:active {
++  translate: 0 0;
++  box-shadow: none;
++}
++
++.lift--ink {
++  background: var(--color-action-inverse);
++  color: var(--color-text-on-inverse);
++}
++
++.lift--ghost {
++  background: transparent;
++  color: var(--color-text-primary);
++}
++
++/* Plain outline buttons flip to pink on hover; menu and dialog triggers never do. */
++.lift--ghost:hover:not([aria-haspopup], [aria-expanded]) {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++}
++
++.lift--ghost[aria-haspopup]:hover,
++.lift--ghost[aria-expanded]:hover {
++  background: transparent;
++}
++
++/* Open trigger: wins over every hover rule above. */
++.lift[aria-expanded='true'],
++.lift--ghost[aria-expanded='true']:hover,
++.lift[aria-expanded='true']:hover {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  border-color: var(--color-border-default);
++}
++
++.lift--ink[aria-expanded='true'],
++.lift--ink[aria-expanded='true']:hover {
++  background: var(--color-action-inverse);
++  color: var(--color-text-on-inverse);
++}
++
++/* Small: size.controlSm, hit area extended to size.hit by an invisible 4px pseudo-element. */
++.lift--sm {
++  height: var(--size-control-sm);
++  padding: var(--space-8) var(--space-12);
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
++}
++
++.lift--sm::after {
++  content: '';
++  position: absolute;
++  inset: calc(-1 * var(--space-4));
++}
++
++/* Icon-only: square at control height. */
++.lift--icon {
++  width: var(--size-control);
++  padding: 0;
++}
++
++/* Icon buttons and table row actions lift 2px with shadow.sm. */
++@media (hover: hover) {
++  .lift--icon:hover,
++  .lift--row:hover {
++    translate: -2px -2px;
++    box-shadow: var(--shadow-sm) var(--color-shadow-hard);
++  }
++}
++
++.lift.lift--icon:hover {
++  background: transparent;
++  color: var(--color-text-primary);
++}
++
++.lift:disabled,
++.lift[aria-disabled='true'] {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-disabled);
++  border-color: var(--color-border-hairline);
++  translate: none;
++  box-shadow: none;
++  cursor: not-allowed;
++}
++
++/* Linked card: the outer bordered box lifts. */
++.lift-card {
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  transition:
++    translate var(--motion-duration-base) var(--motion-easing-standard),
++    box-shadow var(--motion-duration-base) var(--motion-easing-standard);
++}
++
++@media (hover: hover) {
++  .lift-card:hover {
++    translate: -4px -4px;
++    box-shadow: var(--shadow-md) var(--color-shadow-hard);
++  }
++}
++
++.lift-card:active {
++  translate: 0 0;
++  box-shadow: none;
++}
++
++/* ------------------------------------------------------------------ */
++/* Signature: outline-on-demand pills                                  */
++/* ------------------------------------------------------------------ */
++.pill-strip {
++  list-style: none;
++  display: flex;
++  gap: var(--space-4);
++  /* Room for focus outlines and hit areas inside the scroll box. */
++  margin: calc(-1 * var(--space-8));
++  padding: var(--space-8);
++  overflow-x: auto;
++  scrollbar-width: none;
++}
++
++.pill {
++  position: relative;
++  display: inline-flex;
++  align-items: center;
++  padding: var(--space-8) var(--space-12);
++  border: var(--border-width-thin) solid transparent;
++  border-radius: var(--radius-full);
++  background: transparent;
++  color: var(--color-text-primary);
++  font-size: var(--font-size-md);
++  line-height: var(--font-line-height-ui);
++  white-space: nowrap;
++  text-decoration: none;
++  transition: border-color var(--motion-duration-fast) linear;
++}
++
++.pill::after {
++  content: '';
++  position: absolute;
++  inset: calc(-1 * var(--space-4));
++}
++
++.pill:hover {
++  border-color: var(--color-border-default);
++}
++
++.pill[aria-selected='true'],
++.pill[aria-pressed='true'] {
++  background: var(--color-surface-raised);
++  border-color: var(--color-border-default);
++}
++
++.pill[aria-current='page'] {
++  background: var(--color-action-inverse);
++  color: var(--color-text-on-inverse);
++}
++
++/* ------------------------------------------------------------------ */
++/* Signature: category color-flood band                                */
++/* ------------------------------------------------------------------ */
++.band {
++  background: var(--color-band-yellow);
++  border-bottom: var(--border-width-thin) solid var(--color-border-default);
++  padding: var(--space-32) var(--page-gutter);
++  color: var(--color-text-on-band);
++}
++
++.band--error {
++  background: var(--color-band-red);
++}
++
++.band-inner {
++  max-width: var(--size-container);
++  margin-inline: auto;
+   display: flex;
+   flex-direction: column;
++  gap: var(--space-24);
+ }
+ 
+-.topbar {
++.band-head {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-8);
++}
++
++.band-title-row {
+   display: flex;
+   align-items: center;
+-  justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
+ }
+ 
+-.brand {
+-  font-weight: bold;
++.band h1 {
++  font-size: var(--font-size-3xl);
++  line-height: var(--font-line-height-h1);
++  letter-spacing: var(--font-tracking-display);
++  font-weight: var(--font-weight-regular);
+ }
+ 
+-.settings-layout {
+-  flex: 1;
+-  display: flex;
++.band-lead {
++  max-width: 60ch;
++  font-size: var(--font-size-lg);
++  line-height: var(--font-line-height-ui);
++  letter-spacing: var(--font-tracking-display);
+ }
+ 
+-.sidebar {
+-  width: var(--sidebar-width);
+-  flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++.band-meta {
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
+ }
+ 
+-.nav-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
++/* Every text node on the band is text.onBand; nothing secondary or gray. */
++.band .muted,
++.band a {
++  color: inherit;
+ }
+ 
+-.nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border: var(--border-width) solid transparent;
+-  border-radius: var(--radius);
+-  text-decoration: none;
++.band :focus-visible {
++  outline-color: var(--color-text-on-band);
++}
++
++.band .pill {
++  color: var(--color-text-on-band);
++}
++
++.band .pill:hover {
++  border-color: var(--color-text-on-band);
++}
++
++.band .pill[aria-current='page'] {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  border-color: var(--color-text-on-band);
++}
++
++.band .sticker {
++  color: var(--color-text-on-band);
++}
++
++@media (max-width: 767px) {
++  .band {
++    padding: var(--space-24) var(--page-gutter);
++  }
++
++  .band h1 {
++    font-size: var(--font-size-2xl);
++  }
++
++  .band-lead {
++    font-size: var(--font-size-md);
++  }
++}
++
++/* ------------------------------------------------------------------ */
++/* Signature: sticker illustration                                     */
++/* ------------------------------------------------------------------ */
++.sticker {
++  flex: none;
++  overflow: visible;
++  color: var(--color-text-primary);
++}
++
++.sticker--sm {
++  width: var(--size-sticker);
++  height: var(--size-sticker);
++}
++
++.sticker--lg {
++  width: var(--size-sticker-lg);
++  height: var(--size-sticker-lg);
++}
++
++.sticker * {
++  fill: none;
++  stroke: currentColor;
++  stroke-width: 3px;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++  vector-effect: non-scaling-stroke;
++}
++
++.sticker .st-pink {
++  fill: var(--color-action-primary);
++}
++
++.sticker .st-raised {
++  fill: var(--color-surface-raised);
++}
++
++.sticker .st-ink {
++  fill: currentColor;
++}
++
++.sticker .st-shadow {
++  fill: var(--color-shadow-hard);
++  stroke: none;
++}
++
++.sticker--sm .st-glyph {
++  stroke-width: 2px;
++}
++
++.sticker--lg .st-glyph {
++  stroke-width: 6px;
++}
++
++/* Loading coin and outline draw-on (reusable; motion stops under reduced motion). */
++.coin-load {
++  animation: turn var(--motion-duration-coin) linear infinite;
++}
++
++@keyframes turn {
++  0%,
++  100% {
++    scale: 1 1;
++  }
++  50% {
++    scale: 0.15 1;
++  }
++}
++
++.draw path {
++  stroke-dasharray: 1;
++  stroke-dashoffset: 1;
++  animation: draw var(--motion-duration-draw) linear forwards;
++}
++
++@keyframes draw {
++  to {
++    stroke-dashoffset: 0;
++  }
++}
++
++/* ------------------------------------------------------------------ */
++/* Layout                                                              */
++/* ------------------------------------------------------------------ */
++.app-shell {
++  min-height: 100vh;
++  display: flex;
++  flex-direction: column;
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  font-weight: bold;
++.topbar {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--space-16);
++  min-height: var(--header-height);
++  padding: var(--space-16) var(--page-gutter);
++  background: var(--color-surface-raised);
++  border-bottom: var(--border-width-thin) solid var(--color-border-default);
++}
++
++.brand {
++  font-size: var(--font-size-lg);
++  letter-spacing: var(--font-tracking-display);
+ }
+ 
+ .content {
+   flex: 1;
+   min-width: 0;
+-  max-width: var(--content-max-width);
+-  padding: var(--space-6);
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-6);
++}
++
++.content:focus {
++  outline: none;
++}
++
++.page-body {
++  width: 100%;
++  max-width: calc(var(--size-container) + 2 * var(--page-gutter));
++  margin-inline: auto;
++  padding: var(--space-32) var(--page-gutter) var(--space-64);
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-24);
++}
++
++.section {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-16);
++}
++
++.section + .section {
++  border-top: var(--border-width-thin) solid var(--color-border-default);
++  padding-top: var(--space-24);
+ }
+ 
+ .person {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-8);
+ }
+ 
+ .avatar {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-weight: bold;
+   flex-shrink: 0;
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
+ }
+ 
+ .avatar-small {
+-  width: 28px;
+-  height: 28px;
+-  font-size: var(--font-size-small);
++  width: var(--size-sticker);
++  height: var(--size-sticker);
++  font-size: var(--font-size-sm);
+ }
+ 
+ .avatar-large {
+   width: var(--avatar-size-large);
+   height: var(--avatar-size-large);
+-  font-size: var(--font-size-h2);
++  border-radius: var(--radius-md);
++  font-size: var(--font-size-xl);
++  letter-spacing: var(--font-tracking-display);
++}
++
++@media (max-width: 767px) {
++  .page-body {
++    padding: var(--space-24) var(--page-gutter) var(--space-48);
++  }
++
++  h2 {
++    font-size: var(--font-size-xl);
++  }
+ }
+ 
+-/* Panels */
+-.panel,
++/* ------------------------------------------------------------------ */
++/* Cards                                                               */
++/* ------------------------------------------------------------------ */
+ .card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  padding: var(--space-16);
+ }
+ 
++.form-card {
++  max-width: var(--content-max-width);
++}
++
++.card-title {
++  font-size: var(--font-size-lg);
++  line-height: var(--font-line-height-ui);
++}
++
++/* Empty and error states: one large sticker, one sentence, one button. */
+ .empty-state {
++  align-items: center;
+   text-align: center;
+-  padding: var(--space-8) var(--space-4);
++  padding-block: var(--space-64);
++}
++
++.empty-state p {
++  max-width: 60ch;
+ }
+ 
+-/* Forms */
++/* ------------------------------------------------------------------ */
++/* Forms                                                               */
++/* ------------------------------------------------------------------ */
+ .form {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-4);
++  gap: var(--space-24);
+ }
+ 
+ .form-grid {
+   display: grid;
+-  grid-template-columns: repeat(2, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: var(--space-16);
+ }
+ 
+ .form-stack {
+   display: grid;
+-  gap: var(--space-4);
++  gap: var(--space-16);
+   max-width: 400px;
+ }
+ 
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
+-}
+-
+-.field p {
+-  margin: 0;
++  gap: var(--space-8);
+ }
+ 
+ .field-wide {
+@@ -287,93 +728,163 @@ a {
+ }
+ 
+ .field-label {
+-  font-weight: bold;
+-  margin: 0;
++  font-size: var(--font-size-md);
++  font-weight: var(--font-weight-regular);
+ }
+ 
+ .field-error {
+-  color: var(--color-negative);
+-  font-size: var(--font-size-small);
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-8);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
++}
++
++.field-error .icon {
++  color: var(--color-status-danger);
++  margin-top: 1px;
+ }
+ 
+ .input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  width: 100%;
+   min-width: 0;
++  height: var(--size-control);
++  padding: var(--space-12) var(--space-16);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font: var(--font-size-md) / var(--font-line-height-ui) var(--font-family-body);
++  transition: box-shadow var(--motion-duration-fast) linear;
++}
++
++.input::placeholder {
++  color: var(--color-text-secondary);
++}
++
++.input:focus-visible {
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: var(--border-width-thick);
++  box-shadow: 0 0 0 var(--border-width-thick) var(--color-accent-halo);
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-negative);
++  border-color: var(--color-status-danger);
++}
++
++.input:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-disabled);
++  border-color: var(--color-border-hairline);
+ }
+ 
+ .textarea {
++  height: auto;
++  min-height: var(--space-96);
+   resize: vertical;
+ }
+ 
++.select-wrap {
++  position: relative;
++}
++
++.select {
++  appearance: none;
++  padding-inline-end: calc(var(--space-16) + var(--size-icon) + var(--space-8));
++  cursor: pointer;
++}
++
++.select-chevron {
++  position: absolute;
++  top: 50%;
++  right: var(--space-16);
++  translate: 0 -50%;
++  color: var(--color-text-primary);
++  pointer-events: none;
++}
++
+ .form-actions {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+-  gap: var(--space-3);
++  gap: var(--space-12);
+ }
+ 
++/* Inline confirmation beside the action that triggered it (instead of a toast). */
+ .status-message {
+-  margin: 0;
+-  color: var(--color-positive);
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  color: var(--color-text-primary);
++}
++
++.done-dot {
++  color: var(--color-text-on-action);
++}
++
++.done-dot-fill {
++  fill: var(--color-action-primary);
+ }
+ 
+ .avatar-row {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-4);
++  gap: var(--space-16);
+ }
+ 
+-.avatar-row p {
+-  margin: 0 0 var(--space-1);
++.avatar-copy {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-8);
+ }
+ 
+-/* Buttons */
+-.button {
+-  font: inherit;
+-  display: inline-flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
++@media (max-width: 767px) {
++  .form-grid {
++    grid-template-columns: 1fr;
++  }
++
++  .avatar-row {
++    align-items: flex-start;
++  }
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++/* Password strength: the word carries the meaning, the status color reinforces it. */
++.strength-none {
++  color: var(--color-text-secondary);
+ }
+ 
+-.button-danger {
+-  color: var(--color-negative);
++.strength-weak {
++  color: var(--color-status-danger);
++}
++
++.strength-fair {
++  color: var(--color-status-warning);
+ }
+ 
+-.button-danger:hover {
+-  background: var(--color-danger-bg);
++.strength-strong {
++  color: var(--color-status-success);
+ }
+ 
+-/* Fieldsets and switches */
++/* ------------------------------------------------------------------ */
++/* Switch                                                              */
++/* ------------------------------------------------------------------ */
+ .fieldset {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-8);
+   margin: 0;
+   min-width: 0;
+ }
+ 
+ .legend {
+-  font-weight: bold;
+-  font-size: var(--font-size-h2);
+-  padding: 0 var(--space-1);
++  float: left;
++  width: 100%;
++  padding: 0;
++  font-size: var(--font-size-lg);
++  line-height: var(--font-line-height-ui);
++  letter-spacing: var(--font-tracking-display);
+ }
+ 
+ .switch-list {
+@@ -386,151 +897,282 @@ a {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
++  gap: var(--space-16);
++  padding: var(--space-12) 0;
++  border-top: var(--border-width-thin) solid var(--color-border-hairline);
++}
++
++.switch-row:last-child {
++  padding-bottom: 0;
++}
++
++.switch-text {
++  display: flex;
++  flex-direction: column;
+   gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-top: var(--border-width) solid var(--color-border);
+ }
+ 
+-.switch-text p {
+-  margin: 0;
++.switch-control {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++}
++
++.switch-state {
++  min-width: 3ch;
++  font-size: var(--font-size-sm);
++  color: var(--color-text-secondary);
++  text-align: right;
+ }
+ 
+ .switch {
+   appearance: none;
+   position: relative;
++  flex-shrink: 0;
+   width: var(--switch-width);
+   height: var(--switch-height);
+   margin: 0;
+-  flex-shrink: 0;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-switch-off);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-raised);
+   cursor: pointer;
+ }
+ 
++/* Hit area at least size.hit. */
++.switch::before {
++  content: '';
++  position: absolute;
++  inset: calc(-1 * var(--space-8));
++}
++
++/* Knob: 20px circle, inset space.4 from the track edge. */
+ .switch::after {
+   content: '';
+   position: absolute;
+-  top: 3px;
+-  left: 3px;
+-  width: calc(var(--switch-height) - 6px);
+-  height: calc(var(--switch-height) - 6px);
+-  border-radius: 50%;
+-  background: var(--color-switch-thumb);
++  top: calc(var(--space-4) - var(--border-width-thin));
++  left: calc(var(--space-4) - var(--border-width-thin));
++  width: calc(var(--space-16) + var(--space-4));
++  height: calc(var(--space-16) + var(--space-4));
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
++  transition: translate var(--motion-duration-base) var(--motion-easing-standard);
++}
++
++.switch:hover {
++  box-shadow: inset 0 0 0 var(--border-width-thin) var(--color-border-default);
+ }
+ 
+ .switch:checked {
+-  background: var(--color-switch-on);
++  background: var(--color-action-inverse);
+ }
+ 
+ .switch:checked::after {
+-  left: calc(var(--switch-width) - var(--switch-height) + 3px);
++  translate: calc(var(--space-16) + var(--space-4)) 0;
++  background: var(--color-surface-raised);
+ }
+ 
+-/* Password strength */
+-.strength-none {
+-  color: var(--color-text-muted);
++.switch:disabled {
++  background: var(--color-surface-subtle);
++  border-color: var(--color-border-hairline);
++  cursor: not-allowed;
+ }
+ 
+-.strength-weak {
+-  color: var(--color-strength-weak);
++/* ------------------------------------------------------------------ */
++/* Badge and price tag                                                 */
++/* ------------------------------------------------------------------ */
++.badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-4);
++  height: var(--size-icon);
++  margin: 0;
++  padding: var(--space-4) var(--space-8);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-sm);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-caption);
++  white-space: nowrap;
+ }
+ 
+-.strength-fair {
+-  color: var(--color-strength-fair);
++.badge--status {
++  padding-inline-start: var(--space-4);
+ }
+ 
+-.strength-strong {
+-  color: var(--color-strength-strong);
++.price-tag {
++  display: inline-flex;
++  align-items: center;
++  padding: var(--space-4) var(--space-12);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-size: var(--font-size-lg);
++  line-height: var(--font-line-height-ui);
++  letter-spacing: var(--font-tracking-display);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+-/* Tables */
+-.table-wrap {
+-  overflow-x: auto;
++/* ------------------------------------------------------------------ */
++/* Table                                                               */
++/* ------------------------------------------------------------------ */
++.table-box {
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  overflow: hidden;
+ }
+ 
+ .table {
+   width: 100%;
+   border-collapse: collapse;
++  font-size: var(--font-size-sm);
++  line-height: var(--font-line-height-caption);
+ }
+ 
+ .table th,
+ .table td {
++  height: var(--size-hit);
++  padding: var(--space-8) var(--space-12);
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+   vertical-align: middle;
++  border-bottom: var(--border-width-thin) solid var(--color-border-hairline);
+ }
+ 
+ .table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
++  font-weight: var(--font-weight-regular);
++  border-bottom-color: var(--color-border-default);
++}
++
++.table tbody tr:last-child td {
++  border-bottom: 0;
++}
++
++.table tbody tr:hover {
++  background: var(--color-surface-subtle);
+ }
+ 
+ .table .numeric {
+   text-align: right;
+ }
+ 
++.cell-device {
++  display: inline-flex;
++  align-items: center;
++  flex-wrap: wrap;
++  gap: var(--space-8);
++}
++
+ .cell-actions {
++  width: 1%;
+   text-align: right;
++  white-space: nowrap;
+ }
+ 
+-.pill {
+-  display: inline-block;
+-  margin: 0 0 0 var(--space-2);
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.table-empty {
++  padding: var(--space-12);
++  border-top: var(--border-width-thin) solid var(--color-border-hairline);
+ }
+ 
+-.pill-neutral {
+-  background: var(--color-pill-neutral-bg);
+-  color: var(--color-pill-neutral-text);
+-}
++/* Phone width: each row reflows into a stacked block inside the same bordered box. */
++@media (max-width: 767px) {
++  .table--stack thead {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    overflow: hidden;
++    clip: rect(0, 0, 0, 0);
++  }
+ 
+-.pill-paid,
+-.pill-current {
+-  background: var(--color-pill-current-bg);
+-  color: var(--color-pill-current-text);
+-}
++  .table--stack,
++  .table--stack tbody,
++  .table--stack tr {
++    display: block;
++    width: 100%;
++  }
+ 
+-.pill-due {
+-  background: var(--color-pill-due-bg);
+-  color: var(--color-pill-due-text);
+-}
++  .table--stack tr {
++    padding: var(--space-12);
++    border-bottom: var(--border-width-thin) solid var(--color-border-hairline);
++  }
++
++  .table--stack tbody tr:last-child {
++    border-bottom: 0;
++  }
++
++  .table--stack td {
++    display: flex;
++    justify-content: space-between;
++    align-items: center;
++    gap: var(--space-12);
++    width: 100%;
++    height: auto;
++    padding: var(--space-4) 0;
++    border: 0;
++    text-align: right;
++  }
++
++  .table--stack td[data-label]::before {
++    content: attr(data-label);
++    color: var(--color-text-secondary);
++    text-align: left;
++  }
++
++  .table--stack .cell-primary {
++    font-weight: var(--font-weight-bold);
++    text-align: left;
++  }
++
++  .table--stack .cell-actions {
++    justify-content: flex-end;
++    padding-top: var(--space-8);
++  }
++
++  .table--stack .cell-actions:empty {
++    display: none;
++  }
+ 
+-.table .pill,
+-.plan-card .pill {
+-  margin-left: 0;
++  .table--stack .lift {
++    width: max-content;
++    min-height: var(--size-hit);
++  }
+ }
+ 
+-/* Billing */
++/* ------------------------------------------------------------------ */
++/* Billing                                                             */
++/* ------------------------------------------------------------------ */
+ .plan-grid {
+   list-style: none;
+-  margin: 0 0 var(--space-3);
++  margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: var(--space-24);
+ }
+ 
+ .plan-card {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+-  gap: var(--space-2);
++  gap: var(--space-12);
+ }
+ 
++/* Selected card: border.width.thick, padding trimmed so the content does not shift. */
+ .plan-card-current {
+-  border-color: var(--color-primary);
++  border-width: var(--border-width-thick);
++  padding: calc(var(--space-16) - var(--border-width-thin));
+ }
+ 
+ .plan-price {
+-  margin: 0;
+-}
+-
+-.plan-amount {
+-  font-size: var(--font-size-h1);
+-  font-weight: bold;
++  display: flex;
++  align-items: center;
++  flex-wrap: wrap;
++  gap: var(--space-8);
+ }
+ 
+ .feature-list {
+@@ -538,61 +1180,135 @@ a {
+   margin: 0;
+   padding: 0;
+   flex: 1;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-4);
+ }
+ 
+ .feature-list li {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-8);
+ }
+ 
+ .payment-method {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-3);
++  flex-wrap: wrap;
++  gap: var(--space-12);
++  max-width: var(--content-max-width);
+ }
+ 
+-/* Dialog */
++@media (max-width: 767px) {
++  .plan-grid {
++    grid-template-columns: 1fr;
++  }
++}
++
++/* ------------------------------------------------------------------ */
++/* Dialog                                                              */
++/* ------------------------------------------------------------------ */
+ .dialog {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  padding: var(--space-6);
+-  max-width: 440px;
+-  width: calc(100% - var(--space-8));
++  width: calc(5 * var(--space-96));
++  max-width: calc(100vw - 2 * var(--space-16));
++  padding: var(--space-24);
++  border: var(--border-width-thin) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  box-shadow: var(--shadow-lg) var(--color-shadow-hard);
++}
++
++.dialog[open] {
++  animation: dialog-in var(--motion-duration-slow) var(--motion-easing-out);
++}
++
++@keyframes dialog-in {
++  from {
++    translate: 0 var(--space-8);
++  }
+ }
+ 
+ .dialog::backdrop {
+-  background: var(--color-backdrop);
++  background: var(--color-scrim);
++}
++
++.dialog-head {
++  display: flex;
++  align-items: flex-start;
++  justify-content: space-between;
++  gap: var(--space-16);
++  margin-bottom: var(--space-16);
++}
++
++.dialog-title {
++  font-size: var(--font-size-xl);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ .dialog-actions {
+   display: flex;
+   justify-content: flex-end;
+-  gap: var(--space-2);
+-  margin-top: var(--space-4);
++  flex-wrap: wrap;
++  gap: var(--space-12);
++  margin-top: var(--space-24);
+ }
+ 
+-@media (max-width: 900px) {
+-  .settings-layout {
+-    flex-direction: column;
++/* ------------------------------------------------------------------ */
++/* Reduced motion and forced colors                                    */
++/* ------------------------------------------------------------------ */
++@media (prefers-reduced-motion: reduce) {
++  .lift {
++    transition: background-color var(--motion-duration-fast) linear;
+   }
+ 
+-  .sidebar {
+-    width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++  .lift:hover,
++  .lift:active,
++  .lift-card:hover,
++  .lift-card:active,
++  .lift--icon:hover,
++  .lift--row:hover {
++    translate: none;
++    box-shadow: none;
+   }
+ 
+-  .nav-list {
+-    display: flex;
+-    flex-wrap: wrap;
+-    gap: var(--space-2);
++  .lift:hover {
++    background: var(--color-action-primary-hover);
+   }
+ 
+-  .form-grid,
+-  .plan-grid {
+-    grid-template-columns: 1fr;
++  .lift.lift--icon:hover {
++    background: var(--color-surface-subtle);
++  }
++
++  .switch::after {
++    transition: none;
++  }
++
++  .dialog[open],
++  .coin-load {
++    animation: none;
++  }
++
++  .draw path {
++    animation: none;
++    stroke-dashoffset: 0;
++  }
++}
++
++@media (forced-colors: active) {
++  .lift,
++  .pill,
++  .card,
++  .input,
++  .badge,
++  .switch,
++  .switch::after,
++  .table-box {
++    border-color: CanvasText;
++  }
++
++  .pill[aria-current='page'],
++  .switch:checked {
++    background: Highlight;
+   }
+ }

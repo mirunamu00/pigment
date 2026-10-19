@@ -1,0 +1,58 @@
+```json
+{
+  "items": [
+    { "id": "dashboard--state--search-focus--desktop-light", "status": "ok", "note": "The 'Apollo' filter field has an ink border with a pink halo ring and an outline outside it, as the input focus recipe specifies. The table narrows to one row and the count reads 'Showing 1 of 8 projects', so the result is clear. The pink Refresh in the teal band is the only pink action." },
+    { "id": "dashboard--state--search-focus--desktop-dark", "status": "ok", "note": "In dark mode the focused filter field keeps the same pink halo and a light outline on the black ground. The single filtered row and its count stay readable, and the black-text teal band is unchanged." },
+    { "id": "dashboard--state--search-focus--mobile-light", "status": "ok", "note": "On mobile the full-width filter field shows the pink halo focus. The one result row sits in the bordered table, which scrolls inside its own box, so nothing overflows the 390px page." },
+    { "id": "dashboard--state--row-hover--desktop-light", "status": "ok", "note": "The hovered first project row gets a subtle warm-gray fill and doesn't lift, which matches the table-row rule. Status pills keep their icon plus word." },
+    { "id": "dashboard--state--row-hover--desktop-dark", "status": "finding", "note": "In dark mode no row looks different from the others. Every body row has the same raised dark-gray fill, so I can't see the hover fill that the light theme shows." },
+    { "id": "dashboard--state--row-hover--mobile-light", "status": "ok", "note": "On mobile the second project row shows the subtle fill without any lift. The three-column table wraps names cleanly inside its bordered box." },
+    { "id": "dashboard--state--keyboard-focus--desktop-light", "status": "ok", "note": "Keyboard focus on the 'Projects' sidebar pill shows a clear ink outline ring, separate from the black-filled current 'Overview' pill. The focus is easy to find." },
+    { "id": "dashboard--state--keyboard-focus--desktop-dark", "status": "ok", "note": "In dark mode the focused 'Projects' pill gets a pink-tinted ring next to the paper-filled current pill. It stays visible on the near-black sidebar." },
+    { "id": "dashboard--state--keyboard-focus--mobile-light", "status": "ok", "note": "In the mobile top pill strip, 'Projects' has an ink outline ring next to the black current 'Overview' pill. The state is clearly a designed focus, not a browser default." },
+    { "id": "dashboard--state--user-menu-open--desktop-light", "status": "ok", "note": "The account trigger stays paper with an ink border and an up chevron, no longer pink. The menu is a raised panel with an ink border and a hard offset shadow, holding the email, Account settings, My team and Sign out. The rc.3 pink-trigger major is fixed." },
+    { "id": "dashboard--state--user-menu-open--desktop-dark", "status": "ok", "note": "In dark mode the open trigger is dark with a light border and the menu panel is raised gray with a light hard shadow. Nothing on the trigger is pink." },
+    { "id": "dashboard--state--user-menu-open--mobile-light", "status": "ok", "note": "On mobile the menu opens full width under the 'JA' trigger and covers the band with an ink-bordered, hard-shadowed panel. The trigger stays neutral, and the pink Refresh is hidden under the panel." },
+    { "id": "dashboard--state--empty-filter--desktop-light", "status": "finding", "note": "The empty state reads 'No projects match your filters' with a hint, a small magnifier sticker and a pink 'Clear filters' button. The pink 'Refresh' in the band is also on screen, so two pink actions are visible at once." },
+    { "id": "dashboard--state--empty-filter--desktop-dark", "status": "finding", "note": "Dark mode repeats the same empty card, magnifier sticker and pink 'Clear filters' button, with the pink 'Refresh' still visible in the teal band above it: two pink actions in one viewport." },
+    { "id": "dashboard--state--empty-filter--mobile-light", "status": "ok", "note": "On mobile the empty card shows the magnifier sticker, the message, the hint and a pink 'Clear filters' button under the halo-focused filter field. The band's pink Refresh is far up the page here, so the message and next step are clear." },
+    { "id": "dashboard--state--loading--desktop-light", "status": "ok", "note": "Each stat tile swaps its number for a small pink coin and 'Loading...', and the band button reads 'Refreshing...' with a coin. This is the spec's coin-turn loading with no spinner or shimmer." },
+    { "id": "dashboard--state--loading--desktop-dark", "status": "ok", "note": "In dark mode the four tiles show the coin plus 'Loading...' in light text, and the pink 'Refreshing...' button stays readable on the teal band. The rest of the dashboard stays put." },
+    { "id": "dashboard--state--loading--mobile-light", "status": "ok", "note": "The stacked mobile stat cards each show a coin with 'Loading...', and the band's 'Refreshing...' button keeps its black label on pink instead of rc.3's washed-out disabled look." },
+    { "id": "dashboard--drawings--home", "status": "ok", "note": "The drawing is the throughput chart: flat solid ink bars with value labels on a 1px baseline, no gradient or soft shadow. The 32px tile sticker at its corner is an ink-outlined pink coin with a rim and an arrow glyph, which matches the coin recipe at small size." }
+  ],
+  "findings": [
+    {
+      "severity": "major",
+      "area": "signature",
+      "summary": "On the dashboard's empty-filter state, two pink actions are visible at once: the band's 'Refresh' and the empty state's 'Clear filters', in light and dark. This regresses from rc.3, where both were ink. Now Refresh is pink by default and the empty-state component brings its own pink button without checking what is already in view.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.4/dashboard/20261019-131819/screenshots/state-empty-filter-desktop-light.png",
+        "showcase/runs/hardlift/0.1.0-rc.4/review-1/sheets/dashboard--state--empty-filter--desktop-dark.png"
+      ],
+      "items": [
+        "dashboard--state--empty-filter--desktop-light",
+        "dashboard--state--empty-filter--desktop-dark"
+      ],
+      "promptFix": "A page-header or toolbar action that is always on screen (refresh, export, settings) is lift--ink or lift--ghost, never pink. Pink is kept for the one action that the current state of the screen is about. When a state brings its own action (empty state, error, form submit, dialog), that action gets pink only if nothing else pink is in view. In the final check, render every state at the desktop viewport and count the pink fills: exactly one action, plus small tags."
+    },
+    {
+      "severity": "minor",
+      "area": "componentStates",
+      "summary": "In dark mode, hovering a table row shows no visible fill. The hovered row has the same raised gray as the other rows, while the light theme shows the subtle fill.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "evidence": [
+        "showcase/runs/hardlift/0.1.0-rc.4/dashboard/20261019-131819/screenshots/state-row-hover-desktop-dark.png"
+      ],
+      "items": [
+        "dashboard--state--row-hover--desktop-dark"
+      ]
+    }
+  ]
+}
+```
