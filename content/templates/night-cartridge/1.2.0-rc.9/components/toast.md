@@ -1,7 +1,0 @@
-### Toast
-
-**Anatomy.** Bottom-right stack, `space.16` from the edges (full width under `breakpoint.sm`). 2px `color.border.strong` frame, `color.surface.raised`, padding `space.12` `space.16`, max 400px; 12px pixel status icon or `size.bullet` in the status colour, message 16/24, optional framed action and a 12px × close.
-
-**States.** Auto-hides after 5000ms unless it has an action or is hovered; errors stay until dismissed.
-
-**Accessibility.** Announced through the screen's `role="status"` region; never steals focus.

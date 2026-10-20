@@ -15,7 +15,7 @@ with its gallery screenshots attached.
 
 Projects that already use a system are never changed by an update. They keep the copy in their
 `design-system/` folder, and `design-system/VERSION` says which system and which date it came from
-(`margin-notes, updated 2026-10-12`). When someone asks their agent to update, the agent reads the
+(`<id>, updated 2026-10-12`). When someone asks their agent to update, the agent reads the
 changelog and applies only the entries dated after that date. That is why changelog bullets must be
 concrete enough to apply (see [Changelog](#changelog)).
 
