@@ -43,6 +43,8 @@ export interface PlanInput {
   /** Where the review's files go (sheets are planned under it). */
   reviewDir: string;
   runsRoot?: string;
+  /** The appearances the system has; read from its manifest when absent. */
+  appearance?: string[];
 }
 
 /** The runs of each app in the evaluation, in sample order (the report lists each app's newest run first). */
@@ -54,8 +56,8 @@ export function samplesByApp(report: EvalReport): Map<string, string[]> {
 
 const slug = (s: string) => s.replace(/^\//, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "") || "home";
 
-export function buildPlan({ id, version, report, reviewDir, runsRoot = paths.runs }: PlanInput): ReviewPlan {
-  const appearance = loadTemplate(id, version).manifest.tags.appearance as string[];
+export function buildPlan({ id, version, report, reviewDir, runsRoot = paths.runs, appearance: given }: PlanInput): ReviewPlan {
+  const appearance = given ?? (loadTemplate(id, version).manifest.tags.appearance as string[]);
   const items: ReviewItem[] = [];
   const byApp = samplesByApp(report);
   const samples = Math.max(1, ...[...byApp.entries()].filter(([a]) => AppId.safeParse(a).success).map(([, v]) => v.length));

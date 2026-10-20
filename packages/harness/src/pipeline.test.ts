@@ -252,9 +252,9 @@ test("review: the checklist covers every screen, state, drawing set and motion s
   }
   const report = { ...evalReport("9.9.9-rc.1", "pending-review", ["blog"], 2), template: "graphite-blueprint" };
   report.runs = runs.map((runId) => ({ runId, app: "blog" as const, gates: [], metrics: {} }));
-  const plan = buildPlan({ id: "graphite-blueprint", version: "1.2.0", report, reviewDir: join(runsRoot, "review"), runsRoot });
+  const plan = buildPlan({ id: "graphite-blueprint", version: "1.2.0", report, reviewDir: join(runsRoot, "review"), runsRoot, appearance: ["light", "dark"] });
   const ids = plan.items.map((i) => i.id).sort();
-  // graphite-blueprint 1.2.0 has light and dark: both page appearances, the state, drawings and motion.
+  // A system with light and dark: both page appearances, the state, drawings and motion.
   assert.deepEqual(ids, ["blog--drawings--home", "blog--motion", "blog--page--home--desktop-dark", "blog--page--home--desktop-light", "blog--state--search-empty--mobile-light"]);
   const page = plan.items.find((i) => i.id === "blog--page--home--desktop-light")!;
   assert.equal(page.sources.length, 2, "one column per sample");
