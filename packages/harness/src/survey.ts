@@ -19,6 +19,13 @@ export interface SurveyPage {
   counts: Record<string, number>;
   /** One entry per top-level section: background|heading level|has media. */
   sections: string[];
+  /**
+   * The page's layout, without colours: its sections' heading levels and media, and its card grids. Pages that share
+   * it are one template (a category page with another header colour), however different their paths.
+   */
+  template?: string;
+  /** Share of the page covered by raster images (0–1). High on pages made of other people's covers and photos. */
+  imageShare?: number;
   error?: string;
 }
 
@@ -120,6 +127,12 @@ function pageFeatures(): Omit<Found, "features"> & { features: string[] } {
 
   const imgs = q<HTMLImageElement>("img").filter(visible);
   counts.images = imgs.length;
+  const pageArea = Math.max(1, document.documentElement.scrollWidth * document.documentElement.scrollHeight);
+  const imageArea = imgs.reduce((sum, i) => {
+    const r = i.getBoundingClientRect();
+    return sum + (r.width >= 64 && r.height >= 64 ? r.width * r.height : 0);
+  }, 0);
+  counts.imageSharePct = Math.round((imageArea / pageArea) * 100);
   if (imgs.some((i) => i.getBoundingClientRect().width >= 480)) f.add("media:large-image");
   // A logo wall: one parent with five or more small images or svgs side by side.
   const parents = new Map<Element, number>();
@@ -295,7 +308,17 @@ export async function surveySite(
     try {
       const found = await surveyPage(page, next);
       for (const l of found.links) remember(normalize(l.href, sources.origin), l.where);
-      pages.push({ url: next, group, title: found.title, features: found.features, buttons: found.buttons, counts: found.counts, sections: found.sections });
+      pages.push({
+        url: next,
+        group,
+        title: found.title,
+        features: found.features,
+        buttons: found.buttons,
+        counts: found.counts,
+        sections: found.sections,
+        template: layoutTemplate(found.sections, found.features),
+        imageShare: (found.counts.imageSharePct ?? 0) / 100,
+      });
       const fresh = found.features.filter((f) => !seenFeatures.has(f));
       for (const f of fresh) seenFeatures.add(f);
       if (fresh.length) lastNewAt = pages.length;
@@ -333,9 +356,24 @@ export async function surveySite(
   };
 }
 
+/** A page's layout key: section structure without colours, plus whether it shows a card grid. */
+export function layoutTemplate(sections: string[], features: string[]): string {
+  const shape = sections.map((x) => x.split("|").slice(1).join("|"));
+  // Long repeated runs (a feed of 30 rows) count once, so a longer list is the same template.
+  const runs = shape.filter((x, i) => i === 0 || x !== shape[i - 1]);
+  return `${runs.join(",")}${features.includes("layout:card-grid") ? "+grid" : ""}`;
+}
+
+/** Pages people make for the brand itself, where its design language shows best. */
+const BRAND_PAGE = /^\/?(?:[a-z]{2}(?:-[a-z]{2})?\/)?(features?|product|pricing|plans?|about|company|customers?|blog\/[^/]+|changelog|docs?(?:\/[^/]+)?|download|careers|enterprise|security|contact)\/?$/i;
+
+/** Above this share of raster images a page mostly shows other people's covers or photos, not the brand's design. */
+export const CONTENT_HEAVY_SHARE = 0.35;
+
 /**
- * Pages for the deep capture: the seeds and the home page, then greedily the page that adds the most
- * features not yet covered (rare features count more), then one page per page type not yet covered.
+ * Pages for the deep capture: the seeds and the home page, then greedily the page with the most to add — features
+ * not yet covered (rare features count more), a layout not yet captured, a page the brand makes for itself — and
+ * less for a layout already captured or a page mostly made of other people's images.
  */
 export function selectDeep(survey: Survey, seeds: string[], budget: number): Array<{ url: string; reason: string }> {
   const ok = survey.pages.filter((p) => !p.error);
@@ -343,10 +381,13 @@ export function selectDeep(survey: Survey, seeds: string[], budget: number): Arr
   const selected: Array<{ url: string; reason: string }> = [];
   const covered = new Set<string>();
   const groups = new Set<string>();
+  const templates = new Set<string>();
+  const templateOf = (p: SurveyPage) => p.template ?? layoutTemplate(p.sections, p.features);
   const take = (p: SurveyPage, reason: string) => {
     selected.push({ url: p.url, reason });
     for (const f of p.features) covered.add(f);
     groups.add(p.group);
+    templates.add(templateOf(p));
   };
   const seedUrls = seeds.map((s) => normalize(s, survey.origin));
   for (const p of ok.filter((p) => seedUrls.includes(p.url))) take(p, "given");
@@ -354,15 +395,20 @@ export function selectDeep(survey: Survey, seeds: string[], budget: number): Arr
   if (home && !selected.some((s) => s.url === home.url)) take(home, "home");
 
   while (selected.length < budget) {
-    let best: { page: SurveyPage; gain: number; fresh: string[] } | null = null;
+    let best: { page: SurveyPage; gain: number; fresh: string[]; why: string } | null = null;
     for (const p of ok) {
       if (selected.some((s) => s.url === p.url)) continue;
       const fresh = p.features.filter((f) => !covered.has(f));
-      const gain = fresh.reduce((sum, f) => sum + 1 + 1 / (share.get(f) ?? 1), 0) + (groups.has(p.group) ? 0 : 0.5);
-      if (gain > 0 && (!best || gain > best.gain)) best = { page: p, gain, fresh };
+      const newLayout = !templates.has(templateOf(p));
+      const brand = BRAND_PAGE.test(new URL(p.url).pathname);
+      let gain = fresh.reduce((sum, f) => sum + 1 + 1 / (share.get(f) ?? 1), 0) + (newLayout ? 1.5 : 0) + (brand ? 1 : 0) + (groups.has(p.group) ? 0 : 0.25);
+      if (!newLayout) gain *= 0.25;
+      if ((p.imageShare ?? 0) > CONTENT_HEAVY_SHARE) gain *= 0.5;
+      const why = fresh.length ? `adds ${fresh.slice(0, 6).join(", ")}${fresh.length > 6 ? "…" : ""}` : newLayout ? `new layout (${p.group})` : `page type ${p.group}`;
+      if (gain > 0.3 && (!best || gain > best.gain)) best = { page: p, gain, fresh, why: `${why}${brand ? ", brand page" : ""}` };
     }
     if (!best) break;
-    take(best.page, best.fresh.length ? `adds ${best.fresh.slice(0, 6).join(", ")}${best.fresh.length > 6 ? "…" : ""}` : `page type ${best.page.group}`);
+    take(best.page, best.why);
   }
   return selected;
 }

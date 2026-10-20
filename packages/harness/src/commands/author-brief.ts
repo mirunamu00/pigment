@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { AppId } from "@pigment/schema";
 import { latestEval } from "../budget.ts";
+import { referenceImages } from "../review/plan.ts";
 import { baseAppTerms, overfitMentions } from "../overfit.ts";
 import { rel, runsDir, templateDir } from "../paths.ts";
 import { fail, ok, writeText } from "../util.ts";
@@ -11,10 +12,10 @@ import { judgeCritic, promptInduced, QUALITY_BAR } from "./evaluate.ts";
  * the critic brief, so a revision always carries the same standing rules: fix only what fails, and fix it as a
  * general principle. The demo apps are where problems are seen, never what the package is written for.
  */
-export function authorBrief(id: string, version: string, next: string): string {
+export function authorBrief(id: string, version: string, next: string, direction?: string): string {
   const report = latestEval(id, version);
   if (!report) fail("no evaluation yet — run pnpm harness evaluate first");
-  if (report.verdict === "pass") fail(`${id}@${version} passed — there is nothing to revise; offer it for publishing`);
+  if (report.verdict === "pass" && !direction) fail(`${id}@${version} passed — there is nothing to revise; offer it for publishing (or pass --direction with the user's words if they turned its direction down)`);
   if (report.verdict === "pending-review") fail("the critic has not judged this evaluation yet — run critic-brief and the critic first");
 
   const terms = baseAppTerms();
@@ -59,6 +60,7 @@ export function authorBrief(id: string, version: string, next: string): string {
   const legacy = !report.critic?.findings && report.critic ? judgeCritic(report.critic).reasons.map((r) => `- ${r}`) : [];
   const minors = findings.filter((f) => !gating.includes(f)).length;
 
+  const target = referenceImages(id, version, join(runsDir(id, version), "brief"));
   const brief = [
     `# Author brief — ${id}@${next} (revising ${version}, evaluation ${report.iteration})`,
     "",
@@ -87,6 +89,28 @@ export function authorBrief(id: string, version: string, next: string): string {
     "- Keep everything that passed. `validate` must show no errors and no `prose.overfit` or `tokens.undefined-var`",
     "  warnings; then `bundle`. Do not run generate or evaluate.",
     "",
+    ...(target.length
+      ? [
+          "## The quality target",
+          "",
+          "The reference at its best. Every rule you write should make agents build screens as well crafted as these — open",
+          "them at full size before you start:",
+          "",
+          ...target.map((r) => `- \`${r.cropFrom ? rel(r.cropFrom.src) : r.file}\` — ${r.shows}`),
+          "",
+        ]
+      : []),
+    ...(direction
+      ? [
+          "## The user's direction check",
+          "",
+          "The user compared the screen with the reference set and turned it down. Their words, verbatim — this outranks",
+          "everything below; find the general rules behind it:",
+          "",
+          `> ${direction.replaceAll("\n", "\n> ")}`,
+          "",
+        ]
+      : []),
     "## What to fix",
     "",
     ...(gates.length || cross.length ? ["Failing gates:", "", ...gates, ...cross, ""] : []),

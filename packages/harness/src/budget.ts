@@ -179,5 +179,23 @@ export function generationBlock(id: string, version: string, runsRoot = paths.ru
   const other = passed.find((p) => p.version !== version);
   if (other) return `${nextStep(id, other)} instead of generating more (--after-pass if the user asked for this run).`;
   if (self && self.samples >= CONFIRM_SAMPLES) return `${nextStep(id, self)} — no more main-app samples are needed (--after-pass if the user asked for this run).`;
+  if (self && !directionApproved(id, version, runsRoot)) {
+    return `${id}@${version} passed the screen; the user approves its direction against the reference before the confirm — show them review-*/direction.html, then pnpm harness direction ${id}@${version} --approved-by "<name>".`;
+  }
   return null;
+}
+
+/** The user's approval of a screened candidate's direction (its look against the reference), before the confirm. */
+export interface DirectionApproval {
+  approvedBy: string;
+  at: string;
+  note?: string;
+}
+
+export function directionFile(id: string, version: string, runsRoot = paths.runs): string {
+  return join(runsRoot, id, version, "direction.json");
+}
+
+export function directionApproved(id: string, version: string, runsRoot = paths.runs): boolean {
+  return existsSync(directionFile(id, version, runsRoot));
 }

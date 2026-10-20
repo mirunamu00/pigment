@@ -1,9 +1,10 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { cropFirstScreens, type CropJob } from "../crop.ts";
 import { chromium } from "playwright";
 import { AUDIT_AREAS, Analysis, type AuditArea } from "@pigment/schema";
 import { paths, pipelineDir, rel } from "../paths.ts";
-import type { Survey } from "../survey.ts";
+import { CONTENT_HEAVY_SHARE, type Survey } from "../survey.ts";
 import { fail, ok, readJson, writeJson, writeText } from "../util.ts";
 import type { Intake } from "./intake.ts";
 
@@ -109,6 +110,29 @@ export function checkAnalysisFiles(slug: string): AnalysisFinding[] {
   }
   for (const m of missing) err(`evidence file not found: ${m}`);
 
+  // The reference set: the quality bar the review compares with.
+  const set = a.referenceSet ?? [];
+  const intakeFile = join(dir, "intake.json");
+  const fresh = !existsSync(intakeFile) || readJson<Intake>(intakeFile).status === "captured";
+  if (!set.length) (fresh ? err : warn)("referenceSet: missing — pick 6–12 captures of the reference at its best (the review's quality bar)");
+  else {
+    if (set.length < 6 || set.length > 12) err(`referenceSet: ${set.length} entries — pick 6 to 12`);
+    if (!set.some((r) => r.viewport === "mobile")) warn("referenceSet: no mobile capture — phones are half the review");
+    const survey = existsSync(join(dir, "reference", "survey.json")) ? readJson<Survey>(join(dir, "reference", "survey.json")) : null;
+    for (const r of set) {
+      if (![join(dir, r.image), join(dir, "reference", r.image)].some(existsSync)) err(`referenceSet: file not found: ${r.image}`);
+    }
+    // Pages mostly made of other people's images set no bar for the brand's own design.
+    const heavy = set.filter((r) => {
+      const key = /(?:^|\/)(p\d+)-/.exec(r.image)?.[1];
+      const pages = readJsonSafe<Array<{ key: string; url: string }>>(join(dir, "reference", "pages.json")) ?? [];
+      const url = pages.find((p) => p.key === key)?.url;
+      const page = url ? survey?.pages.find((p) => p.url === url) : undefined;
+      return (page?.imageShare ?? 0) > CONTENT_HEAVY_SHARE;
+    });
+    if (heavy.length > set.length / 3) warn(`referenceSet: ${heavy.length} of ${set.length} entries are pages mostly made of other people's images — they show the content, not the brand's design`);
+  }
+
   // Signatures: rebuildable and placed.
   for (const s of a.signatures) {
     if (s.recipe.length < 120) warn(`signature "${s.name}": the recipe is short (${s.recipe.length} chars) — can an agent rebuild it from this alone?`);
@@ -128,6 +152,14 @@ export function checkAnalysisFiles(slug: string): AnalysisFinding[] {
     }
   }
   return findings;
+}
+
+function readJsonSafe<T>(file: string): T | null {
+  try {
+    return existsSync(file) ? readJson<T>(file) : null;
+  } catch {
+    return null;
+  }
 }
 
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
@@ -197,5 +229,32 @@ export async function checkAnalysis(slug: string): Promise<boolean> {
     return null;
   });
   if (png) console.log(`  swatches for checkpoint 1: ${rel(png)} — show it to the user with the analysis`);
+  const crops = await cropReferenceSet(slug, analysis);
+  if (crops.length) console.log(`  reference set for checkpoint 1: ${crops.length} first-screen crops in ${rel(join(pipelineDir(slug), "reference", "set"))} — show them with the analysis`);
   return true;
+}
+
+/**
+ * The reference set as the review uses it: full-page screenshots cropped to their first screen at native
+ * resolution, close-ups copied as they are. Written to reference/set/ with an index of what each shows.
+ */
+export async function cropReferenceSet(slug: string, a: Analysis): Promise<Array<{ file: string; shows: string }>> {
+  const dir = pipelineDir(slug);
+  const out: Array<{ file: string; shows: string }> = [];
+  const jobs: CropJob[] = [];
+  (a.referenceSet ?? []).forEach((r, i) => {
+    const src = [join(dir, r.image), join(dir, "reference", r.image)].find(existsSync);
+    if (!src) return;
+    const file = join(dir, "reference", "set", `${String(i + 1).padStart(2, "0")}-${r.viewport}.png`);
+    if (/screenshots[\\/]/.test(src)) jobs.push({ src, out: file, viewport: r.viewport });
+    else {
+      mkdirSync(dirname(file), { recursive: true });
+      copyFileSync(src, file);
+    }
+    out.push({ file: rel(file), shows: r.shows });
+  });
+  const done = new Set((await cropFirstScreens(jobs)).map((j) => j.out));
+  const kept = out.filter((o) => !jobs.some((j) => rel(j.out) === o.file) || done.has(join(paths.root, o.file)));
+  if (kept.length) writeJson(join(dir, "reference", "set", "index.json"), kept);
+  return kept;
 }

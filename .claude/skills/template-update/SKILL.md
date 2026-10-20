@@ -29,7 +29,7 @@ numbers — those are internal.
   as a list of demo screens; it edits, adds a `## <next>-rc.1` changelog entry and loops
   on `pnpm harness validate` / `bundle`.
 - Then the three stages of `template-intake` steps 4–6, on `<id>@<next>-rc.<n>`: screen (`generate`,
-  `evaluate`, `review`), confirm (`generate --samples 2 --holdout`, `evaluate --samples 3`, `review`), holdout
+  `evaluate`, `review`, then the user's direction check and `direction --approved-by`), confirm (`generate --samples 2 --holdout`, `evaluate --samples 3`, `review`), holdout
   check (`evaluate --holdout`, `review --holdout`). `review` compares with the published version on its own.
   Never write or extend reviewer prompts or edit critic files; severity changes only via `critic --override`.
 - On `fail`, scaffold the next candidate from the last one (`--from <id>@<next>-rc.<n-1>`), run

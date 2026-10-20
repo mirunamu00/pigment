@@ -71,6 +71,10 @@ background and report progress; never queue a second generation behind the first
 
 1. **Screen** (one sample of the four main apps): `pnpm harness generate <id>@<rc>`, then
    `pnpm harness evaluate <id>@<rc>`, then `pnpm harness review <id>@<rc>`.
+   **Direction check (stop here):** when the screen passes, show the user `review-<n>/direction.html` (the
+   reference set next to the agents' first screens) and ask whether this is the reference's quality. Only on
+   their yes: `pnpm harness direction <id>@<rc> --approved-by "<name>"`. On a no, their words go to the
+   prompt-author with the next author brief; the confirm is refused until a direction is approved.
 2. **Confirm** (only after a passing screen; two more samples, plus one run of each holdout app):
    `pnpm harness generate <id>@<rc> --samples 2 --holdout`, then `pnpm harness evaluate <id>@<rc> --samples 3`,
    then `pnpm harness review <id>@<rc>`.

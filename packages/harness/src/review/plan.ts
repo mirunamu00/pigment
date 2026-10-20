@@ -1,6 +1,6 @@
-import { existsSync, readdirSync } from "node:fs";
-import { basename, join } from "node:path";
-import { AppId, type EvalReport, type ReviewItem, type ReviewPlan, type ReviewUnit } from "@pigment/schema";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { AppId, type Analysis, type EvalReport, type ReviewItem, type ReviewPlan, type ReviewUnit } from "@pigment/schema";
 import type { ShotResult } from "../commands/shoot.ts";
 import { paths, rel } from "../paths.ts";
 import { loadTemplate } from "../template.ts";
@@ -92,7 +92,8 @@ export function buildPlan({ id, version, report, reviewDir, runsRoot = paths.run
         const shot = s?.screenshots.find((x) => (k.kind === "state" ? x.route === `state:${k.subject}` : x.route === k.subject) && x.viewport === k.viewport && x.scheme === k.scheme);
         return shot ? [file(i, shot.file)] : [];
       });
-      items.push({ id: itemId, app, holdout, kind: k.kind, subject: k.subject, viewport: k.viewport, scheme: k.scheme, sheet: sheet(itemId), sources, questions: QUESTIONS[k.kind] });
+      const crops = sources.map((s, i) => (s.length ? rel(join(reviewDir, "crops", `${itemId}--s${i + 1}.png`)) : ""));
+      items.push({ id: itemId, app, holdout, kind: k.kind, subject: k.subject, viewport: k.viewport, scheme: k.scheme, sheet: sheet(itemId), sources, crops, questions: QUESTIONS[k.kind] });
     }
 
     // Drawings: one item per route that has any, all crops of every sample.
@@ -130,17 +131,58 @@ export function planUnits(items: ReviewItem[]): ReviewUnit[] {
   return units;
 }
 
-/** Reference screenshots and drawing crops every reviewer compares against (desktop captures first). */
-export function referenceImages(id: string, version: string): string[] {
-  const analysis = loadTemplate(id, version).manifest.provenance.analysis;
-  if (!analysis) return [];
-  const ref = join(paths.root, analysis, "..", "reference");
-  const list = (dir: string, pick: (f: string) => boolean, n: number) =>
-    existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".png") && pick(f)).sort().slice(0, n).map((f) => rel(join(dir, f))) : [];
-  return [
-    ...list(join(ref, "screenshots"), (f) => /desktop/.test(f) && !/toggled/.test(f), 6),
-    ...list(join(ref, "illustrations"), (f) => /-i\d/.test(basename(f)), 6),
-    ...list(join(ref, "illustrations"), (f) => /-g\d/.test(basename(f)), 6),
-  ];
+export interface ReferenceShot {
+  /** Repo-relative image to show (a first-screen crop or a close-up). */
+  file: string;
+  shows: string;
+  /** A full-page screenshot still to crop to its first screen, and its viewport. */
+  cropFrom?: { src: string; viewport: "desktop" | "mobile" };
+}
+
+/**
+ * The quality bar every reviewer compares with: the analysis's reference set (cropped by check-analysis), or, for
+ * an older analysis without one, the signature evidence and the home page's first screens. Never a sorted pick of
+ * full pages: those were mostly other people's content, shrunk until nothing could be judged.
+ */
+export function referenceImages(id: string, version: string, reviewDir: string): ReferenceShot[] {
+  const analysisPath = loadTemplate(id, version).manifest.provenance.analysis;
+  if (!analysisPath) return [];
+  const pipeline = join(paths.root, analysisPath, "..");
+  const ref = join(pipeline, "reference");
+  const index = join(ref, "set", "index.json");
+  if (existsSync(index)) return readJson<Array<{ file: string; shows: string }>>(index).filter((r) => existsSync(join(paths.root, r.file)));
+
+  const analysis = existsSync(join(paths.root, analysisPath)) ? readJson<Analysis>(join(paths.root, analysisPath)) : null;
+  const find = (f: string) => [join(pipeline, f), join(ref, f), join(paths.root, f)].find((p) => existsSync(p) && /\.png$/i.test(p));
+  const out: ReferenceShot[] = [];
+  const seen = new Set<string>();
+  const add = (src: string, shows: string, viewport: "desktop" | "mobile") => {
+    if (seen.has(src)) return;
+    seen.add(src);
+    const n = String(out.length + 1).padStart(2, "0");
+    if (/screenshots[\\/]/.test(src)) out.push({ file: rel(join(reviewDir, "reference", `${n}-${viewport}.png`)), shows, cropFrom: { src, viewport } });
+    else out.push({ file: rel(src), shows });
+  };
+  for (const r of analysis?.referenceSet ?? []) {
+    const src = find(r.image);
+    if (src) add(src, r.shows, r.viewport);
+  }
+  if (out.length) return out;
+  for (const s of analysis?.signatures ?? []) {
+    for (const e of s.evidence.slice(0, 2)) {
+      const src = find(e.split("#")[0]!.trim());
+      if (src && out.length < 8) add(src, `signature: ${s.name}`, /mobile/.test(src) ? "mobile" : "desktop");
+    }
+  }
+  const home = (name: string) => (existsSync(join(ref, "screenshots", name)) ? join(ref, "screenshots", name) : null);
+  for (const [name, shows, vp] of [
+    ["p1-desktop-light.png", "home, first screen", "desktop"],
+    ["p1-desktop-dark.png", "home, first screen, dark", "desktop"],
+    ["p1-mobile-light.png", "home on a phone", "mobile"],
+  ] as const) {
+    const src = home(name);
+    if (src) add(src, shows, vp);
+  }
+  return out;
 }
 

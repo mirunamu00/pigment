@@ -4,7 +4,7 @@ import { cleanUrl } from "../discover.ts";
 import { extractStyles, mergeSamples, settle, type StyleSample } from "../extract.ts";
 import { pipelineDir, paths, rel } from "../paths.ts";
 import { deepCapture, watchLottie, type DeepCapture, type LottieSummary } from "../probe.ts";
-import { selectDeep, surveySite, type Survey } from "../survey.ts";
+import { CONTENT_HEAVY_SHARE, layoutTemplate, selectDeep, surveySite, type Survey } from "../survey.ts";
 import { fail, info, ok, readJson, writeJson, writeText } from "../util.ts";
 import type { Intake } from "./intake.ts";
 
@@ -187,6 +187,10 @@ function report(slug: string, survey: Survey | null, pages: Array<{ key: string;
       "",
       ...survey.groups.slice(0, 40).map((g) => `- \`${g.key}\` — ${g.known} known, ${g.surveyed} surveyed${g.collection ? " (collection)" : ""}`),
       "",
+      "Layouts (pages that share a structure, whatever their path; one capture per layout is enough):",
+      "",
+      ...layoutGroups(survey).map((g) => `- ${g.pages} page(s)${g.contentHeavy ? ", mostly other people's images" : ""}: ${g.examples.map((u) => `\`${new URL(u).pathname}\``).join(", ")}`),
+      "",
       "Most used button styles (background / color / border / radius / padding / size / weight):",
       "",
       ...survey.buttonStyles.slice(0, 10).map((b) => `- ${b.pages} page(s): \`${b.style}\``),
@@ -228,4 +232,19 @@ function report(slug: string, survey: Survey | null, pages: Array<{ key: string;
     "",
   );
   return lines.join("\n");
+}
+
+/** Surveyed pages grouped by layout, largest first, with a few example paths. */
+function layoutGroups(survey: Survey): Array<{ pages: number; examples: string[]; contentHeavy: boolean }> {
+  const groups = new Map<string, string[]>();
+  const heavy = new Map<string, number>();
+  for (const p of survey.pages.filter((x) => !x.error)) {
+    const key = p.template ?? layoutTemplate(p.sections, p.features);
+    groups.set(key, [...(groups.get(key) ?? []), p.url]);
+    if ((p.imageShare ?? 0) > CONTENT_HEAVY_SHARE) heavy.set(key, (heavy.get(key) ?? 0) + 1);
+  }
+  return [...groups.entries()]
+    .map(([key, urls]) => ({ pages: urls.length, examples: urls.slice(0, 4), contentHeavy: (heavy.get(key) ?? 0) * 2 > urls.length }))
+    .sort((a, b) => b.pages - a.pages)
+    .slice(0, 30);
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
@@ -12,6 +12,8 @@ import { checkUnit, extractJson, UNIT_MINOR_CAP } from "./review/run.ts";
 import { sheetHtml } from "./review/sheets.ts";
 import { paths } from "./paths.ts";
 import { swatchPage } from "./commands/check-analysis.ts";
+import { cropFirstScreens } from "./crop.ts";
+import { layoutTemplate, selectDeep, type Survey, type SurveyPage } from "./survey.ts";
 import { applyOverrides, GATING_CHECKS, judgeCritic, layoutCounts, promptInduced, shareOnScale } from "./commands/evaluate.ts";
 import { runQueue, sampleRunIds } from "./commands/generate.ts";
 import { galleryRuns } from "./commands/publish.ts";
@@ -72,6 +74,40 @@ test("quality verdict: the scores against the reference decide, and only prompt-
   assert.match(judgeCritic({ ...scores, findings: [], signature: undefined }).reasons.join(), /no signature score/);
 });
 
+test("capture: pages that share a layout are one template; brand pages and new layouts come before more of the same", () => {
+  const band = (bg: string) => [`${bg}|h1|-`, "·|h2|media", "·|h2|media", "·|h2|media", "·|-|-"];
+  assert.equal(layoutTemplate(band("rgb(1, 2, 3)"), ["layout:card-grid"]), layoutTemplate(band("rgb(9, 9, 9)"), ["layout:card-grid"]), "a header colour is not a layout");
+  const page = (path: string, sections: string[], features: string[], imageShare = 0): SurveyPage => ({ url: `https://x.test${path}`, group: path.split("/")[1] || "home", title: "", features, buttons: [], counts: {}, sections, imageShare });
+  const pages = [
+    page("/", ["·|h1|media", "·|h2|-"], ["svg:icon"]),
+    ...["3d", "design", "films", "music", "games"].map((c) => page(`/${c}`, band(`rgb(${c.length}, 0, 0)`), ["layout:card-grid", "ui:tabs"], 0.6)),
+    page("/pricing", ["·|h1|-", "·|h2|-", "·|h2|-"], ["ui:table"]),
+    page("/about", ["·|h1|media", "·|h2|media"], []),
+  ];
+  const survey = { origin: "https://x.test", pages, frequency: [], groups: [] } as unknown as Survey;
+  const picked = selectDeep(survey, [], 4).map((p) => new URL(p.url).pathname);
+  assert.ok(picked.includes("/pricing") && picked.includes("/about"), `brand pages with new layouts are captured: ${picked}`);
+  assert.equal(picked.filter((p) => ["/3d", "/design", "/films", "/music", "/games"].includes(p)).length, 1, "one capture of the repeated category layout");
+});
+
+test("crops keep a full page's first screen at native resolution", async () => {
+  const { chromium } = await import("playwright");
+  const dir = tmp();
+  const full = join(dir, "full.png");
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.setContent('<body style="margin:0"><div style="height:3000px;background:linear-gradient(#f00,#00f)"></div></body>');
+    await page.screenshot({ path: full, fullPage: true });
+    const [job] = await cropFirstScreens([{ src: full, out: join(dir, "crop.png"), viewport: "desktop" }], browser);
+    assert.ok(job, "the crop was written");
+    const png = readFileSync(join(dir, "crop.png"));
+    assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1440, 900]);
+  } finally {
+    await browser.close();
+  }
+});
+
 test("only a finished agent and a building app gate a run; every other check is evidence", () => {
   assert.deepEqual([...GATING_CHECKS].sort(), ["agent-finished", "build"]);
 });
@@ -128,7 +164,9 @@ test("stages: screen, confirm on 3 samples, then the holdout check; each blocks 
   const screened = runsFixture({ "1.1.0-rc.2": 10 }, { "1.1.0-rc.2": evalReport("1.1.0-rc.2", "pass", apps, 1) });
   assert.equal(candidateStage("demo", "1.1.0-rc.2", screened, true).stage, "confirm");
   assert.match(candidateBlock("demo", "1.1.0-rc.3", screened, true) ?? "", /passed the screen/);
-  assert.equal(generationBlock("demo", "1.1.0-rc.2", screened, "main", true), null, "the screened candidate may be confirmed");
+  assert.match(generationBlock("demo", "1.1.0-rc.2", screened, "main", true) ?? "", /approves its direction/, "the user looks at the screen first");
+  write(join(screened, "demo", "1.1.0-rc.2", "direction.json"), { approvedBy: "user", at: "t" });
+  assert.equal(generationBlock("demo", "1.1.0-rc.2", screened, "main", true), null, "then the screened candidate may be confirmed");
   assert.match(generationBlock("demo", "1.1.0-rc.2", screened, "holdout", true) ?? "", /holdout check comes after/);
 
   const confirmed = runsFixture({ "1.1.0-rc.2": 10 }, { "1.1.0-rc.2": evalReport("1.1.0-rc.2", "pass", apps, 3) });

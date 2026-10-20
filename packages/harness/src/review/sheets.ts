@@ -1,9 +1,11 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import type { ReviewItem } from "@pigment/schema";
+import { cropFirstScreens, type CropJob } from "../crop.ts";
 import { paths } from "../paths.ts";
+import type { ReferenceShot } from "./plan.ts";
 
 /**
  * Comparison sheets: every sample of one checklist item side by side in one image, so a reviewer sees whether a
@@ -49,11 +51,25 @@ function itemColumns(item: ReviewItem): { width: number; columns: Array<{ label:
   return { width, columns };
 }
 
-/** Renders every item's sheet (and the reference sheet) with one browser. Returns the files written. */
-export async function renderSheets(items: ReviewItem[], reference: { file: string; images: string[] } | null): Promise<string[]> {
+/**
+ * Renders every item's sheet, each screen sample's first-screen crop, and the reference set (its crops and an
+ * overview sheet) with one browser. Returns the files written.
+ */
+export async function renderSheets(items: ReviewItem[], reference: { file: string; shots: ReferenceShot[] } | null): Promise<string[]> {
   const browser = await chromium.launch();
   const written: string[] = [];
   try {
+    // First screens at native resolution: what reviewers judge craft on.
+    const jobs: CropJob[] = [];
+    for (const item of items) {
+      (item.crops ?? []).forEach((crop, k) => {
+        const src = item.sources[k]?.[0];
+        if (crop && src) jobs.push({ src: join(paths.root, src), out: join(paths.root, crop), viewport: item.viewport ?? "desktop" });
+      });
+    }
+    for (const r of reference?.shots ?? []) if (r.cropFrom) jobs.push({ src: r.cropFrom.src, out: join(paths.root, r.file), viewport: r.cropFrom.viewport });
+    written.push(...(await cropFirstScreens(jobs, browser)).map((j) => j.out));
+
     const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
     const render = async (file: string, title: string, columns: Array<{ label: string; images: string[] }>, width: number) => {
       const out = join(paths.root, file);
@@ -70,12 +86,11 @@ export async function renderSheets(items: ReviewItem[], reference: { file: strin
       const where = item.kind === "page" || item.kind === "state" ? ` · ${item.viewport} · ${item.scheme}` : "";
       await render(item.sheet, `${item.app}${item.holdout ? " (holdout)" : ""} · ${item.kind} · ${item.subject}${where}`, columns, width);
     }
-    if (reference && reference.images.length) {
-      // Reference: screenshots and drawing crops, three per row.
-      const rows: Array<{ label: string; images: string[] }> = [];
-      for (let i = 0; i < reference.images.length; i += 3) rows.push({ label: "", images: reference.images.slice(i, i + 3) });
-      const columns = [0, 1, 2].map((c) => ({ label: c === 0 ? "reference" : "", images: rows.flatMap((r) => (r.images[c] ? [r.images[c]!] : [])) }));
-      await render(reference.file, "The reference (what the system is derived from)", columns, WIDTH.desktop);
+    const shots = (reference?.shots ?? []).filter((r) => existsSync(join(paths.root, r.file)));
+    if (reference && shots.length) {
+      // An overview of the reference set, two per row; reviewers open each file at full size.
+      const columns = [0, 1].map((c) => ({ label: c === 0 ? "reference set (open each file at full size)" : "", images: shots.filter((_, i) => i % 2 === c).map((r) => r.file) }));
+      await render(reference.file, "The reference at its best: the quality bar", columns, WIDTH.desktop);
     }
   } finally {
     await browser.close();

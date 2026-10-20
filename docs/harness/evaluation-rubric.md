@@ -77,8 +77,10 @@ cannot extend:
 1. **Checklist.** `pnpm harness review <ref>` lists everything the runs produced as items: every captured screen at
    every viewport and appearance the system has, every interaction state, each screen's drawings, each app's
    motion. One item holds **every sample** of that screen, so recurrence is judged on the same item.
-2. **Comparison sheets.** Each item gets one image with the samples side by side (drawings next to each other,
-   originals listed under the sheet), and the reference gets its own sheet.
+2. **Comparison sheets and crops.** Each item gets one image with the samples side by side (drawings next to
+   each other, originals listed under the sheet), and every screen sample a crop of its first screen at native
+   resolution: craft is judged on the crops, never on shrunk full pages. The measure is the analysis's
+   **reference set** (`pipeline/<slug>/reference/set/`): the reference at its best, opened at full size.
 3. **Reviewers.** One reviewer per app (two when an app has over 30 items), run by the harness in parallel with
    read-only tools and a generated prompt. Each answers every item of its list with a `fidelity` mark (1–5, the
    anchors below) and a note on what is on that screen against the reference; a missing item, a missing mark or a
@@ -148,6 +150,13 @@ prompt, so the prompt is never patched with rules that only tell agents to write
 | Polish | Alignment, optical balance, no default-browser leftovers, no generic look the reference doesn't have. Signature elements are not judged here |
 | Signature | Are the signature elements present in all four apps, placed as Applying the concept says, built to their recipes, as well crafted as the reference's at the same size (compare the crops), and moving as specified (check the motion frames)? For `schemaVersion: 2` packages |
 
+### Calibration
+
+The review is only as good as its agreement with people who know the reference. `showcase/calibration.json` lists
+candidates the user has judged (one accepted, one found crude); `pnpm harness calibrate` reviews them again without
+touching their evaluations and writes `showcase/calibration-report.md`. While the review disagrees with a judged
+case, its scores are advice and the user's direction check decides. Run it after every change to the review.
+
 ### Stages: judge the prompt, not one run
 
 Every user's agent builds a different result from the same prompt, so one run is one sample. Fixing the
@@ -155,7 +164,9 @@ small flaws of one sample and running again only draws a new sample with new sma
 three stages, and the harness refuses them out of order:
 
 1. **Screen:** one sample of the four main apps — `generate`, `evaluate`, `review`. Scores below the bar or a
-   defect the prompt induced send the candidate back to the author.
+   defect the prompt induced send the candidate back to the author. A passing screen then goes to the user's
+   **direction check** (`review-<n>/direction.html`: the reference set next to the agents' first screens); the
+   confirm is refused until `pnpm harness direction <ref> --approved-by "<name>"` records their yes.
 2. **Confirm:** only after a passing screen — `generate --samples 2 --holdout` (two more samples of the main apps,
    one run of each holdout app), `evaluate --samples 3` (the screen run plus the two new ones), `review`.
 3. **Holdout check:** only after a passing confirm — `evaluate --holdout`, `review --holdout`. The holdout apps

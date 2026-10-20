@@ -11,6 +11,8 @@ export interface ReviewContext {
   ref: string;
   spec: string;
   referenceSheet: string | null;
+  /** The quality bar: captures of the reference at its best, each opened at full size. */
+  referenceSet: Array<{ file: string; shows: string }>;
   analysis: string | null;
   holdout: boolean;
   samples: number;
@@ -42,9 +44,13 @@ function contextLines(c: ReviewContext): string[] {
   return [
     `- Template: \`${c.ref}\`. The spec the agents were given: \`${c.spec}\`. Read its "Signature elements" and`,
     '  "Applying the concept" sections before the checklist.',
-    c.referenceSheet
-      ? `- The reference: open \`${c.referenceSheet}\` first and keep it as your measure${c.analysis ? `; the analysis is \`${c.analysis}\`` : ""}.`
-      : "- No reference: judge against the spec.",
+    ...(c.referenceSet.length
+      ? [
+          `- The reference at its best — your measure. Open every one of these at full size before the checklist, and again`,
+          `  whenever you judge a screen like it${c.analysis ? ` (the analysis is \`${c.analysis}\`)` : ""}:`,
+          ...c.referenceSet.map((r) => `  - \`${r.file}\` — ${r.shows}`),
+        ]
+      : ["- No reference set: judge against the spec."]),
     c.holdout
       ? "- This review covers the holdout apps: products the system was never tuned on, one run each. They test whether the language carries to new structures."
       : `- This review covers the main apps, ${c.samples} sample(s) each. Every sheet shows the samples side by side.`,
@@ -59,6 +65,9 @@ function itemLines(items: ReviewItem[]): string[] {
   return items.flatMap((i) => [
     `- id: \`${i.id}\``,
     `  sheet: \`${i.sheet}\``,
+    ...(i.crops?.some(Boolean)
+      ? [`  first screen at full size: ${i.crops.map((f, k) => (f ? `${i.crops!.length > 1 ? `sample ${k + 1}: ` : ""}\`${f}\`` : "")).filter(Boolean).join(" · ")}`]
+      : []),
     `  originals: ${i.sources.map((s, k) => `${i.sources.length > 1 ? `sample ${k + 1}: ` : ""}${s.length ? s.map((f) => `\`${f}\``).join(", ") : "(none)"}`).join(" · ")}`,
     `  questions: ${i.questions.join(" ")}`,
   ]);
@@ -75,8 +84,9 @@ export function unitPrompt(c: ReviewContext, items: ReviewItem[]): string {
     ...contextLines(c),
     "",
     "## How to review",
-    "- For each item open its sheet (every sample side by side) next to the reference sheet. Open an original only when",
-    "  a detail is too small on the sheet.",
+    "- For each item open its sheet (every sample side by side) for the whole page, then its first-screen crops at",
+    "  full size, and compare them with the reference capture most like it. Judge type, outlines, spacing, drawing and",
+    "  detail on the crops, never on the shrunk sheet.",
     "- Give the item a `fidelity` of 1–5 for the typical sample, on these anchors:",
     ...ANCHORS.map((l) => `  ${l}`),
     "- Write one note per item: what is on the screen and how it compares with the reference (one or two sentences).",
@@ -113,11 +123,12 @@ export function synthesisPrompt(c: ReviewContext, plan: ReviewPlan, units: Array
     "",
     "## Context",
     ...contextLines(c),
-    `- Home screens of every app, side by side across samples: ${homeSheets.map((s) => `\`${s}\``).join(", ") || "(none)"}`,
+    `- Home screens of every app (sheets across samples, and first-screen crops): ${homeSheets.map((s) => `\`${s}\``).join(", ") || "(none)"}`,
     "",
     "## What to do",
-    "1. Open the reference sheet and the home sheets yourself, and form your own view of the whole before reading the",
-    "   reviewers' marks: does this look like the reference's team made it, and is it as well crafted?",
+    "1. Open the reference set and the home screens' first-screen crops yourself, at full size, and form your own view",
+    "   of the whole before reading the reviewers' marks:",
+    "   does this look like the reference's team made it, and is it as well crafted?",
     "2. Score each area 0–5 for the typical sample, against the reference, on these anchors:",
     ...ANCHORS.map((l) => `   ${l}`),
     "   Areas: referenceFidelity (the whole reads as the reference's language), signature (its signature elements hold",

@@ -357,6 +357,20 @@ export const Analysis = z.object({
   writing: z.object({ casing: z.string(), tone: z.string(), notes: z.string() }).describe("Style only — never copy text"),
   coverage: z.array(z.object({ area: AuditArea, status: z.enum(["observed", "derived", "absent"]), note: z.string() })),
   doNot: z.array(z.string()).describe("Things that would break the character"),
+  /**
+   * The quality bar: 6–12 captures of the reference at its best — pages the brand designs itself, not pages made
+   * of other people's covers or photos — plus close-ups of its signature elements. The review compares every
+   * screen with these; check-analysis crops full pages to their first screen at native resolution.
+   */
+  referenceSet: z
+    .array(
+      z.object({
+        image: z.string().describe("A file under reference/ (screenshot, component, interaction or illustration crop)"),
+        shows: z.string().describe("What it shows and why it sets the bar"),
+        viewport: z.enum(["desktop", "mobile"]).default("desktop"),
+      }),
+    )
+    .optional(),
   ipRisks: z.array(z.string()).describe("Brand assets, proprietary fonts or distinctive marks that must NOT be carried over"),
 });
 export type Analysis = z.infer<typeof Analysis>;
@@ -480,6 +494,8 @@ export const ReviewItem = z.object({
   sheet: z.string(),
   /** The original images, per sample (repo-relative), for a closer look. */
   sources: z.array(z.array(z.string())),
+  /** Screens: each sample's first screen at native resolution (repo-relative; empty where a sample has none). */
+  crops: z.array(z.string()).optional(),
   questions: z.array(z.string()),
 });
 export type ReviewItem = z.infer<typeof ReviewItem>;
@@ -493,6 +509,8 @@ export const ReviewPlan = z.object({
   evaluation: z.number().int(),
   samples: z.number().int().min(1),
   referenceSheet: z.string().nullable(),
+  /** The quality bar: the analysis's reference set, as files the reviewers open at full size. */
+  referenceSet: z.array(z.object({ file: z.string(), shows: z.string() })).optional(),
   items: z.array(ReviewItem),
   units: z.array(ReviewUnit),
 });
