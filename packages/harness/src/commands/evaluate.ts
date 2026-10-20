@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { CriticScores, EvalReport, type RunAppId } from "@pigment/schema";
+import { CriticScores, EvalReport, type CriticFinding, type RunAppId } from "@pigment/schema";
 import { baseApps, e2e, holdoutApps } from "../appdir.ts";
 import { evalScope, familyCost, versionCost } from "../budget.ts";
 import { distance, isMostlyOpaque, nearest, toHex } from "../color.ts";
@@ -12,6 +12,18 @@ import { fail, info, ok, readJson, timestamp, writeJson, writeText } from "../ut
 import type { ShotResult } from "./shoot.ts";
 
 type Gate = EvalReport["runs"][number]["gates"][number];
+
+/**
+ * The only checks that fail a run by themselves: without them there is nothing to review. Every other check is
+ * evidence for the review — a broken detail fails a candidate only when the review finds the prompt induced it.
+ */
+export const GATING_CHECKS = new Set(["agent-finished", "build"]);
+
+/**
+ * The quality bar (0–5, from the typical sample): someone who knows the reference must recognise it and find it close
+ * in quality, its signatures must hold, and no other area may be clearly below the reference.
+ */
+export const QUALITY_BAR = { referenceFidelity: 4, signature: 4, other: 3 } as const;
 
 const THRESHOLDS = {
   colorAdherence: 0.9,
@@ -299,7 +311,9 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
   const spent = familyCost(id, version);
   report.cost = { versionUsd: round2(versionCost(id, version).usd), familyUsd: round2(spent.usd), familyRuns: spent.runs };
 
-  const failed = [...report.runs.flatMap((r) => r.gates.map((g) => ({ ...g, app: r.app }))), ...report.crossApp.map((g) => ({ ...g, app: "cross-app" }))].filter((g) => !g.pass);
+  for (const r of report.runs) for (const g of r.gates) g.gating = GATING_CHECKS.has(g.name);
+  for (const g of report.crossApp) g.gating = false;
+  const failed = report.runs.flatMap((r) => r.gates.map((g) => ({ ...g, app: r.app }))).filter((g) => !g.pass && g.gating);
   for (const g of failed) report.reasons.push(`${g.app}: ${g.name} = ${g.value} (needs ${g.threshold ?? "pass"})`);
   report.verdict = failed.length || report.runs.length < apps.length * samples + holdouts.length ? "fail" : "pending-review";
 
@@ -314,12 +328,18 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** A failed gating check fails the run; a failed reported check is evidence for the review. */
+function checkResult(g: EvalReport["crossApp"][number]): string {
+  if (g.pass) return "pass";
+  return g.gating === false ? "below (reported)" : "**FAIL**";
+}
+
 function renderMarkdown(r: EvalReport): string {
   const lines = [`# ${r.template}@${r.version} — evaluation ${r.iteration}`, "", `Verdict: **${r.verdict}** · ${r.evaluatedAt}`, ""];
   if (r.cost) lines.push(`Agent spend: this candidate $${r.cost.versionUsd.toFixed(0)} · family $${r.cost.familyUsd.toFixed(0)} over ${r.cost.familyRuns} runs`, "");
   for (const run of r.runs) {
     lines.push(`## ${run.app} (${run.runId})`, "", "| Gate | Result | Value | Threshold |", "| --- | --- | --- | --- |");
-    for (const g of run.gates) lines.push(`| ${g.name} | ${g.pass ? "pass" : "**FAIL**"} | ${g.value ?? ""} | ${g.threshold ?? ""} |`);
+    for (const g of run.gates) lines.push(`| ${g.name} | ${checkResult(g)} | ${g.value ?? ""} | ${g.threshold ?? ""} |`);
     lines.push("");
   }
   if (r.layout?.length) {
@@ -329,7 +349,7 @@ function renderMarkdown(r: EvalReport): string {
   }
   if (r.crossApp.length) {
     lines.push("## Cross-app and reference", "", "| Check | Result | Value | Threshold |", "| --- | --- | --- | --- |");
-    for (const g of r.crossApp) lines.push(`| ${g.name} | ${g.pass ? "pass" : "**FAIL**"} | ${g.value ?? ""} | ${g.threshold ?? "reported"} |`);
+    for (const g of r.crossApp) lines.push(`| ${g.name} | ${checkResult(g)} | ${g.value ?? ""} | ${g.threshold ?? "reported"} |`);
     lines.push("");
   }
   if (r.review) {
@@ -338,11 +358,20 @@ function renderMarkdown(r: EvalReport): string {
   if (r.critic?.overrides?.length) {
     lines.push("## Severity overrides", "", ...r.critic.overrides.map((o) => `- ${o.from} → ${o.to}: ${o.summary} — ${o.reason} (${o.at})`), "");
   }
+  if (r.critic?.mode === "quality") {
+    const c = r.critic;
+    lines.push("## Quality against the reference", "", "| Area | Score | Bar |", "| --- | --- | --- |");
+    for (const a of ["referenceFidelity", "signature", "crossAppConsistency", "hierarchy", "spacingRhythm", "componentStates", "polish"] as const) {
+      lines.push(`| ${a} | ${c[a] ?? "-"} | ${a === "referenceFidelity" || a === "signature" ? QUALITY_BAR[a] : QUALITY_BAR.other} |`);
+    }
+    lines.push("", ...c.notes.map((n) => `> ${n}`), "");
+  }
   if (r.critic?.findings) {
-    lines.push("## Critic findings", "", "| Severity | Area | Samples | Finding |", "| --- | --- | --- | --- |");
+    lines.push("## Critic findings", "", "| Kind | Severity | Area | Samples | Finding |", "| --- | --- | --- | --- | --- |");
     const order = { blocker: 0, major: 1, minor: 2 } as const;
     for (const f of [...r.critic.findings].sort((a, b) => order[a.severity] - order[b.severity])) {
-      lines.push(`| ${f.severity}${f.specCaused ? " (spec)" : ""} | ${f.area} | ${f.samples} of ${f.of} | ${f.summary.replaceAll("|", "/")} |`);
+      const kind = f.kind === "defect" ? (promptInduced(f) ? "defect (prompt-induced)" : "defect (agent, not counted)") : (f.kind ?? "");
+      lines.push(`| ${kind} | ${f.severity}${!f.kind && f.specCaused ? " (spec)" : ""} | ${f.area} | ${f.samples} of ${f.of} | ${f.summary.replaceAll("|", "/")} |`);
     }
     lines.push("");
   } else if (r.critic) {
@@ -446,6 +475,7 @@ export function mergeCritic(
  * candidate. Older critic files without findings fall back to the score bar.
  */
 export function judgeCritic(critic: CriticScores): { ok: boolean; summary: string; reasons: string[] } {
+  if (critic.mode === "quality") return judgeQuality(critic);
   if (critic.findings) {
     const blockers = critic.findings.filter((f) => f.severity === "blocker");
     const gatingMajors = critic.findings.filter((f) => f.severity === "major" && (f.specCaused || (!f.holdoutOnly && (f.samples >= 2 || f.of === 1))));
@@ -464,4 +494,36 @@ export function judgeCritic(critic: CriticScores): { ok: boolean; summary: strin
   const min = Math.min(...scores);
   const ok = scores.length > 0 && avg >= 4 && min >= 3;
   return { ok, summary: `average ${avg.toFixed(2)}, lowest ${min}`, reasons: ok ? [] : [`critic: average ${avg.toFixed(2)} (needs 4.0), lowest ${min} (needs 3)`] };
+}
+
+/** A defect counts against the prompt only when the spec's own words lead agents to it, quoted as evidence. */
+export function promptInduced(f: CriticFinding): boolean {
+  return f.kind === "defect" && f.specCaused && !!f.specRule?.trim() && f.severity !== "minor";
+}
+
+/**
+ * The quality verdict: the typical sample comes close to the reference's design quality (QUALITY_BAR), and no
+ * blocker or major defect is induced by the prompt. Gaps lower the scores and go to the author; defects the agent
+ * made on its own are recorded and never count.
+ */
+export function judgeQuality(critic: CriticScores): { ok: boolean; summary: string; reasons: string[] } {
+  const areas = ["referenceFidelity", "signature", "crossAppConsistency", "hierarchy", "spacingRhythm", "componentStates", "polish"] as const;
+  const reasons: string[] = [];
+  for (const area of areas) {
+    const value = critic[area];
+    const bar = area === "referenceFidelity" || area === "signature" ? QUALITY_BAR[area] : QUALITY_BAR.other;
+    if (typeof value !== "number") reasons.push(`critic quality: no ${area} score`);
+    else if (value < bar) reasons.push(`critic quality: ${area} ${value} (needs ${bar})`);
+  }
+  const findings = critic.findings ?? [];
+  const induced = findings.filter(promptInduced);
+  reasons.push(...induced.map((f) => `critic defect induced by the prompt (${f.severity}): ${f.summary}`));
+  const gaps = findings.filter((f) => f.kind !== "defect").length;
+  const agentDefects = findings.filter((f) => f.kind === "defect" && !promptInduced(f)).length;
+  const scores = areas.map((a) => `${a} ${critic[a] ?? "-"}`).join(", ");
+  return {
+    ok: reasons.length === 0,
+    summary: `${scores}; ${gaps} gap(s), ${induced.length} prompt-induced defect(s), ${agentDefects} agent defect(s) not counted`,
+    reasons,
+  };
 }

@@ -12,7 +12,7 @@ import { checkUnit, extractJson, UNIT_MINOR_CAP } from "./review/run.ts";
 import { sheetHtml } from "./review/sheets.ts";
 import { paths } from "./paths.ts";
 import { swatchPage } from "./commands/check-analysis.ts";
-import { applyOverrides, judgeCritic, layoutCounts, shareOnScale } from "./commands/evaluate.ts";
+import { applyOverrides, GATING_CHECKS, judgeCritic, layoutCounts, promptInduced, shareOnScale } from "./commands/evaluate.ts";
 import { runQueue, sampleRunIds } from "./commands/generate.ts";
 import { galleryRuns } from "./commands/publish.ts";
 import { layFixedLayers } from "./commands/shoot.ts";
@@ -55,6 +55,25 @@ test("critic verdict: minors never fail; reasons name what failed", () => {
   const judged = judgeCritic(critic([finding("blocker", 1, 3), finding("major", 3, 3), finding("minor", 3, 3)]));
   assert.equal(judged.reasons.length, 2);
   assert.match(judged.summary, /1 blocker\(s\), 1 gating major\(s\), 1 minor\(s\)/);
+});
+
+test("quality verdict: the scores against the reference decide, and only prompt-induced defects count", () => {
+  const scores = { mode: "quality" as const, referenceFidelity: 4, signature: 4, crossAppConsistency: 3, hierarchy: 3, spacingRhythm: 3, componentStates: 3, polish: 3, notes: [], promptFixes: [] };
+  const defect = (specCaused: boolean, specRule?: string, severity: CriticFinding["severity"] = "blocker"): CriticFinding => ({ ...finding(severity, 3, 3, specCaused), kind: "defect", specRule });
+  const gap = (severity: CriticFinding["severity"]): CriticFinding => ({ ...finding(severity, 3, 3), kind: "gap" });
+  assert.equal(judgeCritic({ ...scores, findings: [] }).ok, true, "at the bar");
+  assert.equal(judgeCritic({ ...scores, findings: [], referenceFidelity: 3 }).ok, false, "not close enough to the reference");
+  assert.equal(judgeCritic({ ...scores, findings: [], polish: 2 }).ok, false);
+  assert.equal(judgeCritic({ ...scores, findings: [gap("major"), gap("major")] }).ok, true, "gaps lower the scores; they do not fail by themselves");
+  assert.equal(judgeCritic({ ...scores, findings: [defect(false)] }).ok, true, "a blocker the agent made on its own does not count");
+  assert.equal(judgeCritic({ ...scores, findings: [defect(true)] }).ok, true, "a spec cause without the quoted rule does not count");
+  assert.equal(judgeCritic({ ...scores, findings: [defect(true, "toasts sit over the action row")] }).ok, false, "a defect the spec's words induce counts");
+  assert.equal(promptInduced(defect(true, "rule", "minor")), false, "a minor never counts");
+  assert.match(judgeCritic({ ...scores, findings: [], signature: undefined }).reasons.join(), /no signature score/);
+});
+
+test("only a finished agent and a building app gate a run; every other check is evidence", () => {
+  assert.deepEqual([...GATING_CHECKS].sort(), ["agent-finished", "build"]);
 });
 
 test("critic verdict: older score-only files keep the score bar", () => {
@@ -153,20 +172,21 @@ test("overrides change one finding's severity and are recorded with their reason
 const item = (id: string): ReviewItem => ({ id, app: "blog", holdout: false, kind: "page", subject: "/", viewport: "desktop", scheme: "light", sheet: `${id}.png`, sources: [[`${id}-a.png`]], questions: ["?"] });
 
 test("review: a unit answer counts only with a note about what is on every item", () => {
-  const items = [item("a"), item("b"), item("c")];
+  const items = [item("a"), item("b"), item("c"), item("d")];
   const good = checkUnit(items, {
     items: [
-      { id: "a", status: "ok", note: "Hero headline left, dot field under the close, three samples alike." },
-      { id: "b", status: "finding", note: "Pinned column covers the budget figures in samples 1 and 3." },
-      { id: "c", status: "ok", note: "ok" },
-      { id: "zzz", status: "ok", note: "An item that is not on this checklist at all." },
+      { id: "a", status: "ok", fidelity: 4, note: "Hero headline left, dot field under the close, three samples alike." },
+      { id: "b", status: "finding", fidelity: 3, note: "Pinned column covers the budget figures in samples 1 and 3." },
+      { id: "c", status: "ok", fidelity: 4, note: "ok" },
+      { id: "d", status: "ok", note: "A real note about the screen, but no fidelity mark at all." },
+      { id: "zzz", status: "ok", fidelity: 4, note: "An item that is not on this checklist at all." },
     ],
     findings: [{ severity: "major", area: "polish", summary: "covered figures", samples: 2, of: 3, items: ["b", "nope"] }],
   });
-  assert.deepEqual(good.missing, ["c"], "a contentless note counts as missing");
+  assert.deepEqual(good.missing, ["c", "d"], "a contentless note or a missing fidelity mark counts as missing");
   assert.deepEqual(good.review!.findings[0]!.items, ["b"], "findings only point at checklist items");
   assert.ok(good.problems.some((p) => /unknown item ids: zzz/.test(p)));
-  assert.deepEqual(checkUnit(items, { nonsense: true }).missing, ["a", "b", "c"]);
+  assert.deepEqual(checkUnit(items, { nonsense: true }).missing, ["a", "b", "c", "d"]);
   const minors = Array.from({ length: 12 }, (_, i) => ({ severity: "minor", area: "polish", summary: `m${i}`, samples: 1, of: 3 }));
   assert.equal(checkUnit(items, { items: [], findings: minors }).review!.findings.length, UNIT_MINOR_CAP);
 });

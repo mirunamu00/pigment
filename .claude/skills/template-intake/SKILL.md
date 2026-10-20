@@ -79,21 +79,22 @@ background and report progress; never queue a second generation behind the first
    now, so a candidate that failed on the main apps never learns from them.
 
 `review` is the critic: the harness builds the checklist and comparison sheets, runs the reviewers and a lead
-reviewer, checks that every item was answered, and merges the verdict. Never write, edit or extend a reviewer
+reviewer, checks that every item was answered, and merges the verdict. It judges how close the results come to
+the reference's design quality (0–5 against the reference); broken details count only when the prompt induced them. Never write, edit or extend a reviewer
 prompt, never edit a critic file, and never review by delegating to an agent yourself. If you disagree with a
 severity, change it only with `pnpm harness critic <ref> <file> --override "<phrase>=<severity>=<reason>"`, which
 is recorded in the report. A review that ends "incomplete" gives no verdict: run it again; do not pass it.
 
 On `fail` (any stage): scaffold the next rc from this one, run `pnpm harness author-brief <id>@<rc> --next
 <next-rc>` and give the prompt-author that file's content verbatim — never a hand-written list of what the demo
-screens got wrong. On a pass of the holdout check: stop and go to step 7; minors go to the user as a list.
+screens got wrong. On a pass of the holdout check: stop and go to step 7; the remaining gaps go to the user as a list.
 At most four candidates (scaffold enforces it) — then stop and report the failure analysis.
 
 ## 7. Approval and publish
 
 **Checkpoint 2 (stop here):** show the user `review-<n>.html` (screenshots of all four apps, desktop and
-mobile, light and dark), the reference screenshots, the gate table, the review's findings and coverage, and the iteration
-log, and the critic's minors as a list of known flaws. Only on explicit approval:
+mobile, light and dark), the reference screenshots, the quality scores against the reference, the review's findings and coverage, and the iteration
+log, and the remaining gaps as a list of known differences from the reference. Only on explicit approval:
 
 1. `pnpm harness scaffold <id>@<final> --name "<Name>" --from <id>@<last-rc>` (e.g. 1.0.0), and write the
    public `## <final>` changelog entry: what the system is, in plain words, with no version numbers or

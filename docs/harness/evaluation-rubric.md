@@ -1,24 +1,30 @@
 # Evaluation rubric
 
-A template version passes when every hard gate passes in every sample, the review finds no blocker and no
-major the prompt causes — on the main apps and then on the holdout apps — and a human approves.
+A template version passes when the agents' results come close to the reference's design quality — on the main
+apps and then on the holdout apps — no broken detail is induced by the prompt itself, and a human approves. The
+review measures quality against the reference; it is not a hunt for defects. Coding agents make mistakes of their
+own (an overlap, a clipped label); those are recorded and never count against the prompt.
 `pnpm harness evaluate` computes the gates and writes `showcase/runs/<id>/<version>/eval-<iteration>.json` + `.md`;
 `pnpm harness review` reviews every checklist item and settles the verdict.
 
-## Hard gates (per app, automated)
+## Automated checks (per app)
 
-| Gate | Threshold | Why |
+Only two checks fail a run by themselves, because without them there is nothing to review: the agent finished and
+the app builds. Every other check is **reported** as evidence for the review (`below (reported)` in the eval): a
+failure there is the agent's mistake unless the review finds the spec's own words induce it.
+
+| Check | Threshold | Gates |
 | --- | --- | --- |
-| Agent finished | exit code 0 | the run is usable |
-| Build | `npm run build` succeeds | shipping code |
-| Functional preservation | every base-app smoke test passes | restyling must not break behavior |
-| No console errors | 0 on every captured route | runtime regressions |
-| No horizontal scroll | page width = viewport on every route, desktop and mobile, light and dark | mobile layouts that hide content off-screen |
-| Accessibility | 0 new serious/critical axe violations vs. the unstyled base app | the system must not cost accessibility |
-| Reduced motion | 0 looping animations still running with `prefers-reduced-motion: reduce` | motion must respect the user |
-| Color adherence | ≥ 90% of painted color area within ΔE2000 ≤ 3 of a template color token | sanity check |
-| Font adherence | every rendered text family is a template family or its fallback | sanity check |
-| Radius adherence | ≥ 85% of rounded elements use a template radius (±1px) | sanity check |
+| Agent finished | exit code 0 | yes |
+| Build | `npm run build` succeeds | yes |
+| Functional preservation | every base-app smoke test passes | reported |
+| No console errors | 0 on every captured route | reported |
+| No horizontal scroll | page width = viewport on every route, desktop and mobile, light and dark | reported |
+| Accessibility | 0 new serious/critical axe violations vs. the unstyled base app | reported |
+| Reduced motion | 0 looping animations still running with `prefers-reduced-motion: reduce` | reported |
+| Color adherence | ≥ 90% of painted color area within ΔE2000 ≤ 3 of a template color token | reported |
+| Font adherence | every rendered text family is a template family or its fallback | reported |
+| Radius adherence | ≥ 85% of rounded elements use a template radius (±1px) | reported |
 
 The three adherence gates are sanity checks, not quality measures: agents that read the package almost
 always score above 0.99, so they catch a run that ignored the tokens, nothing finer. Never read a high value
@@ -43,9 +49,9 @@ They are listed in the eval and in the critic brief. The critic confirms each on
 it like any other finding; a false alarm is dropped with a note. They are not gates: a measurement can flag
 a deliberate choice the reference shares.
 
-## Cross-app gates (automated)
+## Cross-app checks (automated, reported)
 
-| Gate | Threshold |
+| Check | Threshold |
 | --- | --- |
 | Palette consistency | the four apps' top-8 colors overlap ≥ 75% |
 | Type consistency | same families and ≥ 70% shared font sizes |
@@ -64,8 +70,8 @@ look for copying.
 
 ## The review
 
-The gates only show that nothing broke and the tokens were used. Whether the agents built the reference's design
-language is judged by the review, so the review is held to a coverage it cannot skip, and a stopping point it
+The checks only show that the runs are usable and the tokens were used. How close the agents came to the reference's
+design quality is judged by the review, so the review is held to a coverage it cannot skip, and a stopping point it
 cannot extend:
 
 1. **Checklist.** `pnpm harness review <ref>` lists everything the runs produced as items: every captured screen at
@@ -74,14 +80,15 @@ cannot extend:
 2. **Comparison sheets.** Each item gets one image with the samples side by side (drawings next to each other,
    originals listed under the sheet), and the reference gets its own sheet.
 3. **Reviewers.** One reviewer per app (two when an app has over 30 items), run by the harness in parallel with
-   read-only tools and a generated prompt. Each answers every item of its list with a note about what is on that
-   screen; a missing item or a contentless note ("ok") does not count. At most one minor per item and eight per
-   reviewer: a review lists what it sees, it does not hunt.
+   read-only tools and a generated prompt. Each answers every item of its list with a `fidelity` mark (1–5, the
+   anchors below) and a note on what is on that screen against the reference; a missing item, a missing mark or a
+   contentless note ("ok") does not count. At most one finding per item and eight minors per reviewer.
 4. **Coverage check.** Unanswered items go back to their reviewer once. If any are still unanswered, the review is
    `incomplete` and gives **no verdict**.
-5. **Lead reviewer.** Merges duplicate findings, settles each finding's sample count, grades every finding with one
-   standard, and judges what no single reviewer can (one family across apps, reference fidelity, signatures). Its
-   file is merged into the evaluation; the report records coverage, reviewers and time.
+5. **Lead reviewer.** Looks at the reference and the home screens itself first, then scores every area against the
+   reference, merges duplicate findings, settles their kind and sample count, and judges what no single reviewer
+   can (one family across apps, the overall impression). Its file (`mode: "quality"`) is merged into the
+   evaluation; the report records coverage, reviewers and time.
 6. **Overrides.** The orchestrator never edits a critic file or a reviewer prompt. A severity it disagrees with is
    changed with `critic --override "<phrase>=<severity>=<reason>"`, recorded in the file and the report.
 
@@ -100,31 +107,36 @@ generic idea of good UI:
 - **Before marking anything down, check the reference.** If the trait is in the reference (cite the
   screenshot or crop), reproducing it is fidelity, not a flaw. Only executing it worse than the reference
   does is a flaw — say what the reference does better.
-- **A defect is one of:** worse than the reference at the same thing; not in the reference and not asked
-  for by the spec; against the spec; or broken for people regardless of style (unreadable text,
-  overlapping content, a broken layout, content that contradicts its label).
+- **A gap** is where the result is worse than the reference at the same thing, or generic where the reference
+  is specific. **A defect** is something broken (unreadable text, overlapping content, a broken layout). Defects
+  count only when the prompt induced them (below).
 - **Every finding cites its evidence:** the app screenshot or crop, and for anything about style, the
   reference image it was compared with.
 - **One problem, one finding**, filed under one area. Drawings, motion and other signature elements go
   under Signature only.
 
-### Findings and severity
+### Quality: the verdict
 
-The verdict comes from findings, each with a severity:
+The lead reviewer scores each area 0–5 for the typical sample, against the reference:
 
-| Severity | What it is | Effect |
+- 5: as well designed as the reference; someone who knows it would take it for the same team's work.
+- 4: clearly the reference's language, close in craft; differences only a careful eye finds.
+- 3: recognisably related, but noticeably cruder or more generic than the reference.
+- 2: generic; little of the reference left beyond colours or a font.
+- 1: unrelated to the reference, or not designed at all.
+
+**Bar:** `referenceFidelity` ≥ 4, `signature` ≥ 4, every other area ≥ 3 (`QUALITY_BAR` in
+`packages/harness/src/commands/evaluate.ts`), and no blocker or major defect the prompt induced.
+
+Findings come in two kinds:
+
+| Kind | What it is | Effect |
 | --- | --- | --- |
-| Blocker | Broken for people whatever the style (overlapping or cut-off content, unreadable text, a broken layout, a failed task), or the reference's identity lost | fails the candidate |
-| Major | A signature element missing or built against its recipe; the spec not followed; clearly worse than the reference at the same thing | fails the candidate when the prompt causes it: it recurs (2+ samples), the spec causes it, or there is only one sample |
-| Minor | Small optical issues, a weaker detail, taste | never fails a candidate; listed for the user |
+| Gap | Where the result falls short of the reference's quality: a signature missing or built against its recipe, weaker hierarchy, cruder spacing or drawing, a generic look. Says what the reference does better | lowers the scores; major gaps, and every gap in an area below the bar, go to the author |
+| Defect | Something broken: overlap, clipping, unreadable text, a layout that falls apart | counts only when the spec's own words lead agents to it, quoted in `specRule` (`specCaused: true`); then a blocker or major fails the candidate. Every other defect is the agent's: recorded, never counted, never sent to the author |
 
-**Bar:** no blocker, and no major the prompt causes. Each blocker and gating major comes with a
-`promptFix`: a general rule that would prevent it in any product (prompt-writing rules → Generalize). The
-critic lists the minors it sees once and stops; it does not hunt for flaws to justify a verdict.
-
-The areas (`referenceFidelity`, `crossAppConsistency`, `hierarchy`, `spacingRhythm`, `componentStates`,
-`polish`, `signature`) still get a 0–5 score each. The scores are descriptive — what a user can expect
-from a typical sample — and do not decide anything.
+Coding agents make mistakes of their own, and a stronger model makes fewer. Those mistakes say nothing about the
+prompt, so the prompt is never patched with rules that only tell agents to write correct code.
 
 | Area | Question |
 | --- | --- |
@@ -142,8 +154,8 @@ Every user's agent builds a different result from the same prompt, so one run is
 small flaws of one sample and running again only draws a new sample with new small flaws. A candidate goes through
 three stages, and the harness refuses them out of order:
 
-1. **Screen:** one sample of the four main apps — `generate`, `evaluate`, `review`. A failing gate, a blocker or
-   a gating major sends the candidate back to the author.
+1. **Screen:** one sample of the four main apps — `generate`, `evaluate`, `review`. Scores below the bar or a
+   defect the prompt induced send the candidate back to the author.
 2. **Confirm:** only after a passing screen — `generate --samples 2 --holdout` (two more samples of the main apps,
    one run of each holdout app), `evaluate --samples 3` (the screen run plus the two new ones), `review`.
 3. **Holdout check:** only after a passing confirm — `evaluate --holdout`, `review --holdout`. The holdout apps
@@ -153,12 +165,10 @@ three stages, and the harness refuses them out of order:
 
 Judging three samples:
 
-- **Gates** must pass in every sample.
-- **A finding counts against the prompt when it recurs** — in two or more samples, or in every app of one
-  sample — or when the spec itself causes it. A major seen once, in one app of one sample, is variance: it
-  is listed with "1 of 3" and does not fail the candidate. A blocker fails it wherever it appears.
-- **Holdout apps run once,** so a major seen only there counts against the prompt only when the spec causes it;
-  a blocker there fails the candidate.
+- **The agent must finish and the app must build** in every sample.
+- **Scores describe the typical sample,** not the best or the worst one. A gap seen once is noted with its
+  sample count; it weighs on the score only as much as it shapes what a user can expect.
+- **Holdout apps run once** and are held to the same bar: the system must carry to products it was never tuned on.
 - Every finding says in how many samples it appears.
 
 ## When to stop
@@ -179,13 +189,14 @@ new small flaws. Every eval records the spend of the candidate and its family, f
 
 ## Iteration
 
-1. A failing gate, a blocker or a gating major → the findings' `promptFix`es and the gate details go to the
-   prompt-author, who turns each into a general rule (never a fix for one demo screen).
+1. Scores below the bar or a prompt-induced defect → `pnpm harness author-brief` lists the areas below the bar,
+   the gaps behind them and the prompt-induced defects, with their `promptFix`es; the prompt-author turns each into
+   a general rule (never a fix for one demo screen). Agent defects never reach the author.
 2. The author changes the package, logs the change in `pipeline/<slug>/iterations.md`, bumps the
    pre-release (`0.1.0-rc.2`), and the screen runs again.
 
 ## Human approval
 
 The user sees: the four apps' screenshots (desktop/mobile, light/dark), the reference next to them, the
-gate table, the critic's findings (minors included) and the iteration log. Only an explicit approval moves
+check table, the quality scores against the reference, the review's findings and the iteration log. Only an explicit approval moves
 the version to `published`.

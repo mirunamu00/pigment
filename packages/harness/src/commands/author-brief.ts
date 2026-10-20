@@ -4,7 +4,7 @@ import { latestEval } from "../budget.ts";
 import { baseAppTerms, overfitMentions } from "../overfit.ts";
 import { rel, runsDir, templateDir } from "../paths.ts";
 import { fail, ok, writeText } from "../util.ts";
-import { judgeCritic } from "./evaluate.ts";
+import { judgeCritic, promptInduced, QUALITY_BAR } from "./evaluate.ts";
 
 /**
  * Writes the prompt-author's assignment for the next candidate, from the latest failed evaluation. Generated, like
@@ -24,14 +24,34 @@ export function authorBrief(id: string, version: string, next: string): string {
   };
 
   const gates = report.runs.flatMap((r) =>
-    r.gates.filter((g) => !g.pass).map((g) => `- ${AppId.safeParse(r.app).success ? r.app : `${r.app} (holdout)`} \`${r.runId}\`: **${g.name}** = ${g.value ?? ""}${g.detail ? ` — ${g.detail}` : ""}`),
+    r.gates.filter((g) => !g.pass && g.gating !== false).map((g) => `- ${AppId.safeParse(r.app).success ? r.app : `${r.app} (holdout)`} \`${r.runId}\`: **${g.name}** = ${g.value ?? ""}${g.detail ? ` — ${g.detail}` : ""}`),
   );
-  const cross = report.crossApp.filter((g) => !g.pass).map((g) => `- **${g.name}** = ${g.value} (needs ${g.threshold})`);
+  const cross = report.crossApp.filter((g) => !g.pass && g.gating !== false).map((g) => `- **${g.name}** = ${g.value} (needs ${g.threshold})`);
 
   const findings = report.critic?.findings ?? [];
-  const gating = findings.filter((f) => f.severity === "blocker" || (f.severity === "major" && (f.specCaused || f.samples >= 2 || f.of === 1)));
+  const quality = report.critic?.mode === "quality";
+  const critic = report.critic;
+  // Quality reviews: the gaps in areas below the bar and every major gap, and the defects the prompt induced.
+  // Defects the agents made on their own never reach the author.
+  const belowBar = new Set(
+    quality && critic
+      ? (["referenceFidelity", "signature", "crossAppConsistency", "hierarchy", "spacingRhythm", "componentStates", "polish"] as const).filter((a) => {
+          const bar = a === "referenceFidelity" || a === "signature" ? QUALITY_BAR[a] : QUALITY_BAR.other;
+          return typeof critic[a] !== "number" || critic[a]! < bar;
+        })
+      : [],
+  );
+  const gating = quality
+    ? findings.filter((f) => promptInduced(f) || (f.kind !== "defect" && (f.severity !== "minor" || belowBar.has(f.area as never))))
+    : findings.filter((f) => f.severity === "blocker" || (f.severity === "major" && (f.specCaused || f.samples >= 2 || f.of === 1)));
+  const agentDefects = quality ? findings.filter((f) => f.kind === "defect" && !promptInduced(f)).length : 0;
+  const scoreLines =
+    quality && critic
+      ? [...belowBar].map((a) => `- **${a}** ${critic[a] ?? "-"} (needs ${a === "referenceFidelity" || a === "signature" ? QUALITY_BAR[a] : QUALITY_BAR.other})`)
+      : [];
   const findingLines = gating.flatMap((f, i) => [
-    `${i + 1}. **${f.severity}**, ${f.area}, ${f.samples} of ${f.of} sample(s)${f.specCaused ? ", caused by the spec" : ""}`,
+    `${i + 1}. **${f.kind === "defect" ? `${f.severity} defect the spec induces` : f.kind === "gap" ? `${f.severity} gap from the reference` : f.severity}**, ${f.area}, ${f.samples} of ${f.of} sample(s)${!quality && f.specCaused ? ", caused by the spec" : ""}`,
+    ...(f.specRule ? [`   - The spec's words that lead to it: ${f.specRule}`] : []),
     `   - Principle to fix: ${f.promptFix ?? "(none given — work out the general rule the spec is missing)"}${flag(f.promptFix ?? "")}`,
     `   - What was seen (for understanding only): ${f.summary}${flag(f.summary)}`,
     ...(f.evidence.length ? [`   - Evidence: ${f.evidence.map((e) => `\`${e}\``).join(", ")}`] : []),
@@ -53,15 +73,25 @@ export function authorBrief(id: string, version: string, next: string): string {
     "  Ask of every rule you write: would it help a booking flow, a CRM or a docs site just as much?",
     "- Do not read `showcase/base-apps/` (their sources or data). Screenshots in the evidence are enough to understand",
     "  a problem; the package must not learn the apps.",
-    "- Fix only what is listed. Minors are not a reason to change the package" +
-      (minors ? ` (${minors} were reported and are left alone).` : "."),
+    ...(quality
+      ? [
+          "- The goal is the reference's design quality: close each gap below with a rule that makes agents build it as",
+          "  well as the reference does. Fix only what is listed" +
+            (minors ? ` (${minors} other finding(s) were reported and are left alone` + (agentDefects ? `, ${agentDefects} of them defects the agents made on their own, not the prompt` : "") + ")." : "."),
+          "- Never add rules that only tell agents to write correct code (overlap, clipping, widths): broken details that the",
+          "  spec did not cause are not the package's job.",
+        ]
+      : [
+          "- Fix only what is listed. Minors are not a reason to change the package" + (minors ? ` (${minors} were reported and are left alone).` : "."),
+        ]),
     "- Keep everything that passed. `validate` must show no errors and no `prose.overfit` or `tokens.undefined-var`",
     "  warnings; then `bundle`. Do not run generate or evaluate.",
     "",
     "## What to fix",
     "",
     ...(gates.length || cross.length ? ["Failing gates:", "", ...gates, ...cross, ""] : []),
-    ...(findingLines.length ? ["Critic findings that fail the candidate:", "", ...findingLines, ""] : []),
+    ...(scoreLines.length ? ["Quality against the reference, below the bar:", "", ...scoreLines, ""] : []),
+    ...(findingLines.length ? [quality ? "What keeps it from the reference's quality:" : "Critic findings that fail the candidate:", "", ...findingLines, ""] : []),
     ...(legacy.length ? ["Critic (score-based file):", "", ...legacy, ""] : []),
     "## Output",
     "",

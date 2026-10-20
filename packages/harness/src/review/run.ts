@@ -66,7 +66,7 @@ export interface UnitCheck {
   problems: string[];
 }
 
-/** Checks a unit's answer against its checklist: every item answered with a note about what is visible. */
+/** Checks a unit's answer against its checklist: every item answered with a fidelity mark and a note about what is visible. */
 export function checkUnit(items: ReviewItem[], answer: unknown): UnitCheck {
   const parsed = UnitReview.safeParse(answer);
   if (!parsed.success) {
@@ -82,9 +82,9 @@ export function checkUnit(items: ReviewItem[], answer: unknown): UnitCheck {
     .map((i) => i.id)
     .filter((id) => {
       const a = answered.get(id);
-      return !a || a.note.trim().length < 12 || EMPTY_NOTE.test(a.note.trim());
+      return !a || a.note.trim().length < 12 || EMPTY_NOTE.test(a.note.trim()) || typeof a.fidelity !== "number";
     });
-  if (missing.length) problems.push(`${missing.length} item(s) without a note about what is on them`);
+  if (missing.length) problems.push(`${missing.length} item(s) without a fidelity mark and a note about what is on them`);
   // Findings must point at checklist items; minors are capped.
   const findings = review.findings.map((f) => ({ ...f, items: (f.items ?? []).filter((id) => ids.has(id)) }));
   const minors = findings.filter((f) => f.severity === "minor");

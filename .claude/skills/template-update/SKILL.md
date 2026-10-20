@@ -34,8 +34,8 @@ numbers — those are internal.
   Never write or extend reviewer prompts or edit critic files; severity changes only via `critic --override`.
 - On `fail`, scaffold the next candidate from the last one (`--from <id>@<next>-rc.<n-1>`), run
   `pnpm harness author-brief <id>@<next>-rc.<n-1> --next <next>-rc.<n>` and give the prompt-author that file's
-  content verbatim; scaffold stops at four candidates. After a passing holdout check, stop: minors go to the user
-  as a list.
+  content verbatim; scaffold stops at four candidates. After a passing holdout check, stop: the remaining gaps go
+  to the user as a list.
 
 ## 3. Approval (stop here)
 

@@ -15,25 +15,21 @@ import { readJson } from "../util.ts";
 
 const QUESTIONS: Record<ReviewItem["kind"], string[]> = {
   page: [
-    "Does the screen carry the reference's character (compare with the reference sheet)?",
-    "Hierarchy: is it obvious what matters first, the way the reference makes it obvious?",
-    "Spacing, alignment and rhythm: on the scale, consistent, nothing cramped or stranded?",
-    "Signature elements: present where the spec's Applying the concept puts them for this kind of screen, built to their recipes?",
-    "Anything broken for people: cut-off or overlapping content, unreadable text, a layout that falls apart?",
+    "Next to the reference sheet: would someone who knows the reference take this screen for the same team's work?",
+    "Hierarchy: is it as clear as the reference what matters first?",
+    "Spacing, type and rhythm: as considered as the reference, or cruder?",
+    "Signature elements: present where the spec's Applying the concept puts them for this kind of screen, and built as well as the reference builds them?",
   ],
   state: [
-    "Is the state designed in the system's language (focus, hover, error, empty, dialog, toast), not a browser default?",
-    "Can a person tell what happened and what to do next?",
-    "Anything broken: hidden messages, overlapping layers, unreadable contrast?",
+    "Is the state designed in the system's language (focus, hover, error, empty, dialog, toast), as carefully as the reference designs its states?",
+    "Does it read clearly: can a person tell what happened and what to do next?",
   ],
   drawings: [
-    "Is each drawing built to its signature recipe (construction, stroke, colour by token)?",
-    "Does it read as what it stands for at its shown size (compare with the reference crops)?",
-    "Is it as well crafted as the reference's drawings at the same size?",
+    "Are the drawings built to their signature recipe and as well crafted as the reference's crops at the same size?",
+    "Does each read as what it stands for, and is each its own drawing?",
   ],
   motion: [
-    "Does the motion follow the spec (what moves, how, how often)?",
-    "Do the frames show the signature motion, and nothing that loops where the spec says it should not?",
+    "Does the motion feel like the reference's (what moves, how, how often), as the spec describes it?",
   ],
 };
 

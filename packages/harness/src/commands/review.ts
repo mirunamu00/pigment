@@ -104,7 +104,9 @@ export async function review(id: string, version: string, options: { holdout?: b
     try {
       const parsed = CriticScores.parse(extractJson(answer.text));
       if (!parsed.findings) throw new Error("no findings array");
-      critic = parsed;
+      const missing = (["referenceFidelity", "signature", "crossAppConsistency", "hierarchy", "spacingRhythm", "componentStates", "polish"] as const).filter((a) => typeof parsed[a] !== "number");
+      if (missing.length) throw new Error(`no score for ${missing.join(", ")}`);
+      critic = { ...parsed, mode: "quality" };
     } catch (e) {
       info(`lead reviewer answer rejected: ${(e as Error).message}`);
     }

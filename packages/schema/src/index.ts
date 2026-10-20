@@ -392,6 +392,11 @@ export const GateResult = z.object({
   value: z.union([z.number(), z.string(), z.boolean()]).optional(),
   threshold: z.union([z.number(), z.string()]).optional(),
   detail: z.string().optional(),
+  /**
+   * false: reported to the review as evidence, never fails the candidate by itself. Only what makes a run
+   * reviewable (the agent finished, the app builds) gates. Absent on older reports, which gated on every check.
+   */
+  gating: z.boolean().optional(),
 });
 
 /**
@@ -415,6 +420,13 @@ export const CriticFinding = z.object({
   holdoutOnly: z.boolean().optional(),
   /** Review checklist items it was seen on (pnpm harness review). */
   items: z.array(z.string()).optional(),
+  /**
+   * Quality reviews: a `gap` is where the result falls short of the reference's design quality; a `defect` is
+   * something broken (overlap, clipping, unreadable text). A defect counts only when the prompt induced it.
+   */
+  kind: z.enum(["gap", "defect"]).optional(),
+  /** For a prompt-induced defect: the spec's own words that lead agents to it, quoted. */
+  specRule: z.string().optional(),
 });
 export type CriticFinding = z.infer<typeof CriticFinding>;
 
@@ -430,7 +442,12 @@ export type CriticOverride = z.infer<typeof CriticOverride>;
 
 const score = z.number().min(0).max(5);
 export const CriticScores = z.object({
-  /** Descriptive only (the verdict comes from findings). Older critic files gate on them. */
+  /**
+   * "quality" (pnpm harness review): the verdict comes from the scores — how close the typical sample comes to the
+   * reference's design quality — and from defects the prompt induced. Absent: an older defect-based critic file.
+   */
+  mode: z.enum(["quality"]).optional(),
+  /** Quality mode: the bar. Defect-based files: descriptive, or the score bar for score-only files. */
   referenceFidelity: score.nullable().optional(),
   crossAppConsistency: score.optional(),
   hierarchy: score.optional(),
@@ -483,7 +500,15 @@ export type ReviewPlan = z.infer<typeof ReviewPlan>;
 
 /** What one unit reviewer returns: a line for every assigned item, and what it found. */
 export const UnitReview = z.object({
-  items: z.array(z.object({ id: z.string(), status: z.enum(["ok", "finding"]), note: z.string() })),
+  items: z.array(
+    z.object({
+      id: z.string(),
+      status: z.enum(["ok", "finding"]),
+      note: z.string(),
+      /** How close this screen comes to the reference's design quality, 1–5 (the rubric's anchors). */
+      fidelity: z.number().min(1).max(5).optional(),
+    }),
+  ),
   findings: z.array(CriticFinding).default([]),
 });
 export type UnitReview = z.infer<typeof UnitReview>;
