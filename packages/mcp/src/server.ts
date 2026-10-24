@@ -10,7 +10,7 @@ export const SERVER_VERSION = pkg.version;
 // internally (content/templates/<id>/<version>), but agents and people only ever see update dates.
 const CURRENT = "latest";
 
-const id = z.string().describe('Design system id, e.g. "margin-notes" (see list_design_systems)');
+const id = z.string().describe("Design system id (see list_design_systems)");
 const mode = z.enum(["new", "existing", "ongoing"]);
 
 // Sent to the client at connection time; most hosts put it in the agent's context.
@@ -188,7 +188,7 @@ export function createServer(): McpServer {
       title: "Apply a design system",
       description: "Install or apply a Pigment design system with a plan, an approval step and a verification report.",
       argsSchema: z.object({
-        id: z.string().describe('Design system id, e.g. "margin-notes"'),
+        id: z.string().describe("Design system id (see list_design_systems)"),
         mode: z.string().optional().describe("new, existing (default) or ongoing"),
       }),
     },

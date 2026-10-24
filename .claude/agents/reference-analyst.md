@@ -89,13 +89,19 @@ Follow `docs/harness/analysis-guide.md` for what each section must contain. In o
     survey found can be absent.
 13. Provenance: brand names, logos, artwork, proprietary fonts and distinctive marks that must not carry
     over, with substitutes (fonts: the closest family under OFL/Apache).
-14. Run `pnpm harness check-analysis <slug>` and fix everything it reports.
+14. **Reference set** (`referenceSet`, 6–12 entries): the reference at its best — the quality bar every review
+    compares with. Pick captures of pages the brand designs itself (home, features, pricing, about, a blog post,
+    docs), at least one on a phone, plus close-ups of the signature elements (interaction and component crops).
+    Never pages made mostly of other people's covers, photos or listings: they show the content, not the design.
+    Say for each what it shows and why it sets the bar. `check-analysis` crops full pages to their first screen.
+15. Run `pnpm harness check-analysis <slug>` and fix everything it reports.
 
 ## Bar
 
 - Every claim cites evidence: a file under `reference/` or a JSON key.
 - Values, not adjectives: px, ms, easing curves, ratios, token roles.
-- Separate the design from noise: cookie banners, third-party embeds and chat widgets are not the site.
+- Separate the design from noise: cookie banners, third-party embeds, chat widgets and other people's content
+  (product covers, user photos, listings) are not the site. The capture report marks layouts made mostly of images.
 - Say where evidence is missing (blocked page, cross-origin stylesheet, an animation that couldn't be
   restarted) instead of guessing.
 - The template will be judged on whether people who know the site recognize its character in four
@@ -109,4 +115,5 @@ the full file content in your final message so the lead can save it — never wo
 
 Finish with a summary for the user's checkpoint: the character in three sentences; how many pages were
 surveyed and which page types; each signature element with one evidence image; the motion and interaction
-patterns; the ten defining rules; the proposed name and tags; what was derived; what will not carry over.
+patterns; the ten defining rules; the proposed name and tags; what was derived; what will not carry over;
+the reference set.

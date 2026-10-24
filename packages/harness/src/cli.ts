@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { RunAppId } from "@pigment/schema";
-import { parseRef } from "./paths.ts";
+import { parseRef, rel } from "./paths.ts";
+import { directionFile } from "./budget.ts";
+import { ok, writeJson } from "./util.ts";
 import { bundle } from "./commands/bundle.ts";
+import { calibrate } from "./commands/calibrate.ts";
 import { capture } from "./commands/capture.ts";
 import { authorBrief } from "./commands/author-brief.ts";
 import { checkAnalysis } from "./commands/check-analysis.ts";
@@ -141,9 +144,10 @@ program
   .description("8. write the prompt-author's assignment for the next candidate from the latest failed evaluation")
   .argument("<ref>", "the candidate that failed")
   .requiredOption("--next <version>", "the candidate to write, e.g. 0.1.0-rc.2")
+  .option("--direction <words>", "the user's answer at the direction check, in their words, when they turned the screen down")
   .action((ref: string, opts) => {
     const { id, version } = parseRef(ref);
-    authorBrief(id, version, opts.next);
+    authorBrief(id, version, opts.next, opts.direction);
   });
 
 program
@@ -164,6 +168,28 @@ program
   .action(async (ref: string, opts) => {
     const { id, version } = parseRef(ref);
     await review(id, version, { holdout: !!opts.holdout, concurrency: Number(opts.concurrency) });
+  });
+
+program
+  .command("calibrate")
+  .description("8c. run the review on candidates the user already judged (showcase/calibration.json) and report whether it agrees")
+  .option("--case <ref>", "one case only")
+  .action(async (opts) => {
+    const agrees = await calibrate(opts.case);
+    if (!agrees) process.exitCode = 1;
+  });
+
+program
+  .command("direction")
+  .description("8b. record the user's approval of a screened candidate's direction against the reference (before the confirm)")
+  .argument("<ref>")
+  .requiredOption("--approved-by <name>", "the person who looked at review-*/direction.html and approved it")
+  .option("--note <text>", "what they said")
+  .action((ref: string, opts) => {
+    const { id, version } = parseRef(ref);
+    const file = directionFile(id, version);
+    writeJson(file, { approvedBy: opts.approvedBy, at: new Date().toISOString(), ...(opts.note ? { note: opts.note } : {}) });
+    ok(`direction approved for ${id}@${version} by ${opts.approvedBy} → ${rel(file)}`);
   });
 
 program
