@@ -127,12 +127,18 @@ function pageFeatures(): Omit<Found, "features"> & { features: string[] } {
 
   const imgs = q<HTMLImageElement>("img").filter(visible);
   counts.images = imgs.length;
-  const pageArea = Math.max(1, document.documentElement.scrollWidth * document.documentElement.scrollHeight);
+  // Each image clipped to the page (marquee copies run off its side, carousels stack slides), the sum capped at the page.
+  const pageW = document.documentElement.clientWidth;
+  const pageH = Math.max(1, document.documentElement.scrollHeight);
   const imageArea = imgs.reduce((sum, i) => {
     const r = i.getBoundingClientRect();
-    return sum + (r.width >= 64 && r.height >= 64 ? r.width * r.height : 0);
+    if (r.width < 64 || r.height < 64) return sum;
+    const top = r.top + window.scrollY;
+    const w = Math.max(0, Math.min(r.right, pageW) - Math.max(r.left, 0));
+    const h = Math.max(0, Math.min(top + r.height, pageH) - Math.max(top, 0));
+    return sum + w * h;
   }, 0);
-  counts.imageSharePct = Math.round((imageArea / pageArea) * 100);
+  counts.imageSharePct = Math.min(100, Math.round((imageArea / (pageW * pageH)) * 100));
   if (imgs.some((i) => i.getBoundingClientRect().width >= 480)) f.add("media:large-image");
   // A logo wall: one parent with five or more small images or svgs side by side.
   const parents = new Map<Element, number>();
@@ -376,7 +382,8 @@ export const CONTENT_HEAVY_SHARE = 0.35;
  * less for a layout already captured or a page mostly made of other people's images.
  */
 export function selectDeep(survey: Survey, seeds: string[], budget: number): Array<{ url: string; reason: string }> {
-  const ok = survey.pages.filter((p) => !p.error);
+  // Machine files and near-empty pages (a JSON document, a redirect) show no design.
+  const ok = survey.pages.filter((p) => !p.error && !/\/\.well-known\/|\.(json|xml|txt)$/i.test(new URL(p.url).pathname) && (p.sections.length > 0 || p.features.length > 0));
   const share = new Map(survey.frequency.map((f) => [f.feature, f.pages]));
   const selected: Array<{ url: string; reason: string }> = [];
   const covered = new Set<string>();
@@ -393,6 +400,11 @@ export function selectDeep(survey: Survey, seeds: string[], budget: number): Arr
   for (const p of ok.filter((p) => seedUrls.includes(p.url))) take(p, "given");
   const home = ok.find((p) => p.group === "home");
   if (home && !selected.some((s) => s.url === home.url)) take(home, "home");
+  // Pages the brand designs for itself carry its language best: up to a third of the budget, before anything else,
+  // whatever layout they share (a layout key is coarse; two such pages are rarely the same design).
+  for (const p of ok.filter((x) => BRAND_PAGE.test(new URL(x.url).pathname) && (x.imageShare ?? 0) <= CONTENT_HEAVY_SHARE).slice(0, Math.ceil(budget / 3))) {
+    if (!selected.some((s) => s.url === p.url) && selected.length < budget) take(p, "a page the brand designs itself");
+  }
 
   while (selected.length < budget) {
     let best: { page: SurveyPage; gain: number; fresh: string[]; why: string } | null = null;

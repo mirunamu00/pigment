@@ -85,7 +85,9 @@ test("capture: pages that share a layout are one template; brand pages and new l
     page("/about", ["·|h1|media", "·|h2|media"], []),
   ];
   const survey = { origin: "https://x.test", pages, frequency: [], groups: [] } as unknown as Survey;
-  const picked = selectDeep(survey, [], 4).map((p) => new URL(p.url).pathname);
+  pages.push(page("/.well-known/oauth-authorization-server", ["·|-|-", "·|-|-"], ["ui:code-block"]), page("/features", ["·|h1|media", "·|h2|-"], []));
+  const picked = selectDeep(survey, [], 5).map((p) => new URL(p.url).pathname);
+  assert.ok(!picked.some((p) => p.startsWith("/.well-known")), "machine files are never captured");
   assert.ok(picked.includes("/pricing") && picked.includes("/about"), `brand pages with new layouts are captured: ${picked}`);
   assert.equal(picked.filter((p) => ["/3d", "/design", "/films", "/music", "/games"].includes(p)).length, 1, "one capture of the repeated category layout");
 });
