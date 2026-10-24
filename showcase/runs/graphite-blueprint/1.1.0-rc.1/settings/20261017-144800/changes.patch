@@ -1,0 +1,2613 @@
+diff --git a/package.json b/package.json
+index 0d72e6b..bf6f60e 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource-variable/inter": "^5.0.0",
++    "@fontsource/geist-mono": "^5.0.0",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/components/ConfirmDialog.tsx b/src/components/ConfirmDialog.tsx
+index 0ac9dd1..d8830d4 100644
+--- a/src/components/ConfirmDialog.tsx
++++ b/src/components/ConfirmDialog.tsx
+@@ -3,6 +3,8 @@ import { useEffect, useRef, type ReactNode } from 'react';
+ interface ConfirmDialogProps {
+   open: boolean;
+   title: string;
++  /** Mono caption above the title naming the object or step. */
++  label?: string;
+   children: ReactNode;
+   confirmLabel: string;
+   onConfirm: () => void;
+@@ -17,6 +19,7 @@ interface ConfirmDialogProps {
+ export default function ConfirmDialog({
+   open,
+   title,
++  label,
+   children,
+   confirmLabel,
+   onConfirm,
+@@ -48,12 +51,23 @@ export default function ConfirmDialog({
+       }}
+       data-testid={testId}
+     >
++      {label && (
++        <p className="mono-label dialog-label" aria-hidden="true">
++          {label}
++        </p>
++      )}
+       <h2 id={`${testId}-title`}>{title}</h2>
+       <div id={`${testId}-body`} className="dialog-body">
+         {children}
+       </div>
+       <div className="dialog-actions">
+-        <button ref={cancelRef} type="button" className="button" onClick={onCancel} data-testid={`${testId}-cancel`}>
++        <button
++          ref={cancelRef}
++          type="button"
++          className="button button-bordered"
++          onClick={onCancel}
++          data-testid={`${testId}-cancel`}
++        >
+           Cancel
+         </button>
+         <button type="button" className="button button-primary" onClick={onConfirm} data-testid={`${testId}-confirm`}>
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 8802b51..b2902db 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,11 +1,11 @@
+ import { NavLink, Outlet } from 'react-router';
+ import { currentUser } from '../data/account';
+-
++import { IconBell, IconCard, IconLock, IconUser } from './Icons';
+ const SECTIONS = [
+-  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile' },
+-  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications' },
+-  { to: '/settings/security', label: 'Security', testId: 'nav-security' },
+-  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing' },
++  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile', icon: <IconUser /> },
++  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications', icon: <IconBell /> },
++  { to: '/settings/security', label: 'Security', testId: 'nav-security', icon: <IconLock /> },
++  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing', icon: <IconCard /> },
+ ];
+ 
+ export default function Layout() {
+@@ -20,18 +20,22 @@ export default function Layout() {
+           <span className="avatar avatar-small" aria-hidden="true">
+             {currentUser.initials}
+           </span>
+-          <span>{currentUser.name}</span>
++          <span className="person-name">{currentUser.name}</span>
+         </div>
+       </header>
+ 
+       <div className="settings-layout">
+         <aside className="sidebar">
+           <nav aria-label="Settings sections" data-testid="settings-nav">
++            <p className="mono-label nav-group-label" aria-hidden="true">
++              Account
++            </p>
+             <ul className="nav-list">
+               {SECTIONS.map((section) => (
+                 <li key={section.to}>
+                   <NavLink to={section.to} className="nav-link" data-testid={section.testId}>
+-                    {section.label}
++                    {section.icon}
++                    <span>{section.label}</span>
+                   </NavLink>
+                 </li>
+               ))}
+@@ -40,7 +44,9 @@ export default function Layout() {
+         </aside>
+ 
+         <main id="main-content" className="content" tabIndex={-1}>
+-          <Outlet />
++          <div className="content-inner">
++            <Outlet />
++          </div>
+         </main>
+       </div>
+     </div>
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..93469c1 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,9 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '../design-system/tokens.css';
++import './styles/fonts.css';
++import './styles/signature.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/BillingPage.tsx b/src/pages/BillingPage.tsx
+index 54b10a4..8dbd536 100644
+--- a/src/pages/BillingPage.tsx
++++ b/src/pages/BillingPage.tsx
+@@ -1,13 +1,19 @@
+ import { useState } from 'react';
+ import ConfirmDialog from '../components/ConfirmDialog';
++import { IconCheck, StatusIcon } from '../components/Icons';
++import ScreenHead, { SettingsGroup } from '../components/signature/ScreenHead';
++import { TierSlabs } from '../components/signature/Blueprint';
+ import { initialPlanId, invoices, paymentMethod, plans, type Plan, type PlanId } from '../data/billing';
+ 
++const TIER: Record<PlanId, 1 | 2 | 3> = { free: 1, pro: 2, business: 3 };
++
+ export default function BillingPage() {
+   const [currentPlanId, setCurrentPlanId] = useState<PlanId>(initialPlanId);
+   const [pendingPlan, setPendingPlan] = useState<Plan | null>(null);
+   const [message, setMessage] = useState('');
+ 
+   const currentPlan = plans.find((plan) => plan.id === currentPlanId) ?? plans[0];
++  const dueCount = invoices.filter((invoice) => invoice.status === 'Due').length;
+ 
+   function confirmChange() {
+     if (!pendingPlan) return;
+@@ -18,42 +24,49 @@ export default function BillingPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Billing</h1>
+-        <p className="muted">
+-          You are on the <strong data-testid="current-plan-name">{currentPlan.name}</strong> plan.
++      <ScreenHead label="Settings · 04 / 04" title="Billing">
++        <p className="two-tone">
++          <b>
++            You are on the <strong data-testid="current-plan-name">{currentPlan.name}</strong> plan.
++          </b>{' '}
++          Plan changes take effect on your next invoice.
+         </p>
+-      </div>
++      </ScreenHead>
+ 
+-      <section className="panel" aria-labelledby="plans-heading">
+-        <h2 id="plans-heading">Plans</h2>
++      <SettingsGroup
++        id="plans-heading"
++        title="Plans"
++        description="Compare tiers and switch when your team changes."
++        meta={`${plans.length} plans`}
++      >
+         <ul className="plan-grid">
+           {plans.map((plan) => {
+             const isCurrent = plan.id === currentPlanId;
+             return (
+               <li
+                 key={plan.id}
+-                className={isCurrent ? 'card plan-card plan-card-current' : 'card plan-card'}
++                className={isCurrent ? 'plan-card plan-card-current' : 'plan-card'}
+                 data-testid={`plan-card-${plan.id}`}
+                 data-current={isCurrent ? 'true' : 'false'}
+                 aria-current={isCurrent ? 'true' : undefined}
+               >
++                <div className="plan-tier">
++                  <TierSlabs tier={TIER[plan.id]} />
++                </div>
+                 <h3>{plan.name}</h3>
+                 <p className="plan-price">
+-                  <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
++                  <span className="plan-amount">{plan.price}</span> <span className="plan-period">{plan.period}</span>
+                 </p>
+                 <ul className="feature-list">
+                   {plan.features.map((feature) => (
+                     <li key={feature}>
+-                      <svg className="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+-                        <path d="M3 8.5l3 3l7-7" fill="none" stroke="currentColor" strokeWidth="2" />
+-                      </svg>
++                      <IconCheck />
+                       <span>{feature}</span>
+                     </li>
+                   ))}
+                 </ul>
+                 {isCurrent ? (
+-                  <p className="pill pill-current" data-testid="current-plan-badge">
++                  <p className="badge badge-current" data-testid="current-plan-badge">
+                     Current plan
+                   </p>
+                 ) : (
+@@ -70,29 +83,32 @@ export default function BillingPage() {
+             );
+           })}
+         </ul>
+-        <p role="status" className="status-message" data-testid="plan-status">
++        <p role="status" className="status-message plan-status" data-testid="plan-status">
+           {message}
+         </p>
+-      </section>
++      </SettingsGroup>
+ 
+-      <section className="panel" aria-labelledby="payment-heading">
+-        <h2 id="payment-heading">Payment method</h2>
++      <SettingsGroup id="payment-heading" title="Payment method" description="Charged on the first of each month.">
+         <div className="payment-method" data-testid="payment-method">
+           <svg className="card-icon" viewBox="0 0 32 22" width="32" height="22" aria-hidden="true" focusable="false">
+-            <rect x="1" y="1" width="30" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-            <rect x="1" y="6" width="30" height="4" fill="currentColor" />
++            <rect x="0.75" y="0.75" width="30.5" height="20.5" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
++            <path d="M0.75 7h30.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+           </svg>
+-          <span>
++          <span className="payment-name">
+             {paymentMethod.brand} ending in {paymentMethod.last4}
+           </span>
+-          <span className="muted small">Expires {paymentMethod.expires}</span>
++          <span className="mono-label">Expires {paymentMethod.expires}</span>
+         </div>
+-      </section>
++      </SettingsGroup>
+ 
+-      <section className="panel" aria-labelledby="invoices-heading">
+-        <h2 id="invoices-heading">Invoices</h2>
+-        <div className="table-wrap">
+-          <table className="table" data-testid="invoices-table">
++      <SettingsGroup
++        id="invoices-heading"
++        title="Invoices"
++        description="Your billing history, newest first."
++        meta={`${invoices.length} invoices · ${dueCount} due`}
++      >
++        <div className="table-wrap tbl-wrap">
++          <table className="table tbl" data-testid="invoices-table">
+             <thead>
+               <tr>
+                 <th scope="col">Invoice</th>
+@@ -100,17 +116,24 @@ export default function BillingPage() {
+                 <th scope="col" className="numeric">
+                   Amount
+                 </th>
+-                <th scope="col">Status</th>
++                <th scope="col" className="pin">
++                  Status
++                </th>
+               </tr>
+             </thead>
+             <tbody>
+               {invoices.map((invoice) => (
+                 <tr key={invoice.id} data-testid="invoice-row">
+-                  <td>{invoice.id}</td>
+-                  <td>{invoice.date}</td>
++                  <td className="mono">
++                    <span className="cell-lines" data-sub={`${invoice.date} · ${invoice.amount}`}>
++                      <span>{invoice.id}</span>
++                    </span>
++                  </td>
++                  <td className="mono muted-cell">{invoice.date}</td>
+                   <td className="numeric">{invoice.amount}</td>
+-                  <td>
+-                    <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
++                  <td className="pin">
++                    <span className="status">
++                      <StatusIcon kind={invoice.status === 'Paid' ? 'done' : 'progress'} />
+                       {invoice.status}
+                     </span>
+                   </td>
+@@ -119,11 +142,12 @@ export default function BillingPage() {
+             </tbody>
+           </table>
+         </div>
+-      </section>
++      </SettingsGroup>
+ 
+       <ConfirmDialog
+         open={pendingPlan !== null}
+         title={pendingPlan ? `Switch to the ${pendingPlan.name} plan?` : 'Change plan'}
++        label="Plan change"
+         confirmLabel="Confirm change"
+         onConfirm={confirmChange}
+         onCancel={() => setPendingPlan(null)}
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 9781ca6..8f56afe 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,30 @@
+-import { Link } from 'react-router';
++import { Link, useNavigate } from 'react-router';
++import { IconArrowLeft } from '../components/Icons';
++import { BrokenConnector } from '../components/signature/Blueprint';
++import Stage from '../components/signature/Stage';
+ 
+ export default function NotFoundPage() {
++  const navigate = useNavigate();
+   return (
+-    <section className="empty-state" data-testid="not-found">
++    <section className="error-state" data-testid="not-found">
++      <Stage quiet framed={false}>
++        <BrokenConnector />
++      </Stage>
++      <p className="mono-label">Err 404</p>
+       <h1>Page not found</h1>
+-      <p className="muted">The settings page you are looking for does not exist or has moved.</p>
+-      <Link to="/settings/profile">Go to profile settings</Link>
++      <p className="two-tone">
++        <b>The settings page you are looking for does not exist or has moved.</b> Pick a section from the menu, or
++        start from your profile.
++      </p>
++      <div className="error-actions">
++        <Link to="/settings/profile" className="button button-primary">
++          Go to profile settings
++        </Link>
++        <button type="button" className="button" onClick={() => navigate(-1)}>
++          <IconArrowLeft />
++          <span>Go back</span>
++        </button>
++      </div>
+     </section>
+   );
+ }
+diff --git a/src/pages/NotificationsPage.tsx b/src/pages/NotificationsPage.tsx
+index 040835b..cac884c 100644
+--- a/src/pages/NotificationsPage.tsx
++++ b/src/pages/NotificationsPage.tsx
+@@ -1,5 +1,6 @@
+ import { useState } from 'react';
+ import { notificationGroups } from '../data/notifications';
++import ScreenHead from '../components/signature/ScreenHead';
+ 
+ function initialState(): Record<string, boolean> {
+   const state: Record<string, boolean> = {};
+@@ -21,48 +22,55 @@ export default function NotificationsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Notifications</h1>
+-        <p className="muted">Choose what you hear about and where. Changes apply right away.</p>
+-        <p className="small" data-testid="notifications-count">
++      <ScreenHead label="Settings · 02 / 04" title="Notifications">
++        <p className="two-tone">
++          <b>Choose what you hear about and where.</b> Changes apply right away.
++        </p>
++        <p className="mono-label" data-testid="notifications-count">
+           {onCount} of {total} notifications on
+         </p>
+-      </div>
++      </ScreenHead>
+ 
+-      {notificationGroups.map((group) => (
+-        <fieldset key={group.id} className="panel fieldset" data-testid={`notification-group-${group.id}`}>
+-          <legend className="legend">{group.title}</legend>
+-          <p className="muted small">{group.description}</p>
+-          <ul className="switch-list">
+-            {group.settings.map((setting) => {
+-              const inputId = `switch-${setting.id}`;
+-              const descriptionId = `${inputId}-description`;
+-              return (
+-                <li key={setting.id} className="switch-row">
+-                  <div className="switch-text">
+-                    <label htmlFor={inputId} className="field-label">
+-                      {setting.label}
+-                    </label>
+-                    <p id={descriptionId} className="muted small">
+-                      {setting.description}
+-                    </p>
+-                  </div>
+-                  <input
+-                    id={inputId}
+-                    type="checkbox"
+-                    role="switch"
+-                    className="switch"
+-                    checked={enabled[setting.id] ?? false}
+-                    onChange={() => toggle(setting.id)}
+-                    aria-describedby={descriptionId}
+-                    data-testid={inputId}
+-                  />
+-                </li>
+-              );
+-            })}
+-          </ul>
+-        </fieldset>
+-      ))}
++      {notificationGroups.map((group) => {
++        const groupOn = group.settings.filter((setting) => enabled[setting.id]).length;
++        return (
++          <fieldset key={group.id} className="group fieldset" data-testid={`notification-group-${group.id}`}>
++            <legend className="legend">{group.title}</legend>
++            <div className="group-head">
++              <p className="group-description">{group.description}</p>
++              <p className="mono-label group-meta" aria-hidden="true">
++                {groupOn} / {group.settings.length} on
++              </p>
++            </div>
++            <ul className="switch-list group-body">
++              {group.settings.map((setting) => {
++                const inputId = `switch-${setting.id}`;
++                const descriptionId = `${inputId}-description`;
++                return (
++                  <li key={setting.id} className="switch-row">
++                    <div className="switch-text">
++                      <label htmlFor={inputId} className="field-label">
++                        {setting.label}
++                      </label>
++                      <p id={descriptionId}>{setting.description}</p>
++                    </div>
++                    <input
++                      id={inputId}
++                      type="checkbox"
++                      role="switch"
++                      className="switch"
++                      checked={enabled[setting.id] ?? false}
++                      onChange={() => toggle(setting.id)}
++                      aria-describedby={descriptionId}
++                      data-testid={inputId}
++                    />
++                  </li>
++                );
++              })}
++            </ul>
++          </fieldset>
++        );
++      })}
+     </>
+   );
+ }
+diff --git a/src/pages/ProfilePage.tsx b/src/pages/ProfilePage.tsx
+index 89f0a81..267db65 100644
+--- a/src/pages/ProfilePage.tsx
++++ b/src/pages/ProfilePage.tsx
+@@ -1,5 +1,8 @@
+ import { useState, type ChangeEvent, type FormEvent } from 'react';
+ import { BIO_MAX_LENGTH, currentUser, initialProfile, timeZones, type Profile } from '../data/account';
++import { IconCamera, StatusIcon } from '../components/Icons';
++import ScreenHead, { SettingsGroup } from '../components/signature/ScreenHead';
++import Stage from '../components/signature/Stage';
+ 
+ type ProfileErrors = Partial<Record<keyof Profile, string>>;
+ 
+@@ -55,160 +58,201 @@ export default function ProfilePage() {
+       .map((part) => part[0]?.toUpperCase())
+       .join('') || currentUser.initials;
+ 
++  const errorCount = Object.keys(errors).length;
++  const zoneLabel = timeZones.find((zone) => zone.value === profile.timeZone)?.label;
++
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Profile</h1>
+-        <p className="muted">This information is shown to people in your workspace.</p>
+-      </div>
+-
+-      <form className="panel form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
+-        <div className="avatar-row">
+-          <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
+-            {initials}
+-          </span>
+-          <div>
+-            <p className="field-label">Profile photo</p>
+-            <p className="muted small">A placeholder with your initials is shown until you upload a photo.</p>
++      <ScreenHead label="Settings · 01 / 04" title="Profile">
++        <p className="two-tone">
++          <b>This information is shown to people in your workspace.</b> Changes apply once you save them.
++        </p>
++      </ScreenHead>
++
++      <form className="form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
++        <SettingsGroup
++          as="div"
++          id="photo-heading"
++          title="Profile photo"
++          description="A placeholder with your initials is shown until you upload a photo."
++        >
++          <div className="avatar-row">
++            <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
++              {initials}
++            </span>
+             <button type="button" className="button" data-testid="change-photo">
+-              <svg className="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+-                <path
+-                  d="M4 7h3l2-2h6l2 2h3v12H4z M12 10a3 3 0 1 0 0 6a3 3 0 0 0 0-6"
+-                  fill="none"
+-                  stroke="currentColor"
+-                  strokeWidth="2"
+-                  strokeLinejoin="round"
+-                />
+-              </svg>
++              <IconCamera />
+               <span>Change photo</span>
+             </button>
+           </div>
+-        </div>
+-
+-        <div className="form-grid">
+-          <div className="field">
+-            <label htmlFor="profile-fullName" className="field-label">
+-              Full name
+-            </label>
+-            <input
+-              id="profile-fullName"
+-              type="text"
+-              className="input"
+-              autoComplete="name"
+-              value={profile.fullName}
+-              onChange={update('fullName')}
+-              aria-invalid={errors.fullName ? true : undefined}
+-              aria-describedby={errors.fullName ? 'profile-fullName-error' : undefined}
+-              data-testid="profile-name"
+-            />
+-            {errors.fullName && (
+-              <p id="profile-fullName-error" className="field-error" data-testid="error-name">
+-                {errors.fullName}
+-              </p>
+-            )}
+-          </div>
++        </SettingsGroup>
+ 
+-          <div className="field">
+-            <label htmlFor="profile-email" className="field-label">
+-              Email
+-            </label>
+-            <input
+-              id="profile-email"
+-              type="email"
+-              className="input"
+-              autoComplete="email"
+-              value={profile.email}
+-              onChange={update('email')}
+-              aria-invalid={errors.email ? true : undefined}
+-              aria-describedby={errors.email ? 'profile-email-error' : undefined}
+-              data-testid="profile-email"
+-            />
+-            {errors.email && (
+-              <p id="profile-email-error" className="field-error" data-testid="error-email">
+-                {errors.email}
+-              </p>
+-            )}
+-          </div>
++        <SettingsGroup
++          as="div"
++          id="details-heading"
++          title="Details"
++          description="Your name, contact address and working hours."
++          meta="5 fields · 1 optional"
++        >
++          <div className="form-stack">
++            <div className="field">
++              <label htmlFor="profile-fullName" className="field-label">
++                Full name
++              </label>
++              <input
++                id="profile-fullName"
++                type="text"
++                className="input"
++                autoComplete="name"
++                value={profile.fullName}
++                onChange={update('fullName')}
++                aria-invalid={errors.fullName ? true : undefined}
++                aria-describedby={errors.fullName ? 'profile-fullName-error' : undefined}
++                data-testid="profile-name"
++              />
++              {errors.fullName && (
++                <p id="profile-fullName-error" className="field-error" data-testid="error-name">
++                  {errors.fullName}
++                </p>
++              )}
++            </div>
+ 
+-          <div className="field">
+-            <label htmlFor="profile-jobTitle" className="field-label">
+-              Job title <span className="muted small">(optional)</span>
+-            </label>
+-            <input
+-              id="profile-jobTitle"
+-              type="text"
+-              className="input"
+-              autoComplete="organization-title"
+-              value={profile.jobTitle}
+-              onChange={update('jobTitle')}
+-              data-testid="profile-job-title"
+-            />
+-          </div>
++            <div className="field">
++              <label htmlFor="profile-email" className="field-label">
++                Email
++              </label>
++              <input
++                id="profile-email"
++                type="email"
++                className="input"
++                autoComplete="email"
++                value={profile.email}
++                onChange={update('email')}
++                aria-invalid={errors.email ? true : undefined}
++                aria-describedby={errors.email ? 'profile-email-error' : undefined}
++                data-testid="profile-email"
++              />
++              {errors.email && (
++                <p id="profile-email-error" className="field-error" data-testid="error-email">
++                  {errors.email}
++                </p>
++              )}
++            </div>
++
++            <div className="field">
++              <label htmlFor="profile-jobTitle" className="field-label">
++                Job title <span className="optional">(optional)</span>
++              </label>
++              <input
++                id="profile-jobTitle"
++                type="text"
++                className="input"
++                autoComplete="organization-title"
++                value={profile.jobTitle}
++                onChange={update('jobTitle')}
++                data-testid="profile-job-title"
++              />
++            </div>
+ 
+-          <div className="field">
+-            <label htmlFor="profile-timeZone" className="field-label">
+-              Time zone
+-            </label>
+-            <select
+-              id="profile-timeZone"
+-              className="input"
+-              value={profile.timeZone}
+-              onChange={update('timeZone')}
+-              aria-invalid={errors.timeZone ? true : undefined}
+-              aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
+-              data-testid="profile-timezone"
+-            >
+-              <option value="">Select a time zone</option>
+-              {timeZones.map((zone) => (
+-                <option key={zone.value} value={zone.value}>
+-                  {zone.label}
+-                </option>
+-              ))}
+-            </select>
+-            {errors.timeZone && (
+-              <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
+-                {errors.timeZone}
+-              </p>
+-            )}
++            <div className="field">
++              <label htmlFor="profile-timeZone" className="field-label">
++                Time zone
++              </label>
++              <select
++                id="profile-timeZone"
++                className="input"
++                value={profile.timeZone}
++                onChange={update('timeZone')}
++                aria-invalid={errors.timeZone ? true : undefined}
++                aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
++                data-testid="profile-timezone"
++              >
++                <option value="">Select a time zone</option>
++                {timeZones.map((zone) => (
++                  <option key={zone.value} value={zone.value}>
++                    {zone.label}
++                  </option>
++                ))}
++              </select>
++              {errors.timeZone && (
++                <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
++                  {errors.timeZone}
++                </p>
++              )}
++            </div>
++
++            <div className="field">
++              <label htmlFor="profile-bio" className="field-label">
++                Bio
++              </label>
++              <textarea
++                id="profile-bio"
++                className="input textarea"
++                rows={4}
++                value={profile.bio}
++                onChange={update('bio')}
++                aria-invalid={errors.bio ? true : undefined}
++                aria-describedby={errors.bio ? 'profile-bio-hint profile-bio-error' : 'profile-bio-hint'}
++                data-testid="profile-bio"
++              />
++              <div className="field-helper">
++                {errors.bio ? (
++                  <p id="profile-bio-error" className="field-error" data-testid="error-bio">
++                    {errors.bio}
++                  </p>
++                ) : (
++                  <span>A sentence or two about your work.</span>
++                )}
++                <p id="profile-bio-hint" className="mono-label field-counter" data-testid="bio-count">
++                  {profile.bio.length} / {BIO_MAX_LENGTH} characters
++                </p>
++              </div>
++            </div>
+           </div>
+ 
+-          <div className="field field-wide">
+-            <label htmlFor="profile-bio" className="field-label">
+-              Bio
+-            </label>
+-            <textarea
+-              id="profile-bio"
+-              className="input textarea"
+-              rows={4}
+-              value={profile.bio}
+-              onChange={update('bio')}
+-              aria-invalid={errors.bio ? true : undefined}
+-              aria-describedby={errors.bio ? 'profile-bio-hint profile-bio-error' : 'profile-bio-hint'}
+-              data-testid="profile-bio"
+-            />
+-            <p id="profile-bio-hint" className="muted small" data-testid="bio-count">
+-              {profile.bio.length} / {BIO_MAX_LENGTH} characters
++          {errorCount > 0 && (
++            <div className="banner" role="alert">
++              <span className="dot dot-danger" aria-hidden="true" />
++              {errorCount === 1 ? '1 field needs attention' : `${errorCount} fields need attention`}
++            </div>
++          )}
++
++          <div className="form-actions">
++            <button type="submit" className="button button-primary" data-testid="profile-save">
++              Save changes
++            </button>
++            <button type="button" className="button" onClick={handleReset} data-testid="profile-reset">
++              Reset
++            </button>
++            <p role="status" className="status-message" data-testid="profile-status">
++              {saved && <StatusIcon kind="done" />}
++              {saved ? 'Saved' : ''}
+             </p>
+-            {errors.bio && (
+-              <p id="profile-bio-error" className="field-error" data-testid="error-bio">
+-                {errors.bio}
+-              </p>
+-            )}
+           </div>
+-        </div>
+-
+-        <div className="form-actions">
+-          <button type="submit" className="button button-primary" data-testid="profile-save">
+-            Save changes
+-          </button>
+-          <button type="button" className="button" onClick={handleReset} data-testid="profile-reset">
+-            Reset
+-          </button>
+-          <p role="status" className="status-message" data-testid="profile-status">
+-            {saved ? 'Saved' : ''}
+-          </p>
+-        </div>
++        </SettingsGroup>
+       </form>
++
++      <SettingsGroup
++        id="preview-heading"
++        title="Preview"
++        description="How your member card appears to people in your workspace. It follows your edits as you type."
++      >
++        <Stage quiet demo className="preview-stage">
++          <div className="member-card">
++            <div className="member-card-head">
++              <span className="avatar avatar-small">{initials}</span>
++              <div>
++                <span className="member-card-name">{profile.fullName.trim() || 'Your name'}</span>
++                <span className="member-card-role">{profile.jobTitle.trim() || 'Member'}</span>
++              </div>
++            </div>
++            {profile.bio.trim() && <p className="member-card-bio">{profile.bio}</p>}
++            <div className="member-card-meta">
++              <span className="mono-label">{zoneLabel ?? 'No time zone'}</span>
++            </div>
++          </div>
++        </Stage>
++      </SettingsGroup>
+     </>
+   );
+ }
+diff --git a/src/pages/SecurityPage.tsx b/src/pages/SecurityPage.tsx
+index 3498f5d..6419c5b 100644
+--- a/src/pages/SecurityPage.tsx
++++ b/src/pages/SecurityPage.tsx
+@@ -1,5 +1,8 @@
+ import { useState, type FormEvent } from 'react';
+ import { initialSessions, type Session } from '../data/sessions';
++import ScreenHead, { SettingsGroup } from '../components/signature/ScreenHead';
++import DotGlyph, { DotMeter } from '../components/signature/DotGlyph';
++import { StatusIcon } from '../components/Icons';
+ 
+ interface PasswordForm {
+   current: string;
+@@ -25,6 +28,14 @@ function strengthOf(password: string): { label: string; level: 'none' | 'weak' |
+   return { label: 'Weak', level: 'weak' };
+ }
+ 
++/** Five-dot meter reading of a strength result, with its status hue. */
++function meterOf(strength: ReturnType<typeof strengthOf>): { dots: number; tone?: string } {
++  if (strength.level === 'none') return { dots: 0 };
++  if (strength.level === 'strong') return { dots: 5, tone: 'var(--color-status-success)' };
++  if (strength.level === 'fair') return { dots: 3, tone: 'var(--color-status-warning)' };
++  return { dots: strength.label === 'Too short' ? 1 : 2, tone: 'var(--color-status-danger)' };
++}
++
+ function validate(form: PasswordForm): PasswordErrors {
+   const errors: PasswordErrors = {};
+   if (!form.current) errors.current = 'Enter your current password.';
+@@ -49,6 +60,8 @@ export default function SecurityPage() {
+   const [sessionMessage, setSessionMessage] = useState('');
+ 
+   const strength = strengthOf(form.next);
++  const meter = meterOf(strength);
++  const errorCount = Object.keys(errors).length;
+ 
+   function handleSubmit(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+@@ -71,13 +84,20 @@ export default function SecurityPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Security</h1>
+-        <p className="muted">Manage your password and the devices signed in to your account.</p>
+-      </div>
++      <ScreenHead label="Settings · 03 / 04" title="Security">
++        <p className="two-tone">
++          <b>Manage your password and the devices signed in to your account.</b> Revoked devices sign out at once.
++        </p>
++        <p className="mono-label">
++          {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} active
++        </p>
++      </ScreenHead>
+ 
+-      <section className="panel" aria-labelledby="password-heading">
+-        <h2 id="password-heading">Change password</h2>
++      <SettingsGroup
++        id="password-heading"
++        title="Change password"
++        description="Pick a password you do not use anywhere else. Twelve characters with mixed cases, numbers or symbols reads as strong."
++      >
+         <form className="form" noValidate onSubmit={handleSubmit} data-testid="password-form">
+           <div className="form-stack">
+             {FIELDS.map((field) => {
+@@ -108,14 +128,17 @@ export default function SecurityPage() {
+                     data-testid={field.testId}
+                   />
+                   {field.key === 'next' && (
+-                    <p
+-                      id="password-strength"
+-                      className={`strength strength-${strength.level} small`}
+-                      data-testid="password-strength"
+-                      data-level={strength.level}
+-                    >
+-                      {strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}
+-                    </p>
++                    <div className="strength-row">
++                      <DotMeter level={meter.dots} tone={meter.tone} />
++                      <p
++                        id="password-strength"
++                        className={`strength strength-${strength.level}`}
++                        data-testid="password-strength"
++                        data-level={strength.level}
++                      >
++                        {strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}
++                      </p>
++                    </div>
+                   )}
+                   {errors[field.key] && (
+                     <p id={`${id}-error`} className="field-error" data-testid={`error-${field.testId}`}>
+@@ -126,28 +149,39 @@ export default function SecurityPage() {
+               );
+             })}
+           </div>
++
++          {errorCount > 0 && (
++            <div className="banner" role="alert">
++              <span className="dot dot-danger" aria-hidden="true" />
++              {errorCount === 1 ? '1 field needs attention' : `${errorCount} fields need attention`}
++            </div>
++          )}
++
+           <div className="form-actions">
+             <button type="submit" className="button button-primary" data-testid="password-submit">
+               Update password
+             </button>
+             <p role="status" className="status-message" data-testid="password-status">
++              {updated && <StatusIcon kind="done" />}
+               {updated ? 'Password updated' : ''}
+             </p>
+           </div>
+         </form>
+-      </section>
++      </SettingsGroup>
+ 
+-      <section className="panel" aria-labelledby="sessions-heading">
+-        <h2 id="sessions-heading">Active sessions</h2>
+-        <p className="muted small">Revoke a session to sign that device out immediately.</p>
+-        <div className="table-wrap">
+-          <table className="table" data-testid="sessions-table">
++      <SettingsGroup
++        id="sessions-heading"
++        title="Active sessions"
++        description="Revoke a session to sign that device out immediately."
++      >
++        <div className="table-wrap tbl-wrap">
++          <table className="table tbl" data-testid="sessions-table">
+             <thead>
+               <tr>
+                 <th scope="col">Device</th>
+                 <th scope="col">Location</th>
+                 <th scope="col">Last active</th>
+-                <th scope="col">
++                <th scope="col" className="pin">
+                   <span className="visually-hidden">Actions</span>
+                 </th>
+               </tr>
+@@ -156,20 +190,33 @@ export default function SecurityPage() {
+               {sessions.map((session) => (
+                 <tr key={session.id} data-testid="session-row">
+                   <td>
+-                    {session.device}
+-                    {session.current && (
+-                      <span className="pill pill-neutral small" data-testid="current-session">
+-                        This device
++                    <div className="cell-first">
++                      <span className="cell-lines" data-sub={`${session.location} · ${session.lastActive}`}>
++                        <span>{session.device}</span>
++                      </span>
++                      {session.current && (
++                        <span className="badge badge-current" data-testid="current-session">
++                          This device
++                        </span>
++                      )}
++                    </div>
++                  </td>
++                  <td className="muted-cell">{session.location}</td>
++                  <td>
++                    {session.current ? (
++                      <span className="live-cell mono">
++                        <span className="pulse" aria-hidden="true" />
++                        {session.lastActive}
+                       </span>
++                    ) : (
++                      <span className="mono">{session.lastActive}</span>
+                     )}
+                   </td>
+-                  <td>{session.location}</td>
+-                  <td>{session.lastActive}</td>
+-                  <td className="cell-actions">
++                  <td className="cell-actions pin">
+                     {!session.current && (
+                       <button
+                         type="button"
+-                        className="button button-danger"
++                        className="button button-danger button-sm"
+                         onClick={() => revoke(session)}
+                         data-testid={`revoke-${session.id}`}
+                       >
+@@ -183,14 +230,20 @@ export default function SecurityPage() {
+           </table>
+         </div>
+         {sessions.length === 1 && (
+-          <p className="muted small" data-testid="sessions-empty">
+-            No other devices are signed in.
+-          </p>
++          <div className="empty-state">
++            <DotGlyph name="empty" size="lg" />
++            <p className="mono-label" aria-hidden="true">
++              No other sessions
++            </p>
++            <p className="two-tone">
++              <b data-testid="sessions-empty">No other devices are signed in.</b> New sign-ins will appear in this list.
++            </p>
++          </div>
+         )}
+-        <p role="status" className="status-message" data-testid="sessions-status">
++        <p role="status" className="status-message sessions-status" data-testid="sessions-status">
+           {sessionMessage}
+         </p>
+-      </section>
++      </SettingsGroup>
+     </>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index bfb6f76..223a46f 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,58 +1,33 @@
+ /*
+- * Base styles for the Account Settings app.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Account Settings on Graphite Blueprint (graphite-blueprint@1.1.0-rc.1).
++ * Every value comes from design-system/tokens.css; see design-system/components.md.
+  */
++
++/* Legacy names, aliased to the tokens so older markup keeps resolving. */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-danger-bg: #fdecee;
+-  --color-switch-off: #bbbbbb;
+-  --color-switch-on: #0645ad;
+-  --color-switch-thumb: #ffffff;
+-  --color-strength-weak: #b00020;
+-  --color-strength-fair: #7a5a00;
+-  --color-strength-strong: #2e7d32;
+-  --color-pill-neutral-bg: #e8e8e8;
+-  --color-pill-neutral-text: #444444;
+-  --color-pill-current-bg: #e3f2e5;
+-  --color-pill-current-text: #1b5e20;
+-  --color-pill-due-bg: #fff4d6;
+-  --color-pill-due-text: #7a5a00;
+-  --color-backdrop: rgba(0, 0, 0, 0.4);
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
+-  --content-max-width: 880px;
+-  --avatar-size-large: 72px;
+-  --switch-width: 40px;
+-  --switch-height: 22px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-card);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-text: var(--color-text-body);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-primary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-negative: var(--color-status-danger);
++  --font-body: var(--font-family-sans);
++  --radius: var(--radius-md);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hairline);
++
++  color-scheme: light dark;
++}
++:root[data-theme='light'] {
++  color-scheme: light;
++}
++:root[data-theme='dark'] {
++  color-scheme: dark;
+ }
+ 
+ *,
+@@ -64,45 +39,51 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-body);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-body);
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
+-}
+-
+-h1 {
+-  font-size: var(--font-size-h1);
+-}
+-
+-h2 {
+-  font-size: var(--font-size-h2);
++  margin: 0;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-semibold);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+-h3 {
+-  font-size: var(--font-size-base);
++p {
++  margin: 0;
+ }
+ 
+-p {
+-  margin: 0 0 var(--space-2);
++pre,
++code,
++kbd,
++samp {
++  font-family: var(--font-family-mono);
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
++  text-decoration: underline;
++  text-decoration-thickness: 1px;
++  text-underline-offset: 3px;
++  text-decoration-color: var(--color-icon-idle);
++  transition: text-decoration-color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-hairline) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
+@@ -121,34 +102,39 @@ a {
+ .skip-link {
+   position: absolute;
+   left: -9999px;
++  top: var(--space-12);
++  z-index: 40;
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
+ }
+-
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-12);
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+-
+ .small {
+   font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
+ }
+-
+ .numeric {
+   font-variant-numeric: tabular-nums;
+   text-align: right;
+ }
+-
+ .icon {
+   flex-shrink: 0;
+ }
+ 
+-/* Layout */
++/* ---------- Shell: sticky header, sidebar, content ---------- */
+ .app-shell {
+   min-height: 100vh;
+   display: flex;
+@@ -156,443 +142,1150 @@ a {
+ }
+ 
+ .topbar {
++  position: sticky;
++  top: 0;
++  z-index: 20;
++  height: var(--size-header);
++  flex: none;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  padding: 0 var(--space-20);
++  background: color-mix(in srgb, var(--color-surface-default) 80%, transparent);
++  -webkit-backdrop-filter: blur(20px);
++  backdrop-filter: blur(20px);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+ .brand {
+-  font-weight: bold;
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-semibold);
++  color: var(--color-text-primary);
++  white-space: nowrap;
++}
++
++.person {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  min-width: 0;
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-body);
++  white-space: nowrap;
++}
++
++.avatar {
++  display: inline-grid;
++  place-items: center;
++  flex-shrink: 0;
++  border-radius: var(--radius-full);
++  background: var(--color-surface-press);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-micro);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: 0;
++  line-height: 1;
++}
++.avatar-small {
++  width: var(--size-control);
++  height: var(--size-control);
++}
++.avatar-large {
++  width: var(--space-56);
++  height: var(--space-56);
++  font-size: var(--font-size-body);
++  box-shadow: var(--elevation-ring);
+ }
+ 
+ .settings-layout {
+   flex: 1;
+   display: flex;
++  min-width: 0;
+ }
+ 
+ .sidebar {
+-  width: var(--sidebar-width);
++  width: var(--size-sidebar);
+   flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  padding: var(--space-12) var(--space-8);
++  background: var(--color-surface-subtle);
++  border-right: var(--border-width-hairline) solid var(--color-border-subtle);
++}
++
++.sidebar nav {
++  position: sticky;
++  top: calc(var(--size-header) + var(--space-12));
++}
++.nav-group-label {
++  margin: var(--space-16) var(--space-12) var(--space-6);
+ }
+ 
+ .nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: grid;
++  gap: var(--space-2);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border: var(--border-width) solid transparent;
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  height: var(--size-row-dense);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-sm);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-dense);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-ui);
+   text-decoration: none;
++  white-space: nowrap;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+-
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  font-weight: bold;
++.nav-link .icon {
++  color: var(--color-icon-idle);
++}
++.nav-link:focus-visible {
++  outline-offset: -2px;
++}
++.nav-link[aria-current='page'] {
++  background: var(--color-surface-tint);
++  color: var(--color-text-primary);
++}
++.nav-link[aria-current='page'] .icon {
++  color: var(--color-icon-active);
+ }
+ 
+ .content {
+   flex: 1;
+   min-width: 0;
+-  max-width: var(--content-max-width);
+-  padding: var(--space-6);
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-6);
++  padding: 0 var(--space-32) var(--space-96);
+ }
+-
+-.person {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++.content-inner {
++  max-width: calc(var(--size-container) - var(--size-sidebar));
+ }
+-
+-.avatar {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-weight: bold;
+-  flex-shrink: 0;
++.content:focus {
++  outline: none;
+ }
+ 
+-.avatar-small {
+-  width: 28px;
+-  height: 28px;
+-  font-size: var(--font-size-small);
++/* ---------- Screen head ---------- */
++.screen-head h1 {
++  font-size: var(--font-size-lead);
++  font-weight: var(--font-weight-semibold);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-lead);
+ }
+-
+-.avatar-large {
+-  width: var(--avatar-size-large);
+-  height: var(--avatar-size-large);
+-  font-size: var(--font-size-h2);
++.screen-head-label {
++  margin-bottom: var(--space-8);
+ }
+-
+-/* Panels */
+-.panel,
+-.card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++.screen-head-summary {
++  display: grid;
++  gap: var(--space-6);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
+ }
+-
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.screen-head-summary .mono-label {
++  color: var(--color-text-secondary);
+ }
+ 
+-/* Forms */
+-.form {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
++/* ---------- Settings groups (split rows) ---------- */
++.group {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
++  gap: var(--space-32);
++  margin: 0;
++  padding: var(--space-24) 0 var(--space-48);
++  border: 0;
++  min-width: 0;
+ }
+-
+-.form-grid {
++.group {
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++}
++.screen-head + .group,
++.screen-head + .form > .group:first-child {
++  border-top: 0;
++}
++.group-head {
+   display: grid;
+-  grid-template-columns: repeat(2, 1fr);
+-  gap: var(--space-4);
++  align-content: start;
++  gap: var(--space-6);
++  min-width: 0;
++}
++.group-head h2,
++.group .legend {
++  float: left;
++  width: 100%;
++  margin: 0;
++  padding: 0;
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-semibold);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-primary);
++}
++.group-description {
++  max-width: 40ch;
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++}
++.group-meta {
++  margin-top: var(--space-6);
++}
++.group-body {
++  min-width: 0;
++  container-type: inline-size;
++}
++/* A fieldset group: the floated legend becomes an ordinary grid item, so it can sit in the left column. */
++.fieldset {
++  grid-template-rows: auto 1fr;
++  row-gap: var(--space-6);
++}
++.fieldset > .legend {
++  grid-column: 1;
++  grid-row: 1;
++}
++.fieldset > .group-head {
++  grid-column: 1;
++  grid-row: 2;
++}
++.fieldset > .group-body {
++  grid-column: 2;
++  grid-row: 1 / span 2;
+ }
+ 
++/* ---------- Forms ---------- */
++.form {
++  display: block;
++}
+ .form-stack {
+   display: grid;
+-  gap: var(--space-4);
+-  max-width: 400px;
++  gap: var(--space-20);
++  max-width: var(--size-form);
+ }
+-
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
++  gap: var(--space-6);
++  min-width: 0;
+ }
+-
+-.field p {
++.field-label {
+   margin: 0;
++  color: var(--color-text-body);
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-ui);
+ }
+-
+-.field-wide {
+-  grid-column: 1 / -1;
++.field-label .optional {
++  color: var(--color-text-secondary);
++  font-weight: var(--font-weight-regular);
+ }
+-
+-.field-label {
+-  font-weight: bold;
+-  margin: 0;
++.field-helper {
++  display: flex;
++  justify-content: space-between;
++  gap: var(--space-12);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-caption);
++  line-height: var(--font-line-height-caption);
++}
++.field-counter {
++  margin-left: auto;
++  white-space: nowrap;
+ }
+-
+ .field-error {
+-  color: var(--color-negative);
+-  font-size: var(--font-size-small);
++  margin: 0;
++  color: var(--color-status-danger);
++  font-size: var(--font-size-caption);
++  line-height: var(--font-line-height-caption);
+ }
+ 
+ .input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  width: 100%;
+   min-width: 0;
++  height: var(--size-field);
++  padding: 0 var(--space-12);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-card);
++  color: var(--color-text-primary);
++  font: var(--font-weight-regular) var(--font-size-dense) / var(--font-line-height-ui) var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
++  transition: border-color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++.input::placeholder {
++  color: var(--color-text-tertiary);
++}
++.input:focus-visible {
++  outline-offset: 2px;
++  border-color: var(--color-accent-default);
+ }
+-
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-negative);
++  border-color: var(--color-status-danger);
++}
++.input:disabled {
++  opacity: var(--opacity-disabled);
++  background: var(--color-surface-subtle);
++  cursor: not-allowed;
+ }
+-
+ .textarea {
++  height: auto;
++  min-height: calc(3 * var(--font-size-dense) * var(--font-line-height-ui) + 2 * var(--space-8) + 2px);
++  padding: var(--space-8) var(--space-12);
+   resize: vertical;
+ }
++select.input {
++  appearance: none;
++  padding-right: var(--space-32);
++  cursor: pointer;
++  /* 16px chevron drawn from two hairline gradients so it follows the token color in both modes. */
++  background-image:
++    linear-gradient(45deg, transparent calc(50% - 0.75px), var(--color-icon-idle) calc(50% - 0.75px), var(--color-icon-idle) calc(50% + 0.75px), transparent calc(50% + 0.75px)),
++    linear-gradient(-45deg, transparent calc(50% - 0.75px), var(--color-icon-idle) calc(50% - 0.75px), var(--color-icon-idle) calc(50% + 0.75px), transparent calc(50% + 0.75px));
++  background-size: var(--space-6) var(--space-6);
++  background-position:
++    calc(100% - var(--space-12) - var(--space-6)) 50%,
++    calc(100% - var(--space-12)) 50%;
++  background-repeat: no-repeat;
++}
++select.input option {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++}
+ 
+ .form-actions {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+-  gap: var(--space-3);
++  gap: var(--space-12);
++  margin-top: var(--space-32);
+ }
+ 
+ .status-message {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
+   margin: 0;
+-  color: var(--color-positive);
++  color: var(--color-text-body);
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++}
++.status-message .status-icon {
++  color: var(--color-status-success);
+ }
+ 
++/* Failed-submit banner: hairline box, danger tint wash, 6px dot. */
++.banner {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  max-width: var(--size-form);
++  margin-top: var(--space-32);
++  padding: var(--space-12) var(--space-16);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-status-danger-tint);
++  color: var(--color-text-body);
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++}
++.banner + .form-actions {
++  margin-top: var(--space-32);
++}
++.dot {
++  display: inline-block;
++  flex: none;
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: var(--color-icon-idle);
++}
++.dot-danger {
++  background: var(--color-status-danger);
++}
++
++/* Profile photo row */
+ .avatar-row {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-4);
++  gap: var(--space-16);
+ }
+ 
+-.avatar-row p {
+-  margin: 0 0 var(--space-1);
++/* Password strength */
++.strength-row {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++}
++.strength {
++  margin: 0;
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-caption);
++  line-height: var(--font-line-height-caption);
+ }
+ 
+-/* Buttons */
++/* ---------- Buttons ---------- */
+ .button {
+-  font: inherit;
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
++  justify-content: center;
++  gap: var(--space-6);
++  height: var(--size-control-lg);
++  padding: 0 var(--space-16);
++  border: var(--border-width-hairline) solid transparent;
++  border-radius: var(--radius-full);
++  background: var(--color-action-secondary);
++  color: var(--color-text-body);
++  font: var(--font-weight-medium) var(--font-size-small) / 1 var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
++  white-space: nowrap;
++  text-decoration: none;
+   cursor: pointer;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease),
++    border-color var(--motion-duration-hover) var(--motion-easing-ease),
++    transform var(--motion-duration-hover) var(--motion-easing-standard);
++}
++.button:active {
++  transform: scale(0.971);
++}
++.button:disabled,
++.button[aria-disabled='true'] {
++  opacity: var(--opacity-disabled);
++  cursor: not-allowed;
++  transform: none;
++}
++.button .icon {
++  color: currentColor;
+ }
+-
+ .button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+ }
+-
++.button-bordered {
++  background: transparent;
++  color: var(--color-text-secondary);
++  border-color: var(--color-border-default);
++}
++.button-ghost,
+ .button-danger {
+-  color: var(--color-negative);
++  background: transparent;
++  color: var(--color-text-secondary);
+ }
+-
+-.button-danger:hover {
+-  background: var(--color-danger-bg);
++.button-sm {
++  height: var(--size-control);
++  padding: 0 var(--space-12);
+ }
+ 
+-/* Fieldsets and switches */
+-.fieldset {
++/* ---------- Badges and status ---------- */
++.badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  height: 20px;
+   margin: 0;
+-  min-width: 0;
++  padding: 0 var(--space-8);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: transparent;
++  color: var(--color-text-body);
++  font: var(--font-weight-medium) var(--font-size-caption) / 1 var(--font-family-sans);
++  letter-spacing: 0;
++  white-space: nowrap;
+ }
+-
+-.legend {
+-  font-weight: bold;
+-  font-size: var(--font-size-h2);
+-  padding: 0 var(--space-1);
++.badge-current {
++  border-color: var(--color-border-strong);
++}
++.status {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  color: var(--color-text-body);
++  white-space: nowrap;
++}
++.status-icon {
++  flex: none;
++}
++.status-icon--todo,
++.status-icon--canceled,
++.status-icon--paused {
++  color: var(--color-icon-idle);
++}
++.status-icon--progress {
++  color: var(--color-status-warning);
++}
++.status-icon--done {
++  color: var(--color-status-success);
++}
++.status-icon--urgent {
++  color: var(--color-status-urgent);
+ }
+ 
++/* ---------- Switches ---------- */
+ .switch-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  max-width: var(--size-form);
+ }
+-
+ .switch-row {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-top: var(--border-width) solid var(--color-border);
++  gap: var(--space-16);
++  min-height: var(--size-row);
++  padding: var(--space-12) 0;
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++}
++.switch-row:first-child {
++  padding-top: 0;
++}
++.switch-row:last-child {
++  border-bottom: 0;
++}
++.switch-text {
++  display: grid;
++  gap: var(--space-2);
++  min-width: 0;
++}
++.switch-text .field-label {
++  color: var(--color-text-primary);
++  cursor: pointer;
+ }
+-
+ .switch-text p {
+-  margin: 0;
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
+ }
+ 
+ .switch {
+   appearance: none;
+   position: relative;
+-  width: var(--switch-width);
+-  height: var(--switch-height);
+-  margin: 0;
+   flex-shrink: 0;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-switch-off);
++  width: 28px;
++  height: 16px;
++  margin: 0;
++  border: var(--border-width-hairline) solid var(--color-border-check);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-press);
+   cursor: pointer;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-standard),
++    border-color var(--motion-duration-hover) var(--motion-easing-standard);
+ }
+-
+-.switch::after {
++.switch::before {
+   content: '';
+   position: absolute;
+-  top: 3px;
+-  left: 3px;
+-  width: calc(var(--switch-height) - 6px);
+-  height: calc(var(--switch-height) - 6px);
+-  border-radius: 50%;
+-  background: var(--color-switch-thumb);
++  top: 1px;
++  left: 1px;
++  width: 12px;
++  height: 12px;
++  border-radius: var(--radius-full);
++  background: var(--color-text-secondary);
++  transition:
++    transform var(--motion-duration-hover) var(--motion-easing-standard),
++    background-color var(--motion-duration-hover) var(--motion-easing-standard);
+ }
+-
+ .switch:checked {
+-  background: var(--color-switch-on);
++  background: var(--color-accent-default);
++  border-color: var(--color-accent-default);
+ }
+-
+-.switch:checked::after {
+-  left: calc(var(--switch-width) - var(--switch-height) + 3px);
+-}
+-
+-/* Password strength */
+-.strength-none {
+-  color: var(--color-text-muted);
+-}
+-
+-.strength-weak {
+-  color: var(--color-strength-weak);
++.switch:checked::before {
++  transform: translateX(12px);
++  background: var(--color-text-on-accent);
+ }
+-
+-.strength-fair {
+-  color: var(--color-strength-fair);
+-}
+-
+-.strength-strong {
+-  color: var(--color-strength-strong);
++.switch:disabled {
++  opacity: var(--opacity-disabled);
++  cursor: not-allowed;
+ }
+ 
+-/* Tables */
++/* ---------- Tables ---------- */
+ .table-wrap {
+   overflow-x: auto;
+ }
+-
+ .table {
+   width: 100%;
+   border-collapse: collapse;
++  color: var(--color-text-body);
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  font-variant-numeric: tabular-nums;
+ }
+-
+-.table th,
+-.table td {
++.table th {
++  height: var(--size-row-dense);
++  padding: 0 var(--space-12);
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  white-space: nowrap;
++  font: var(--font-weight-regular) var(--font-size-caption) / var(--font-line-height-caption) var(--font-family-mono);
++  letter-spacing: 0;
++  text-transform: uppercase;
++  color: var(--color-text-tertiary);
++}
++.table td {
++  height: var(--size-row);
++  padding: var(--space-6) var(--space-12);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+   vertical-align: middle;
+ }
+-
+-.table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++.table td:first-child {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++}
++.table :is(th, td):first-child {
++  padding-left: 0;
++}
++.table :is(th, td):last-child {
++  padding-right: 0;
+ }
+-
+ .table .numeric {
+   text-align: right;
+ }
+-
++.table .mono {
++  font: var(--font-weight-regular) var(--font-size-caption) / var(--font-line-height-caption) var(--font-family-mono);
++  letter-spacing: 0;
++  text-transform: uppercase;
++}
++.table td.mono:first-child {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-regular);
++}
++.table td.muted-cell {
++  color: var(--color-text-secondary);
++}
+ .cell-actions {
+   text-align: right;
++  white-space: nowrap;
+ }
+-
+-.pill {
+-  display: inline-block;
+-  margin: 0 0 0 var(--space-2);
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.cell-first {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++  min-width: 0;
+ }
+-
+-.pill-neutral {
+-  background: var(--color-pill-neutral-bg);
+-  color: var(--color-pill-neutral-text);
++.cell-first .badge {
++  font-weight: var(--font-weight-medium);
+ }
+ 
+-.pill-paid,
+-.pill-current {
+-  background: var(--color-pill-current-bg);
+-  color: var(--color-pill-current-text);
++.pin {
++  position: sticky;
++  right: 0;
++  z-index: 1;
++  background: var(--pin-bg, var(--color-surface-default));
+ }
+-
+-.pill-due {
+-  background: var(--color-pill-due-bg);
+-  color: var(--color-pill-due-text);
++.pin::before {
++  content: '';
++  position: absolute;
++  inset-block: 0;
++  right: 100%;
++  width: var(--space-16);
++  pointer-events: none;
++  background: linear-gradient(90deg, transparent, var(--pin-bg, var(--color-surface-default)));
++  opacity: 0;
++}
++.live-cell {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-8);
+ }
+ 
+-.table .pill,
+-.plan-card .pill {
+-  margin-left: 0;
++/* Small table empty state */
++.empty-state {
++  display: grid;
++  justify-items: center;
++  max-width: 360px;
++  margin: 0 auto;
++  padding: var(--space-48) var(--space-24);
++  text-align: center;
++}
++.empty-state .dm {
++  margin-bottom: var(--space-16);
++}
++.empty-state .mono-label {
++  margin-bottom: var(--space-8);
++}
++.empty-state p:not(.mono-label) {
++  font-size: var(--font-size-body);
+ }
+ 
+-/* Billing */
++/* ---------- Billing ---------- */
+ .plan-grid {
+   list-style: none;
+-  margin: 0 0 var(--space-3);
++  margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++  border-left: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+-
+ .plan-card {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+-  gap: var(--space-2);
++  gap: var(--space-12);
++  min-width: 0;
++  padding: var(--space-24);
++  box-shadow:
++    1px 0 0 var(--color-border-subtle),
++    0 1px 0 var(--color-border-subtle);
+ }
+-
+ .plan-card-current {
+-  border-color: var(--color-primary);
++  background: var(--color-surface-card);
++  box-shadow:
++    inset 0 0 0 1px var(--color-border-strong),
++    1px 0 0 var(--color-border-subtle),
++    0 1px 0 var(--color-border-subtle);
++}
++.plan-tier {
++  display: flex;
++  align-items: flex-end;
++  height: 120px;
++  margin-bottom: var(--space-8);
++}
++.plan-card-top {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--space-8);
++  width: 100%;
++}
++.plan-card h3 {
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-semibold);
++  line-height: var(--font-line-height-ui);
+ }
+-
+ .plan-price {
++  display: flex;
++  align-items: baseline;
++  flex-wrap: wrap;
++  gap: var(--space-6);
+   margin: 0;
+ }
+-
+ .plan-amount {
+-  font-size: var(--font-size-h1);
+-  font-weight: bold;
++  font-size: var(--font-size-h3);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-display);
++  color: var(--color-text-primary);
++  font-variant-numeric: tabular-nums;
++}
++.plan-period {
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-small);
+ }
+-
+ .feature-list {
+   list-style: none;
+-  margin: 0;
++  display: grid;
++  gap: var(--space-6);
++  margin: var(--space-4) 0 var(--space-12);
+   padding: 0;
+   flex: 1;
++  align-content: start;
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
+ }
+-
+ .feature-list li {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-8);
++}
++.feature-list .icon {
++  color: var(--color-icon-idle);
++}
++.plan-card .button {
++  width: 100%;
++  margin-top: auto;
++}
++.plan-card .badge {
++  margin-top: auto;
++}
++.plan-status {
++  margin-top: var(--space-16);
++}
++@container (max-width: 599px) {
++  .plan-grid {
++    grid-template-columns: minmax(0, 1fr);
++  }
++  .plan-tier {
++    height: auto;
++  }
+ }
+ 
+ .payment-method {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-3);
++  flex-wrap: wrap;
++  gap: var(--space-8) var(--space-16);
++  max-width: var(--size-form);
++  padding: var(--space-16) var(--space-20);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-card);
++}
++.payment-method .card-icon {
++  flex: none;
++  color: var(--color-icon-idle);
++}
++.payment-name {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  font-size: var(--font-size-small);
++}
++.payment-method .mono-label {
++  margin-left: auto;
+ }
+ 
+-/* Dialog */
+-.dialog {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  padding: var(--space-6);
+-  max-width: 440px;
+-  width: calc(100% - var(--space-8));
++/* ---------- Profile preview stage ---------- */
++.preview-stage {
++  max-width: var(--size-form);
++}
++.member-card {
++  display: grid;
++  gap: var(--space-16);
++  padding: var(--space-20);
++}
++.member-card-head {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++  min-width: 0;
++}
++.member-card-head > div {
++  display: grid;
++  min-width: 0;
++}
++.member-card-name {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-semibold);
++  line-height: var(--font-line-height-ui);
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++.member-card-role {
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++.member-card-bio {
++  color: var(--color-text-body);
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  overflow-wrap: anywhere;
++}
++.member-card-meta {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-4) var(--space-16);
++  padding-top: var(--space-12);
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+-.dialog::backdrop {
+-  background: var(--color-backdrop);
++/* ---------- Not found (empty state, error variant) ---------- */
++.error-state {
++  display: grid;
++  justify-items: center;
++  gap: 0;
++  max-width: var(--size-form);
++  margin: var(--space-48) auto 0;
++  text-align: center;
++}
++.error-state .stage {
++  width: 100%;
++  display: grid;
++  place-items: center;
++  min-height: var(--size-stage-mini);
++  margin-bottom: var(--space-24);
++}
++.error-state .mono-label {
++  margin-bottom: var(--space-8);
++}
++.error-state h1 {
++  font-size: var(--font-size-lead);
++  font-weight: var(--font-weight-semibold);
++  letter-spacing: var(--font-tracking-lead);
++}
++.error-state .two-tone {
++  max-width: 360px;
++  margin-top: var(--space-8);
++}
++.error-actions {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: center;
++  gap: var(--space-8);
++  margin-top: var(--space-20);
++}
++.bp--single {
++  width: min(100%, 280px);
++  min-width: 240px;
++  height: auto;
++}
++.bp--narrow-only {
++  display: none;
+ }
+ 
++/* ---------- Dialog ---------- */
++.dialog {
++  width: calc(100% - var(--space-32));
++  max-width: var(--size-dialog);
++  padding: var(--space-24);
++  border: 0;
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-body);
++  box-shadow: var(--elevation-popover);
++}
++.dialog[open] {
++  animation: dialog-in var(--motion-duration-ui) var(--motion-easing-standard);
++}
++.dialog::backdrop {
++  background: var(--color-surface-overlay);
++  -webkit-backdrop-filter: blur(4px);
++  backdrop-filter: blur(4px);
++}
++.dialog[open]::backdrop {
++  animation: fade-in var(--motion-duration-ui) var(--motion-easing-standard);
++}
++.dialog-label {
++  margin-bottom: var(--space-8);
++}
++.dialog h2 {
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-semibold);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-lead);
++}
++.dialog-body {
++  margin-top: var(--space-12);
++  font-size: var(--font-size-body);
++  color: var(--color-text-body);
++}
+ .dialog-actions {
+   display: flex;
+   justify-content: flex-end;
+-  gap: var(--space-2);
+-  margin-top: var(--space-4);
++  gap: var(--space-8);
++  margin-top: var(--space-24);
++}
++@keyframes dialog-in {
++  from {
++    opacity: 0;
++    transform: scale(0.98);
++  }
++}
++@keyframes fade-in {
++  from {
++    opacity: 0;
++  }
++}
++
++/* ---------- Hover (fine pointers only) ---------- */
++@media (hover: hover) and (pointer: fine) {
++  a:hover {
++    text-decoration-color: var(--color-text-primary);
++  }
++  .nav-link:not([aria-current='page']):hover {
++    background: var(--color-action-ghost-hover);
++    color: var(--color-text-primary);
++  }
++  .button:not(:disabled):hover {
++    background: var(--color-action-secondary-hover);
++    color: var(--color-text-primary);
++  }
++  .button-primary:not(:disabled):hover {
++    background: var(--color-action-primary-hover);
++    color: var(--color-text-on-action);
++  }
++  .button-bordered:not(:disabled):hover {
++    background: transparent;
++    border-color: var(--color-border-strong);
++    color: var(--color-text-primary);
++  }
++  .button-ghost:not(:disabled):hover,
++  .button-danger:not(:disabled):hover {
++    background: var(--color-action-ghost-hover);
++    color: var(--color-text-primary);
++  }
++  .input:not(:disabled):not(:focus-visible):not([aria-invalid='true']):hover {
++    border-color: var(--color-border-strong);
++  }
++  .switch:not(:checked):not(:disabled):hover {
++    border-color: var(--color-text-secondary);
++  }
++  .plan-card:hover .bp--tier .bp-slab {
++    transform: translateY(calc(var(--i) * -1 * var(--motion-distance-lift)));
++  }
+ }
+ 
+-@media (max-width: 900px) {
++/* ---------- Layout adaptation ---------- */
++@media (max-width: 1023.98px) {
+   .settings-layout {
+     flex-direction: column;
+   }
+-
++  .sidebar nav {
++    position: static;
++  }
+   .sidebar {
+     width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    padding: var(--space-8) var(--space-20);
++    border-right: 0;
++    border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++    overflow-x: auto;
++    overflow-y: hidden;
++    scrollbar-width: none;
++  }
++  .nav-group-label {
++    display: none;
+   }
+-
+   .nav-list {
+     display: flex;
+-    flex-wrap: wrap;
+-    gap: var(--space-2);
++    gap: var(--space-4);
++    width: max-content;
++  }
++  .nav-link {
++    height: var(--size-control);
++    border-radius: var(--radius-full);
++    font-size: var(--font-size-small);
+   }
++}
+ 
+-  .form-grid,
+-  .plan-grid {
+-    grid-template-columns: 1fr;
++@media (max-width: 767px) {
++  .content {
++    padding: 0 var(--space-20) var(--space-48);
++  }
++  .group {
++    grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-16);
++  }
++  .fieldset {
++    grid-template-rows: none;
++    row-gap: var(--space-6);
++  }
++  .fieldset > .legend,
++  .fieldset > .group-head,
++  .fieldset > .group-body {
++    grid-column: 1;
++    grid-row: auto;
++  }
++  .fieldset > .group-body {
++    margin-top: var(--space-12);
++  }
++  .form-actions {
++    flex-direction: column;
++    align-items: stretch;
++  }
++  .form-actions .button {
++    width: 100%;
++  }
++  .error-state {
++    margin-top: var(--space-24);
++  }
++  .payment-method .mono-label {
++    margin-left: 0;
++    width: 100%;
++  }
++}
++
++/* Tables from breakpoint.sm to breakpoint.md: scroll in the wrapper, first column held, pinned column sticky. */
++@media (max-width: 767px) {
++  .tbl :is(th, td):first-child {
++    white-space: nowrap;
++    min-width: 160px;
++  }
++  .pin {
++    box-shadow: inset 1px 0 0 var(--color-border-subtle);
++    padding-left: var(--space-12);
++  }
++  .pin::before {
++    opacity: 1;
++  }
++}
++
++/* Under breakpoint.sm: only the first and the pinned column. */
++@media (max-width: 639.98px) {
++  .tbl-wrap {
++    overflow-x: visible;
++  }
++  .tbl {
++    width: 100%;
++    table-layout: auto;
++  }
++  .tbl :is(th, td):not(:first-child):not(.pin) {
++    display: none;
++  }
++  .tbl :is(th, td):first-child {
++    width: 100%;
++    max-width: 0;
++    min-width: 0;
++    overflow: hidden;
++  }
++  .tbl .pin {
++    width: 1%;
++    white-space: nowrap;
++    box-shadow: none;
++  }
++  .tbl .pin::before {
++    display: none;
++  }
++  .cell-lines {
++    flex: 1;
++    min-width: 0;
++  }
++  .cell-lines > *,
++  .cell-lines[data-sub]::after {
++    display: block;
++    line-height: var(--font-line-height-ui);
++    white-space: nowrap;
++    overflow: hidden;
++    text-overflow: ellipsis;
++  }
++  .cell-lines[data-sub]::after {
++    content: attr(data-sub) '\00a0';
++    color: var(--color-text-tertiary);
++    font-weight: var(--font-weight-regular);
++  }
++  .bp--wide-only {
++    display: none;
++  }
++  .bp--narrow-only {
++    display: block;
++  }
++  .dialog {
++    width: 100%;
++    max-width: none;
++    margin: auto 0 0;
++    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
++  }
++  .dialog-actions {
++    flex-direction: column-reverse;
++  }
++  .dialog-actions .button {
++    width: 100%;
++  }
++}
++
++/* Reduced motion: every loop ends on its readable base frame; slabs stay at rest. */
++@media (prefers-reduced-motion: reduce) {
++  *,
++  *::before,
++  *::after {
++    animation-duration: var(--motion-duration-instant) !important;
++    animation-iteration-count: 1 !important;
++    animation-delay: 0s !important;
++    transition-duration: var(--motion-duration-instant) !important;
++    transition-delay: 0s !important;
++  }
++  .button:active {
++    transform: none;
++  }
++  .plan-card:hover .bp--tier .bp-slab {
++    transform: none;
+   }
+ }

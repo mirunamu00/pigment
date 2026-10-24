@@ -1,0 +1,2174 @@
+diff --git a/index.html b/index.html
+index 3114c26..a892066 100644
+--- a/index.html
++++ b/index.html
+@@ -3,7 +3,9 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <meta name="color-scheme" content="dark" />
+     <link rel="icon" href="data:," />
++    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/neodgm/neodgm-webfont@latest/neodgm/style.css" />
+     <title>Fieldhouse Supply</title>
+   </head>
+   <body>
+diff --git a/src/App.tsx b/src/App.tsx
+index e3dee45..00f1e0c 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -5,7 +5,6 @@ import ProductsPage from './pages/ProductsPage';
+ import ProductDetailPage from './pages/ProductDetailPage';
+ import CartPage from './pages/CartPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <CartProvider>
+diff --git a/src/components/Icons.tsx b/src/components/Icons.tsx
+index f025d98..bb4b36b 100644
+--- a/src/components/Icons.tsx
++++ b/src/components/Icons.tsx
+@@ -1,30 +1,2 @@
+-interface IconProps {
+-  className?: string;
+-}
+-
+-export function CartIcon({ className = 'icon' }: IconProps) {
+-  return (
+-    <svg className={className} viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+-      <path
+-        d="M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2"
+-        fill="none"
+-        stroke="currentColor"
+-        strokeWidth="1.8"
+-        strokeLinecap="round"
+-        strokeLinejoin="round"
+-      />
+-      <circle cx="9" cy="19" r="1.5" fill="currentColor" />
+-      <circle cx="17" cy="19" r="1.5" fill="currentColor" />
+-    </svg>
+-  );
+-}
+-
+-export function ImageIcon({ className = 'icon' }: IconProps) {
+-  return (
+-    <svg className={className} viewBox="0 0 24 24" width="40" height="40" aria-hidden="true" focusable="false">
+-      <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-      <circle cx="9" cy="10" r="1.8" fill="currentColor" />
+-      <path d="M4 17l5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+-    </svg>
+-  );
+-}
++// Icons are fill-only pixel sprites (Night Cartridge, Imagery and icons); see PixelIcon in ./pixel.
++export { PixelIcon } from './pixel';
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 24ef3b6..880d6c7 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,6 +1,7 @@
+-import { Link, NavLink, Outlet } from 'react-router';
++import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
++import { Link, NavLink, Outlet, useLocation } from 'react-router';
+ import { useCart } from '../cart/CartContext';
+-import { CartIcon } from './Icons';
++import { DitherRule, GroundStrip, Marker, MotionSwitch, PixelIcon } from './pixel';
+ 
+ const NAV_ITEMS = [
+   { to: '/', label: 'Shop', testId: 'nav-shop', end: true },
+@@ -10,44 +11,107 @@ const NAV_ITEMS = [
+ export default function Layout() {
+   const { itemCount } = useCart();
+   const itemLabel = itemCount === 1 ? '1 item' : `${itemCount} items`;
++  const location = useLocation();
++  const [menuOpen, setMenuOpen] = useState(false);
++  const menuRef = useRef<HTMLDivElement>(null);
++  const menuButtonRef = useRef<HTMLButtonElement>(null);
++
++  // The small-screen menu closes on navigation.
++  useEffect(() => setMenuOpen(false), [location.pathname]);
++
++  useEffect(() => {
++    if (menuOpen) menuRef.current?.querySelector<HTMLElement>('a, button')?.focus();
++  }, [menuOpen]);
++
++  function closeMenu() {
++    setMenuOpen(false);
++    menuButtonRef.current?.focus();
++  }
++
++  // Escape closes the open menu; Tab stays inside it until it is closed.
++  function handleMenuKeys(event: KeyboardEvent<HTMLDivElement>) {
++    if (!menuOpen) return;
++    if (event.key === 'Escape') {
++      event.preventDefault();
++      closeMenu();
++      return;
++    }
++    if (event.key !== 'Tab') return;
++    const focusable = [menuButtonRef.current, ...(menuRef.current?.querySelectorAll<HTMLElement>('a, button') ?? [])].filter(
++      (el): el is HTMLElement => el !== null,
++    );
++    const first = focusable[0];
++    const last = focusable[focusable.length - 1];
++    if (event.shiftKey && document.activeElement === first) {
++      event.preventDefault();
++      last.focus();
++    } else if (!event.shiftKey && document.activeElement === last) {
++      event.preventDefault();
++      first.focus();
++    }
++  }
+ 
+   return (
+     <div className="app-shell">
+       <a className="skip-link" href="#main-content">
+         Skip to content
+       </a>
+-      <header className="site-header">
+-        <Link to="/" className="brand" data-testid="brand-link">
+-          Fieldhouse Supply
+-        </Link>
+-        <nav aria-label="Primary" className="site-nav" data-testid="primary-nav">
+-          <ul className="nav-list">
+-            {NAV_ITEMS.map((item) => (
+-              <li key={item.to}>
+-                <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
+-                  {item.label}
+-                </NavLink>
+-              </li>
+-            ))}
+-          </ul>
+-        </nav>
+-        <Link to="/cart" className="button cart-button" aria-label={`Cart, ${itemLabel}`} data-testid="cart-button">
+-          <CartIcon />
+-          <span className="cart-button-label" aria-hidden="true">
+-            Cart
+-          </span>
+-          <span className="badge" aria-hidden="true" data-testid="cart-count">
+-            {itemCount}
+-          </span>
+-        </Link>
++      <header className="site-header" onKeyDown={handleMenuKeys}>
++        <div className="container header-inner">
++          <Link to="/" className="brand" data-testid="brand-link">
++            <PixelIcon name="mark" />
++            Fieldhouse Supply
++          </Link>
++          <div id="site-menu" ref={menuRef} className={`header-menu${menuOpen ? ' is-open' : ''}`}>
++            <nav aria-label="Primary" className="site-nav" data-testid="primary-nav">
++              <ul className="nav-list">
++                {NAV_ITEMS.map((item) => (
++                  <li key={item.to}>
++                    <NavLink to={item.to} end={item.end} className="item nav-link press" data-testid={item.testId}>
++                      <Marker />
++                      {item.label}
++                    </NavLink>
++                  </li>
++                ))}
++              </ul>
++            </nav>
++            <div className="header-tools">
++              <MotionSwitch />
++            </div>
++          </div>
++          <Link to="/cart" className="btn cart-button" aria-label={`Cart, ${itemLabel}`} data-testid="cart-button">
++            <PixelIcon name="cart" />
++            <span className="cart-button-label" aria-hidden="true">
++              Cart
++            </span>
++            <span className="badge" aria-hidden="true" data-testid="cart-count">
++              {itemCount}
++            </span>
++          </Link>
++          <button
++            ref={menuButtonRef}
++            type="button"
++            className="tool menu-button"
++            aria-label="Menu"
++            aria-expanded={menuOpen}
++            aria-controls="site-menu"
++            onClick={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
++          >
++            <PixelIcon name={menuOpen ? 'close' : 'menu'} />
++          </button>
++        </div>
++        <DitherRule />
+       </header>
+ 
+-      <main id="main-content" className="content" tabIndex={-1}>
++      <main id="main-content" className="container content" tabIndex={-1}>
+         <Outlet />
+       </main>
+ 
+       <footer className="site-footer">
+-        <p className="muted small">Fieldhouse Supply · Free shipping on orders over $100 · Returns within 30 days</p>
++        <GroundStrip />
++        <div className="container">
++          <p className="caption">Fieldhouse Supply · Free shipping on orders over $100 · Returns within 30 days</p>
++        </div>
+       </footer>
+     </div>
+   );
+diff --git a/src/components/ProductImage.tsx b/src/components/ProductImage.tsx
+index e4a67f2..e5be1e6 100644
+--- a/src/components/ProductImage.tsx
++++ b/src/components/ProductImage.tsx
+@@ -1,21 +1,35 @@
+-import type { Product } from '../data/products';
+-import { ImageIcon } from './Icons';
++import type { CSSProperties } from 'react';
++import { categoryHue, type Product } from '../data/products';
++import { item } from '../pixel/engine';
++import { itemSprite } from '../pixel/sprites';
+ 
+ interface ProductImageProps {
+   product: Product;
+   size?: 'card' | 'large';
+ }
+ 
+-/** Image placeholder: a tinted CSS box with an icon. No network images. */
++const cache = new Map<string, string>();
++
++function spriteFor(product: Product): string {
++  let svg = cache.get(product.slug);
++  if (svg === undefined) {
++    const built = itemSprite(product.slug, categoryHue(product.category));
++    svg = built ? item(built, product.name).svg : '';
++    cache.set(product.slug, svg);
++  }
++  return svg;
++}
++
++/** Missing product photo: the item drawn as a pixel sprite in a framed .pic window. No network images. */
+ export default function ProductImage({ product, size = 'card' }: ProductImageProps) {
+   return (
+     <div
+-      className={`product-image product-image-${size} tone-${product.tone}`}
++      className={`pic product-image product-image-${size}`}
+       role="img"
+       aria-label={`${product.name} product photo placeholder`}
+       data-testid="product-image"
+-    >
+-      <ImageIcon className="product-image-icon" />
+-    </div>
++      style={{ '--hue': categoryHue(product.category) } as CSSProperties}
++      dangerouslySetInnerHTML={{ __html: spriteFor(product) }}
++    />
+   );
+ }
+diff --git a/src/components/QuantityStepper.tsx b/src/components/QuantityStepper.tsx
+index 13815b8..b498a89 100644
+--- a/src/components/QuantityStepper.tsx
++++ b/src/components/QuantityStepper.tsx
+@@ -1,4 +1,5 @@
+ import { MAX_QUANTITY } from '../data/products';
++import { Marker } from './pixel';
+ 
+ interface QuantityStepperProps {
+   id: string;
+@@ -12,6 +13,7 @@ interface QuantityStepperProps {
+   itemName?: string;
+ }
+ 
++/** Framed ◀ n ▶ stepper; every control in the row is size.control high. */
+ export default function QuantityStepper({ id, label, value, onChange, testIdPrefix, hideLabel, itemName }: QuantityStepperProps) {
+   const suffix = itemName ? ` of ${itemName}` : '';
+ 
+@@ -25,16 +27,16 @@ export default function QuantityStepper({ id, label, value, onChange, testIdPref
+       <label htmlFor={id} className={hideLabel ? 'visually-hidden' : 'field-label'}>
+         {label}
+       </label>
+-      <div className="stepper-controls">
++      <div className="controls stepper-controls">
+         <button
+           type="button"
+-          className="button stepper-button"
++          className="btn stepper-button"
+           aria-label={`Decrease quantity${suffix}`}
+           disabled={value <= 1}
+           onClick={() => set(value - 1)}
+           data-testid={`${testIdPrefix}-decrement`}
+         >
+-          −
++          <Marker dir="l" />
+         </button>
+         <input
+           id={id}
+@@ -49,13 +51,13 @@ export default function QuantityStepper({ id, label, value, onChange, testIdPref
+         />
+         <button
+           type="button"
+-          className="button stepper-button"
++          className="btn stepper-button"
+           aria-label={`Increase quantity${suffix}`}
+           disabled={value >= MAX_QUANTITY}
+           onClick={() => set(value + 1)}
+           data-testid={`${testIdPrefix}-increment`}
+         >
+-          +
++          <Marker />
+         </button>
+       </div>
+     </div>
+diff --git a/src/data/products.ts b/src/data/products.ts
+index dddcb4d..333af93 100644
+--- a/src/data/products.ts
++++ b/src/data/products.ts
+@@ -191,6 +191,18 @@ export function categoryLabel(id: CategoryId): string {
+   return categories.find((category) => category.id === id)?.label ?? id;
+ }
+ 
++/** Each category owns one hue, in the design system's fixed order (cyan, violet, blue, amber). */
++const CATEGORY_HUES: Record<CategoryId, string> = {
++  bags: 'cyan',
++  apparel: 'violet',
++  kitchen: 'blue',
++  accessories: 'amber',
++};
++
++export function categoryHue(id: CategoryId): string {
++  return `var(--color-hue-${CATEGORY_HUES[id]})`;
++}
++
+ const currencyFormat = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+ 
+ export function formatPrice(amount: number): string {
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..0f105fd 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,11 +2,16 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import { applyMotion, readMotionPreference } from './components/pixel';
++import '../design-system/tokens.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+ if (!rootElement) throw new Error('Root element #root not found');
+ 
++// The Animation switch is persisted; apply it before the first frame.
++applyMotion(readMotionPreference());
++
+ createRoot(rootElement).render(
+   <StrictMode>
+     <BrowserRouter>
+diff --git a/src/pages/CartPage.tsx b/src/pages/CartPage.tsx
+index e453a07..e1bf871 100644
+--- a/src/pages/CartPage.tsx
++++ b/src/pages/CartPage.tsx
+@@ -1,8 +1,13 @@
+-import { useRef, useState, type FormEvent } from 'react';
++import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+ import { Link } from 'react-router';
+ import { useCart } from '../cart/CartContext';
+ import QuantityStepper from '../components/QuantityStepper';
++import { BlockMeter, Marker, PixelIcon, StageWindow, Vignette } from '../components/pixel';
+ import { FREE_SHIPPING_THRESHOLD, formatPrice } from '../data/products';
++import { cartStrip, emptyCartVignette } from '../pixel/scenes';
++
++const CART_SCENE = cartStrip();
++const EMPTY_SCENE = emptyCartVignette();
+ 
+ type FieldName = 'name' | 'email' | 'address';
+ type FormValues = Record<FieldName, string>;
+@@ -27,11 +32,22 @@ interface Confirmation {
+   total: number;
+ }
+ 
++function FieldError({ id, testId, children }: { id: string; testId: string; children: ReactNode }) {
++  return (
++    <p id={id} className="field-error" role="alert" data-testid={testId}>
++      <PixelIcon name="alert" />
++      <span>{children}</span>
++    </p>
++  );
++}
++
+ export default function CartPage() {
+   const cart = useCart();
+   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
+   const [errors, setErrors] = useState<FormErrors>({});
+   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
++  // Alternates between two identical one-shot classes so the error nudge replays on every failed submit.
++  const [nudge, setNudge] = useState(0);
+   const fieldRefs = useRef<Record<FieldName, HTMLInputElement | HTMLTextAreaElement | null>>({
+     name: null,
+     email: null,
+@@ -50,6 +66,7 @@ export default function CartPage() {
+     setErrors(nextErrors);
+     const firstInvalid = (['name', 'email', 'address'] as const).find((field) => nextErrors[field]);
+     if (firstInvalid) {
++      setNudge((n) => n + 1);
+       fieldRefs.current[firstInvalid]?.focus();
+       return;
+     }
+@@ -58,53 +75,75 @@ export default function CartPage() {
+     setValues(EMPTY_FORM);
+   }
+ 
++  const inputClass = (field: FieldName, extra = '') =>
++    ['input', extra, errors[field] && (nudge % 2 ? 'nudge' : 'nudge-b')].filter(Boolean).join(' ');
++
+   if (confirmation) {
+     return (
+-      <section className="panel confirmation" data-testid="order-confirmation" aria-labelledby="confirmation-heading">
++      <StageWindow
++        as="section"
++        scene={CART_SCENE}
++        kind="strip"
++        className="confirmation"
++        data-testid="order-confirmation"
++        aria-labelledby="confirmation-heading"
++      >
+         <h1 id="confirmation-heading">Thank you for your order</h1>
+-        <p>
+-          {confirmation.name}, we have received your order of {confirmation.itemCount}{' '}
+-          {confirmation.itemCount === 1 ? 'item' : 'items'} totalling{' '}
+-          <strong data-testid="confirmation-total">{formatPrice(confirmation.total)}</strong>.
+-        </p>
+-        <p className="muted">A receipt has been sent to {confirmation.email}. Orders usually ship within two days.</p>
+-        <Link to="/" data-testid="continue-shopping">
++        <div className="confirmation-copy">
++          <p>
++            {confirmation.name}, we have received your order of {confirmation.itemCount}{' '}
++            {confirmation.itemCount === 1 ? 'item' : 'items'} totalling{' '}
++            <strong data-testid="confirmation-total">{formatPrice(confirmation.total)}</strong>.
++          </p>
++          <p className="muted">A receipt has been sent to {confirmation.email}. Orders usually ship within two days.</p>
++        </div>
++        <Link to="/" className="btn" data-testid="continue-shopping">
+           Continue shopping
++          <Marker />
+         </Link>
+-      </section>
++      </StageWindow>
+     );
+   }
+ 
++  const toFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - cart.subtotal);
++
+   return (
+     <>
+-      <div className="page-header">
++      <StageWindow scene={CART_SCENE} kind="strip" className="page-header">
+         <h1>Your cart</h1>
+-        <p className="muted">Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}.</p>
+-      </div>
++        <p className="lede">Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}.</p>
++      </StageWindow>
+ 
+       {cart.lines.length === 0 ? (
+         <section className="panel empty-state" data-testid="cart-empty">
+-          <h2>Your cart is empty</h2>
+-          <p className="muted">Browse the shop and add something you like.</p>
+-          <Link to="/" data-testid="continue-shopping">
++          <Vignette svg={EMPTY_SCENE} />
++          <div className="empty-copy">
++            <h2>Your cart is empty</h2>
++            <p className="muted">Browse the shop and add something you like.</p>
++          </div>
++          <Link to="/" className="btn" data-testid="continue-shopping">
++            <Marker />
+             Continue shopping
+           </Link>
+         </section>
+       ) : (
+         <div className="cart-layout">
+-          <section className="panel" aria-labelledby="cart-items-heading">
+-            <h2 id="cart-items-heading">Items</h2>
++          <section className="panel cart-main" aria-labelledby="cart-items-heading">
++            <h2 id="cart-items-heading" className="ruled">
++              Items
++            </h2>
+             <ul className="cart-lines">
+               {cart.lines.map((line) => (
+                 <li key={line.id} className="cart-line" data-testid="cart-line">
+                   <div className="cart-line-info">
+                     <Link to={`/products/${line.slug}`} className="cart-line-name" data-testid="cart-line-name">
++                      <Marker />
+                       {line.product.name}
+                     </Link>
+-                    <p className="muted small" data-testid="cart-line-variant">
++                    <p className="caption" data-testid="cart-line-variant">
+                       {line.product.variantLabel}: {line.variant}
+                     </p>
+-                    <p className="small">{formatPrice(line.product.price)} each</p>
++                    <p className="caption">{formatPrice(line.product.price)} each</p>
+                   </div>
+                   <QuantityStepper
+                     id={`quantity-${line.id}`}
+@@ -120,7 +159,7 @@ export default function CartPage() {
+                   </p>
+                   <button
+                     type="button"
+-                    className="link-button"
++                    className="btn link-button"
+                     aria-label={`Remove ${line.product.name} from cart`}
+                     onClick={() => cart.removeItem(line.id)}
+                     data-testid="line-remove"
+@@ -131,103 +170,121 @@ export default function CartPage() {
+               ))}
+             </ul>
+ 
+-            <dl className="summary" data-testid="order-summary">
+-              <div className="summary-row">
+-                <dt>Subtotal</dt>
+-                <dd data-testid="cart-subtotal">{formatPrice(cart.subtotal)}</dd>
+-              </div>
+-              <div className="summary-row">
+-                <dt>Shipping</dt>
+-                <dd data-testid="cart-shipping">{cart.shipping === 0 ? 'Free' : formatPrice(cart.shipping)}</dd>
+-              </div>
+-              <div className="summary-row summary-total">
+-                <dt>Total</dt>
+-                <dd data-testid="cart-total">{formatPrice(cart.total)}</dd>
++            <div className="window summary-window">
++              <div className="shipping-progress">
++                <p className="caption">
++                  <span>Free shipping</span>
++                  <span>{toFreeShipping === 0 ? 'Unlocked' : `${formatPrice(toFreeShipping)} to go`}</span>
++                </p>
++                <BlockMeter
++                  label="Progress to free shipping"
++                  value={cart.subtotal}
++                  max={FREE_SHIPPING_THRESHOLD}
++                  valueText={`${formatPrice(Math.min(cart.subtotal, FREE_SHIPPING_THRESHOLD))} of ${formatPrice(FREE_SHIPPING_THRESHOLD)}`}
++                />
+               </div>
+-            </dl>
++              <dl className="summary" data-testid="order-summary">
++                <div className="summary-row">
++                  <dt>Subtotal</dt>
++                  <dd data-testid="cart-subtotal">{formatPrice(cart.subtotal)}</dd>
++                </div>
++                <div className="summary-row">
++                  <dt>Shipping</dt>
++                  <dd data-testid="cart-shipping">{cart.shipping === 0 ? 'Free' : formatPrice(cart.shipping)}</dd>
++                </div>
++                <div className="summary-row summary-total">
++                  <dt>Total</dt>
++                  <dd data-testid="cart-total">{formatPrice(cart.total)}</dd>
++                </div>
++              </dl>
++            </div>
+           </section>
+ 
+-          <section className="panel" aria-labelledby="checkout-heading">
+-            <h2 id="checkout-heading">Checkout</h2>
+-            <form className="checkout-form" noValidate onSubmit={handleSubmit} data-testid="checkout-form">
+-              <div className="field">
+-                <label htmlFor="checkout-name" className="field-label">
+-                  Full name
+-                </label>
+-                <input
+-                  id="checkout-name"
+-                  ref={(element) => {
+-                    fieldRefs.current.name = element;
+-                  }}
+-                  className="input"
+-                  autoComplete="name"
+-                  value={values.name}
+-                  onChange={(event) => updateField('name', event.target.value)}
+-                  aria-invalid={errors.name ? true : undefined}
+-                  aria-describedby={errors.name ? 'checkout-name-error' : undefined}
+-                  data-testid="checkout-name"
+-                />
+-                {errors.name && (
+-                  <p id="checkout-name-error" className="field-error" data-testid="error-name">
+-                    {errors.name}
+-                  </p>
+-                )}
+-              </div>
++          <section className="panel cart-side" aria-labelledby="checkout-heading">
++            <h2 id="checkout-heading" className="ruled">
++              Checkout
++            </h2>
++            <div className="window checkout-window">
++              <form className="checkout-form" noValidate onSubmit={handleSubmit} data-testid="checkout-form">
++                <div className="field">
++                  <label htmlFor="checkout-name" className="field-label">
++                    Full name
++                  </label>
++                  <input
++                    id="checkout-name"
++                    ref={(element) => {
++                      fieldRefs.current.name = element;
++                    }}
++                    className={inputClass('name')}
++                    autoComplete="name"
++                    value={values.name}
++                    onChange={(event) => updateField('name', event.target.value)}
++                    aria-invalid={errors.name ? true : undefined}
++                    aria-describedby={errors.name ? 'checkout-name-error' : undefined}
++                    data-testid="checkout-name"
++                  />
++                  {errors.name && (
++                    <FieldError id="checkout-name-error" testId="error-name">
++                      {errors.name}
++                    </FieldError>
++                  )}
++                </div>
+ 
+-              <div className="field">
+-                <label htmlFor="checkout-email" className="field-label">
+-                  Email
+-                </label>
+-                <input
+-                  id="checkout-email"
+-                  ref={(element) => {
+-                    fieldRefs.current.email = element;
+-                  }}
+-                  type="email"
+-                  className="input"
+-                  autoComplete="email"
+-                  value={values.email}
+-                  onChange={(event) => updateField('email', event.target.value)}
+-                  aria-invalid={errors.email ? true : undefined}
+-                  aria-describedby={errors.email ? 'checkout-email-error' : undefined}
+-                  data-testid="checkout-email"
+-                />
+-                {errors.email && (
+-                  <p id="checkout-email-error" className="field-error" data-testid="error-email">
+-                    {errors.email}
+-                  </p>
+-                )}
+-              </div>
++                <div className="field">
++                  <label htmlFor="checkout-email" className="field-label">
++                    Email
++                  </label>
++                  <input
++                    id="checkout-email"
++                    ref={(element) => {
++                      fieldRefs.current.email = element;
++                    }}
++                    type="email"
++                    className={inputClass('email')}
++                    autoComplete="email"
++                    value={values.email}
++                    onChange={(event) => updateField('email', event.target.value)}
++                    aria-invalid={errors.email ? true : undefined}
++                    aria-describedby={errors.email ? 'checkout-email-error' : undefined}
++                    data-testid="checkout-email"
++                  />
++                  {errors.email && (
++                    <FieldError id="checkout-email-error" testId="error-email">
++                      {errors.email}
++                    </FieldError>
++                  )}
++                </div>
+ 
+-              <div className="field">
+-                <label htmlFor="checkout-address" className="field-label">
+-                  Shipping address
+-                </label>
+-                <textarea
+-                  id="checkout-address"
+-                  ref={(element) => {
+-                    fieldRefs.current.address = element;
+-                  }}
+-                  className="input textarea"
+-                  rows={3}
+-                  autoComplete="street-address"
+-                  value={values.address}
+-                  onChange={(event) => updateField('address', event.target.value)}
+-                  aria-invalid={errors.address ? true : undefined}
+-                  aria-describedby={errors.address ? 'checkout-address-error' : undefined}
+-                  data-testid="checkout-address"
+-                />
+-                {errors.address && (
+-                  <p id="checkout-address-error" className="field-error" data-testid="error-address">
+-                    {errors.address}
+-                  </p>
+-                )}
+-              </div>
++                <div className="field">
++                  <label htmlFor="checkout-address" className="field-label">
++                    Shipping address
++                  </label>
++                  <textarea
++                    id="checkout-address"
++                    ref={(element) => {
++                      fieldRefs.current.address = element;
++                    }}
++                    className={inputClass('address', 'textarea')}
++                    rows={3}
++                    autoComplete="street-address"
++                    value={values.address}
++                    onChange={(event) => updateField('address', event.target.value)}
++                    aria-invalid={errors.address ? true : undefined}
++                    aria-describedby={errors.address ? 'checkout-address-error' : undefined}
++                    data-testid="checkout-address"
++                  />
++                  {errors.address && (
++                    <FieldError id="checkout-address-error" testId="error-address">
++                      {errors.address}
++                    </FieldError>
++                  )}
++                </div>
+ 
+-              <button type="submit" className="button button-primary" data-testid="place-order">
+-                Place order
+-              </button>
+-            </form>
++                <button type="submit" className="btn-gold" data-testid="place-order">
++                  Place order
++                </button>
++              </form>
++            </div>
+           </section>
+         </div>
+       )}
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 3582617..f4acb45 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,9 @@
+-import { Link } from 'react-router';
++import ErrorScreen from '../components/ErrorScreen';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
++    <ErrorScreen testId="not-found" title="Page not found">
+       <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Back to the shop</Link>
+-    </section>
++    </ErrorScreen>
+   );
+ }
+diff --git a/src/pages/ProductDetailPage.tsx b/src/pages/ProductDetailPage.tsx
+index fc75a5d..cf0a213 100644
+--- a/src/pages/ProductDetailPage.tsx
++++ b/src/pages/ProductDetailPage.tsx
+@@ -1,9 +1,24 @@
+-import { useState } from 'react';
++import { useState, type CSSProperties } from 'react';
+ import { Link, useParams } from 'react-router';
+ import { useCart } from '../cart/CartContext';
++import ErrorScreen from '../components/ErrorScreen';
+ import ProductImage from '../components/ProductImage';
+ import QuantityStepper from '../components/QuantityStepper';
+-import { categoryLabel, findProduct, formatPrice, type Product } from '../data/products';
++import { Callout, StageWindow } from '../components/pixel';
++import { categoryHue, categoryLabel, findProduct, formatPrice, type CategoryId, type Product } from '../data/products';
++import { stockroomBanner, type Scene } from '../pixel/scenes';
++
++/** One stockroom banner per category; each category's sign carries its own word. */
++const SIGN_WORDS: Record<CategoryId, string> = { bags: 'BAGS', apparel: 'WEAR', kitchen: 'COOK', accessories: 'GEAR' };
++const banners = new Map<CategoryId, Scene>();
++function bannerFor(category: CategoryId): Scene {
++  let scene = banners.get(category);
++  if (!scene) {
++    scene = stockroomBanner(SIGN_WORDS[category]);
++    banners.set(category, scene);
++  }
++  return scene;
++}
+ 
+ export default function ProductDetailPage() {
+   const { slug } = useParams();
+@@ -11,11 +26,9 @@ export default function ProductDetailPage() {
+ 
+   if (!product) {
+     return (
+-      <div className="empty-state" data-testid="product-not-found">
+-        <h1>Product not found</h1>
++      <ErrorScreen testId="product-not-found" title="Product not found">
+         <p className="muted">We could not find a product called “{slug}”.</p>
+-        <Link to="/">Back to the shop</Link>
+-      </div>
++      </ErrorScreen>
+     );
+   }
+ 
+@@ -39,8 +52,11 @@ function ProductDetail({ product }: { product: Product }) {
+     setQuantity(1);
+   }
+ 
++  const hue = { '--hue': categoryHue(product.category) } as CSSProperties;
++  const variantCount = `${product.variants.length} ${product.variantLabel.toLowerCase()}s`;
++
+   return (
+-    <>
++    <div className="page-stack">
+       <nav aria-label="Breadcrumb" className="breadcrumb">
+         <ol>
+           <li>
+@@ -54,85 +70,110 @@ function ProductDetail({ product }: { product: Product }) {
+       </nav>
+ 
+       <article className="product-detail">
+-        <ProductImage product={product} size="large" />
+-
+-        <div className="product-detail-info">
+-          <h1 data-testid="product-title">{product.name}</h1>
+-          <p className="price price-large" data-testid="product-detail-price">
+-            {formatPrice(product.price)}
++        <StageWindow scene={bannerFor(product.category)} kind="banner">
++          <p className="eyebrow" style={hue}>
++            <span className="bullet" aria-hidden="true" />
++            {categoryLabel(product.category)}
+           </p>
+-          <p>{product.description}</p>
+-
+-          <form
+-            className="purchase-form"
+-            onSubmit={(event) => {
+-              event.preventDefault();
+-              if (product.inStock) handleAdd();
+-            }}
+-          >
+-            <fieldset className="variant-fieldset">
+-              <legend className="field-label">{product.variantLabel}</legend>
+-              <div className="variant-options">
+-                {product.variants.map((option) => {
+-                  const optionId = `variant-${slugify(option)}`;
+-                  return (
+-                    <label key={option} htmlFor={optionId} className="variant-option">
+-                      <input
+-                        id={optionId}
+-                        type="radio"
+-                        name="variant"
+-                        value={option}
+-                        checked={variant === option}
+-                        onChange={() => setVariant(option)}
+-                        data-testid={`variant-option-${slugify(option)}`}
+-                      />
+-                      <span>{option}</span>
+-                    </label>
+-                  );
+-                })}
+-              </div>
+-            </fieldset>
+-
+-            <QuantityStepper
+-              id="product-quantity"
+-              label="Quantity"
+-              value={quantity}
+-              onChange={setQuantity}
+-              testIdPrefix="quantity"
+-            />
+-
+-            {product.inStock ? (
+-              <button type="submit" className="button button-primary" data-testid="add-to-cart">
+-                Add to cart
+-              </button>
+-            ) : (
+-              <>
+-                <button type="submit" className="button button-primary" disabled data-testid="add-to-cart">
+-                  Sold out
+-                </button>
+-                <p className="muted small" data-testid="stock-note">
+-                  This item is out of stock. Check back soon.
+-                </p>
+-              </>
+-            )}
+-          </form>
+-
+-          <div role="status" className="added-message" data-testid="added-message">
+-            {confirmation && (
+-              <p>
+-                {confirmation} <Link to="/cart">View cart</Link>
+-              </p>
+-            )}
++          <h1 data-testid="product-title">{product.name}</h1>
++          <p className="lede">{product.summary}</p>
++          <p className="meta">{[product.inStock ? 'In stock' : 'Out of stock', variantCount].join(' · ')}</p>
++        </StageWindow>
++
++        <div className="detail-columns">
++          <div className="detail-media">
++            <ProductImage product={product} size="large" />
+           </div>
+ 
+-          <h2>Details</h2>
+-          <ul className="detail-list">
+-            {product.details.map((detail) => (
+-              <li key={detail}>{detail}</li>
+-            ))}
+-          </ul>
++          <div className="product-detail-info">
++            <p className="price price-large" data-testid="product-detail-price">
++              {formatPrice(product.price)}
++            </p>
++            <p className="prose">{product.description}</p>
++
++            <div className="window purchase-window">
++              <form
++                className="purchase-form"
++                onSubmit={(event) => {
++                  event.preventDefault();
++                  if (product.inStock) handleAdd();
++                }}
++              >
++                <fieldset className="variant-fieldset">
++                  <legend className="field-label">{product.variantLabel}</legend>
++                  <div className="variant-options">
++                    {product.variants.map((option) => {
++                      const optionId = `variant-${slugify(option)}`;
++                      return (
++                        <label key={option} htmlFor={optionId} className="variant-option">
++                          <input
++                            id={optionId}
++                            type="radio"
++                            name="variant"
++                            value={option}
++                            checked={variant === option}
++                            onChange={() => setVariant(option)}
++                            data-testid={`variant-option-${slugify(option)}`}
++                          />
++                          <span className="radio" aria-hidden="true" />
++                          <span>{option}</span>
++                        </label>
++                      );
++                    })}
++                  </div>
++                </fieldset>
++
++                <QuantityStepper
++                  id="product-quantity"
++                  label="Quantity"
++                  value={quantity}
++                  onChange={setQuantity}
++                  testIdPrefix="quantity"
++                />
++
++                {product.inStock ? (
++                  <button type="submit" className="btn-gold" data-testid="add-to-cart">
++                    Add to cart
++                  </button>
++                ) : (
++                  <>
++                    <button type="submit" className="btn-gold" disabled data-testid="add-to-cart">
++                      Sold out
++                    </button>
++                    <p className="caption stock-note" data-testid="stock-note">
++                      This item is out of stock. Check back soon.
++                    </p>
++                  </>
++                )}
++              </form>
++            </div>
++
++            <div role="status" className="added-message" data-testid="added-message">
++              {confirmation && (
++                <Callout tone="success" icon="check">
++                  <p>
++                    {confirmation} <Link to="/cart">View cart</Link>
++                  </p>
++                </Callout>
++              )}
++            </div>
++
++            <section aria-labelledby="details-heading">
++              <h2 id="details-heading" className="ruled">
++                Details
++              </h2>
++              <ul className="detail-list">
++                {product.details.map((detail) => (
++                  <li key={detail}>
++                    <span className="bullet" aria-hidden="true" />
++                    {detail}
++                  </li>
++                ))}
++              </ul>
++            </section>
++          </div>
+         </div>
+       </article>
+-    </>
++    </div>
+   );
+ }
+diff --git a/src/pages/ProductsPage.tsx b/src/pages/ProductsPage.tsx
+index 2506d4f..b368204 100644
+--- a/src/pages/ProductsPage.tsx
++++ b/src/pages/ProductsPage.tsx
+@@ -1,7 +1,12 @@
+-import { useEffect, useMemo, useState } from 'react';
++import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+ import { Link, useSearchParams } from 'react-router';
+ import ProductImage from '../components/ProductImage';
+-import { categories, categoryLabel, formatPrice, products, type CategoryId, type Product } from '../data/products';
++import { Marker, PixelIcon, StageWindow, Vignette } from '../components/pixel';
++import { categories, categoryHue, categoryLabel, formatPrice, products, type CategoryId, type Product } from '../data/products';
++import { catalogueStrip, emptyStallVignette } from '../pixel/scenes';
++
++const CATALOGUE_SCENE = catalogueStrip();
++const EMPTY_SCENE = emptyStallVignette();
+ 
+ type CategoryFilter = 'all' | CategoryId;
+ type SortKey = 'featured' | 'price-asc' | 'price-desc' | 'name';
+@@ -103,16 +108,16 @@ export default function ProductsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
++      <StageWindow scene={CATALOGUE_SCENE} kind="strip" className="page-header">
+         <h1>Shop all goods</h1>
+-        <p className="muted">Durable bags, clothing and kitchen goods made to be used every day.</p>
+-      </div>
++        <p className="lede">Durable bags, clothing and kitchen goods made to be used every day.</p>
++      </StageWindow>
+ 
+-      <section className="panel" aria-labelledby="catalog-heading">
++      <section className="panel catalog" aria-labelledby="catalog-heading">
+         <h2 id="catalog-heading" className="visually-hidden">
+           Products
+         </h2>
+-        <div className="toolbar">
++        <div className="controls toolbar">
+           <div className="chip-group" role="group" aria-label="Filter by category">
+             {FILTERS.map((filter) => (
+               <button
+@@ -122,77 +127,104 @@ export default function ProductsPage() {
+                 aria-pressed={category === filter.value}
+                 onClick={() => selectCategory(filter.value)}
+                 data-testid={`category-filter-${filter.value}`}
++                style={{ '--hue': filter.value === 'all' ? 'var(--color-border-control)' : categoryHue(filter.value) } as CSSProperties}
+               >
++                <span className="slot" aria-hidden="true">
++                  <span className="bullet" />
++                  <Marker />
++                </span>
+                 {filter.label}
+               </button>
+             ))}
+           </div>
+ 
+           <div className="toolbar-controls">
+-            <label className="field-inline">
++            <label className="field-inline check">
+               <input
+                 type="checkbox"
+                 checked={inStockOnly}
+                 onChange={(event) => toggleInStock(event.target.checked)}
+                 data-testid="in-stock-toggle"
+               />
++              <span className="box" aria-hidden="true">
++                <PixelIcon name="check" />
++              </span>
+               In stock only
+             </label>
+-            <div className="field-inline">
+-              <label htmlFor="sort-select">Sort by</label>
+-              <select
+-                id="sort-select"
+-                className="select"
+-                value={sort}
+-                onChange={(event) => selectSort(parseSort(event.target.value))}
+-                data-testid="sort-select"
+-              >
+-                {SORT_OPTIONS.map((option) => (
+-                  <option key={option.value} value={option.value}>
+-                    {option.label}
+-                  </option>
+-                ))}
+-              </select>
++            <div className="field-inline field">
++              <label htmlFor="sort-select" className="field-label">
++                Sort by
++              </label>
++              <span className="select-wrap">
++                <select
++                  id="sort-select"
++                  className="select"
++                  value={sort}
++                  onChange={(event) => selectSort(parseSort(event.target.value))}
++                  data-testid="sort-select"
++                >
++                  {SORT_OPTIONS.map((option) => (
++                    <option key={option.value} value={option.value}>
++                      {option.label}
++                    </option>
++                  ))}
++                </select>
++                <Marker dir="d" />
++              </span>
+             </div>
+           </div>
+         </div>
+ 
+-        <p className="muted small" role="status" data-testid="result-count">
++        <p className="result-count" role="status" data-testid="result-count">
+           Showing {countLabel}
+         </p>
+ 
+         {visible.length === 0 ? (
+           <div className="empty-state" data-testid="products-empty">
+-            <h3>No products match these filters</h3>
+-            <p className="muted">Try another category or include items that are out of stock.</p>
+-            <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++            <Vignette svg={EMPTY_SCENE} />
++            <div className="empty-copy">
++              <h3>No products match these filters</h3>
++              <p className="muted">Try another category or include items that are out of stock.</p>
++            </div>
++            <button type="button" className="btn" onClick={clearFilters} data-testid="clear-filters">
++              <Marker />
+               Clear filters
+             </button>
+           </div>
+         ) : (
+-          <ul className="product-grid" data-testid="product-grid">
++          <ul className="product-grid items" data-testid="product-grid">
+             {visible.map((product) => (
+-              <li key={product.slug} className="product-card" data-testid="product-card">
++              <li
++                key={product.slug}
++                className="product-card"
++                data-testid="product-card"
++                style={{ '--hue': categoryHue(product.category) } as CSSProperties}
++              >
+                 <ProductImage product={product} />
+                 <div className="product-card-body">
+-                  <p className="muted small">{categoryLabel(product.category)}</p>
+-                  <h3 className="product-card-title">
++                  <p className="card-cat">
++                    <PixelIcon name={product.category} />
++                    {categoryLabel(product.category)}
++                  </p>
++                  <h3 className="product-card-title card-title">
++                    <Marker />
+                     <Link to={`/products/${product.slug}`} className="product-link" data-testid="product-link">
+                       {product.name}
+                     </Link>
+                   </h3>
+-                  <p className="small">{product.summary}</p>
+-                  <p className="product-card-meta">
+-                    <span className="price" data-testid="product-price">
+-                      {formatPrice(product.price)}
+-                    </span>
+-                    {!product.inStock && (
+-                      <span className="tag tag-muted" data-testid="sold-out-tag">
+-                        Sold out
+-                      </span>
+-                    )}
+-                  </p>
++                  <p className="card-summary">{product.summary}</p>
+                 </div>
++                <p className="product-card-meta">
++                  <span className="price" data-testid="product-price">
++                    {formatPrice(product.price)}
++                  </span>
++                  {!product.inStock && (
++                    <span className="status-chip" data-testid="sold-out-tag">
++                      <span className="bullet" style={{ '--hue': 'var(--color-status-danger)' } as CSSProperties} aria-hidden="true" />
++                      Sold out
++                    </span>
++                  )}
++                </p>
+               </li>
+             ))}
+           </ul>
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 651c82a..1b6b879 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,638 +1,368 @@
+ /*
+- * Base styles for the Fieldhouse Supply store.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Fieldhouse Supply on Night Cartridge 1.3.0-rc.2 (design-system/).
++ * Tokens come from design-system/tokens.css; this file uses only those variables.
++ * Sections: root block, type, marker and response, window chrome, pixel stage, stepped motion, layout, app.
+  */
+-:root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-header-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-error: #b00020;
+-  --color-success-bg: #e3f2e5;
+-  --color-success-text: #1b5e20;
+-  --color-badge-bg: #b00020;
+-  --color-badge-text: #ffffff;
+-  --color-tag-bg: #e8e8e8;
+-  --color-tag-text: #444444;
+-  --color-disabled-bg: #e8e8e8;
+-  --color-disabled-text: #888888;
+-  --color-image-icon: #777777;
+-  --color-tone-sand: #ece4d4;
+-  --color-tone-olive: #dfe3d0;
+-  --color-tone-slate: #d9dee5;
+-  --color-tone-clay: #ead8cf;
+-  --color-tone-stone: #e4e4e4;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --font-size-price-large: 22px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --content-max-width: 1120px;
+-  --product-card-min: 220px;
+-}
+-
+-*,
+-*::before,
+-*::after {
+-  box-sizing: border-box;
+-}
+-
+-html,
+-body {
+-  margin: 0;
+-}
+-
+-body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
+-}
+-
+-h1,
+-h2,
+-h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
+-}
+-
+-h1 {
+-  font-size: var(--font-size-h1);
+-}
+-
+-h2 {
+-  font-size: var(--font-size-h2);
+-}
+-
+-h3 {
+-  font-size: var(--font-size-base);
+-}
+-
+-p {
+-  margin: 0 0 var(--space-2);
+-}
+-
+-a {
+-  color: var(--color-link);
+-}
+-
+-:focus-visible {
+-  outline: 2px solid var(--color-focus);
+-  outline-offset: 2px;
+-}
+-
+-.visually-hidden {
+-  position: absolute;
+-  width: 1px;
+-  height: 1px;
+-  padding: 0;
+-  margin: -1px;
+-  overflow: hidden;
+-  clip: rect(0, 0, 0, 0);
+-  white-space: nowrap;
+-  border: 0;
+-}
+-
+-.skip-link {
+-  position: absolute;
+-  left: -9999px;
+-}
+-
+-.skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
+-}
+-
+-.muted {
+-  color: var(--color-text-muted);
+-}
+-
+-.small {
+-  font-size: var(--font-size-small);
+-}
+-
+-.icon {
+-  display: block;
+-  flex-shrink: 0;
+-}
+-
+-/* Layout */
+-.app-shell {
+-  display: flex;
+-  flex-direction: column;
+-  min-height: 100vh;
+-}
+-
+-.site-header {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-6);
+-  padding: var(--space-3) var(--space-6);
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-}
+-
+-.brand {
+-  font-weight: bold;
+-  color: var(--color-text);
+-  text-decoration: none;
+-}
+-
+-.site-nav {
+-  flex: 1;
+-}
+-
+-.nav-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  display: flex;
+-  gap: var(--space-2);
+-}
+-
+-.nav-link {
+-  display: block;
+-  padding: var(--space-1) var(--space-3);
+-  border-radius: var(--radius);
+-  text-decoration: none;
+-}
+-
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
+-}
+-
+-.content {
+-  flex: 1;
+-  width: 100%;
+-  max-width: var(--content-max-width);
+-  margin: 0 auto;
+-  padding: var(--space-6);
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-6);
+-}
+-
+-.site-footer {
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4) var(--space-6);
+-}
+-
+-.site-footer p {
+-  margin: 0;
+-}
+-
+-/* Controls */
+-.input,
+-.select {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
+-}
+-
+-.textarea {
+-  resize: vertical;
+-}
+-
+-.input[aria-invalid='true'] {
+-  border-color: var(--color-error);
+-}
+-
+-.button {
+-  font: inherit;
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  text-decoration: none;
+-  cursor: pointer;
+-}
+-
+-.button:disabled {
+-  background: var(--color-disabled-bg);
+-  color: var(--color-disabled-text);
+-  cursor: not-allowed;
+-}
+-
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
+-  padding: var(--space-2) var(--space-4);
+-}
+-
+-.link-button {
+-  font: inherit;
+-  background: none;
+-  border: none;
+-  padding: 0;
+-  color: var(--color-link);
+-  text-decoration: underline;
+-  cursor: pointer;
+-}
+-
+-.field-inline {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-}
+-
+-.field {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
+-}
+-
+-.field-label {
+-  font-weight: bold;
+-  font-size: var(--font-size-small);
+-}
+-
+-.field-error {
+-  color: var(--color-error);
+-  font-size: var(--font-size-small);
+-  margin: 0;
+-}
+-
+-/* Cart button */
+-.cart-button {
+-  position: relative;
+-}
+-
+-.badge {
+-  display: inline-block;
+-  min-width: 20px;
+-  padding: 0 var(--space-1);
+-  border-radius: var(--radius-pill);
+-  background: var(--color-badge-bg);
+-  color: var(--color-badge-text);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
+-  text-align: center;
+-}
+-
+-/* Panels */
+-.panel {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
+-}
+-
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
+-}
+-
+-/* Catalog toolbar */
+-.toolbar {
+-  display: flex;
+-  flex-wrap: wrap;
+-  justify-content: space-between;
+-  align-items: center;
+-  gap: var(--space-3);
+-  margin-bottom: var(--space-3);
+-}
+-
+-.toolbar-controls {
+-  display: flex;
+-  flex-wrap: wrap;
+-  align-items: center;
+-  gap: var(--space-4);
+-}
+-
+-.chip-group {
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-}
+-
+-.chip {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius-pill);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  cursor: pointer;
+-}
+-
+-.chip[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
+-}
+-
+-/* Product grid */
+-.product-grid {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(var(--product-card-min), 1fr));
+-  gap: var(--space-4);
+-}
+-
+-.product-card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  overflow: hidden;
+-  display: flex;
+-  flex-direction: column;
+-}
+-
+-.product-card-body {
+-  padding: var(--space-3);
+-}
+-
+-.product-card-body p {
+-  margin-bottom: var(--space-1);
+-}
+-
+-.product-card-title {
+-  margin-bottom: var(--space-1);
+-}
+-
+-.product-card-meta {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-}
+-
+-.price {
+-  font-weight: bold;
+-  font-variant-numeric: tabular-nums;
+-}
+-
+-.price-large {
+-  font-size: var(--font-size-price-large);
+-}
+-
+-.tag {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
+-}
+-
+-.tag-muted {
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-}
+-
+-/* Image placeholder */
+-.product-image {
+-  display: flex;
+-  align-items: center;
+-  justify-content: center;
+-  color: var(--color-image-icon);
+-  aspect-ratio: 4 / 3;
+-  width: 100%;
+-}
+-
+-.product-image-large {
+-  aspect-ratio: 1 / 1;
+-  border-radius: var(--radius);
+-}
+-
+-.tone-sand {
+-  background: var(--color-tone-sand);
+-}
+-
+-.tone-olive {
+-  background: var(--color-tone-olive);
+-}
+-
+-.tone-slate {
+-  background: var(--color-tone-slate);
+-}
+-
+-.tone-clay {
+-  background: var(--color-tone-clay);
+-}
+-
+-.tone-stone {
+-  background: var(--color-tone-stone);
+-}
+-
+-/* Product detail */
+-.breadcrumb ol {
+-  list-style: none;
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin: 0;
+-  padding: 0;
+-  font-size: var(--font-size-small);
+-}
+-
+-.breadcrumb li + li::before {
+-  content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
+-}
+-
+-.product-detail {
+-  display: grid;
+-  grid-template-columns: 1fr 1fr;
+-  gap: var(--space-8);
+-  align-items: start;
+-}
+-
+-.purchase-form {
+-  display: flex;
+-  flex-direction: column;
+-  align-items: flex-start;
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0;
+-}
+-
+-.variant-fieldset {
+-  border: none;
+-  margin: 0;
+-  padding: 0;
+-}
+-
+-.variant-options {
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin-top: var(--space-1);
+-}
+-
+-.variant-option {
+-  display: inline-flex;
+-  align-items: center;
+-  gap: var(--space-1);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  cursor: pointer;
+-}
+-
+-.stepper {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
+-}
+-
+-.stepper-controls {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-1);
+-}
+-
+-.stepper-button {
+-  width: 32px;
+-  height: 32px;
+-  padding: 0;
+-}
+-
+-.stepper-input {
+-  width: 56px;
+-  height: 32px;
+-  text-align: center;
+-}
+-
+-.added-message p {
+-  background: var(--color-success-bg);
+-  color: var(--color-success-text);
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
+-}
+-
+-.detail-list {
+-  margin: 0;
+-  padding-left: var(--space-6);
+-}
+-
+-/* Cart */
+-.cart-layout {
+-  display: grid;
+-  grid-template-columns: 3fr 2fr;
+-  gap: var(--space-6);
+-  align-items: start;
+-}
+-
+-.cart-lines {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-}
+-
+-.cart-line {
+-  display: grid;
+-  grid-template-columns: 1fr auto auto auto;
+-  align-items: center;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
+-}
+-
+-.cart-line-info p {
+-  margin: 0;
+-}
+-
+-.cart-line-name {
+-  font-weight: bold;
+-}
+-
+-.cart-line-total {
+-  margin: 0;
+-  min-width: 80px;
+-  text-align: right;
+-}
+-
+-.summary {
+-  margin: var(--space-4) 0 0;
+-}
+-
+-.summary-row {
+-  display: flex;
+-  justify-content: space-between;
+-  padding: var(--space-1) 0;
+-}
+-
+-.summary-row dd {
+-  margin: 0;
+-  font-variant-numeric: tabular-nums;
+-}
+-
+-.summary-total {
+-  border-top: var(--border-width) solid var(--color-border);
+-  margin-top: var(--space-2);
+-  padding-top: var(--space-2);
+-  font-weight: bold;
+-}
+-
+-.checkout-form {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
+-}
+-
+-.checkout-form .button-primary {
+-  align-self: flex-start;
+-}
+-
+-.confirmation {
+-  background: var(--color-success-bg);
+-  color: var(--color-success-text);
+-}
+ 
+-@media (max-width: 900px) {
+-  .site-header {
+-    flex-wrap: wrap;
+-    gap: var(--space-3);
+-    padding: var(--space-3) var(--space-4);
+-  }
+-
+-  .content {
+-    padding: var(--space-4);
+-  }
+-
+-  .product-detail,
+-  .cart-layout {
+-    grid-template-columns: 1fr;
+-  }
+-
+-  .cart-line {
+-    grid-template-columns: 1fr auto;
+-  }
++/* ------------------------------------------------------------------ root block (Signature elements) */
++@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
++:root[data-motion="off"] *,:root[data-motion="off"] *::before,:root[data-motion="off"] *::after{animation:none!important}
++*,*::before,*::after{box-sizing:border-box;transition:none!important;border-radius:0!important}
++
++:root{color-scheme:dark}
++
++/* ------------------------------------------------------------------ pixel type */
++html{font:var(--font-weight-regular) var(--font-size-body)/var(--font-line-height-ui) var(--font-family-pixel);color:var(--color-text-primary);background:var(--color-surface-default);
++  -webkit-font-smoothing:none;font-smooth:never;font-synthesis:none;letter-spacing:normal;text-transform:none;word-break:keep-all;line-break:strict;overflow-wrap:break-word;font-variant-numeric:slashed-zero tabular-nums}
++:is(h1,h2,h3,h4,h5,h6,b,strong,th,label,button,legend,dt){font-weight:var(--font-weight-regular)}
++:is(h1,h2,h3,h4,strong,b,em,i){color:var(--color-text-strong);font-style:normal}
++.prose{max-width:var(--size-prose);line-height:var(--font-line-height-prose)}
++:is(code,pre,kbd,samp){font-family:var(--font-family-pixel-mono)}
++
++body{margin:0;background:var(--color-surface-default)}
++h1,h2,h3,p,ul,ol,dl,dd,figure{margin:0}
++h1,h2{font-size:var(--font-size-title);line-height:var(--font-line-height-title)}
++h3{font-size:var(--font-size-body);line-height:var(--font-line-height-ui)}
++button,input,select,textarea{font:inherit;color:inherit;letter-spacing:normal}
++
++a{color:var(--color-text-link);text-decoration:underline;text-decoration-thickness:var(--border-width-control);text-decoration-color:var(--color-border-control);text-underline-offset:var(--space-4)}
++a:hover{color:var(--color-text-strong);text-decoration-color:var(--color-text-strong)}
++
++.caption,.muted.small{font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.muted{color:var(--color-text-secondary)}
++.lede{line-height:var(--font-line-height-prose);max-width:var(--size-prose)}
++
++.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
++.skip-link{position:absolute;left:-9999px;z-index:20}
++.skip-link:focus{left:var(--space-8);top:var(--space-8);padding:var(--space-8) var(--space-12);background:var(--color-surface-raised);color:var(--color-text-strong);border:var(--border-width-control) solid var(--color-border-strong)}
++
++.px-icon{display:block;flex:none;shape-rendering:crispEdges}
++
++/* ------------------------------------------------------------------ RPG marker and instant, physical response */
++:root{
++--cur-r:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7'%3E%3Cpath d='M0 0h1v1h1v1h1v1h1v1h-1v1h-1v1h-1v1h-1z'/%3E%3C/svg%3E");
++--cur-l:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7'%3E%3Cpath d='M4 0v7h-1v-1h-1v-1h-1v-1h-1v-1h1v-1h1v-1h1v-1z'/%3E%3C/svg%3E");
++--cur-d:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4'%3E%3Cpath d='M0 0h7v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1z'/%3E%3C/svg%3E");
++--cur-u:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 4'%3E%3Cpath d='M3 0h1v1h1v1h1v1h1v1h-7v-1h1v-1h1v-1h1z'/%3E%3C/svg%3E");
++--cur-bevel:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 7' shape-rendering='crispEdges'%3E%3Cpath fill='white' fill-opacity='.45' d='M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3z'/%3E%3Cpath fill-opacity='.4' d='M2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z'/%3E%3C/svg%3E");}
++.cur{flex:none;display:inline-block;width:var(--size-marker-w);height:var(--size-marker-h);color:var(--color-text-accent);
++  background:var(--cur-bevel) 0 0/100% 100% no-repeat currentColor;-webkit-mask:var(--cur-r) 0 0/100% 100% no-repeat;mask:var(--cur-r) 0 0/100% 100% no-repeat}
++.cur--l{-webkit-mask-image:var(--cur-l);mask-image:var(--cur-l);background-image:none}
++.cur--d,.cur--u{width:var(--size-marker-h);height:var(--size-marker-w);background-image:none;-webkit-mask-image:var(--cur-d);mask-image:var(--cur-d)}.cur--u{-webkit-mask-image:var(--cur-u);mask-image:var(--cur-u)}
++.cur--sm{width:6px;height:10px}
++.item{display:flex;align-items:center;gap:var(--space-8);min-height:var(--size-row);padding-inline:var(--space-8) var(--space-12)}
++.item>.cur{visibility:hidden}
++.item:is([aria-current],[aria-selected="true"],.is-current)>.cur{visibility:visible}
++.item:hover{background:var(--color-surface-hover)}
++.item:is([aria-current],[aria-selected="true"]){color:var(--color-text-strong)}
++.card-title{position:relative}
++.card-title>.cur{position:absolute;right:calc(100% + var(--space-4));top:50%;translate:0 -50%;visibility:hidden}
++.card-link:is(:hover,:focus-visible) .card-title>.cur{visibility:visible;color:var(--color-text-strong)}
++:focus-visible{outline:var(--border-width-window) solid var(--color-focus-ring);outline-offset:3px}
++:is(.item,tr,summary,[role="option"]):focus-visible{outline-offset:-4px}
++.press:active:not(:disabled){translate:2px 2px}
++.btn-gold{height:var(--size-control-lg);padding-inline:var(--space-20);background:var(--color-action-primary);color:var(--color-text-on-action);border:var(--border-width-control) solid var(--color-action-primary);box-shadow:var(--shadow-hard)}
++.btn-gold:active:not(:disabled){translate:4px 4px;box-shadow:var(--shadow-none)}
++
++/* Buttons (Button component) */
++.btn,.btn-gold{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-8);font-size:var(--font-size-body);line-height:var(--font-line-height-ui);text-decoration:none;cursor:pointer;white-space:nowrap}
++.btn{height:var(--size-control);padding-inline:var(--space-12);background:transparent;color:var(--color-text-primary);border:var(--border-width-control) solid var(--color-border-control)}
++.btn:hover:not(:disabled){background:var(--color-surface-hover);color:var(--color-text-strong)}
++.btn:active:not(:disabled){translate:2px 2px}
++.btn--sm{height:var(--size-control-sm);padding-inline:var(--space-8)}
++.btn-gold:hover{color:var(--color-text-on-action)}
++.btn:disabled,.btn-gold:disabled{background:var(--color-surface-hover);color:var(--color-text-disabled);border-color:var(--color-border-default);box-shadow:var(--shadow-none);cursor:not-allowed}
++.btn .cur,.btn-gold .cur{background-image:none;color:currentColor}
++
++.tool{display:inline-flex;align-items:center;gap:var(--space-8);height:var(--size-control);padding-inline:var(--space-8);background:transparent;border:0;color:var(--color-text-secondary)}
++.tool:hover{background:var(--color-surface-hover);color:var(--color-text-primary)}
++.tool{cursor:pointer;white-space:nowrap}
++
++/* ------------------------------------------------------------------ game-window chrome */
++.window{border:var(--border-width-window) solid var(--color-border-strong);background:var(--color-surface-raised)}
++.window__bar{display:flex;align-items:center;gap:var(--space-8);height:var(--size-title-bar);padding-inline:var(--space-12);background:var(--color-surface-subtle);border-bottom:var(--border-width-control) solid var(--color-border-default)}
++.dither{height:var(--size-rule);background:repeating-conic-gradient(var(--dc,var(--color-border-default)) 0 25%,transparent 0 50%) 0 0/4px 4px}
++h2.ruled{padding-bottom:var(--space-12);margin-bottom:var(--space-16);background:repeating-conic-gradient(var(--color-border-control) 0 25%,transparent 0 50%) bottom left/4px 4px repeat-x}
++.sep-dots{height:2px;background:linear-gradient(90deg,var(--color-border-control) 2px,transparent 0) 0 0/6px 2px repeat-x}
++.hue-bar{border-top:var(--border-width-window) solid var(--hue)}
++.bullet{flex:none;width:var(--size-bullet);height:var(--size-bullet);background:var(--hue)}
++.meter{display:flex;gap:var(--space-4)}
++.meter>i{width:var(--size-meter-w);height:var(--size-meter-h);background:var(--color-surface-hover)}
++.meter>i.on{background:var(--tone,var(--color-status-success));animation:nc-on var(--motion-duration-meter-step) var(--motion-easing-frame) calc(var(--i) * var(--motion-duration-meter-step)) backwards}
++@keyframes nc-on{from{background:var(--color-surface-hover)}}
++.callout{display:grid;grid-template-columns:var(--size-icon) 1fr;gap:var(--space-4) var(--space-12);padding:var(--space-16) var(--space-20);background:var(--color-surface-subtle);border-left:var(--border-width-window) solid var(--tone)}
++.callout-icon{display:grid;place-items:center;width:var(--size-icon);height:var(--size-icon);color:var(--tone)}
++
++/* ------------------------------------------------------------------ pixel stage */
++.stage{position:relative;overflow:hidden;height:var(--size-banner);background:var(--color-art-sky1)}
++.stage--hero{height:var(--size-hero);max-width:1920px;margin-inline:auto}.stage--strip{height:var(--size-banner-sm)}
++.stage>.scene{position:absolute;left:50%;bottom:0;translate:-50% 0;max-width:none;shape-rendering:crispEdges;pointer-events:none}
++@media (max-width:1023px){.stage--hero{height:var(--size-hero-sm)}.stage.stage--hero>.scene{translate:calc(-50% + (240 - var(--lx))*var(--size-unit-hero)) calc(24*var(--size-unit-hero))}.stage:not(.stage--hero)>.scene{translate:calc(-50% + (360 - var(--lx,360))*var(--size-unit)) 0}}
++.sky-1{fill:var(--color-art-sky1)}.sky-2{fill:var(--color-art-sky2)}.sky-3{fill:var(--color-art-sky3)}.sky-4{fill:var(--color-art-sky4)}.sky-5{fill:var(--color-art-sky5)}.sky-6{fill:var(--color-art-sky6)}
++.haze{fill:color-mix(in srgb,var(--color-art-far) 50%,var(--color-art-sky6))}.far{fill:var(--color-art-far)}.near{fill:var(--color-art-near)}.ol{fill:var(--color-art-outline)}
++.base{fill:color-mix(in srgb,var(--base) 55%,var(--color-art-sky1))}
++.hi{fill:color-mix(in srgb,color-mix(in srgb,var(--base) 55%,var(--color-art-sky1)) 60%,var(--color-art-glint))}
++.shade{fill:color-mix(in srgb,color-mix(in srgb,var(--base) 55%,var(--color-art-sky1)) 60%,var(--color-art-outline))}
++.warm{fill:var(--color-art-light-warm)}.cold{fill:var(--color-art-light-cold)}.star{fill:var(--color-art-star)}.star-dim{fill:color-mix(in srgb,var(--color-art-star) 50%,var(--color-art-sky1))}.beacon{fill:var(--color-art-beacon)}.glint{fill:var(--color-art-glint)}.halo{fill:url(#d-glint)}
++.ground{position:relative;overflow-x:clip;height:calc(var(--size-ground) + var(--size-ground-edge));margin-top:calc(var(--space-64) + var(--size-ground-sprite));pointer-events:none;
++  background:linear-gradient(90deg,var(--color-art-edge-hi) 2px,transparent 0) 0 calc(100% - 2px)/6px 2px repeat-x,linear-gradient(var(--color-art-edge) 0 0) bottom/100% var(--size-ground-edge) no-repeat,repeating-conic-gradient(var(--color-art-ground-hi) 0 25%,transparent 0 50%) 0 0/8px 8px,var(--color-art-ground)}
++.ground>svg{position:absolute;bottom:100%;left:50%;translate:-50% 0;width:1440px;max-width:none;height:var(--size-ground-sprite);shape-rendering:crispEdges}
++
++/* Vignette: 48×48 units at size.unit in a 2px control frame */
++.vignette{flex:none;width:calc(var(--size-vignette) + 2 * var(--border-width-control));height:calc(var(--size-vignette) + 2 * var(--border-width-control));border:var(--border-width-control) solid var(--color-border-control);background:var(--color-art-sky1);overflow:hidden}
++.vignette>svg{display:block;shape-rendering:crispEdges}
++
++/* Missing images: the item drawn as a sprite in a 2px-framed .pic window */
++.pic{container-type:inline-size;display:grid;place-items:center;aspect-ratio:4/3;padding:var(--space-12);border:var(--border-width-control) solid var(--color-border-control);background:var(--color-surface-raised)}
++.pic>svg{display:block;margin:auto;width:calc(round(down,50cqi/var(--v),1px)*var(--w));height:auto;shape-rendering:crispEdges}
++
++/* ------------------------------------------------------------------ stepped motion */
++@keyframes nc-blink{50%{opacity:var(--opacity-dim)}}
++@keyframes nc-twinkle{60%{opacity:var(--opacity-twinkle)}80%{opacity:1}}
++@keyframes nc-sparkle{70%{transform:scale(.34)}85%{transform:scale(1)}}
++@keyframes nc-bob{50%{transform:translateY(var(--bob,-4px))}}
++@keyframes nc-swap{50%{opacity:0}}
++@keyframes nc-beacon{50%{fill:var(--color-art-beacon-off)}}
++@keyframes nc-drift{from{transform:translateX(var(--from))}to{transform:translateX(var(--to))}}
++@keyframes nc-rare{0%,90%{opacity:0;transform:none;animation-timing-function:steps(1)}90.1%{opacity:1;transform:none;animation-timing-function:steps(5)}100%{opacity:1;transform:translate(var(--dx),var(--dy))}}
++@keyframes nc-nudge{50%{transform:translateX(2px)}}
++.blink{animation:nc-blink var(--d,var(--motion-duration-led-a)) var(--motion-easing-frame) var(--o,0ms) infinite}
++.blink:nth-of-type(3n+2){--d:var(--motion-duration-led-b);--o:-500ms}.blink:nth-of-type(3n){--d:var(--motion-duration-led-c)}
++.twinkle{animation:nc-twinkle var(--motion-duration-twinkle) var(--motion-easing-frame) var(--o,0ms) infinite}
++.twinkle:nth-of-type(2n){--o:-900ms}.twinkle:nth-of-type(3n){--o:-1700ms}
++.bob{animation:nc-bob var(--motion-duration-bob) var(--motion-easing-frame) infinite}
++.frame-b{animation:nc-swap var(--motion-duration-fan) var(--motion-easing-frame) infinite}
++.frame-a{animation:nc-swap var(--motion-duration-fan) var(--motion-easing-frame) calc(var(--motion-duration-fan) / -2) infinite}
++.beacon{animation:nc-beacon var(--motion-duration-beacon) var(--motion-easing-frame) infinite}
++.drift{animation:nc-drift var(--motion-duration-drift) steps(var(--n)) var(--o,0ms) infinite}
++.rare{opacity:0;animation:nc-rare var(--motion-duration-rare) var(--motion-easing-frame) infinite}
++.nudge{animation:nc-nudge calc(var(--motion-duration-nudge) * 2) var(--motion-easing-frame) 1}
++.sparkle{transform-box:fill-box;transform-origin:center;animation:nc-sparkle var(--motion-duration-sparkle) var(--motion-easing-frame) -600ms infinite}
++/* Resting frame 1: the second frame of a two-frame sprite stays hidden when motion is off. */
++@media (prefers-reduced-motion:reduce){.frame-b{opacity:0}}
++:root[data-motion="off"] .frame-b{opacity:0}
++/* A second nudge class restarts the one-shot on the next failed submit. */
++.nudge-b{animation:nc-nudge-b calc(var(--motion-duration-nudge) * 2) var(--motion-easing-frame) 1}
++@keyframes nc-nudge-b{50%{transform:translateX(2px)}}
++
++.ellipsis{display:inline-block;width:3ch;overflow:hidden;vertical-align:bottom;white-space:nowrap}
++.ellipsis::before{content:"..."}
++.is-loading .ellipsis{animation:nc-dots var(--motion-duration-dots) var(--motion-easing-dots) infinite}
++@keyframes nc-dots{from{width:1ch}to{width:3ch}}
++
++/* ------------------------------------------------------------------ layout adaptation */
++.tiles,.cards,.items,.kpis{display:grid;gap:var(--space-16)}
++.tiles{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
++.cards{grid-template-columns:repeat(auto-fill,minmax(min(100%,max(320px,(100% - 2 * var(--space-16)) / 3)),1fr))}
++.items{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
++.kpis{grid-template-columns:repeat(var(--n),minmax(0,1fr))}
++.fields{display:grid;gap:var(--space-20) var(--space-24);grid-template-columns:1fr 1fr}.fields>.wide{grid-column:1/-1}
++.panels{display:flex;flex-wrap:wrap;align-items:stretch;gap:var(--space-16)}.panels>*{flex:1 1 320px;display:flex;flex-direction:column}.panels>.wide{flex-grow:2}
++.controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-12)}.controls :is(button,input:not([type=checkbox],[type=radio]),select,[role=button],.btn-gold){height:var(--size-control)}
++@media (max-width:1023px){.kpis{grid-template-columns:repeat(var(--n-md),minmax(0,1fr))}}
++@media (max-width:599px){.fields,.kpis{grid-template-columns:1fr}}
++
++/* ------------------------------------------------------------------ app shell */
++.app-shell{display:flex;flex-direction:column;min-height:100vh}
++.container{width:100%;max-width:calc(var(--size-container) + 2 * var(--space-24));margin-inline:auto;padding-inline:var(--space-24)}
++
++.site-header{position:sticky;top:0;z-index:10;background:var(--color-surface-default)}
++.header-inner{display:flex;align-items:center;gap:var(--space-16);height:var(--size-header)}
++.brand{display:inline-flex;align-items:center;gap:var(--space-8);flex:none;color:var(--color-text-strong);text-decoration:none}
++.brand:hover{color:var(--color-text-strong)}
++.brand .px-icon{width:var(--size-icon);height:var(--size-icon)}
++.header-menu{display:flex;align-items:center;flex:1;gap:var(--space-16);min-width:0}
++.site-nav{flex:1}
++.nav-list{display:flex;gap:var(--space-4);list-style:none;margin:0;padding:0}
++.nav-list .item{color:var(--color-text-secondary);text-decoration:none}
++.nav-list .item:hover{color:var(--color-text-strong)}
++.nav-list .item[aria-current="page"]>.cur{animation:nc-swap var(--motion-duration-bob) var(--motion-easing-frame) infinite}
++.cart-button .px-icon{width:var(--size-icon);height:var(--size-icon)}
++.badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 var(--space-4);background:var(--color-surface-hover);color:var(--color-text-strong);font-size:var(--font-size-caption);line-height:var(--font-line-height-caption)}
++.menu-button{display:none}
++.menu-button .px-icon{width:var(--size-icon);height:var(--size-icon)}
++
++@media (max-width:1023px){
++  .header-inner{gap:var(--space-8)}
++  .menu-button{display:inline-flex;justify-content:center;width:var(--size-control);padding:0;border:var(--border-width-control) solid var(--color-border-control);color:var(--color-text-primary)}
++  .cart-button{margin-left:auto}
++  .header-menu{display:none;position:absolute;top:100%;right:var(--space-16);z-index:11;flex-direction:column;align-items:stretch;gap:var(--space-8);width:min(280px,calc(100% - 2 * var(--space-16)));padding:var(--space-8);border:var(--border-width-control) solid var(--color-border-strong);background:var(--color-surface-raised)}
++  .header-menu.is-open{display:flex}
++  .nav-list{flex-direction:column}
++  .header-tools{border-top:var(--border-width-control) solid var(--color-border-default);padding-top:var(--space-8)}
++}
++@media (max-width:599px){
++  .container{padding-inline:var(--space-16)}
++  .cart-button-label{display:none}
++}
++
++.content{flex:1;display:flex;flex-direction:column;gap:var(--space-64);padding-top:var(--space-40)}
++.content:focus{outline:none}
++@media (max-width:599px){.content{gap:var(--space-40)}}
++
++.site-footer p{padding-block:var(--space-16)}
++
++/* ------------------------------------------------------------------ stage windows and title blocks */
++.stage-window{overflow:hidden}
++.title-block{display:flex;flex-direction:column;gap:var(--space-8);padding:var(--space-24)}
++.title-block .meta{font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.eyebrow{display:flex;align-items:center;gap:var(--space-8);color:var(--color-text-secondary)}
++
++/* ------------------------------------------------------------------ catalogue */
++.catalog{display:flex;flex-direction:column;gap:var(--space-16)}
++.toolbar{justify-content:space-between}
++.chip-group{display:flex;flex-wrap:wrap;gap:var(--space-8)}
++.chip{display:inline-flex;align-items:center;gap:var(--space-8);height:var(--size-control);padding-inline:var(--space-12);background:transparent;border:var(--border-width-control) solid var(--color-border-default);color:var(--color-text-primary);cursor:pointer}
++.chip:hover{background:var(--color-surface-hover);color:var(--color-text-strong)}
++.chip:active{translate:2px 2px}
++.chip .slot{display:grid;place-items:center;width:var(--size-marker-w);height:var(--size-marker-h)}
++.chip .cur{display:none}
++.chip[aria-pressed="true"]{color:var(--color-text-strong);border-color:var(--color-border-strong)}
++.chip[aria-pressed="true"] .bullet{display:none}
++.chip[aria-pressed="true"] .cur{display:inline-block}
++.toolbar-controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-16)}
++.result-count{font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++
++.product-grid{list-style:none;margin:0;padding:0}
++.product-card{position:relative;display:flex;flex-direction:column;gap:var(--space-12);padding:var(--space-16) var(--space-20);background:var(--color-surface-subtle);border-top:var(--border-width-window) solid var(--hue)}
++.product-card:hover{background:var(--color-surface-hover)}
++.product-card:active{translate:2px 2px}
++.product-card:has(.product-link:focus-visible){outline:var(--border-width-window) solid var(--color-focus-ring);outline-offset:3px}
++.product-card:is(:hover,:focus-within) .card-title>.cur{visibility:visible;color:var(--color-text-strong)}
++.product-card-body{display:flex;flex-direction:column;gap:var(--space-4)}
++.card-cat{display:flex;align-items:center;gap:var(--space-8);font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.card-cat .px-icon{color:var(--hue)}
++.product-card-title{font-size:var(--font-size-body);line-height:var(--font-line-height-ui);color:var(--color-text-primary)}
++.product-link{color:inherit;text-decoration:none}
++.product-link::after{content:"";position:absolute;inset:0}
++.product-link:focus-visible{outline:none}
++.product-card:is(:hover,:focus-within) .product-card-title{color:var(--color-text-strong)}
++.product-link:hover{color:inherit}
++.card-summary{color:var(--color-text-secondary);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden}
++.product-card-meta{display:flex;align-items:center;justify-content:space-between;gap:var(--space-8);margin-top:auto;padding-top:var(--space-4)}
++.price{color:var(--color-text-strong)}
++.status-chip{display:inline-flex;align-items:center;gap:var(--space-8);padding:0 var(--space-8);font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-primary)}
++
++/* Checkbox (native input, visually replaced) */
++.check{display:inline-flex;align-items:center;gap:var(--space-8);min-height:var(--size-control);cursor:pointer;position:relative}
++.check input{position:absolute;opacity:0;width:16px;height:16px;margin:0}
++.check .box{display:grid;place-items:center;width:16px;height:16px;flex:none;border:var(--border-width-control) solid var(--color-border-control);background:var(--color-surface-raised);color:var(--color-text-accent)}
++.check .box .px-icon{visibility:hidden}
++.check input:checked+.box .px-icon{visibility:visible}
++.check:hover .box{border-color:var(--color-border-strong)}
++.check input:focus-visible+.box{outline:var(--border-width-window) solid var(--color-focus-ring);outline-offset:3px}
++
++/* Text field and select */
++.field{display:flex;flex-direction:column;gap:var(--space-8)}
++.field-label{color:var(--color-text-strong)}
++.input,.select{height:var(--size-control);padding:0 var(--space-12);background:var(--color-surface-raised);border:var(--border-width-control) solid var(--color-border-control);color:var(--color-text-primary);min-width:0;font-size:var(--font-size-body);line-height:var(--font-line-height-ui)}
++.input::placeholder{color:var(--color-text-secondary)}
++.input:hover,.select:hover{border-color:var(--color-border-strong)}
++.input:focus-visible,.select:focus-visible{border-color:var(--color-border-strong)}
++.textarea{height:auto;min-height:calc(4 * var(--font-line-height-ui) + 2 * var(--space-12) + 2 * var(--border-width-control));padding:var(--space-12);resize:vertical}
++.input[aria-invalid="true"]{border-color:var(--color-status-danger)}
++.field-error{display:flex;align-items:flex-start;gap:var(--space-8);font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-status-danger);margin-top:calc(var(--space-4) - var(--space-8))}
++.field-error .px-icon{margin-top:3px}
++.select-wrap{position:relative;display:inline-flex}
++.select{appearance:none;-webkit-appearance:none;padding-right:calc(var(--space-12) * 2 + var(--size-marker-h));cursor:pointer}
++.select-wrap .cur{position:absolute;right:var(--space-12);top:50%;translate:0 -50%;color:var(--color-text-secondary);pointer-events:none}
++.select option{background:var(--color-surface-raised);color:var(--color-text-primary)}
++
++/* Empty state */
++.empty-state{display:flex;flex-direction:column;align-items:center;gap:var(--space-16);max-width:400px;margin-inline:auto;padding-block:var(--space-40);text-align:center}
++.empty-state p{line-height:var(--font-line-height-prose);color:var(--color-text-secondary)}
++.empty-state .empty-copy{display:flex;flex-direction:column;gap:var(--space-8)}
++.empty-state h2{font-size:var(--font-size-title);line-height:var(--font-line-height-title)}
++
++/* ------------------------------------------------------------------ product detail */
++.breadcrumb ol{display:flex;flex-wrap:wrap;gap:var(--space-8);list-style:none;margin:0;padding:0;font-size:var(--font-size-caption);line-height:var(--font-line-height-caption);color:var(--color-text-secondary)}
++.breadcrumb li+li::before{content:"/";margin-right:var(--space-8)}
++.breadcrumb a{color:var(--color-text-secondary);text-decoration:none}
++.breadcrumb a:hover{color:var(--color-text-strong);text-decoration:underline}
++.breadcrumb [aria-current]{color:var(--color-text-primary)}
++.page-stack{display:flex;flex-direction:column;gap:var(--space-24)}
++.product-detail{display:flex;flex-direction:column;gap:var(--space-40)}
++.detail-columns{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--space-16) var(--space-40);align-items:start}
++.detail-media{grid-column:1/7;position:sticky;top:calc(var(--size-header) + var(--size-rule) + var(--space-24))}
++.product-detail-info{grid-column:7/13;display:flex;flex-direction:column;gap:var(--space-24)}
++.price-large{font-size:var(--font-size-display);line-height:var(--font-line-height-display);color:var(--color-text-strong)}
++.purchase-window{padding:var(--space-20)}
++.purchase-form{display:flex;flex-direction:column;gap:var(--space-20)}
++.purchase-form .btn-gold{align-self:flex-start;margin-top:var(--space-12)}
++.variant-fieldset{border:0;margin:0;padding:0;min-width:0}
++.variant-fieldset legend{padding:0;margin-bottom:var(--space-8)}
++.variant-options{display:flex;flex-wrap:wrap;gap:var(--space-8)}
++.variant-option{display:inline-flex;align-items:center;gap:var(--space-8);height:var(--size-control);padding-inline:var(--space-12);border:var(--border-width-control) solid var(--color-border-default);cursor:pointer;position:relative}
++.variant-option:hover{background:var(--color-surface-hover);color:var(--color-text-strong)}
++.variant-option input{position:absolute;opacity:0;width:16px;height:16px;margin:0}
++.radio{display:grid;place-items:center;width:16px;height:16px;flex:none;border:var(--border-width-control) solid var(--color-border-control);background:var(--color-surface-raised)}
++.radio::after{content:"";width:8px;height:8px;background:var(--color-text-accent);visibility:hidden}
++.variant-option input:checked+.radio::after{visibility:visible}
++.variant-option:has(input:checked){color:var(--color-text-strong);border-color:var(--color-border-strong)}
++.variant-option input:focus-visible+.radio{outline:var(--border-width-window) solid var(--color-focus-ring);outline-offset:3px}
++.stock-note{margin-top:calc(var(--space-4) - var(--space-20))}
++.detail-list{list-style:none;margin:0;padding:0}
++.detail-list li{display:flex;align-items:center;gap:var(--space-12);min-height:var(--size-row)}
++.detail-list li+li{border-top:0;background:linear-gradient(90deg,var(--color-border-control) 2px,transparent 0) 0 0/6px 2px repeat-x}
++.detail-list .bullet{--hue:var(--color-border-control)}
++
++/* Quantity stepper: framed ◀ n ▶ in a .controls row */
++.stepper{display:flex;flex-direction:column;gap:var(--space-8)}
++.stepper-controls{gap:0;flex-wrap:nowrap}
++.stepper-button{width:var(--size-control);padding:0}
++.stepper-input{width:56px;text-align:center;padding:0 var(--space-4);margin-inline:calc(-1 * var(--border-width-control));-moz-appearance:textfield}
++.stepper-input::-webkit-inner-spin-button,.stepper-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
++.stepper-button .cur{width:6px;height:10px}
++
++/* ------------------------------------------------------------------ cart */
++.cart-layout{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--space-40);align-items:start}
++.cart-main{grid-column:1/8;display:flex;flex-direction:column}
++.cart-side{grid-column:8/13;position:sticky;top:calc(var(--size-header) + var(--size-rule) + var(--space-24))}
++.cart-lines{list-style:none;margin:0;padding:0}
++.cart-line{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:var(--space-16);padding-block:var(--space-16)}
++.cart-line+.cart-line{background:linear-gradient(90deg,var(--color-border-control) 2px,transparent 0) 0 0/6px 2px repeat-x}
++.cart-line-info{display:flex;flex-direction:column;gap:var(--space-4)}
++.cart-line-name{position:relative;align-self:flex-start;color:var(--color-text-strong);text-decoration:none}
++.cart-line-name .cur{position:absolute;right:calc(100% + var(--space-4));top:50%;translate:0 -50%;visibility:hidden}
++.cart-line-name:is(:hover,:focus-visible) .cur{visibility:visible}
++.cart-line-name:hover{text-decoration:underline}
++.cart-line-total{min-width:80px;text-align:right}
++.summary-window{margin-top:var(--space-24);padding:var(--space-20);display:flex;flex-direction:column;gap:var(--space-16)}
++.summary{display:flex;flex-direction:column}
++.summary-row{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-16);min-height:var(--size-row);align-items:center}
++.summary-row dd{color:var(--color-text-strong)}
++.summary-total{margin-top:var(--space-8);padding-top:var(--space-12);background:linear-gradient(90deg,var(--color-border-control) 2px,transparent 0) 0 0/6px 2px repeat-x}
++.summary-total dt{color:var(--color-text-strong)}
++.summary-total dd{font-size:var(--font-size-display);line-height:var(--font-line-height-display)}
++.shipping-progress{display:flex;flex-direction:column;gap:var(--space-8)}
++.shipping-progress .caption{display:flex;justify-content:space-between;gap:var(--space-8)}
++.checkout-window{padding:var(--space-20)}
++.checkout-form{display:flex;flex-direction:column;gap:var(--space-20)}
++.checkout-form .btn-gold{align-self:flex-start;margin-top:var(--space-12)}
++.confirmation-body{display:flex;flex-direction:column;gap:var(--space-16);padding:0 var(--space-24) var(--space-24)}
++.confirmation-body p{line-height:var(--font-line-height-prose);max-width:var(--size-prose)}
++.confirmation-body .btn{align-self:flex-start}
++
++/* ------------------------------------------------------------------ error */
++.error-screen{display:flex;flex-direction:column;align-items:center;gap:var(--space-24);padding-block:var(--space-24)}
++.error-window{width:min(var(--size-form),100%);padding:var(--space-24);display:flex;flex-direction:column;gap:var(--space-16)}
++.error-window p{line-height:var(--font-line-height-prose)}
++.error-window .btn-gold{align-self:flex-start}
++
++/* ------------------------------------------------------------------ smaller screens */
++@media (max-width:1023px){
++  .detail-columns,.cart-layout{grid-template-columns:minmax(0,1fr)}
++  .detail-media,.product-detail-info,.cart-main,.cart-side{grid-column:1/-1}
++  .detail-media,.cart-side{position:static}
++}
++@media (max-width:599px){
++  .title-block{padding:var(--space-16)}
++  .cart-line{grid-template-columns:auto minmax(0,1fr) auto;row-gap:var(--space-12)}
++  .cart-line-info{grid-column:1/-1}
++  .purchase-form .btn-gold,.checkout-form .btn-gold,.error-window .btn-gold{align-self:stretch}
++  .summary-total dd{font-size:var(--font-size-title);line-height:var(--font-line-height-title)}
++  .toolbar-controls{width:100%}
++}
++@media (pointer:coarse){
++  .item,.chip,.variant-option,.check{min-height:var(--size-touch)}
+ }

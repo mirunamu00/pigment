@@ -37,7 +37,7 @@ claude mcp add --transport http pigment https://pigmentui.com/mcp
 
 **2 · Just ask**
 
-> Apply the Pigment design system `<id>` to this project.
+> Apply the Pigment design system margin-notes to this project.
 
 That's it. Your agent copies the system into your project's `design-system/` folder and builds every new screen
 from that copy — updates to the system never restyle your project unless you ask for them.
@@ -74,9 +74,27 @@ for offline setups.
 
 ## The gallery
 
-Every screenshot is a real coding agent restyling the same four neutral apps with one system — unedited output,
-cropped to the first screen. The gallery is being rebuilt: every system is made again from its reference through
-the current pipeline, which judges each one against the reference's quality before it is published.
+Every screenshot is a real coding agent restyling the same four neutral apps with one system —
+unedited output, cropped to the first screen. Four systems so far:
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/margin-notes-dashboard-light.png" alt="Dashboard restyled with Margin Notes" /></td>
+    <td width="50%"><img src="docs/assets/inkleaf-dashboard-light.png" alt="Dashboard restyled with Inkleaf" /></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/margin-notes">Margin Notes</a></b> — warm paper, near-black ink, hairlines; the only color is a watercolor wash kept to the margins.</td>
+    <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/inkleaf">Inkleaf</a></b> — warm ink on cream paper, a text serif, hand-drawn ink pictograms and pastel stages that hold product UI.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/assets/night-cartridge-blog-dark.png" alt="Blog restyled with Night Cartridge" /></td>
+    <td width="50%"><img src="docs/assets/graphite-blueprint-commerce-dark.png" alt="Store restyled with Graphite Blueprint" /></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/night-cartridge">Night Cartridge</a></b> — a 16-bit console booted as a product: night-blue ground, pixel type, small scenes that move in stepped frames. Dark only.</td>
+    <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/graphite-blueprint">Graphite Blueprint</a></b> — a near-black instrument panel: graphite greys, hairlines, one indigo, real UI on spotlit stages.</td>
+  </tr>
+</table>
 
 ## Why it works
 
@@ -84,7 +102,7 @@ the current pipeline, which judges each one against the reference's quality befo
 | --- | --- |
 | **Measured, not adjectival** | Every rule carries a value: color, type, spacing, radius, elevation and motion — light and dark. |
 | **Rules, not page templates** | Decision rules for any product. A system is tested on four demo apps but never written for them: a lint flags rules that name a demo app's screens, data or copy. |
-| **Proven before publishing** | Every system — and every update — is applied by an agent to four reference apps, then to two more of a different shape (a landing page and a docs site) that never steer the design. Three samples, judged on how close they come to the reference's design quality, and approved by a person who compared them with the reference. |
+| **Proven before publishing** | Every system — and every update — is applied by an agent to four reference apps, then to two more of a different shape (a landing page and a docs site) that never steer the design. Three samples, gated on builds, tests, accessibility and design adherence, then reviewed against the reference. |
 | **Yours to keep** | Your project keeps its own copy. Updates come with a dated changelog and land only when you ask. |
 
 ## What your agent gets

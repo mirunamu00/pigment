@@ -1,0 +1,117 @@
+# inkleaf@0.1.0-rc.2 — evaluation 1
+
+Verdict: **fail** · 2026-10-13T13:53:53.646Z
+
+## blog (20261013-132144)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## commerce (20261013-132144)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 10 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## dashboard (20261013-132144)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## settings (20261013-132144)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 8 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## Cross-app and reference
+
+| Check | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| palette-consistency | pass | 0.823 | 0.75 |
+| type-consistency | pass | 0.846 | 0.7 |
+| reference-palette-distance | pass | 0 | reported |
+
+## Critic
+
+```json
+{
+  "referenceFidelity": 4,
+  "crossAppConsistency": 4,
+  "hierarchy": 4,
+  "spacingRhythm": 4,
+  "componentStates": 4,
+  "polish": 3,
+  "signature": 4,
+  "notes": [
+    "Average 3.86 (4/4/4/4/4/3/4). One dimension is at 3 (polish), so the bar is still not met (avg >= 4.0). Up from 3.43 in rc.1. Hierarchy, spacing and signature moved from 3 to 4.",
+    "rc.1 issues, one by one. FIXED: (1) Pictogram motion. Every app's motion-m1 now shows the strip stepping in stroke by stroke over about 1.0-1.2s with steps(n, jump-none), never blank: blog book and envelope, commerce bag, dashboard watering can, settings mirror. (2) Automation detection. Blog animates now (7 animations, cel-run recorded), and no agent mentions webdriver. (5) Stage limits. Dashboard project detail is a plain card, and the cart summary is a plain card. (6) Cart layout. Items and checkout sit in the main column with a sticky summary on the side; on mobile the summary follows the items. (7) Product header. Drawing, h1 and the 17px lede start at the same left edge in commerce, dashboard and settings. (8) Panel rows. The throughput title sits inside the raised card on the stage, and the stage and the activity card share top and bottom edges. (9) Glyph honesty. No fake delays anywhere: settings shows 'Saved' with a check-circle immediately, and blog newsletter success is an inline check line. (10) Status region. No second role=status. (11) Footer. Blog uses a hairline plus a caption line. (12) The article TOC follows the featured stage on mobile. (13) Stat changes are colored by meaning. (14) Table row hover is visible on raised cards. (15) Avatars are 40px tiles in About and Team. PARTIAL: (3) Pictogram craft, see below. (4) Store. The grid icons are now bottom-left as specified, but the result is a new problem (empty swatches, see polish). The detail drawing now sits directly on the stage, but it is small and odd.",
+    "Polish 3, main issue: empty pastel swatches. Following the rc.2 rule (missing grid image = plate plus a 20px category icon bottom-left), the commerce shop grid is 11 cards whose top 55% is a flat color block with a tiny glyph. The blog home is the same: six post plates plus a 350x260 apricot 'featured' block holding only a 12px icon. The article inline figure is a 280x140 lilac plate with an icon. These are the largest, most saturated areas on those pages and they say nothing. They read as unloaded images, not as design. rc.1's 'repeated centered icon' became 'repeated empty block'.",
+    "Blog featured post ignores Applying the concept ('featured stage with a size.pictoXl drawing'). The agent built 'a wide card with a plate beside it': no stage, no wandering lines, no drawing. The blog agent also left 'More posts' and 'Related posts' without section openers, citing 'at most one drawing of size.pictoLg per viewport'. That limit conflicts with rule 4 ('every section opens with a pictogram') on stacked content pages.",
+    "Article featured stage (desktop) is a 1060x170 banner, roughly 6:1, with a ~70px box drawing in the middle. The drawing is lost in the stage, which is the 'small thing adrift in a big stage' pattern the Limits forbid for cards. Commerce detail is similar: a 128px tote on a 478px square stage, about 27% of the width.",
+    "Pictogram craft and legibility. The stepped motion now sells the hand-drawn feel, but at 48px several subjects don't read. The settings 'hand mirror' looks like a lollipop or pushpin, and there is no hand. The billing 'coin purse' looks like a cooking pot. The dashboard 'watering can' looks like a teacup. The commerce detail tote has two antenna-like handles over a round head on a box, so it reads as a creature in a crate. Boxy subjects still use long straight runs (empty-cart drawer, tote body, book outline). Hands, the reference's most recognizable motif, appear only in blog (envelope in hand, pencil in hand, magnifier) and the dashboard empty state. Commerce, dashboard and settings headers and plan cards are bare objects. Paper boat, kite and hot-air balloon appear in settings, and two of them again in dashboard: different agents converging on the same 'whimsical vehicle' set rather than everyday held objects.",
+    "Cross-app: the four apps now clearly look like one family. Same paper and ink, serif h1 with a small drawing in a shared header grid, ring controls, stone chips with an ink selected chip, outline status badges with dots, identical card radius and ring, clay focus outline. Dark mode holds in all four (warm near-black, dark pastel stages, inverted primary). Remaining drift: avatar tile colors collapse to apricot in dashboard (4 of 6) and settings; plates are used as image stand-ins in blog and commerce only.",
+    "States: the focus outline is consistent (blog nav pill, commerce nav, settings sidebar item, search inputs). Errors use a danger ring, an inline message and an 'N fields need attention' line in commerce, settings profile and password. The blog newsletter error has no summary line, which is acceptable for a single field. The dialog is good: serif title, raised panel, secondary plus primary actions. Drawn empty states appear in blog search, dashboard filter and commerce empty cart. The working glyph is never visible in any app because no base app performs async work. That honestly follows rule 9, but the glyph remains unverified (harness gap, not a prompt fix).",
+    "Smaller polish defects: commerce mobile checkout has the 'Place order' label stuck to the top edge of its 52px full-width button, not vertically centered. In the dashboard user menu, 'Sign out' is larger and sits about 12px left of 'Account settings' and 'My team' (a <button> without font/padding reset). The dashboard projects card header has about 60px of dead space between 'All projects' and the chip row, and the chips bottom-align against a labelled search field, so the 'Filter projects' label floats. The dashboard mobile stacked table keeps a wrapped header row ('PROJECT OWNER STATUS BUDGET / DUE DATE') above the stacked rows.",
+    "Motion beyond pictograms: header-in, word-by-word write-in, stage rise (dashboard m2 shows the sage stage fading and rising over 750ms) and the lede rise-sm all play as specified. In blog m4 the post-card rise shows no change across frames, because the agent made entrances start from the final state. Harmless, but the block rise is effectively absent in blog.",
+    "Not counted: the sticky header appearing mid-page in several full-page state captures, the dialog scrim ending at 900px in the plan-dialog capture, and post titles left in title case because tests pin the text. Harness capture artifacts and test constraints."
+  ],
+  "promptFixes": [
+    "Polish/hierarchy (spec gap, replaces the rc.2 missing-image rule in Imagery and Store grid). 'A missing image in a card grid never leaves an empty plate. The plate shrinks to `aspect-ratio: 2 / 1` and holds the category's drawing at `size.pictoMd`, shown at its final frame (no animation in grids), bottom-left at `space.16`. Draw one drawing per category; repeating it within its category is allowed and is the only exception to one-per-section. If the grid has no categories, drop the media slot and use a plain card.' Remove the 'outline icon at size.iconLg' rule. Add to Never: 'A plate or stage with nothing on it but an icon.'",
+    "Blog featured (agent mistake against Applying the concept; strengthen by moving it into the Store/Article layout lines and Verification). 'Blog home featured post: a stage (not a plate) with wandering lines, `aspect-ratio: 4 / 3` beside the text from `breakpoint.lg`, holding the post's drawing at `size.pictoXl`; never a plate with an icon.' Add the Verification line: 'Every stage and plate holds content; none is a flat color block.'",
+    "Article figures (spec gap). 'An article figure with no image is omitted. A figure with a diagram or screenshot sits on a stage. Never a decorative placeholder plate inside prose.'",
+    "Stage proportions (spec gap, Signature: Pastel stage, Limits). 'Stages are between 16:9 and 1:1, never a banner wider than 2.5:1. A drawing on a stage spans 45 to 60% of the stage's inner width (`width: clamp(var(--size-picto-xl), 50%, 320px)`). This applies to the article featured stage and the product detail stage.'",
+    "Rule conflict (spec gap). Rewrite rule 4 and the Limits line to say exactly what happens with stacked sections. 'Content sections with prose (about, landing, features) open with a `size.pictoLg` drawing. List sections (more posts, related posts, archives) open with the h2 alone. At most one `size.pictoLg` drawing per viewport height; when two prose sections would both show one in the same viewport, the second uses `size.pictoMd`.'",
+    "Pictogram legibility and hands (strengthen the recipe). 'Each drawing includes its subject's one defining feature, so it reads at 48px: spout and rose (watering can), clasp and kiss-lock (coin purse), a hand gripping the handle (hand mirror), two strap loops rising from the bag's top edge (tote). Before shipping, view every drawing at `size.pictoSm` and name it; redraw anything ambiguous. At least half of each app's drawings include a hand (header drawings included); avoid vehicles and toys (boats, kites, balloons). Prefer objects people hold at work.' Restate under step 2: 'Rectangular bodies are drawn as 2 to 4 bowed strokes, never one rectangle path.'",
+    "Full-width button label (agent mistake; add to Button anatomy and Verification). 'A full-width button keeps `display: flex; align-items: center; justify-content: center`; never `display: block` on `.btn`.' Verification: 'At 390px, every button label is vertically centered.'",
+    "Menus (spec gap; add a Menu entry under Navigation). 'Menu: `color.surface.raised`, `radius.tile`, `shadow.overlay`, padding `space.6`; every item, whether link or button, is `size.control` high, padding 0 `space.12`, `font: inherit` at `font.size.ui`, `text-align: start`, `radius.control`. Header items (email) are `font.size.caption` tertiary, not interactive. Destructive or exit items (sign out) come after a hairline, with the same size and inset.'",
+    "Table toolbar (spec gap, Table anatomy). 'A table in a card: the card head is one row, with the title (serif `h5`) and the count (`caption`, tertiary) on the right. The toolbar row is `space.16` below: filter chips left, a search field right, both `size.control` high and center-aligned. The search label is visually hidden (`aria-label` or `.sr-only` label), never a visible label stacked above the field in a toolbar.'",
+    "Mobile sort (spec gap, Table Mobile). 'Under `breakpoint.md` a stacked table hides its header row; sorting moves to a native `Sort by` select in the toolbar. Never show the wrapped header row above stacked rows.'",
+    "Avatar color (spec gap, Avatar anatomy). 'Hash the name to one of sage, lilac or apricot as (sum of char codes) mod 3, so a list of people spreads across all three; the header account avatar uses the same hash.'",
+    "Block rise (agent misreading; clarify Motion). 'Below-the-fold blocks start hidden (opacity 0, translated) and rise when 15% enters view; the rule \"nothing stays hidden more than one frame after it scrolls into view\" means the observer must fire on entry, not that blocks start visible. Only under reduced motion do blocks render in their final state.'",
+    "Harness note (not a prompt fix). Add one capture state per base app that triggers an async action with a mocked 1s network response (route interception in the snapshot script, not app code), so the working glyph inside the submitting button can be verified without inviting fake delays in the app."
+  ]
+}
+```
+
+## Reasons
+
+- critic: average 3.86 (needs 4.0), lowest 3 (needs 3)

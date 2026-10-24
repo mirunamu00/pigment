@@ -1,0 +1,3025 @@
+diff --git a/package.json b/package.json
+index 6b9a998..029af9c 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource-variable/inter": "^5.2.5",
++    "@fontsource/geist-mono": "^5.2.5",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/components/Callout.tsx b/src/components/Callout.tsx
+index a382521..d17e6f2 100644
+--- a/src/components/Callout.tsx
++++ b/src/components/Callout.tsx
+@@ -1,18 +1,39 @@
+ import type { CalloutVariant } from '../data/docs';
+ import Inline from './Inline';
+ 
+-const ICON_LABELS: Record<CalloutVariant, string> = {
+-  note: 'i',
+-  warning: '!',
+-  danger: '×',
+-};
+-
+ const VARIANT_NAMES: Record<CalloutVariant, string> = {
+   note: 'Note',
+   warning: 'Warning',
+   danger: 'Danger',
+ };
+ 
++/** 16px status glyphs in the variant's hue; the hue never fills the box (only danger takes the 7% tint). */
++function CalloutIcon({ variant }: { variant: CalloutVariant }) {
++  const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.5 };
++  return (
++    <svg className="callout-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
++      {variant === 'note' && (
++        <>
++          <circle cx="8" cy="8" r="6.25" {...stroke} />
++          <path d="M8 7v4.5M8 4.5v1.25" {...stroke} />
++        </>
++      )}
++      {variant === 'warning' && (
++        <>
++          <path d="M8 2.25l6.25 11H1.75z" {...stroke} strokeLinejoin="round" />
++          <path d="M8 6.5v3.5M8 11v1.25" {...stroke} />
++        </>
++      )}
++      {variant === 'danger' && (
++        <>
++          <circle cx="8" cy="8" r="6.25" {...stroke} />
++          <path d="M5.75 5.75l4.5 4.5M10.25 5.75l-4.5 4.5" {...stroke} />
++        </>
++      )}
++    </svg>
++  );
++}
++
+ export default function Callout({ variant, title, text }: { variant: CalloutVariant; title: string; text: string }) {
+   return (
+     <aside
+@@ -22,9 +43,7 @@ export default function Callout({ variant, title, text }: { variant: CalloutVari
+       data-variant={variant}
+       data-testid="callout"
+     >
+-      <span className="callout-icon" aria-hidden="true">
+-        {ICON_LABELS[variant]}
+-      </span>
++      <CalloutIcon variant={variant} />
+       <div className="callout-content">
+         <p className="callout-title" data-testid="callout-title">
+           {title}
+diff --git a/src/components/CodeBlock.tsx b/src/components/CodeBlock.tsx
+index 888ac53..92110ee 100644
+--- a/src/components/CodeBlock.tsx
++++ b/src/components/CodeBlock.tsx
+@@ -1,4 +1,5 @@
+ import { useEffect, useRef, useState } from 'react';
++import { CheckIcon, CopyIcon } from './signature/icons';
+ 
+ const FEEDBACK_MS = 2000;
+ 
+@@ -22,17 +23,18 @@ export default function CodeBlock({ code, language }: { code: string; language:
+   return (
+     <div className="code-block" data-testid="code-block" data-language={language}>
+       <div className="code-block-header">
+-        <span className="code-language" data-testid="code-language">
++        <span className="code-language mono-label" data-testid="code-language">
+           {language}
+         </span>
+         <button
+           type="button"
+-          className="button button-small copy-button"
++          className="button button-ghost button-small copy-button"
+           onClick={handleCopy}
+           aria-label={copied ? 'Copied to clipboard' : `Copy ${language} code`}
+           data-copied={copied ? 'true' : 'false'}
+           data-testid="copy-button"
+         >
++          {copied ? <CheckIcon /> : <CopyIcon />}
+           {copied ? 'Copied' : 'Copy'}
+         </button>
+       </div>
+diff --git a/src/components/Feedback.tsx b/src/components/Feedback.tsx
+index 626c811..0b6c743 100644
+--- a/src/components/Feedback.tsx
++++ b/src/components/Feedback.tsx
+@@ -18,15 +18,16 @@ export default function Feedback() {
+         Was this page helpful?
+       </h2>
+       {answer ? (
+-        <p className="form-success" role="status" data-testid="feedback-thanks">
++        <p className="form-success turn-in" role="status" data-testid="feedback-thanks">
++          <span className="status-dot" aria-hidden="true" />
+           {THANKS[answer]}
+         </p>
+       ) : (
+         <div className="feedback-actions">
+-          <button type="button" className="button" onClick={() => setAnswer('yes')} data-testid="feedback-yes">
++          <button type="button" className="button button-secondary" onClick={() => setAnswer('yes')} data-testid="feedback-yes">
+             Yes
+           </button>
+-          <button type="button" className="button" onClick={() => setAnswer('no')} data-testid="feedback-no">
++          <button type="button" className="button button-secondary" onClick={() => setAnswer('no')} data-testid="feedback-no">
+             No
+           </button>
+         </div>
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 5bfb1d0..39959fe 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,8 +1,18 @@
+ import { useEffect, useRef, useState } from 'react';
+ import { Link, NavLink, Outlet, useLocation } from 'react-router';
++import { findPage } from '../data/docs';
+ import { CURRENT_VERSION, REPOSITORY_URL, TOOL_NAME } from '../data/site';
+ import SearchBox from './SearchBox';
+ import Sidebar from './Sidebar';
++import { ChevronIcon } from './signature/icons';
++
++/** The page the sidebar pill is named after on narrow screens. */
++function currentPageName(pathname: string): string {
++  const [, root, group, slug] = pathname.split('/');
++  if (root === 'docs') return findPage(group, slug)?.title ?? 'Documentation';
++  if (root === 'changelog') return 'Changelog';
++  return 'Documentation';
++}
+ 
+ export default function Layout() {
+   const location = useLocation();
+@@ -44,23 +54,8 @@ export default function Layout() {
+       </a>
+       <header className="site-header">
+         <div className="site-header-inner">
+-          <button
+-            ref={menuButtonRef}
+-            type="button"
+-            className="button menu-button"
+-            aria-expanded={navOpen}
+-            aria-controls="docs-sidebar"
+-            onClick={() => setNavOpen((open) => !open)}
+-            data-testid="menu-button"
+-          >
+-            Menu
+-          </button>
+           <div className="brand-group">
+             <Link to="/" className="brand" data-testid="brand-link">
+-              <svg className="brand-mark" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+-                <path d="M4 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" />
+-                <path d="M12 18h8" stroke="currentColor" strokeWidth="2" />
+-              </svg>
+               <span>{TOOL_NAME}</span>
+             </Link>
+             <span className="version-label" data-testid="version-label">
+@@ -86,6 +81,23 @@ export default function Layout() {
+       </header>
+ 
+       <div className="docs-shell">
++        <div className="docs-menu">
++          <button
++            ref={menuButtonRef}
++            type="button"
++            className="button button-secondary menu-button"
++            aria-expanded={navOpen}
++            aria-controls="docs-sidebar"
++            onClick={() => setNavOpen((open) => !open)}
++            data-testid="menu-button"
++          >
++            <span className="menu-button-label">
++              <span className="mono-label">Menu</span>
++              <span className="menu-button-page">{currentPageName(location.pathname)}</span>
++            </span>
++            <ChevronIcon className="menu-button-chevron" />
++          </button>
++        </div>
+         <Sidebar open={navOpen} onClose={closeNav} />
+         {navOpen && <div className="drawer-backdrop" aria-hidden="true" onClick={closeNav} data-testid="drawer-backdrop" />}
+         <main id="main-content" className="content" tabIndex={-1}>
+diff --git a/src/components/PackageTabs.tsx b/src/components/PackageTabs.tsx
+index b86714c..b7d7a2a 100644
+--- a/src/components/PackageTabs.tsx
++++ b/src/components/PackageTabs.tsx
+@@ -1,4 +1,4 @@
+-import { useId, useRef, useState, type KeyboardEvent } from 'react';
++import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+ import { PACKAGE_MANAGERS, type PackageManager } from '../data/docs';
+ import CodeBlock from './CodeBlock';
+ 
+@@ -6,6 +6,7 @@ export default function PackageTabs({ label, commands }: { label: string; comman
+   const baseId = useId();
+   const [selected, setSelected] = useState<PackageManager>('npm');
+   const tabRefs = useRef<Partial<Record<PackageManager, HTMLButtonElement | null>>>({});
++  const listRef = useRef<HTMLDivElement>(null);
+ 
+   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+     const index = PACKAGE_MANAGERS.indexOf(selected);
+@@ -21,9 +22,23 @@ export default function PackageTabs({ label, commands }: { label: string; comman
+     tabRefs.current[next]?.focus();
+   }
+ 
++  // The indicator slides under the selected tab (left and width), measured from the rendered tab.
++  useLayoutEffect(() => {
++    const list = listRef.current;
++    const tab = tabRefs.current[selected];
++    if (!list || !tab) return;
++    const measure = () => {
++      list.style.setProperty('--tab-x', `${tab.offsetLeft}px`);
++      list.style.setProperty('--tab-w', `${tab.offsetWidth}px`);
++    };
++    measure();
++    document.fonts?.ready.then(measure);
++  }, [selected]);
++
+   return (
+     <div className="tabs" data-testid="pm-tabs">
+-      <div className="tab-list" role="tablist" aria-label={label} onKeyDown={handleKeyDown}>
++      <div ref={listRef} className="tab-list" role="tablist" aria-label={label} onKeyDown={handleKeyDown}>
++        <span className="tab-indicator" aria-hidden="true" />
+         {PACKAGE_MANAGERS.map((manager) => {
+           const isSelected = manager === selected;
+           return (
+diff --git a/src/components/Pager.tsx b/src/components/Pager.tsx
+index 3db71a1..273476d 100644
+--- a/src/components/Pager.tsx
++++ b/src/components/Pager.tsx
+@@ -8,16 +8,22 @@ export default function Pager({ prev, next }: { prev?: DocPage; next?: DocPage }
+     <nav className="pager" aria-label="Previous and next pages" data-testid="pager">
+       {prev ? (
+         <Link to={pagePath(prev)} className="pager-link pager-prev" rel="prev" data-testid="pager-prev">
+-          <span className="pager-label">Previous</span>
+-          <span className="pager-title">{prev.title}</span>
++          <span className="pager-label mono-label">Previous</span>
++          <span className="pager-title">
++            <span aria-hidden="true">← </span>
++            {prev.title}
++          </span>
+         </Link>
+       ) : (
+         <span />
+       )}
+       {next ? (
+         <Link to={pagePath(next)} className="pager-link pager-next" rel="next" data-testid="pager-next">
+-          <span className="pager-label">Next</span>
+-          <span className="pager-title">{next.title}</span>
++          <span className="pager-label mono-label">Next</span>
++          <span className="pager-title">
++            {next.title}
++            <span aria-hidden="true"> →</span>
++          </span>
+         </Link>
+       ) : (
+         <span />
+diff --git a/src/components/ParamsTable.tsx b/src/components/ParamsTable.tsx
+index a963652..1b1c4c2 100644
+--- a/src/components/ParamsTable.tsx
++++ b/src/components/ParamsTable.tsx
+@@ -1,32 +1,39 @@
+ import type { Param } from '../data/docs';
+ import Inline from './Inline';
+ 
++/** Table component: no outer box, hairline rows, mono head. Under breakpoint.sm only Name (with its type below) and the pinned Default show. */
+ export default function ParamsTable({ label, rows }: { label: string; rows: Param[] }) {
+   return (
+-    <div className="table-wrap">
+-      <table className="params-table" data-testid="params-table">
++    <div className="table-wrap tbl-wrap">
++      <table className="params-table tbl" data-testid="params-table">
+         <caption className="visually-hidden">{label}</caption>
+         <thead>
+           <tr>
+-            <th scope="col">Name</th>
+-            <th scope="col">Type</th>
+-            <th scope="col">Default</th>
+-            <th scope="col">Description</th>
++            <th scope="col" className="mono-label">Name</th>
++            <th scope="col" className="mono-label">Type</th>
++            <th scope="col" className="mono-label pin">Default</th>
++            <th scope="col" className="mono-label">Description</th>
+           </tr>
+         </thead>
+         <tbody>
+           {rows.map((row) => (
+             <tr key={row.name} data-testid="param-row">
+               <td>
+-                <code className="inline-code param-name">{row.name}</code>
++                <div className="cell-first">
++                  <div className="cell-lines" data-sub={row.type}>
++                    <span>
++                      <code className="inline-code param-name">{row.name}</code>
++                    </span>
++                  </div>
++                </div>
+               </td>
+               <td>
+                 <code className="param-type">{row.type}</code>
+               </td>
+-              <td>
++              <td className="pin">
+                 <code className="param-default">{row.default}</code>
+               </td>
+-              <td>
++              <td className="param-description">
+                 <Inline text={row.description} />
+               </td>
+             </tr>
+diff --git a/src/components/SearchBox.tsx b/src/components/SearchBox.tsx
+index c85eebc..87e1209 100644
+--- a/src/components/SearchBox.tsx
++++ b/src/components/SearchBox.tsx
+@@ -1,6 +1,8 @@
+ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+ import { Link, useLocation } from 'react-router';
+ import { findGroup, pagePath, searchPages } from '../data/docs';
++import DotGlyph from './signature/DotGlyph';
++import { SearchIcon } from './signature/icons';
+ 
+ export default function SearchBox() {
+   const inputId = useId();
+@@ -42,6 +44,7 @@ export default function SearchBox() {
+       <label htmlFor={inputId} className="visually-hidden">
+         Search docs
+       </label>
++      <SearchIcon className="search-icon" />
+       <input
+         id={inputId}
+         type="search"
+@@ -60,7 +63,7 @@ export default function SearchBox() {
+       />
+       {showPanel && (
+         <div id={resultsId} className="search-panel" data-testid="search-panel">
+-          <p className="search-count muted small" role="status" data-testid="search-count">
++          <p className="search-count mono-label" role="status" data-testid="search-count">
+             {results.length === 1 ? '1 result' : `${results.length} results`}
+           </p>
+           {results.length > 0 ? (
+@@ -69,15 +72,18 @@ export default function SearchBox() {
+                 <li key={pagePath(page)}>
+                   <Link to={pagePath(page)} className="search-result" data-testid="search-result">
+                     <span className="search-result-title">{page.title}</span>
+-                    <span className="search-result-group muted small">{findGroup(page.group).label}</span>
++                    <span className="search-result-group">{findGroup(page.group).label}</span>
+                   </Link>
+                 </li>
+               ))}
+             </ul>
+           ) : (
+-            <p className="search-empty" data-testid="search-empty">
+-              No results for “{trimmed}”. Try a shorter or different word.
+-            </p>
++            <div className="search-empty" data-testid="search-empty">
++              <DotGlyph name="empty" size="lg" />
++              <p className="two-tone">
++                <b>No results for “{trimmed}”.</b> Try a shorter or different word.
++              </p>
++            </div>
+           )}
+         </div>
+       )}
+diff --git a/src/components/Sidebar.tsx b/src/components/Sidebar.tsx
+index 3aa7b26..20e0f97 100644
+--- a/src/components/Sidebar.tsx
++++ b/src/components/Sidebar.tsx
+@@ -1,6 +1,7 @@
+ import { useEffect, useRef, useState } from 'react';
+ import { NavLink } from 'react-router';
+ import { groups, pagePath, pagesInGroup, type GroupId } from '../data/docs';
++import { ChevronIcon } from './signature/icons';
+ 
+ interface SidebarProps {
+   open: boolean;
+@@ -35,11 +36,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
+       data-testid="sidebar"
+     >
+       <div className="sidebar-header">
+-        <span className="sidebar-title">Documentation</span>
++        <span className="sidebar-title mono-label">Documentation</span>
+         <button
+           ref={closeRef}
+           type="button"
+-          className="button button-small drawer-close"
++          className="button button-bordered button-small drawer-close"
+           onClick={onClose}
+           data-testid="drawer-close"
+         >
+@@ -60,10 +61,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
+                 onClick={() => toggle(group.id)}
+                 data-testid={`nav-group-toggle-${group.id}`}
+               >
+-                <span className="nav-group-chevron" aria-hidden="true">
+-                  {isExpanded ? '▾' : '▸'}
+-                </span>
+-                {group.label}
++                <span className="nav-group-label">{group.label}</span>
++                <ChevronIcon className="nav-group-chevron" />
+               </button>
+               <ul id={listId} className="nav-group-list" hidden={!isExpanded} data-testid={listId}>
+                 {pagesInGroup(group.id).map((page) => (
+diff --git a/src/components/TableOfContents.tsx b/src/components/TableOfContents.tsx
+index d9fc7f9..272a91d 100644
+--- a/src/components/TableOfContents.tsx
++++ b/src/components/TableOfContents.tsx
+@@ -1,4 +1,6 @@
++import { useEffect, useState, type MouseEvent } from 'react';
+ import Inline from './Inline';
++import { ChevronIcon } from './signature/icons';
+ 
+ export interface TocEntry {
+   id: string;
+@@ -6,23 +8,98 @@ export interface TocEntry {
+   level: 2 | 3;
+ }
+ 
++const RAIL_QUERY = '(min-width: 1024px)';
++
++function useMediaQuery(query: string): boolean {
++  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
++  useEffect(() => {
++    const list = window.matchMedia(query);
++    const update = () => setMatches(list.matches);
++    update();
++    list.addEventListener('change', update);
++    return () => list.removeEventListener('change', update);
++  }, [query]);
++  return matches;
++}
++
++/** The heading the reader is in: the last one whose top has passed under the sticky header. */
++function useCurrentHeading(ids: string[]): string | undefined {
++  const [current, setCurrent] = useState<string | undefined>(ids[0]);
++  useEffect(() => {
++    let frame = 0;
++    function update() {
++      frame = 0;
++      const line = 120;
++      let found = ids[0];
++      for (const id of ids) {
++        const element = document.getElementById(id);
++        if (element && element.getBoundingClientRect().top <= line) found = id;
++      }
++      setCurrent(found);
++    }
++    function schedule() {
++      if (!frame) frame = requestAnimationFrame(update);
++    }
++    update();
++    window.addEventListener('scroll', schedule, { passive: true });
++    window.addEventListener('hashchange', schedule);
++    return () => {
++      window.removeEventListener('scroll', schedule);
++      window.removeEventListener('hashchange', schedule);
++      cancelAnimationFrame(frame);
++    };
++  }, [ids.join('|')]);
++  return current;
++}
++
++/**
++ * Contents list: a side rail from breakpoint.lg; below it, a closed disclosure placed after the lead plate.
++ * On the rail the disclosure is held open and its summary is only a label.
++ */
+ export default function TableOfContents({ entries }: { entries: TocEntry[] }) {
++  const rail = useMediaQuery(RAIL_QUERY);
++  const [open, setOpen] = useState(false);
++  const current = useCurrentHeading(entries.map((entry) => entry.id));
++
+   if (entries.length === 0) return null;
+ 
++  function handleSummaryClick(event: MouseEvent) {
++    if (rail) event.preventDefault();
++  }
++
+   return (
+-    <nav className="toc" aria-labelledby="toc-heading" data-testid="toc">
+-      <h2 id="toc-heading" className="toc-heading">
+-        On this page
+-      </h2>
+-      <ul className="toc-list">
+-        {entries.map((entry) => (
+-          <li key={entry.id} className={entry.level === 3 ? 'toc-item toc-item-nested' : 'toc-item'}>
+-            <a href={`#${entry.id}`} className="toc-link" data-testid="toc-link">
+-              <Inline text={entry.text} />
+-            </a>
+-          </li>
+-        ))}
+-      </ul>
+-    </nav>
++    <details
++      className="toc-details"
++      open={rail || open}
++      onToggle={(event) => {
++        if (!rail) setOpen(event.currentTarget.open);
++      }}
++    >
++      <summary className="toc-summary" onClick={handleSummaryClick} tabIndex={rail ? -1 : undefined}>
++        <h2 id="toc-heading" className="toc-heading mono-label">
++          On this page
++        </h2>
++        <ChevronIcon className="toc-chevron" />
++      </summary>
++      <nav className="toc" aria-labelledby="toc-heading" data-testid="toc">
++        <ul className="toc-list">
++          {entries.map((entry) => {
++            const isCurrent = entry.id === current;
++            return (
++              <li key={entry.id} className={entry.level === 3 ? 'toc-item toc-item-nested' : 'toc-item'}>
++                <a
++                  href={`#${entry.id}`}
++                  className={isCurrent ? 'toc-link is-current' : 'toc-link'}
++                  aria-current={isCurrent ? 'true' : undefined}
++                  data-testid="toc-link"
++                >
++                  <Inline text={entry.text} />
++                </a>
++              </li>
++            );
++          })}
++        </ul>
++      </nav>
++    </details>
+   );
+ }
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..13023f7 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,10 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '@fontsource/geist-mono/latin-400.css';
++import './design/tokens.css';
++import './design/fonts.css';
++import './design/signature.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/ChangelogPage.tsx b/src/pages/ChangelogPage.tsx
+index ed920b6..4963106 100644
+--- a/src/pages/ChangelogPage.tsx
++++ b/src/pages/ChangelogPage.tsx
+@@ -1,45 +1,97 @@
++import type { CSSProperties } from 'react';
+ import Inline from '../components/Inline';
++import SpecPlate from '../components/signature/SpecPlate';
+ import TableOfContents from '../components/TableOfContents';
+-import { CHANGE_LABELS, releases } from '../data/changelog';
++import { CHANGE_LABELS, releases, type ChangeType, type Release } from '../data/changelog';
+ import { formatDate, TOOL_NAME } from '../data/site';
+ 
++const CHANGE_HUES: Record<ChangeType, string> = {
++  added: 'var(--color-status-success)',
++  changed: 'var(--color-status-warning)',
++  fixed: 'var(--color-status-info)',
++};
++
++function ReleaseDate({ release }: { release: Release }) {
++  return (
++    <p className="release-meta mono-label">
++      Released{' '}
++      <time dateTime={release.date} data-testid="release-date">
++        {formatDate(release.date)}
++      </time>
++    </p>
++  );
++}
++
++function ChangeList({ release }: { release: Release }) {
++  return (
++    <ul className="change-list">
++      {release.changes.map((change) => (
++        <li key={change.text} className="change-item" data-testid="change-item">
++          <span
++            className={`change-badge change-badge-${change.type} badge`}
++            data-type={change.type}
++            data-testid="change-badge"
++            style={{ '--dot': CHANGE_HUES[change.type] } as CSSProperties}
++          >
++            <span className="badge-dot" aria-hidden="true" />
++            <span className="badge-label">{CHANGE_LABELS[change.type]}</span>
++          </span>
++          <span className="change-text">
++            <Inline text={change.text} />
++          </span>
++        </li>
++      ))}
++    </ul>
++  );
++}
++
+ export default function ChangelogPage() {
+   const toc = releases.map((release) => ({ id: release.id, text: release.version, level: 2 as const }));
++  const [latest, ...older] = releases;
+ 
+   return (
+     <article className="doc-article changelog" data-testid="changelog">
+-      <header className="doc-header">
+-        <h1>Changelog</h1>
+-        <p className="lead muted">Every {TOOL_NAME} release, newest first.</p>
++      <header className="doc-header masthead">
++        <div className="masthead-title">
++          <p className="mono-label">{releases.length} releases</p>
++          <h1>Changelog</h1>
++        </div>
++        <p className="lead two-tone">
++          <b>Every {TOOL_NAME} release, newest first.</b> Each one lists what was added, changed and fixed.
++        </p>
+       </header>
+       <aside className="doc-aside">
+         <TableOfContents entries={toc} />
+       </aside>
+       <ol className="release-list">
+-        {releases.map((release) => (
+-          <li key={release.id} className="release" data-testid="release">
+-            <h2 id={release.id} className="release-version doc-heading" data-testid="release-version">
+-              {release.version}
++        <li className="release release-featured" data-testid="release">
++          <SpecPlate
++            id={`release:${latest.id}`}
++            caption={`FIG 01 · ${latest.changes.length} changes`}
++            className="release-plate"
++          />
++          <div className="release-featured-text">
++            <p className="mono-label">Featured</p>
++            <h2 id={latest.id} className="release-version doc-heading" data-testid="release-version">
++              {latest.version}
+             </h2>
+-            <p className="release-meta muted small">
+-              Released{' '}
+-              <time dateTime={release.date} data-testid="release-date">
+-                {formatDate(release.date)}
+-              </time>
+-            </p>
+-            <p>{release.summary}</p>
+-            <ul className="change-list">
+-              {release.changes.map((change) => (
+-                <li key={change.text} className="change-item" data-testid="change-item">
+-                  <span className={`change-badge change-badge-${change.type}`} data-type={change.type} data-testid="change-badge">
+-                    {CHANGE_LABELS[change.type]}
+-                  </span>
+-                  <span className="change-text">
+-                    <Inline text={change.text} />
+-                  </span>
+-                </li>
+-              ))}
+-            </ul>
++            <ReleaseDate release={latest} />
++            <p className="release-summary">{latest.summary}</p>
++            <ChangeList release={latest} />
++          </div>
++        </li>
++        {older.map((release) => (
++          <li key={release.id} className="release" data-testid="release">
++            <header className="opener release-opener">
++              <h2 id={release.id} className="release-version doc-heading" data-testid="release-version">
++                {release.version}
++              </h2>
++              <div className="opener-side">
++                <p>{release.summary}</p>
++                <ReleaseDate release={release} />
++              </div>
++            </header>
++            <ChangeList release={release} />
+           </li>
+         ))}
+       </ol>
+diff --git a/src/pages/DocPage.tsx b/src/pages/DocPage.tsx
+index 20ab0dd..127bb5d 100644
+--- a/src/pages/DocPage.tsx
++++ b/src/pages/DocPage.tsx
+@@ -1,9 +1,12 @@
+ import { Link, useParams } from 'react-router';
+ import DocBody from '../components/DocBody';
++import EmptyState from '../components/EmptyState';
+ import Feedback from '../components/Feedback';
+ import Pager from '../components/Pager';
++import SpecPlate from '../components/signature/SpecPlate';
+ import TableOfContents from '../components/TableOfContents';
+ import { findGroup, findPage, getAdjacentPages, getHeadings, pagePath, pagesInGroup } from '../data/docs';
++import { pageFigure, pageKinds, readingMinutes, sectionCount } from '../data/meta';
+ 
+ export default function DocPage() {
+   const { group, slug } = useParams();
+@@ -11,17 +14,30 @@ export default function DocPage() {
+ 
+   if (!page) {
+     return (
+-      <div className="empty-state" data-testid="doc-not-found">
+-        <h1>Page not found</h1>
+-        <p className="muted">There is no documentation page at “{`${group}/${slug}`}”. It may have been renamed.</p>
+-        <Link to="/">Back to the docs home</Link>
+-      </div>
++      <EmptyState
++        testId="doc-not-found"
++        code="ERR 404"
++        title="Page not found"
++        actions={
++          <>
++            <Link to="/" className="button button-primary">
++              Back to the docs home
++            </Link>
++            <Link to="/docs/getting-started/introduction" className="button button-secondary">
++              Read the introduction
++            </Link>
++          </>
++        }
++      >
++        <b>There is no documentation page at “{`${group}/${slug}`}”.</b> It may have been renamed.
++      </EmptyState>
+     );
+   }
+ 
+   const pageGroup = findGroup(page.group);
+   const { prev, next } = getAdjacentPages(page);
+   const toc = getHeadings(page.body).map(({ id, text, level }) => ({ id, text, level }));
++  const sections = sectionCount(page);
+ 
+   return (
+     <article className="doc-article" data-testid="doc-article">
+@@ -38,10 +54,20 @@ export default function DocPage() {
+       </nav>
+       <header className="doc-header">
+         <h1 data-testid="doc-title">{page.title}</h1>
+-        <p className="lead muted" data-testid="doc-description">
++        <p className="doc-meta mono-label">
++          {pageGroup.label} · {sections === 1 ? '1 section' : `${sections} sections`}
++        </p>
++        <p className="lead" data-testid="doc-description">
+           {page.description}
+         </p>
+       </header>
++      <SpecPlate
++        id={pagePath(page)}
++        kind={pageKinds.get(pagePath(page))}
++        caption={`${pageFigure(page)} · ${readingMinutes(page.body)} min`}
++        wide
++        className="doc-plate"
++      />
+       <aside className="doc-aside">
+         <TableOfContents entries={toc} />
+       </aside>
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index 3c813f6..13dea92 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -1,29 +1,65 @@
+ import { Link } from 'react-router';
+ import CodeBlock from '../components/CodeBlock';
++import RunView from '../components/RunView';
++import Blueprint from '../components/signature/Blueprint';
++import { box, pair, stack } from '../components/signature/geometry';
++import Opener from '../components/signature/Opener';
++import SpecPlate from '../components/signature/SpecPlate';
++import Stage from '../components/signature/Stage';
+ import { groups, pagePath, pagesInGroup, QUICK_START_CODE } from '../data/docs';
++import { groupFigure, groupKinds, groupMinutes } from '../data/meta';
+ import { TOOL_NAME } from '../data/site';
+ 
++const STEP_FIGURES = [
++  { fig: 'FIG 0.2', drawing: stack(3), title: 'Install', text: 'One package, pinned in your dev dependencies.' },
++  { fig: 'FIG 0.3', drawing: pair(0, 0, 80, 20), title: 'Init', text: 'Existing scripts are read into tasks.' },
++  { fig: 'FIG 0.4', drawing: box(), title: 'Run', text: 'Work with unchanged inputs is restored.' },
++];
++
+ export default function HomePage() {
+   return (
+     <div className="home" data-testid="docs-home">
+-      <header className="home-intro">
+-        <h1>{TOOL_NAME} documentation</h1>
+-        <p className="lead">
+-          {TOOL_NAME} is a command-line task runner for JavaScript and TypeScript repositories. It runs your
+-          scripts in the right order and skips the ones whose inputs have not changed.
++      <header className="home-intro masthead">
++        <div className="masthead-grid">
++          <div className="masthead-title">
++            <h1>{TOOL_NAME} documentation</h1>
++            <Link to="/docs/getting-started/installation" className="button button-primary button-lg" data-testid="home-get-started">
++              Get started
++              <span aria-hidden="true">→</span>
++            </Link>
++          </div>
++          <p className="lead two-tone">
++            <b>{TOOL_NAME} is a command-line task runner for JavaScript and TypeScript repositories.</b> It runs your
++            scripts in the right order and skips the ones whose inputs have not changed.
++          </p>
++        </div>
++        <Stage below settle className="home-stage">
++          <RunView />
++        </Stage>
++        <p className="fig">
++          <span className="mono-label">FIG 0.1</span>
++          <span>
++            <b>Run view</b> Four of six tasks came back from the cache; only the compile step is doing new work.
++          </span>
+         </p>
+-        <Link to="/docs/getting-started/installation" className="button button-primary" data-testid="home-get-started">
+-          Get started
+-        </Link>
+       </header>
+ 
+       <section className="home-section" aria-labelledby="sections-heading">
+-        <h2 id="sections-heading">Browse the docs</h2>
+-        <ul className="section-cards">
++        <Opener id="sections-heading" title="Browse the docs" link={<a href="#quick-start-heading">Jump to the quick start ↓</a>}>
++          From the first install to the plugin API, in four parts.
++        </Opener>
++        <ul className="section-cards card-grid">
+           {groups.map((group) => {
+-            const first = pagesInGroup(group.id)[0];
++            const groupPages = pagesInGroup(group.id);
++            const first = groupPages[0];
+             return (
+               <li key={group.id} className="section-card" data-testid="section-card">
++                <SpecPlate
++                  id={`group:${group.id}`}
++                  kind={groupKinds.get(`group:${group.id}`)}
++                  caption={`${groupFigure(group.id)} · ${groupMinutes(group.id)} min`}
++                />
++                <p className="section-card-meta mono-label">{groupPages.length === 1 ? '1 page' : `${groupPages.length} pages`}</p>
+                 <h3 className="section-card-title">
+                   <Link to={pagePath(first)} className="section-card-link" data-testid="section-card-link">
+                     {group.label}
+@@ -37,8 +73,25 @@ export default function HomePage() {
+       </section>
+ 
+       <section className="home-section" aria-labelledby="quick-start-heading" data-testid="home-quick-start">
+-        <h2 id="quick-start-heading">Quick start</h2>
+-        <p>Install the CLI, generate a config from your existing scripts and run your first cached build.</p>
++        <Opener
++          id="quick-start-heading"
++          title="Quick start"
++          link={<Link to="/docs/getting-started/quick-start">Read the full quick start →</Link>}
++        >
++          Install the CLI, generate a config from your existing scripts and run your first cached build.
++        </Opener>
++        <div className="bp-row home-steps">
++          {STEP_FIGURES.map((step) => (
++            <figure key={step.fig}>
++              <figcaption className="mono-label">{step.fig}</figcaption>
++              <Blueprint figure={step.drawing} />
++              <p className="bp-title">
++                <b>{step.title}</b>
++                <span>{step.text}</span>
++              </p>
++            </figure>
++          ))}
++        </div>
+         <CodeBlock code={QUICK_START_CODE} language="bash" />
+       </section>
+     </div>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 46e97e1..2d0341c 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,24 @@
+ import { Link } from 'react-router';
++import EmptyState from '../components/EmptyState';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved. Try the search box above.</p>
+-      <Link to="/">Go to the docs home</Link>
+-    </section>
++    <EmptyState
++      testId="not-found"
++      code="ERR 404"
++      title="Page not found"
++      actions={
++        <>
++          <Link to="/" className="button button-primary">
++            Go to the docs home
++          </Link>
++          <Link to="/docs/getting-started/introduction" className="button button-secondary">
++            Read the introduction
++          </Link>
++        </>
++      }
++    >
++      <b>The page you are looking for does not exist or has moved.</b> Try the search box above.
++    </EmptyState>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 14d11b9..336fd7a 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,78 +1,60 @@
+ /*
+- * Base styles for the Ferrule docs.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Ferrule docs on Graphite Blueprint 1.2.0-rc.5.
++ * Values come from src/design/tokens.css (copied from the design package); the old custom property names are
++ * kept below as aliases so nothing that still reads them breaks. Signature recipes live in src/design/signature.css.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-header-bg: #ffffff;
+-  --color-footer-bg: #f5f5f5;
+-  --color-sidebar-bg: #fafafa;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-current-bg: #dde6f5;
+-  --color-current-text: #222222;
+-  --color-success: #2e7d32;
+-  --color-success-bg: #e8f5e9;
+-  --color-code-bg: #f5f5f5;
+-  --color-code-text: #222222;
+-  --color-inline-code-bg: #f0f0f0;
+-  --color-kbd-bg: #f5f5f5;
+-  --color-kbd-border: #bbbbbb;
+-  --color-note-bg: #eef3fb;
+-  --color-note-border: #0645ad;
+-  --color-warning-bg: #fff8e1;
+-  --color-warning-border: #b26a00;
+-  --color-danger-bg: #fdecea;
+-  --color-danger-border: #b00020;
+-  --color-badge-added-bg: #e8f5e9;
+-  --color-badge-added-text: #2e7d32;
+-  --color-badge-fixed-bg: #eef3fb;
+-  --color-badge-fixed-text: #0645ad;
+-  --color-badge-changed-bg: #fff8e1;
+-  --color-badge-changed-text: #8a5300;
+-  --color-backdrop: rgba(0, 0, 0, 0.4);
+-  --color-shadow: rgba(0, 0, 0, 0.12);
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-heading: var(--font-body);
+-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+-  --font-size-base: 16px;
+-  --font-size-small: 13px;
+-  --font-size-code: 14px;
+-  --font-size-lead: 18px;
+-  --font-size-h1: 30px;
+-  --font-size-h2: 22px;
+-  --font-size-h3: 17px;
+-  --line-height: 1.6;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --callout-border-width: 4px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --space-12: 48px;
+-  --header-height: 57px;
+-  --sidebar-width: 260px;
+-  --drawer-width: 300px;
+-  --measure: 720px;
+-  --toc-width: 220px;
+-  --search-width: 320px;
+-  --icon-size: 22px;
+-}
+-
++  color-scheme: light dark;
++
++  /* Aliases: previous names mapped onto the tokens. */
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-default);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-header-bg: color-mix(in srgb, var(--color-surface-default) 80%, transparent);
++  --color-footer-bg: var(--color-surface-default);
++  --color-sidebar-bg: var(--color-surface-subtle);
++  --color-text: var(--color-text-body);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-primary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-current-bg: var(--color-surface-tint);
++  --color-current-text: var(--color-text-primary);
++  --color-success: var(--color-status-success);
++  --color-success-bg: var(--color-status-success-tint);
++  --color-code-bg: var(--color-surface-code);
++  --color-code-text: var(--color-text-primary);
++  --color-inline-code-bg: var(--color-surface-code);
++  --color-kbd-bg: var(--color-surface-card);
++  --color-kbd-border: var(--color-border-strong);
++  --color-danger-bg: var(--color-status-danger-tint);
++  --color-danger-border: var(--color-status-danger);
++  --color-backdrop: var(--color-surface-overlay);
++
++  --font-body: var(--font-family-sans);
++  --font-heading: var(--font-family-sans);
++  --font-mono: var(--font-family-mono);
++  --font-size-base: var(--font-size-body);
++  --font-size-code: var(--font-size-small);
++  --line-height: var(--font-line-height-body);
++
++  --radius: var(--radius-sm);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hairline);
++  --header-height: var(--size-header);
++  --sidebar-width: var(--size-sidebar);
++  --measure: var(--size-measure);
++  --toc-width: 200px;
++  --search-width: 280px;
++
++  /* Layout */
++  --side-pad: clamp(var(--space-20), 4vw, var(--space-48));
++  --brand-x: var(--space-20);
++}
++
++/* ---------- Root ---------- */
+ *,
+ *::before,
+ *::after {
+@@ -82,56 +64,67 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ html {
+-  scroll-padding-top: var(--space-4);
++  scroll-padding-top: calc(var(--size-header) + var(--space-24));
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-body);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-body);
++  -webkit-font-smoothing: antialiased;
++  font-feature-settings: 'cv11';
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  font-family: var(--font-heading);
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  text-wrap: balance;
+ }
+ 
+-h1 {
+-  font-size: var(--font-size-h1);
++p {
++  margin: 0;
+ }
+ 
+-h2 {
+-  font-size: var(--font-size-h2);
++p,
++li {
++  text-wrap: pretty;
+ }
+ 
+-h3 {
+-  font-size: var(--font-size-h3);
++fieldset {
++  margin: 0;
++  padding: 0;
++  border: 0;
++  min-width: 0;
+ }
+ 
+-p {
+-  margin: 0 0 var(--space-3);
++legend {
++  padding: 0;
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
+ }
+ 
++pre,
+ code,
+ kbd,
+-pre {
+-  font-family: var(--font-mono);
++samp {
++  font-family: var(--font-family-mono);
++  letter-spacing: 0;
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-hairline) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
+@@ -151,32 +144,59 @@ pre {
+   border: 0;
+ }
+ 
++.icon {
++  width: var(--size-icon);
++  height: var(--size-icon);
++  flex: none;
++}
++
+ .skip-link {
+   position: absolute;
+   left: -9999px;
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
++  left: var(--space-8);
++  top: var(--space-12);
+   z-index: 50;
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+   font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
+ }
+ 
+ .lead {
+   font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++  letter-spacing: var(--font-tracking-lead);
++  color: var(--color-text-body);
++}
++
++.status-dot {
++  display: inline-block;
++  flex: none;
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: var(--color-status-success);
+ }
+ 
+-/* Layout */
++/* ---------- Shell ---------- */
+ .site-shell {
+   display: flex;
+   flex-direction: column;
+@@ -184,41 +204,41 @@ pre {
+ }
+ 
+ .site-header {
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  position: sticky;
++  top: 0;
++  z-index: 20;
++  background: color-mix(in srgb, var(--color-surface-default) 80%, transparent);
++  -webkit-backdrop-filter: blur(20px);
++  backdrop-filter: blur(20px);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+ .site-header-inner {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-4);
+-  min-height: var(--header-height);
+-  padding: var(--space-2) var(--space-6);
++  min-height: var(--size-header);
++  padding: 0 var(--side-pad) 0 var(--brand-x);
+ }
+ 
+ .brand-group {
+   display: inline-flex;
+   align-items: baseline;
+-  gap: var(--space-2);
++  gap: var(--space-8);
++  flex: 0 0 calc(var(--size-sidebar) - var(--brand-x));
++  min-width: 0;
+ }
+ 
+ .brand {
+-  display: inline-flex;
+-  align-items: center;
+-  align-self: center;
+-  gap: var(--space-2);
+-  font-weight: 700;
+-  color: var(--color-text);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-semibold);
++  color: var(--color-text-primary);
+   text-decoration: none;
+ }
+ 
+-.brand-mark {
+-  flex-shrink: 0;
+-}
+-
+ .version-label {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  font: var(--font-weight-regular) var(--font-size-caption) / var(--font-line-height-caption) var(--font-family-mono);
++  color: var(--color-text-tertiary);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+ .header-nav {
+@@ -234,23 +254,47 @@ pre {
+ }
+ 
+ .nav-link {
+-  color: var(--color-link);
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-full);
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-secondary);
++  text-decoration: none;
++  transition: background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+-.nav-link.active {
+-  font-weight: 700;
+-  color: var(--color-text);
++.nav-link[aria-current='page'],
++.nav-link.is-section {
++  color: var(--color-text-primary);
++  background: var(--color-surface-tint);
+ }
+ 
+ .docs-shell {
+   flex: 1;
+   display: grid;
+-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
++  grid-template-columns: var(--size-sidebar) minmax(0, 1fr);
++}
++
++.docs-shell > * {
++  min-width: 0;
++}
++
++.docs-menu {
++  display: none;
+ }
+ 
+ .content {
++  grid-column: 2;
+   min-width: 0;
+-  padding: var(--space-6) var(--space-8) var(--space-12);
++  padding: var(--space-48) var(--side-pad) var(--space-128);
++}
++
++.content > * {
++  max-width: calc(var(--size-container) - var(--size-sidebar));
+ }
+ 
+ .content:focus {
+@@ -258,94 +302,162 @@ pre {
+ }
+ 
+ .site-footer {
+-  background: var(--color-footer-bg);
+-  border-top: var(--border-width) solid var(--color-border);
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+ .site-footer-inner {
+-  padding: var(--space-4) var(--space-6);
++  padding: var(--space-24) var(--side-pad) var(--space-32) calc(var(--size-sidebar) + var(--side-pad));
+ }
+ 
+ .site-footer-inner p {
+   margin: 0;
++  color: var(--color-text-secondary);
+ }
+ 
+-/* Controls */
+-.input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
+-}
+-
++/* ---------- Buttons ---------- */
+ .button {
+-  display: inline-block;
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-6);
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border: 0;
++  border-radius: var(--radius-full);
++  background: var(--color-action-secondary);
++  color: var(--color-text-body);
++  font: var(--font-weight-medium) var(--font-size-small) / 1 var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
+   text-decoration: none;
++  white-space: nowrap;
+   cursor: pointer;
++  transition: background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease),
++    border-color var(--motion-duration-hover) var(--motion-easing-ease),
++    transform var(--motion-duration-hover) var(--motion-easing-standard);
++}
++
++.button:active {
++  transform: scale(0.971);
++}
++
++.button:disabled {
++  opacity: var(--opacity-disabled);
++  cursor: not-allowed;
++  transform: none;
+ }
+ 
+ .button-small {
+-  padding: 0 var(--space-2);
+-  font-size: var(--font-size-small);
++  height: var(--size-control-sm);
++  padding: 0 var(--space-12);
++}
++
++.button-lg {
++  height: var(--size-control-lg);
++  padding: 0 var(--space-16);
+ }
+ 
+ .button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+ }
+ 
+-.form-success {
+-  background: var(--color-success-bg);
+-  color: var(--color-success);
+-  border-radius: var(--radius);
+-  padding: var(--space-2) var(--space-3);
+-  margin: 0;
++.button-secondary {
++  background: var(--color-action-secondary);
++  color: var(--color-text-body);
+ }
+ 
+-/* Narrow-screen controls: hidden until the drawer breakpoint below. */
+-.menu-button,
+-.drawer-close,
+-.drawer-backdrop {
+-  display: none;
++.button-bordered {
++  background: transparent;
++  color: var(--color-text-secondary);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++}
++
++.button-ghost {
++  background: transparent;
++  color: var(--color-text-secondary);
++}
++
++.form-success {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  margin: 0;
++  color: var(--color-text-body);
+ }
+ 
+-/* Search */
++/* ---------- Search ---------- */
+ .search {
+   position: relative;
+   width: var(--search-width);
+   max-width: 100%;
++  margin-left: var(--side-pad);
++}
++
++.search-icon {
++  position: absolute;
++  left: var(--space-12);
++  top: calc((var(--size-control) - var(--size-icon)) / 2);
++  color: var(--color-icon-idle);
++  pointer-events: none;
++}
++
++.input {
++  font: inherit;
++  min-width: 0;
+ }
+ 
+ .search-input {
+   width: 100%;
++  height: var(--size-control);
++  padding: 0 var(--space-12) 0 36px;
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-card);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-dense);
++  -webkit-appearance: none;
++  appearance: none;
++  transition: border-color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++
++.search-input::placeholder {
++  color: var(--color-text-tertiary);
++}
++
++.search-input:focus-visible {
++  border-color: var(--color-accent-default);
++}
++
++.search-input::-webkit-search-cancel-button {
++  -webkit-appearance: none;
+ }
+ 
+ .search-panel {
+   position: absolute;
+-  top: calc(100% + var(--space-1));
++  top: calc(100% + var(--space-6));
+   left: 0;
+-  right: 0;
++  width: max(100%, 320px);
+   z-index: 30;
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  box-shadow: 0 var(--space-1) var(--space-3) var(--color-shadow);
+-  padding: var(--space-2);
++  background: var(--color-surface-raised);
++  border-radius: var(--radius-md);
++  box-shadow: var(--elevation-popover);
++  padding: var(--space-4);
++  transform-origin: top left;
++  transition: opacity var(--motion-duration-ui) var(--motion-easing-standard),
++    transform var(--motion-duration-ui) var(--motion-easing-standard);
++}
++
++@starting-style {
++  .search-panel {
++    opacity: 0;
++    transform: scale(0.98);
++  }
+ }
+ 
+ .search-count {
+-  margin: 0 0 var(--space-1);
+-  padding: 0 var(--space-2);
++  margin: 0;
++  padding: var(--space-8) var(--space-8) var(--space-4);
+ }
+ 
+ .search-results {
+@@ -356,101 +468,134 @@ pre {
+ 
+ .search-result {
+   display: flex;
++  align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-2);
+-  border-radius: var(--radius);
++  gap: var(--space-12);
++  min-height: var(--size-row-dense);
++  padding: 0 var(--space-8);
++  border-radius: var(--radius-sm);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-dense);
+   text-decoration: none;
+ }
+ 
+-.search-result:hover {
+-  background: var(--color-surface-muted);
++.search-result:focus-visible {
++  outline-offset: -2px;
++  background: var(--color-surface-hover);
++}
++
++.search-result-group {
++  font-size: var(--font-size-small);
++  color: var(--color-text-secondary);
+ }
+ 
+ .search-empty {
+-  margin: 0;
+-  padding: var(--space-2);
++  display: grid;
++  justify-items: center;
++  gap: var(--space-16);
++  padding: var(--space-24) var(--space-16) var(--space-20);
++  text-align: center;
++}
++
++.search-empty p {
++  max-width: 280px;
+ }
+ 
+-/* Sidebar */
++/* ---------- Sidebar ---------- */
+ .sidebar {
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  grid-column: 1;
++  grid-row: 1 / span 2;
+   position: sticky;
+-  top: 0;
++  top: var(--size-header);
+   align-self: start;
+-  max-height: 100vh;
++  height: calc(100vh - var(--size-header));
+   overflow-y: auto;
++  background: var(--color-surface-subtle);
++  border-right: var(--border-width-hairline) solid var(--color-border-subtle);
++  padding: var(--space-12) var(--space-8) var(--space-32);
+ }
+ 
+ .sidebar-header {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: center;
+-  margin-bottom: var(--space-2);
+-}
+-
+-.sidebar-title {
+-  font-size: var(--font-size-small);
+-  text-transform: uppercase;
+-  color: var(--color-text-muted);
++  display: none;
+ }
+ 
+ .nav-group + .nav-group {
+-  margin-top: var(--space-3);
++  margin-top: var(--space-16);
+ }
+ 
+ .nav-group-toggle {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-1);
++  justify-content: space-between;
++  gap: var(--space-8);
+   width: 100%;
+-  font: inherit;
+-  font-weight: 700;
+-  text-align: left;
+-  background: none;
++  height: var(--size-row-dense);
++  padding: 0 var(--space-12);
+   border: 0;
+-  padding: var(--space-1) 0;
+-  color: var(--color-text);
++  border-radius: var(--radius-sm);
++  background: none;
++  font: var(--font-weight-regular) var(--font-size-caption) / var(--font-line-height-caption) var(--font-family-mono);
++  text-transform: uppercase;
++  text-align: left;
++  color: var(--color-text-tertiary);
+   cursor: pointer;
++  transition: background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++
++.nav-group-toggle:focus-visible,
++.sidebar-link:focus-visible {
++  outline-offset: -2px;
+ }
+ 
+ .nav-group-chevron {
+-  display: inline-block;
+-  width: var(--space-4);
+-  color: var(--color-text-muted);
++  color: var(--color-icon-idle);
++  transition: transform var(--motion-duration-open) var(--motion-easing-standard);
++}
++
++.nav-group-toggle[aria-expanded='true'] .nav-group-chevron {
++  transform: rotate(180deg);
+ }
+ 
+ .nav-group-list {
+   list-style: none;
+-  margin: 0;
+-  padding: 0 0 0 var(--space-4);
++  margin: var(--space-2) 0 0;
++  padding: 0;
+ }
+ 
+ .sidebar-link {
+-  display: block;
+-  padding: var(--space-1) var(--space-2);
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  min-height: var(--size-row-dense);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-sm);
++  font-size: var(--font-size-dense);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-secondary);
+   text-decoration: none;
++  transition: background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+-.sidebar-link:hover {
+-  text-decoration: underline;
++.sidebar-link[aria-current='page'] {
++  background: var(--color-surface-tint);
++  color: var(--color-text-primary);
+ }
+ 
+-.sidebar-link[aria-current='page'] {
+-  background: var(--color-current-bg);
+-  color: var(--color-current-text);
+-  font-weight: 600;
++/* Sheet controls: hidden until the sheet breakpoint below. */
++.drawer-close,
++.drawer-backdrop {
++  display: none;
+ }
+ 
+-/* Article */
++/* ---------- Article (long-form) ---------- */
+ .doc-article {
+   display: grid;
+-  grid-template-columns: minmax(0, var(--measure)) var(--toc-width);
+-  column-gap: var(--space-8);
++  grid-template-columns: minmax(0, var(--size-measure)) minmax(160px, var(--toc-width));
++  column-gap: var(--space-48);
+   align-items: start;
++  font-size: var(--font-size-prose);
++  line-height: var(--font-line-height-prose);
+ }
+ 
+ .doc-article > * {
+@@ -460,332 +605,684 @@ pre {
+ 
+ .doc-article > .doc-aside {
+   grid-column: 2;
+-  grid-row: 1 / span 6;
++  grid-row: 1 / span 7;
+   position: sticky;
+-  top: var(--space-4);
++  top: calc(var(--size-header) + var(--space-24));
++  font-size: var(--font-size-body);
+ }
+ 
+ .breadcrumb ol {
+   list-style: none;
+   display: flex;
+   flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin: 0 0 var(--space-4);
++  gap: var(--space-4);
++  margin: 0 0 var(--space-24);
+   padding: 0;
+   font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-secondary);
+ }
+ 
+ .breadcrumb li + li::before {
+   content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
++  margin-right: var(--space-4);
++  color: var(--color-icon-idle);
++}
++
++.breadcrumb a {
++  color: var(--color-text-secondary);
++  text-decoration: none;
++  transition: color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++
++.breadcrumb [aria-current='page'] {
++  color: var(--color-text-primary);
++}
++
++.doc-header h1 {
++  font-size: clamp(var(--font-size-h3), 5vw, var(--font-size-h2));
++  line-height: var(--font-line-height-display);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.doc-meta {
++  margin-top: var(--space-16);
++}
++
++.doc-header .lead {
++  margin-top: var(--space-16);
++  max-width: 34ch;
++}
++
++.doc-plate {
++  margin: var(--space-32) 0 var(--space-48);
++}
++
++/* Prose */
++.doc-body {
++  color: var(--color-text-body);
++}
++
++.doc-body > p {
++  margin: 0 0 var(--space-20);
+ }
+ 
+-.doc-header {
+-  margin-bottom: var(--space-6);
++.doc-body h2 {
++  margin: var(--space-48) 0 var(--space-16);
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-lead);
++  font-weight: var(--font-weight-semibold);
+ }
+ 
+-.doc-body h2,
+ .doc-body h3 {
+-  margin-top: var(--space-8);
++  margin: var(--space-32) 0 var(--space-12);
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-lead);
++  font-weight: var(--font-weight-semibold);
++}
++
++.doc-body > :first-child {
++  margin-top: 0;
++}
++
++.doc-body a,
++.callout a {
++  color: var(--color-text-primary);
++  text-decoration: underline;
++  text-decoration-thickness: 1px;
++  text-decoration-color: var(--color-icon-idle);
++  text-underline-offset: 3px;
+ }
+ 
+ .inline-code {
+-  background: var(--color-inline-code-bg);
+-  border-radius: var(--radius);
+-  padding: 0 var(--space-1);
+-  font-size: 0.9em;
++  padding: 1px var(--space-4);
++  border-radius: var(--radius-xs);
++  background: var(--color-surface-code);
++  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
++  color: var(--color-text-primary);
++  font-size: 0.82em;
++  overflow-wrap: anywhere;
+ }
+ 
+ .kbd {
+-  display: inline-block;
+-  min-width: 1.6em;
+-  padding: 0 var(--space-1);
+-  border: var(--border-width) solid var(--color-kbd-border);
+-  border-bottom-width: 2px;
+-  border-radius: var(--radius);
+-  background: var(--color-kbd-bg);
+-  font-size: var(--font-size-small);
+-  text-align: center;
+-  line-height: 1.5;
++  display: inline-grid;
++  place-items: center;
++  min-width: 20px;
++  height: 20px;
++  padding: 0 var(--space-4);
++  border: var(--border-width-hairline) solid var(--color-border-strong);
++  border-radius: var(--radius-xs);
++  background: var(--color-surface-card);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-caption);
++  line-height: 1;
++  vertical-align: 0.1em;
+ }
+ 
+ .doc-list,
+ .steps {
+-  margin: 0 0 var(--space-4);
+-  padding-left: var(--space-6);
++  margin: 0 0 var(--space-24);
++  padding-left: var(--space-24);
+ }
+ 
+ .doc-list li + li,
+ .steps li + li {
+-  margin-top: var(--space-2);
++  margin-top: var(--space-8);
++}
++
++.doc-list li::marker {
++  color: var(--color-icon-idle);
++}
++
++.steps li::marker {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-caption);
++  color: var(--color-text-tertiary);
+ }
+ 
+ /* Code blocks */
+ .code-block {
+-  background: var(--color-code-bg);
+-  color: var(--color-code-text);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  margin: 0 0 var(--space-4);
++  margin: var(--space-24) 0;
++  background: var(--color-surface-code);
++  color: var(--color-text-primary);
++  border: var(--border-width-hairline) solid var(--color-border-subtle);
++  border-radius: var(--radius-md);
++  min-width: 0;
+ }
+ 
+ .code-block-header {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-4);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-8);
++  min-height: var(--size-field);
++  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-16);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+-.code-language {
+-  font-family: var(--font-mono);
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++.copy-button[data-copied='true'] {
++  color: var(--color-text-primary);
+ }
+ 
+-.copy-button[data-copied='true'] {
+-  color: var(--color-success);
+-  border-color: var(--color-success);
++.copy-button[data-copied='true'] .icon {
++  color: var(--color-status-success);
+ }
+ 
+ .code-block-pre {
+   margin: 0;
+-  padding: var(--space-3) var(--space-4);
++  padding: var(--space-16);
+   overflow-x: auto;
+-  font-size: var(--font-size-code);
+-  line-height: 1.5;
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-body);
+ }
+ 
+ /* Tabs */
+ .tabs {
+-  margin: 0 0 var(--space-4);
++  margin: var(--space-24) 0;
+ }
+ 
+ .tab-list {
++  position: relative;
+   display: flex;
+-  gap: var(--space-1);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  margin-bottom: var(--space-2);
++  gap: var(--space-24);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++  margin-bottom: var(--space-12);
+ }
+ 
+ .tab {
+-  font: inherit;
+-  font-size: var(--font-size-small);
++  height: var(--size-control);
++  padding: 0;
++  border: 0;
+   background: none;
+-  border: var(--border-width) solid transparent;
+-  border-bottom: 0;
+-  border-radius: var(--radius) var(--radius) 0 0;
+-  padding: var(--space-1) var(--space-3);
+-  margin-bottom: calc(-1 * var(--border-width));
+-  color: var(--color-link);
++  font: var(--font-weight-medium) var(--font-size-small) / 1 var(--font-family-sans);
++  color: var(--color-text-secondary);
+   cursor: pointer;
++  transition: color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+ .tab[aria-selected='true'] {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  color: var(--color-text);
+-  font-weight: 700;
++  color: var(--color-text-primary);
++}
++
++.tab-indicator {
++  position: absolute;
++  bottom: -1px;
++  left: var(--tab-x, 0);
++  width: var(--tab-w, 0);
++  height: var(--border-width-bar);
++  background: var(--color-text-primary);
++  pointer-events: none;
++  transition: left var(--motion-duration-tab) var(--motion-easing-enter),
++    width var(--motion-duration-tab) var(--motion-easing-enter);
+ }
+ 
+ .tab-panel .code-block {
+-  margin-bottom: 0;
++  margin: 0;
+ }
+ 
+ /* Callouts */
+ .callout {
+   display: flex;
+-  gap: var(--space-3);
+-  border-left: var(--callout-border-width) solid var(--color-note-border);
+-  background: var(--color-note-bg);
+-  border-radius: var(--radius);
+-  padding: var(--space-3) var(--space-4);
+-  margin: 0 0 var(--space-4);
++  gap: var(--space-12);
++  margin: var(--space-24) 0;
++  padding: var(--space-16) var(--space-20);
++  background: var(--color-surface-card);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++}
++
++.callout-icon {
++  flex: none;
++  width: var(--size-icon);
++  height: var(--size-icon);
++  margin-top: 4px;
++}
++
++.callout-note .callout-icon {
++  color: var(--color-status-info);
+ }
+ 
+-.callout-warning {
+-  border-left-color: var(--color-warning-border);
+-  background: var(--color-warning-bg);
++.callout-warning .callout-icon {
++  color: var(--color-status-warning);
+ }
+ 
+ .callout-danger {
+-  border-left-color: var(--color-danger-border);
+-  background: var(--color-danger-bg);
++  background: var(--color-status-danger-tint);
+ }
+ 
+-.callout-icon {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  flex-shrink: 0;
+-  width: var(--icon-size);
+-  height: var(--icon-size);
+-  border: var(--border-width) solid currentColor;
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
+-  font-weight: 700;
++.callout-danger .callout-icon {
++  color: var(--color-status-danger);
+ }
+ 
+ .callout-title {
+-  font-weight: 700;
+-  margin: 0 0 var(--space-1);
++  margin: 0 0 var(--space-2);
++  font-weight: var(--font-weight-semibold);
++  color: var(--color-text-primary);
+ }
+ 
+ .callout-text {
+   margin: 0;
++  color: var(--color-text-body);
+ }
+ 
+ /* Parameters table */
+ .table-wrap {
+-  overflow-x: auto;
+-  margin: 0 0 var(--space-4);
+-}
+-
+-.params-table {
+-  width: 100%;
+-  border-collapse: collapse;
+-  font-size: var(--font-size-small);
++  margin: var(--space-24) 0 var(--space-32);
+ }
+ 
+-.params-table th,
+ .params-table td {
+-  text-align: left;
++  padding-block: 10px;
+   vertical-align: top;
+-  padding: var(--space-2) var(--space-3);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  line-height: var(--font-line-height-ui);
+ }
+ 
+ .params-table th {
+-  background: var(--color-surface-muted);
++  font-size: var(--font-size-caption);
++}
++
++@media (min-width: 640px) {
++  .params-table td:first-child {
++    white-space: nowrap;
++  }
++}
++
++.params-table code {
++  font-size: var(--font-size-caption);
++  font-weight: var(--font-weight-regular);
++}
++
++.params-table .param-name {
++  padding: 0;
++  background: none;
++  box-shadow: none;
++  color: var(--color-text-primary);
++  font-size: var(--font-size-caption);
+ }
+ 
+ .param-type,
+ .param-default {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
++}
++
++.params-table .pin {
++  position: static;
++  text-align: left;
++  box-shadow: none;
++  background: none;
++}
++
++.params-table .pin::before {
++  content: none;
+ }
+ 
+ /* Feedback and pager */
+ .feedback {
+-  margin-top: var(--space-12);
+-  padding-top: var(--space-6);
+-  border-top: var(--border-width) solid var(--color-border);
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--space-12) var(--space-24);
++  margin-top: var(--space-48);
++  padding-top: var(--space-24);
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++  font-size: var(--font-size-body);
+ }
+ 
+ .feedback-heading {
+-  font-size: var(--font-size-h3);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-ui);
++  font-weight: var(--font-weight-semibold);
+ }
+ 
+ .feedback-actions {
+   display: flex;
+-  gap: var(--space-2);
++  gap: var(--space-8);
+ }
+ 
+ .pager {
+   display: grid;
+   grid-template-columns: 1fr 1fr;
+-  gap: var(--space-4);
+-  margin-top: var(--space-8);
++  gap: var(--space-16);
++  margin-top: var(--space-32);
+ }
+ 
+ .pager-link {
+   display: flex;
+   flex-direction: column;
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-3) var(--space-4);
++  gap: var(--space-4);
++  padding: var(--space-16) var(--space-20);
++  background: var(--color-surface-card);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-md);
+   text-decoration: none;
++  transition: background-color var(--motion-duration-ui) var(--motion-easing-ease),
++    border-color var(--motion-duration-ui) var(--motion-easing-ease);
+ }
+ 
+ .pager-next {
+   text-align: right;
+ }
+ 
+-.pager-label {
++.pager-title {
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-ui);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-primary);
++}
++
++/* Contents list */
++.toc-details {
+   font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
+ }
+ 
+-.pager-title {
+-  font-weight: 600;
++.toc-summary {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  list-style: none;
++  margin-bottom: var(--space-12);
+ }
+ 
+-/* Table of contents */
+-.toc {
+-  border-left: var(--border-width) solid var(--color-border);
+-  padding-left: var(--space-4);
++.toc-summary::-webkit-details-marker {
++  display: none;
+ }
+ 
+ .toc-heading {
+-  font-size: var(--font-size-small);
+-  text-transform: uppercase;
+-  color: var(--color-text-muted);
++  margin: 0;
++  font-weight: var(--font-weight-regular);
++}
++
++.toc-chevron {
++  display: none;
+ }
+ 
+ .toc-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+-  font-size: var(--font-size-small);
++  border-left: var(--border-width-hairline) solid var(--color-border-subtle);
++  line-height: var(--font-line-height-ui);
+ }
+ 
+-.toc-item + .toc-item {
+-  margin-top: var(--space-1);
++.toc-link {
++  position: relative;
++  display: block;
++  padding: var(--space-4) 0 var(--space-4) var(--space-12);
++  color: var(--color-text-secondary);
++  text-decoration: none;
++  transition: color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+-.toc-item-nested {
+-  padding-left: var(--space-3);
++.toc-item-nested .toc-link {
++  padding-left: var(--space-24);
+ }
+ 
+-/* Home */
+-.home {
+-  max-width: calc(var(--measure) + var(--toc-width) + var(--space-8));
++.toc-link.is-current {
++  color: var(--color-text-primary);
+ }
+ 
+-.home-intro {
+-  margin-bottom: var(--space-8);
++.toc-link.is-current::before {
++  content: '';
++  position: absolute;
++  left: -1px;
++  top: 0;
++  bottom: 0;
++  width: var(--border-width-bar);
++  margin-left: -0.5px;
++  background: var(--color-text-primary);
+ }
+ 
+-.home-section {
+-  margin-bottom: var(--space-8);
++.toc-link .inline-code {
++  font-size: 0.92em;
+ }
+ 
+-.section-cards {
++/* ---------- Home ---------- */
++.masthead {
++  padding-bottom: var(--space-48);
++}
++
++.masthead-grid,
++.changelog .masthead {
++  display: grid;
++  grid-template-columns: 1fr 1fr;
++  gap: var(--space-32);
++  align-items: end;
++}
++
++.masthead h1 {
++  font-size: clamp(var(--font-size-h3), 5vw, var(--font-size-h2));
++  line-height: var(--font-line-height-display);
++  letter-spacing: var(--font-tracking-display);
++  font-weight: var(--font-weight-medium);
++}
++
++.masthead-title {
++  display: grid;
++  justify-items: start;
++  gap: var(--space-12);
++}
++
++.home .masthead-title {
++  gap: var(--space-24);
++}
++
++.masthead .lead {
++  max-width: 34ch;
++}
++
++.home-stage {
++  margin-top: var(--space-48);
++}
++
++.home-stage .stage-window {
++  min-height: 300px;
++}
++
++.card-grid {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+-  gap: var(--space-4);
++  grid-template-columns: repeat(4, minmax(0, 1fr));
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++  border-left: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+-.section-card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-4);
+-  background: var(--color-surface);
++.card-grid > li {
++  position: relative;
++  min-width: 0;
++  padding: var(--space-24);
++  box-shadow: 1px 0 0 var(--color-border-subtle), 0 1px 0 var(--color-border-subtle);
++  transition: background-color var(--motion-duration-ui) var(--motion-easing-ease);
+ }
+ 
+-.section-card p {
+-  margin: 0;
++.section-card .plate {
++  margin-bottom: var(--space-20);
++}
++
++.section-card-meta {
++  margin-bottom: var(--space-4);
++}
++
++.section-card-title {
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-ui);
++  font-weight: var(--font-weight-medium);
++  margin-bottom: var(--space-4);
++}
++
++.section-card-link {
++  color: var(--color-text-primary);
++  text-decoration: none;
++}
++
++.section-card-link::after {
++  content: '';
++  position: absolute;
++  inset: 0;
++}
++
++.section-card p.muted {
++  font-size: var(--font-size-body);
++}
++
++/* The grid's closing edge is the next section's hairline. */
++.home-section:has(> .card-grid:last-child) + .home-section > .opener {
++  border-top: 0;
++}
++
++.opener-side {
++  display: grid;
++  align-content: start;
++  gap: var(--space-16);
++}
++
++.opener .opener-link {
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  letter-spacing: var(--font-tracking-body);
++}
++
++.opener-link a {
++  color: var(--color-text-secondary);
++  text-decoration: none;
++  transition: color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++
++.home-steps {
++  margin-bottom: var(--space-48);
++}
++
++/* Run view (home stage window) */
++.run-view {
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-body);
++}
++
++.run-bar {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++  height: 44px;
++  padding: 0 var(--space-20);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++}
++
++.run-title {
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-semibold);
++  color: var(--color-text-primary);
++}
++
++.run-bar-end {
++  margin-left: auto;
++}
++
++.run-table {
++  padding: 0 var(--space-20) var(--space-16);
++}
++
++.run-row {
++  display: grid;
++  grid-template-columns: minmax(96px, 1.3fr) minmax(120px, 1fr) 64px 88px;
++  gap: var(--space-12);
++  align-items: center;
++  height: var(--size-row);
++  border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++}
++
++.run-head {
++  height: var(--size-row-dense);
++}
++
++.run-task {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++}
++
++.run-status {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-8);
++}
++
++.run-num {
++  text-align: right;
++  font-variant-numeric: tabular-nums;
++}
++
++.run-hash {
++  font: var(--font-weight-regular) var(--font-size-caption) / 1 var(--font-family-mono);
++  color: var(--color-text-tertiary);
++  text-align: right;
++}
++
++.run-status .badge {
++  height: 22px;
++}
++
++/* ---------- Changelog ---------- */
++.changelog {
++  grid-template-columns: minmax(0, 1fr) minmax(160px, var(--toc-width));
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++}
++
++.changelog > .masthead {
++  grid-column: 1 / -1;
++  margin-bottom: var(--space-48);
++}
++
++.changelog > .doc-aside {
++  grid-row: 2 / span 1;
+ }
+ 
+-/* Changelog */
+ .release-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+ }
+ 
+-.release + .release {
++.release-featured {
++  display: grid;
++  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
++  gap: var(--space-32);
++  align-items: start;
++}
++
++.release-featured-text {
++  display: grid;
++  gap: var(--space-8);
++}
++
++.release-featured .release-version {
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-lead);
++  font-weight: var(--font-weight-semibold);
++}
++
++.release-summary {
+   margin-top: var(--space-8);
+-  padding-top: var(--space-6);
+-  border-top: var(--border-width) solid var(--color-border);
++  color: var(--color-text-body);
++}
++
++.release-opener {
++  margin-bottom: var(--space-48);
+ }
+ 
+-.release-meta {
+-  margin-bottom: var(--space-2);
++.release-opener .release-meta {
++  font-size: var(--font-size-caption);
++}
++
++.release-featured .change-list {
++  margin-top: var(--space-12);
+ }
+ 
+ .change-list {
+@@ -797,48 +1294,135 @@ pre {
+ .change-item {
+   display: flex;
+   align-items: baseline;
+-  gap: var(--space-3);
++  gap: var(--space-16);
++  padding: var(--space-12) 0;
+ }
+ 
+ .change-item + .change-item {
+-  margin-top: var(--space-2);
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+ .change-badge {
+-  flex-shrink: 0;
+-  display: inline-block;
+-  min-width: 72px;
++  flex: none;
++  width: 84px;
++  justify-content: flex-start;
++  transform: translateY(-1px);
++}
++
++.change-text {
++  min-width: 0;
++  color: var(--color-text-body);
++}
++
++/* ---------- Empty and error states ---------- */
++.empty-state {
++  display: grid;
++  justify-items: center;
++  max-width: 360px;
++  margin: 0 auto;
++  padding: var(--space-48) var(--space-24);
+   text-align: center;
+-  border-radius: var(--radius-pill);
+-  padding: 0 var(--space-2);
+-  font-size: var(--font-size-small);
+-  font-weight: 600;
+ }
+ 
+-.change-badge-added {
+-  background: var(--color-badge-added-bg);
+-  color: var(--color-badge-added-text);
++.empty-stage {
++  width: 100%;
++  aspect-ratio: 4 / 3;
+ }
+ 
+-.change-badge-fixed {
+-  background: var(--color-badge-fixed-bg);
+-  color: var(--color-badge-fixed-text);
++.empty-stage .stage-window {
++  display: grid;
++  place-items: center;
+ }
+ 
+-.change-badge-changed {
+-  background: var(--color-badge-changed-bg);
+-  color: var(--color-badge-changed-text);
++.empty-stage-drawing {
++  padding: var(--space-24);
+ }
+ 
+-/* Empty states */
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.empty-code {
++  margin-top: var(--space-16);
++}
++
++.empty-title {
++  margin-top: var(--space-8);
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-lead);
++  font-weight: var(--font-weight-semibold);
++}
++
++.empty-text {
++  margin-top: var(--space-8);
++  font-size: var(--font-size-body);
++}
++
++.empty-actions {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: center;
++  gap: var(--space-8);
++  margin-top: var(--space-20);
++}
++
++/* ---------- Hover (fine pointers only) ---------- */
++@media (hover: hover) and (pointer: fine) {
++  .nav-link:hover {
++    color: var(--color-text-primary);
++    background: var(--color-action-ghost-hover);
++  }
++  .button-primary:hover {
++    background: var(--color-action-primary-hover);
++  }
++  .button-secondary:hover,
++  .button:not(.button-primary, .button-bordered, .button-ghost):hover {
++    background: var(--color-action-secondary-hover);
++    color: var(--color-text-primary);
++  }
++  .button-bordered:hover,
++  .button-ghost:hover {
++    background: var(--color-action-ghost-hover);
++    color: var(--color-text-primary);
++  }
++  .search-input:hover:not(:focus-visible) {
++    border-color: var(--color-border-strong);
++  }
++  .search-result:hover {
++    background: var(--color-surface-hover);
++  }
++  .nav-group-toggle:hover {
++    color: var(--color-text-primary);
++    background: var(--color-surface-hover);
++  }
++  .sidebar-link:hover:not([aria-current='page']) {
++    color: var(--color-text-primary);
++    background: var(--color-action-ghost-hover);
++  }
++  .breadcrumb a:hover,
++  .opener-link a:hover,
++  .toc-link:hover {
++    color: var(--color-text-primary);
++  }
++  .doc-body a:hover,
++  .callout a:hover {
++    text-decoration-color: var(--color-text-primary);
++  }
++  .tab:hover:not([aria-selected='true']) {
++    color: var(--color-text-body);
++  }
++  .pager-link:hover {
++    background: var(--color-surface-hover);
++    border-color: var(--color-border-strong);
++  }
++  .card-grid > li:hover {
++    background: var(--color-surface-hover);
++  }
+ }
+ 
+-/* The TOC moves above the article body when there is no room for a third column. */
+-@media (max-width: 1100px) {
+-  .doc-article {
++/* ---------- Responsive ---------- */
++
++/* Contents list moves out of the rail under breakpoint.lg: a closed disclosure after the lead plate. */
++@media (max-width: 1023.98px) {
++  .doc-article,
++  .changelog {
+     grid-template-columns: minmax(0, 1fr);
+   }
+ 
+@@ -846,51 +1430,145 @@ pre {
+     grid-column: 1;
+     grid-row: auto;
+     position: static;
+-    margin-bottom: var(--space-6);
++    margin-bottom: var(--space-32);
+   }
+-}
+ 
+-/* Narrow screens: the sidebar becomes a drawer opened from the header. */
+-@media (max-width: 899px) {
+-  .site-header-inner {
+-    flex-wrap: wrap;
+-    gap: var(--space-2) var(--space-3);
+-    padding: var(--space-2) var(--space-4);
++  .changelog > .doc-aside {
++    grid-row: auto;
+   }
+ 
+-  .menu-button {
+-    display: inline-block;
++  .toc-details {
++    border-block: var(--border-width-hairline) solid var(--color-border-subtle);
+   }
+ 
+-  .search {
+-    order: 1;
+-    width: 100%;
++  .toc-summary {
++    min-height: var(--size-row);
++    margin: 0;
++    cursor: pointer;
++  }
++
++  .toc-summary:focus-visible {
++    outline-offset: -2px;
++  }
++
++  .toc-chevron {
++    display: block;
++    color: var(--color-icon-idle);
++    transition: transform var(--motion-duration-open) var(--motion-easing-standard);
++  }
++
++  .toc-details[open] .toc-chevron {
++    transform: rotate(180deg);
++  }
++
++  .toc-details .toc {
++    padding-bottom: var(--space-16);
++  }
++
++  .card-grid {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
+   }
+ 
++  /* Sidebar: one full-width secondary pill named after the current page opens the sheet. */
+   .docs-shell {
+     grid-template-columns: minmax(0, 1fr);
+   }
+ 
++  .content {
++    grid-column: 1;
++    padding-top: var(--space-24);
++  }
++
++  .docs-menu {
++    display: block;
++    padding: var(--space-16) var(--side-pad) 0;
++  }
++
++  .menu-button {
++    display: flex;
++    justify-content: space-between;
++    width: 100%;
++    height: var(--size-control-lg);
++    padding: 0 var(--space-12) 0 var(--space-16);
++  }
++
++  .menu-button-label {
++    display: inline-flex;
++    align-items: baseline;
++    gap: var(--space-12);
++    min-width: 0;
++  }
++
++  .menu-button-page {
++    overflow: hidden;
++    text-overflow: ellipsis;
++  }
++
++  .menu-button-chevron {
++    color: var(--color-icon-idle);
++  }
++
+   .sidebar {
+     display: none;
+     position: fixed;
+     top: 0;
+     bottom: 0;
+     left: 0;
+-    align-self: stretch;
+-    width: var(--drawer-width);
+-    max-width: 85vw;
+-    max-height: none;
++    width: min(320px, 88vw);
++    height: auto;
+     z-index: 40;
+-    box-shadow: 0 0 var(--space-6) var(--color-shadow);
++    padding: 0 0 var(--space-32);
++    border-right: var(--border-width-hairline) solid var(--color-border-subtle);
++    box-shadow: var(--elevation-popover);
++    transform-origin: left center;
++    transition: opacity var(--motion-duration-ui) var(--motion-easing-standard),
++      transform var(--motion-duration-ui) var(--motion-easing-standard);
+   }
+ 
+   .sidebar.is-open {
+     display: block;
+   }
+ 
++  @starting-style {
++    .sidebar.is-open {
++      opacity: 0;
++      transform: scale(0.98);
++    }
++  }
++
++  .sidebar-header {
++    display: flex;
++    justify-content: space-between;
++    align-items: center;
++    min-height: var(--size-header);
++    padding: 0 var(--space-12) 0 var(--space-20);
++    border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++  }
++
+   .drawer-close {
+-    display: inline-block;
++    display: inline-flex;
++  }
++
++  .nav-group + .nav-group {
++    margin-top: 0;
++  }
++
++  .nav-group-toggle {
++    height: var(--size-row);
++    padding: 0 var(--space-20);
++    border-radius: 0;
++    border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
++  }
++
++  .nav-group-list {
++    margin: 0;
++  }
++
++  .sidebar-link {
++    min-height: var(--size-row);
++    padding: 0 var(--space-20) 0 var(--space-32);
++    border-radius: 0;
++    border-bottom: var(--border-width-hairline) solid var(--color-border-subtle);
+   }
+ 
+   .drawer-backdrop {
+@@ -898,18 +1576,156 @@ pre {
+     position: fixed;
+     inset: 0;
+     z-index: 35;
+-    background: var(--color-backdrop);
++    background: var(--color-surface-overlay);
++    -webkit-backdrop-filter: blur(4px);
++    backdrop-filter: blur(4px);
++    transition: opacity var(--motion-duration-ui) var(--motion-easing-standard);
++  }
++
++  @starting-style {
++    .drawer-backdrop {
++      opacity: 0;
++    }
++  }
++
++  .site-footer-inner {
++    padding-left: var(--side-pad);
++  }
++
++  .brand-group {
++    flex: none;
++  }
++}
++
++@media (max-width: 767.98px) {
++  .site-header-inner {
++    flex-wrap: wrap;
++    column-gap: var(--space-12);
++    padding: 0 var(--side-pad);
++  }
++
++  .brand-group {
++    min-height: var(--size-header);
++    align-items: center;
++  }
++
++  .search {
++    order: 1;
++    width: 100%;
++    margin: 0 0 var(--space-12);
++  }
++
++  .search-panel {
++    width: 100%;
+   }
+ 
+   .content {
+-    padding: var(--space-4) var(--space-4) var(--space-12);
++    padding-bottom: var(--space-96);
++  }
++
++  .masthead-grid,
++  .changelog .masthead {
++    grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-16);
++  }
++
++  .home .masthead-grid {
++    gap: var(--space-24);
++  }
++
++  .home .masthead-title {
++    display: contents;
++  }
++
++  .home .masthead-title .button {
++    order: 2;
++    justify-self: start;
++  }
++
++  .masthead .lead,
++  .doc-header .lead {
++    font-size: var(--font-size-prose);
++    line-height: var(--font-line-height-prose);
++  }
++
++  .home-stage {
++    margin-top: var(--space-32);
++  }
++
++  .release-featured {
++    grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-24);
+   }
+ 
+   .pager {
+     grid-template-columns: minmax(0, 1fr);
+   }
+ 
+-  .site-footer-inner {
+-    padding: var(--space-4);
++  .feedback {
++    align-items: flex-start;
++    flex-direction: column;
++  }
++
++  .doc-plate {
++    margin: var(--space-24) 0 var(--space-32);
++  }
++
++  /* Pinned Default column only where the table can scroll. */
++  .params-table .pin {
++    position: sticky;
++    right: 0;
++    z-index: 1;
++    text-align: right;
++    background: var(--pin-bg, var(--color-surface-default));
++    box-shadow: inset 1px 0 0 var(--color-border-subtle);
++  }
++}
++
++@media (max-width: 639.98px) {
++  .card-grid {
++    grid-template-columns: minmax(0, 1fr);
++  }
++
++  .run-row {
++    grid-template-columns: minmax(80px, 1fr) minmax(108px, 1fr) 48px;
++  }
++
++  .run-hash {
++    display: none;
++  }
++
++  .run-bar .mono-label:not(.run-bar-end) {
++    display: none;
++  }
++
++  .params-table .pin {
++    padding-left: var(--space-16);
++  }
++
++  .params-table .cell-lines[data-sub]::after {
++    font: var(--font-weight-regular) var(--font-size-caption) / var(--font-line-height-ui) var(--font-family-mono);
++  }
++}
++
++/* Touch targets: at least 44px through padding on coarse pointers. */
++@media (pointer: coarse) {
++  .button,
++  .nav-link,
++  .search-input,
++  .tab,
++  .sidebar-link,
++  .nav-group-toggle,
++  .search-result,
++  .menu-button,
++  .toc-summary {
++    min-height: var(--size-touch);
++  }
++
++  .search-icon {
++    top: calc((var(--size-touch) - var(--size-icon)) / 2);
++  }
++
++  .toc-link {
++    padding-block: var(--space-12);
+   }
+ }

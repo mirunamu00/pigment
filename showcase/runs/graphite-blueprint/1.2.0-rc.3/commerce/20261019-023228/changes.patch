@@ -1,0 +1,1723 @@
+diff --git a/package.json b/package.json
+index 1e80f4e..e71e380 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource-variable/inter": "^5.2.5",
++    "@fontsource/geist-mono": "^5.2.5",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/components/Icons.tsx b/src/components/Icons.tsx
+index f025d98..238d6a4 100644
+--- a/src/components/Icons.tsx
++++ b/src/components/Icons.tsx
+@@ -2,29 +2,21 @@ interface IconProps {
+   className?: string;
+ }
+ 
++/** 16px grid, 1.5px butt-cap strokes, currentColor. */
+ export function CartIcon({ className = 'icon' }: IconProps) {
+   return (
+-    <svg className={className} viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+-      <path
+-        d="M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2"
+-        fill="none"
+-        stroke="currentColor"
+-        strokeWidth="1.8"
+-        strokeLinecap="round"
+-        strokeLinejoin="round"
+-      />
+-      <circle cx="9" cy="19" r="1.5" fill="currentColor" />
+-      <circle cx="17" cy="19" r="1.5" fill="currentColor" />
++    <svg className={className} viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
++      <path d="M1 2.75h2.1l1.6 7.5h7.1l1.45-5.5H4.1" fill="none" stroke="currentColor" strokeWidth="1.5" />
++      <circle cx="5.75" cy="13.25" r="1.25" fill="currentColor" />
++      <circle cx="11.25" cy="13.25" r="1.25" fill="currentColor" />
+     </svg>
+   );
+ }
+ 
+-export function ImageIcon({ className = 'icon' }: IconProps) {
++export function ChevronDownIcon({ className = 'icon' }: IconProps) {
+   return (
+-    <svg className={className} viewBox="0 0 24 24" width="40" height="40" aria-hidden="true" focusable="false">
+-      <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-      <circle cx="9" cy="10" r="1.8" fill="currentColor" />
+-      <path d="M4 17l5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
++    <svg className={className} viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
++      <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+     </svg>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 24ef3b6..2577842 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,14 +1,15 @@
+-import { Link, NavLink, Outlet } from 'react-router';
++import { Link, NavLink, Outlet, useLocation } from 'react-router';
+ import { useCart } from '../cart/CartContext';
+ import { CartIcon } from './Icons';
+ 
+ const NAV_ITEMS = [
+-  { to: '/', label: 'Shop', testId: 'nav-shop', end: true },
+-  { to: '/cart', label: 'Cart', testId: 'nav-cart', end: false },
++  { to: '/', label: 'Shop', testId: 'nav-shop', end: true, section: '/products/' },
++  { to: '/cart', label: 'Cart', testId: 'nav-cart', end: false, section: '/cart' },
+ ];
+ 
+ export default function Layout() {
+   const { itemCount } = useCart();
++  const { pathname } = useLocation();
+   const itemLabel = itemCount === 1 ? '1 item' : `${itemCount} items`;
+ 
+   return (
+@@ -24,19 +25,31 @@ export default function Layout() {
+           <ul className="nav-list">
+             {NAV_ITEMS.map((item) => (
+               <li key={item.to}>
+-                <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
++                <NavLink
++                  to={item.to}
++                  end={item.end}
++                  className={({ isActive }) =>
++                    !isActive && pathname.startsWith(item.section) ? 'nav-link is-section' : 'nav-link'
++                  }
++                  data-testid={item.testId}
++                >
+                   {item.label}
+                 </NavLink>
+               </li>
+             ))}
+           </ul>
+         </nav>
+-        <Link to="/cart" className="button cart-button" aria-label={`Cart, ${itemLabel}`} data-testid="cart-button">
++        <Link
++          to="/cart"
++          className="icon-button cart-button"
++          aria-label={`Cart, ${itemLabel}`}
++          data-testid="cart-button"
++        >
+           <CartIcon />
+           <span className="cart-button-label" aria-hidden="true">
+             Cart
+           </span>
+-          <span className="badge" aria-hidden="true" data-testid="cart-count">
++          <span className="count" aria-hidden="true" data-testid="cart-count">
+             {itemCount}
+           </span>
+         </Link>
+diff --git a/src/components/ProductImage.tsx b/src/components/ProductImage.tsx
+index e4a67f2..ce08557 100644
+--- a/src/components/ProductImage.tsx
++++ b/src/components/ProductImage.tsx
+@@ -1,21 +1,49 @@
+-import type { Product } from '../data/products';
+-import { ImageIcon } from './Icons';
++import { products, type Product } from '../data/products';
++import Stage from './signature/Stage';
++import { specFigure, specKinds } from './signature/specPlate';
+ 
+ interface ProductImageProps {
+   product: Product;
+   size?: 'card' | 'large';
+ }
+ 
+-/** Image placeholder: a tinted CSS box with an icon. No network images. */
++// Kinds over the full catalog order, so neighbours never share a figure and an item keeps its figure everywhere.
++const KINDS = specKinds(products.map((item) => item.slug));
++
++function figureNumber(product: Product): string {
++  return String(products.findIndex((item) => item.slug === product.slug) + 1).padStart(2, '0');
++}
++
++/**
++ * Image placeholder: a spec plate (signature 4). On the detail page the plate is the window of one quiet
++ * stage (signature 1). No network images.
++ */
+ export default function ProductImage({ product, size = 'card' }: ProductImageProps) {
+-  return (
++  const plate = (
+     <div
+-      className={`product-image product-image-${size} tone-${product.tone}`}
++      className={size === 'large' ? 'product-image plate stage-window' : 'product-image plate'}
+       role="img"
+       aria-label={`${product.name} product photo placeholder`}
+       data-testid="product-image"
+     >
+-      <ImageIcon className="product-image-icon" />
++      <svg
++        viewBox="0 0 160 120"
++        aria-hidden="true"
++        focusable="false"
++        dangerouslySetInnerHTML={{ __html: specFigure(product.slug, KINDS.get(product.slug)) }}
++      />
++      <span className="mono-label">
++        FIG {figureNumber(product)} · {product.plateSpec}
++      </span>
+     </div>
+   );
++
++  if (size === 'large') {
++    return (
++      <Stage quiet className="product-stage">
++        {plate}
++      </Stage>
++    );
++  }
++  return plate;
+ }
+diff --git a/src/data/products.ts b/src/data/products.ts
+index dddcb4d..e594668 100644
+--- a/src/data/products.ts
++++ b/src/data/products.ts
+@@ -22,6 +22,11 @@ export interface Product {
+   variants: string[];
+   /** Picks the colour of the image placeholder box. */
+   tone: Tone;
++  /**
++   * One real attribute for the spec plate caption that the card and detail head do not already show
++   * (at most 9 characters, so "FIG 01 · " plus it stays within 18).
++   */
++  plateSpec: string;
+ }
+ 
+ export const categories: Category[] = [
+@@ -45,6 +50,7 @@ export const products: Product[] = [
+     variantLabel: 'Color',
+     variants: ['Natural', 'Olive', 'Charcoal'],
+     tone: 'sand',
++    plateSpec: '18 OZ',
+   },
+   {
+     slug: 'waxed-day-pack',
+@@ -59,6 +65,7 @@ export const products: Product[] = [
+     variantLabel: 'Color',
+     variants: ['Tan', 'Black'],
+     tone: 'clay',
++    plateSpec: '22 L',
+   },
+   {
+     slug: 'weekender-duffel',
+@@ -73,6 +80,7 @@ export const products: Product[] = [
+     variantLabel: 'Color',
+     variants: ['Navy', 'Brown'],
+     tone: 'slate',
++    plateSpec: '45 L',
+   },
+   {
+     slug: 'merino-crew-sweater',
+@@ -87,6 +95,7 @@ export const products: Product[] = [
+     variantLabel: 'Size',
+     variants: ['S', 'M', 'L', 'XL'],
+     tone: 'olive',
++    plateSpec: '100% WOOL',
+   },
+   {
+     slug: 'heavyweight-pocket-tee',
+@@ -100,6 +109,7 @@ export const products: Product[] = [
+     variantLabel: 'Size',
+     variants: ['S', 'M', 'L', 'XL'],
+     tone: 'stone',
++    plateSpec: '240 GSM',
+   },
+   {
+     slug: 'cotton-chore-coat',
+@@ -114,6 +124,7 @@ export const products: Product[] = [
+     variantLabel: 'Size',
+     variants: ['S', 'M', 'L', 'XL'],
+     tone: 'clay',
++    plateSpec: 'TWILL',
+   },
+   {
+     slug: 'enamel-camp-mug',
+@@ -127,6 +138,7 @@ export const products: Product[] = [
+     variantLabel: 'Color',
+     variants: ['White', 'Blue'],
+     tone: 'stone',
++    plateSpec: '350 ML',
+   },
+   {
+     slug: 'cast-iron-skillet',
+@@ -141,6 +153,7 @@ export const products: Product[] = [
+     variantLabel: 'Size',
+     variants: ['8 inch', '10 inch', '12 inch'],
+     tone: 'slate',
++    plateSpec: 'OVEN SAFE',
+   },
+   {
+     slug: 'linen-tea-towels',
+@@ -154,6 +167,7 @@ export const products: Product[] = [
+     variantLabel: 'Color',
+     variants: ['Oat', 'Rust', 'Stripe'],
+     tone: 'sand',
++    plateSpec: '50×70 CM',
+   },
+   {
+     slug: 'leather-key-ring',
+@@ -167,6 +181,7 @@ export const products: Product[] = [
+     variantLabel: 'Color',
+     variants: ['Natural', 'Brown'],
+     tone: 'clay',
++    plateSpec: 'BRASS',
+   },
+   {
+     slug: 'ribbed-wool-beanie',
+@@ -180,6 +195,7 @@ export const products: Product[] = [
+     variantLabel: 'Color',
+     variants: ['Grey', 'Olive'],
+     tone: 'olive',
++    plateSpec: 'ONE SIZE',
+   },
+ ];
+ 
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..40efb66 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,7 +2,11 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import './styles/tokens.css';
++import './styles/fonts.css';
+ import './styles/base.css';
++import './styles/signature.css';
++import './styles/pages.css';
+ 
+ const rootElement = document.getElementById('root');
+ if (!rootElement) throw new Error('Root element #root not found');
+diff --git a/src/pages/CartPage.tsx b/src/pages/CartPage.tsx
+index e453a07..fd6e491 100644
+--- a/src/pages/CartPage.tsx
++++ b/src/pages/CartPage.tsx
+@@ -2,6 +2,8 @@ import { useRef, useState, type FormEvent } from 'react';
+ import { Link } from 'react-router';
+ import { useCart } from '../cart/CartContext';
+ import QuantityStepper from '../components/QuantityStepper';
++import Blueprint from '../components/signature/BlueprintFigure';
++import { ScreenHead, SectionHead } from '../components/signature/Openers';
+ import { FREE_SHIPPING_THRESHOLD, formatPrice } from '../data/products';
+ 
+ type FieldName = 'name' | 'email' | 'address';
+@@ -60,40 +62,68 @@ export default function CartPage() {
+ 
+   if (confirmation) {
+     return (
+-      <section className="panel confirmation" data-testid="order-confirmation" aria-labelledby="confirmation-heading">
++      <section className="confirmation" data-testid="order-confirmation" aria-labelledby="confirmation-heading">
++        <figure className="bp-figure">
++          <figcaption className="mono-label">FIG 0.1</figcaption>
++          <Blueprint kind="pair" size="md" />
++        </figure>
+         <h1 id="confirmation-heading">Thank you for your order</h1>
+-        <p>
+-          {confirmation.name}, we have received your order of {confirmation.itemCount}{' '}
+-          {confirmation.itemCount === 1 ? 'item' : 'items'} totalling{' '}
+-          <strong data-testid="confirmation-total">{formatPrice(confirmation.total)}</strong>.
+-        </p>
+-        <p className="muted">A receipt has been sent to {confirmation.email}. Orders usually ship within two days.</p>
+-        <Link to="/" data-testid="continue-shopping">
++        <div className="two-tone confirmation-text">
++          <p>
++            {confirmation.name}, we have received your order of {confirmation.itemCount}{' '}
++            {confirmation.itemCount === 1 ? 'item' : 'items'} totalling{' '}
++            <strong data-testid="confirmation-total">{formatPrice(confirmation.total)}</strong>.
++          </p>
++          <p>A receipt has been sent to {confirmation.email}. Orders usually ship within two days.</p>
++        </div>
++        <Link to="/" className="button button-secondary" data-testid="continue-shopping">
+           Continue shopping
+         </Link>
+       </section>
+     );
+   }
+ 
++  const remaining = FREE_SHIPPING_THRESHOLD - cart.subtotal;
++  const errorCount = Object.values(errors).filter(Boolean).length;
++
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Your cart</h1>
+-        <p className="muted">Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}.</p>
+-      </div>
++      <ScreenHead
++        label={
++          cart.lines.length === 0 ? 'Cart' : `Cart · ${cart.itemCount === 1 ? '1 item' : `${cart.itemCount} items`}`
++        }
++        title="Your cart"
++        lead={`Free shipping on orders over ${formatPrice(FREE_SHIPPING_THRESHOLD)}.`}
++        rest={
++          cart.lines.length === 0
++            ? undefined
++            : remaining > 0
++              ? `Add ${formatPrice(remaining)} more to qualify.`
++              : 'This order ships free.'
++        }
++      />
+ 
+       {cart.lines.length === 0 ? (
+-        <section className="panel empty-state" data-testid="cart-empty">
+-          <h2>Your cart is empty</h2>
+-          <p className="muted">Browse the shop and add something you like.</p>
+-          <Link to="/" data-testid="continue-shopping">
++        <section className="empty-state empty-state--full" data-testid="cart-empty">
++          <Blueprint kind="stack" size="md" className="empty-state-drawing" />
++          <p className="mono-label">0 items</p>
++          <div className="two-tone empty-state-sentence">
++            <h2>Your cart is empty</h2>
++            <p>Browse the shop and add something you like.</p>
++          </div>
++          <Link to="/" className="button button-primary" data-testid="continue-shopping">
+             Continue shopping
+           </Link>
+         </section>
+       ) : (
+         <div className="cart-layout">
+-          <section className="panel" aria-labelledby="cart-items-heading">
+-            <h2 id="cart-items-heading">Items</h2>
++          <section className="app-section" aria-labelledby="cart-items-heading">
++            <SectionHead
++              counter="01 / 02"
++              title="Items"
++              titleId="cart-items-heading"
++              description="Change quantities or remove items before you check out."
++            />
+             <ul className="cart-lines">
+               {cart.lines.map((line) => (
+                 <li key={line.id} className="cart-line" data-testid="cart-line">
+@@ -101,10 +131,10 @@ export default function CartPage() {
+                     <Link to={`/products/${line.slug}`} className="cart-line-name" data-testid="cart-line-name">
+                       {line.product.name}
+                     </Link>
+-                    <p className="muted small" data-testid="cart-line-variant">
++                    <p className="cart-line-meta" data-testid="cart-line-variant">
+                       {line.product.variantLabel}: {line.variant}
+                     </p>
+-                    <p className="small">{formatPrice(line.product.price)} each</p>
++                    <p className="cart-line-meta">{formatPrice(line.product.price)} each</p>
+                   </div>
+                   <QuantityStepper
+                     id={`quantity-${line.id}`}
+@@ -120,7 +150,7 @@ export default function CartPage() {
+                   </p>
+                   <button
+                     type="button"
+-                    className="link-button"
++                    className="button button-bordered button-sm cart-line-remove"
+                     aria-label={`Remove ${line.product.name} from cart`}
+                     onClick={() => cart.removeItem(line.id)}
+                     data-testid="line-remove"
+@@ -147,8 +177,13 @@ export default function CartPage() {
+             </dl>
+           </section>
+ 
+-          <section className="panel" aria-labelledby="checkout-heading">
+-            <h2 id="checkout-heading">Checkout</h2>
++          <section className="app-section" aria-labelledby="checkout-heading">
++            <SectionHead
++              counter="02 / 02"
++              title="Checkout"
++              titleId="checkout-heading"
++              description="Where to send your order and its receipt."
++            />
+             <form className="checkout-form" noValidate onSubmit={handleSubmit} data-testid="checkout-form">
+               <div className="field">
+                 <label htmlFor="checkout-name" className="field-label">
+@@ -224,9 +259,18 @@ export default function CartPage() {
+                 )}
+               </div>
+ 
+-              <button type="submit" className="button button-primary" data-testid="place-order">
+-                Place order
+-              </button>
++              {errorCount > 0 && (
++                <p className="banner banner--danger" role="alert">
++                  <span className="notice-dot" aria-hidden="true" />
++                  {errorCount === 1 ? '1 field needs attention' : `${errorCount} fields need attention`}
++                </p>
++              )}
++
++              <div className="form-actions">
++                <button type="submit" className="button button-primary" data-testid="place-order">
++                  Place order
++                </button>
++              </div>
+             </form>
+           </section>
+         </div>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 3582617..7a4c0c7 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,9 @@
+-import { Link } from 'react-router';
++import ErrorState from '../components/ErrorState';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Back to the shop</Link>
+-    </section>
++    <ErrorState testId="not-found" code="ERR 404" title="Page not found">
++      The page you are looking for does not exist or has moved.
++    </ErrorState>
+   );
+ }
+diff --git a/src/pages/ProductDetailPage.tsx b/src/pages/ProductDetailPage.tsx
+index fc75a5d..3ef3eda 100644
+--- a/src/pages/ProductDetailPage.tsx
++++ b/src/pages/ProductDetailPage.tsx
+@@ -1,6 +1,7 @@
+ import { useState } from 'react';
+ import { Link, useParams } from 'react-router';
+ import { useCart } from '../cart/CartContext';
++import ErrorState from '../components/ErrorState';
+ import ProductImage from '../components/ProductImage';
+ import QuantityStepper from '../components/QuantityStepper';
+ import { categoryLabel, findProduct, formatPrice, type Product } from '../data/products';
+@@ -11,11 +12,9 @@ export default function ProductDetailPage() {
+ 
+   if (!product) {
+     return (
+-      <div className="empty-state" data-testid="product-not-found">
+-        <h1>Product not found</h1>
+-        <p className="muted">We could not find a product called “{slug}”.</p>
+-        <Link to="/">Back to the shop</Link>
+-      </div>
++      <ErrorState testId="product-not-found" code="ERR 404" title="Product not found">
++        We could not find a product called “{slug}”.
++      </ErrorState>
+     );
+   }
+ 
+@@ -57,11 +56,14 @@ function ProductDetail({ product }: { product: Product }) {
+         <ProductImage product={product} size="large" />
+ 
+         <div className="product-detail-info">
++          <p className="mono-label">
++            {categoryLabel(product.category)} · {product.variants.length} {product.variantLabel.toLowerCase()}s
++          </p>
+           <h1 data-testid="product-title">{product.name}</h1>
+           <p className="price price-large" data-testid="product-detail-price">
+             {formatPrice(product.price)}
+           </p>
+-          <p>{product.description}</p>
++          <p className="product-description">{product.description}</p>
+ 
+           <form
+             className="purchase-form"
+@@ -72,7 +74,7 @@ function ProductDetail({ product }: { product: Product }) {
+           >
+             <fieldset className="variant-fieldset">
+               <legend className="field-label">{product.variantLabel}</legend>
+-              <div className="variant-options">
++              <div className="variant-options segmented">
+                 {product.variants.map((option) => {
+                   const optionId = `variant-${slugify(option)}`;
+                   return (
+@@ -119,13 +121,16 @@ function ProductDetail({ product }: { product: Product }) {
+ 
+           <div role="status" className="added-message" data-testid="added-message">
+             {confirmation && (
+-              <p>
+-                {confirmation} <Link to="/cart">View cart</Link>
++              <p className="notice notice--success">
++                <span className="notice-dot" aria-hidden="true" />
++                <span>
++                  {confirmation} <Link to="/cart">View cart</Link>
++                </span>
+               </p>
+             )}
+           </div>
+ 
+-          <h2>Details</h2>
++          <h2 className="group-title">Details</h2>
+           <ul className="detail-list">
+             {product.details.map((detail) => (
+               <li key={detail}>{detail}</li>
+diff --git a/src/pages/ProductsPage.tsx b/src/pages/ProductsPage.tsx
+index 2506d4f..7135429 100644
+--- a/src/pages/ProductsPage.tsx
++++ b/src/pages/ProductsPage.tsx
+@@ -1,6 +1,8 @@
+ import { useEffect, useMemo, useState } from 'react';
+ import { Link, useSearchParams } from 'react-router';
++import { ChevronDownIcon } from '../components/Icons';
+ import ProductImage from '../components/ProductImage';
++import DotGlyph from '../components/signature/DotGlyph';
+ import { categories, categoryLabel, formatPrice, products, type CategoryId, type Product } from '../data/products';
+ 
+ type CategoryFilter = 'all' | CategoryId;
+@@ -103,12 +105,12 @@ export default function ProductsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
++      <div className="opener opener--page">
+         <h1>Shop all goods</h1>
+-        <p className="muted">Durable bags, clothing and kitchen goods made to be used every day.</p>
++        <p>Durable bags, clothing and kitchen goods made to be used every day.</p>
+       </div>
+ 
+-      <section className="panel" aria-labelledby="catalog-heading">
++      <section className="catalog" aria-labelledby="catalog-heading">
+         <h2 id="catalog-heading" className="visually-hidden">
+           Products
+         </h2>
+@@ -129,7 +131,7 @@ export default function ProductsPage() {
+           </div>
+ 
+           <div className="toolbar-controls">
+-            <label className="field-inline">
++            <label className="field-inline checkbox">
+               <input
+                 type="checkbox"
+                 checked={inStockOnly}
+@@ -140,32 +142,39 @@ export default function ProductsPage() {
+             </label>
+             <div className="field-inline">
+               <label htmlFor="sort-select">Sort by</label>
+-              <select
+-                id="sort-select"
+-                className="select"
+-                value={sort}
+-                onChange={(event) => selectSort(parseSort(event.target.value))}
+-                data-testid="sort-select"
+-              >
+-                {SORT_OPTIONS.map((option) => (
+-                  <option key={option.value} value={option.value}>
+-                    {option.label}
+-                  </option>
+-                ))}
+-              </select>
++              <span className="select-wrap">
++                <select
++                  id="sort-select"
++                  className="select"
++                  value={sort}
++                  onChange={(event) => selectSort(parseSort(event.target.value))}
++                  data-testid="sort-select"
++                >
++                  {SORT_OPTIONS.map((option) => (
++                    <option key={option.value} value={option.value}>
++                      {option.label}
++                    </option>
++                  ))}
++                </select>
++                <ChevronDownIcon className="icon select-chevron" />
++              </span>
+             </div>
+           </div>
+         </div>
+ 
+-        <p className="muted small" role="status" data-testid="result-count">
++        <p className="mono-label result-count" role="status" data-testid="result-count">
+           Showing {countLabel}
+         </p>
+ 
+         {visible.length === 0 ? (
+           <div className="empty-state" data-testid="products-empty">
+-            <h3>No products match these filters</h3>
+-            <p className="muted">Try another category or include items that are out of stock.</p>
+-            <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++            <DotGlyph name="empty" size="lg" />
++            <p className="mono-label">No results</p>
++            <div className="two-tone empty-state-sentence">
++              <h3>No products match these filters</h3>
++              <p>Try another category or include items that are out of stock.</p>
++            </div>
++            <button type="button" className="button button-secondary" onClick={clearFilters} data-testid="clear-filters">
+               Clear filters
+             </button>
+           </div>
+@@ -175,20 +184,20 @@ export default function ProductsPage() {
+               <li key={product.slug} className="product-card" data-testid="product-card">
+                 <ProductImage product={product} />
+                 <div className="product-card-body">
+-                  <p className="muted small">{categoryLabel(product.category)}</p>
++                  <p className="mono-label">{categoryLabel(product.category)}</p>
+                   <h3 className="product-card-title">
+                     <Link to={`/products/${product.slug}`} className="product-link" data-testid="product-link">
+                       {product.name}
+                     </Link>
+                   </h3>
+-                  <p className="small">{product.summary}</p>
++                  <p className="product-card-summary">{product.summary}</p>
+                   <p className="product-card-meta">
+                     <span className="price" data-testid="product-price">
+                       {formatPrice(product.price)}
+                     </span>
+                     {!product.inStock && (
+-                      <span className="tag tag-muted" data-testid="sold-out-tag">
+-                        Sold out
++                      <span className="badge badge--idle" data-testid="sold-out-tag">
++                        <span className="badge-label">Sold out</span>
+                       </span>
+                     )}
+                   </p>
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 651c82a..e95970a 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,55 +1,39 @@
+ /*
+- * Base styles for the Fieldhouse Supply store.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Base styles for the Fieldhouse Supply store, on graphite-blueprint@1.2.0-rc.3.
++ * tokens.css holds every value; this file maps the store's old variable names onto the tokens,
++ * sets up the root, the layout shell and the shared components. Signature pieces live in
++ * signature.css, screen layouts in pages.css.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-header-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-error: #b00020;
+-  --color-success-bg: #e3f2e5;
+-  --color-success-text: #1b5e20;
+-  --color-badge-bg: #b00020;
+-  --color-badge-text: #ffffff;
+-  --color-tag-bg: #e8e8e8;
+-  --color-tag-text: #444444;
+-  --color-disabled-bg: #e8e8e8;
+-  --color-disabled-text: #888888;
+-  --color-image-icon: #777777;
+-  --color-tone-sand: #ece4d4;
+-  --color-tone-olive: #dfe3d0;
+-  --color-tone-slate: #d9dee5;
+-  --color-tone-clay: #ead8cf;
+-  --color-tone-stone: #e4e4e4;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --font-size-price-large: 22px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --content-max-width: 1120px;
+-  --product-card-min: 220px;
++  color-scheme: light dark;
++
++  /* Old names, aliased to the design tokens. */
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-default);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-header-bg: var(--color-surface-default);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-subtle);
++  --color-link: var(--color-text-primary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-error: var(--color-status-danger);
++  --color-badge-bg: var(--color-action-primary);
++  --color-badge-text: var(--color-text-on-action);
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --line-height: var(--font-line-height-body);
++  --radius: var(--radius-md);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hairline);
++  --content-max-width: var(--size-container);
++
++  /* Layout helpers built from tokens. */
++  --page-gutter: clamp(var(--space-20), 4vw, var(--space-48));
++  --page-inline: max(var(--page-gutter), calc((100% - var(--size-container)) / 2));
++  --hairline: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+ 
+ *,
+@@ -61,49 +45,89 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-body);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-body);
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++  text-wrap: balance;
+ }
+ 
+-h1 {
+-  font-size: var(--font-size-h1);
++h2,
++h3 {
++  font-size: var(--font-size-body);
+ }
+ 
+-h2 {
+-  font-size: var(--font-size-h2);
++p {
++  margin: 0;
+ }
+ 
+-h3 {
+-  font-size: var(--font-size-base);
++p,
++li {
++  text-wrap: pretty;
+ }
+ 
+-p {
+-  margin: 0 0 var(--space-2);
++fieldset {
++  margin: 0;
++  padding: 0;
++  border: 0;
++  min-width: 0;
++}
++
++legend {
++  padding: 0;
++}
++
++pre,
++code,
++kbd,
++samp {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-small);
++}
++
++strong,
++b {
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
++  text-decoration-line: underline;
++  text-decoration-thickness: 1px;
++  text-decoration-color: var(--color-icon-idle);
++  text-underline-offset: 3px;
++  transition: text-decoration-color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-hairline) solid var(--color-focus-ring);
+   outline-offset: 2px;
++  transition: none;
+ }
+ 
+-.visually-hidden {
++main:focus {
++  outline: none;
++}
++
++.visually-hidden,
++.sr-only {
+   position: absolute;
+   width: 1px;
+   height: 1px;
+@@ -118,30 +142,41 @@ a {
+ .skip-link {
+   position: absolute;
+   left: -9999px;
++  z-index: 30;
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-8);
++  top: var(--space-12);
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+   font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
+ }
+ 
+ .icon {
+   display: block;
+   flex-shrink: 0;
++  width: var(--size-icon);
++  height: var(--size-icon);
+ }
+ 
+-/* Layout */
++/* ---------- Layout shell ---------- */
+ .app-shell {
+   display: flex;
+   flex-direction: column;
+@@ -149,22 +184,32 @@ a {
+ }
+ 
+ .site-header {
++  position: sticky;
++  top: 0;
++  z-index: 20;
+   display: flex;
+   align-items: center;
+-  gap: var(--space-6);
+-  padding: var(--space-3) var(--space-6);
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-24);
++  height: var(--size-header);
++  padding-inline: var(--page-inline);
++  background: color-mix(in srgb, var(--color-surface-default) 80%, transparent);
++  -webkit-backdrop-filter: blur(20px);
++  backdrop-filter: blur(20px);
++  border-bottom: var(--hairline);
+ }
+ 
+ .brand {
+-  font-weight: bold;
+-  color: var(--color-text);
++  flex: none;
++  color: var(--color-text-primary);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-semibold);
+   text-decoration: none;
++  white-space: nowrap;
+ }
+ 
+ .site-nav {
+   flex: 1;
++  min-width: 0;
+ }
+ 
+ .nav-list {
+@@ -172,467 +217,431 @@ a {
+   margin: 0;
+   padding: 0;
+   display: flex;
+-  gap: var(--space-2);
++  gap: var(--space-4);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-1) var(--space-3);
+-  border-radius: var(--radius);
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-full);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
+   text-decoration: none;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
++.nav-link[aria-current='page'],
++.nav-link.is-section {
++  background: var(--color-surface-tint);
++  color: var(--color-text-primary);
+ }
+ 
+ .content {
+   flex: 1;
+   width: 100%;
+-  max-width: var(--content-max-width);
+-  margin: 0 auto;
+-  padding: var(--space-6);
++  padding: 0 var(--page-inline) var(--space-96);
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-6);
+-}
+-
+-.site-footer {
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4) var(--space-6);
+-}
+-
+-.site-footer p {
+-  margin: 0;
+ }
+ 
+-/* Controls */
+-.input,
+-.select {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++.content > * {
+   min-width: 0;
+ }
+ 
+-.textarea {
+-  resize: vertical;
++.site-footer {
++  border-top: var(--hairline);
++  padding: var(--space-24) var(--page-inline);
+ }
+ 
+-.input[aria-invalid='true'] {
+-  border-color: var(--color-error);
++.site-footer p {
++  margin: 0;
+ }
+ 
++/* ---------- Buttons ---------- */
+ .button {
+-  font: inherit;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
++  gap: var(--space-6);
++  height: var(--size-control-lg);
++  padding: 0 var(--space-16);
++  border: var(--border-width-hairline) solid transparent;
++  border-radius: var(--radius-full);
++  background: var(--color-action-secondary);
++  color: var(--color-text-body);
++  font: var(--font-weight-medium) var(--font-size-small) / 1 var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
+   text-decoration: none;
++  white-space: nowrap;
+   cursor: pointer;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease),
++    border-color var(--motion-duration-hover) var(--motion-easing-ease),
++    transform var(--motion-duration-hover) var(--motion-easing-standard);
+ }
+ 
+-.button:disabled {
+-  background: var(--color-disabled-bg);
+-  color: var(--color-disabled-text);
+-  cursor: not-allowed;
++.button:active:not(:disabled) {
++  transform: scale(0.971);
+ }
+ 
+ .button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
+-  padding: var(--space-2) var(--space-4);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+ }
+ 
+-.link-button {
+-  font: inherit;
+-  background: none;
+-  border: none;
+-  padding: 0;
+-  color: var(--color-link);
+-  text-decoration: underline;
+-  cursor: pointer;
+-}
+-
+-.field-inline {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-}
+-
+-.field {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
++.button-bordered {
++  background: transparent;
++  color: var(--color-text-secondary);
++  border-color: var(--color-border-default);
+ }
+ 
+-.field-label {
+-  font-weight: bold;
+-  font-size: var(--font-size-small);
++.button-sm {
++  height: var(--size-control-sm);
++  padding: 0 var(--space-12);
+ }
+ 
+-.field-error {
+-  color: var(--color-error);
+-  font-size: var(--font-size-small);
+-  margin: 0;
++.button:disabled {
++  opacity: var(--opacity-disabled);
++  cursor: not-allowed;
+ }
+ 
+-/* Cart button */
+-.cart-button {
++.icon-button {
+   position: relative;
++  display: inline-grid;
++  place-items: center;
++  flex: none;
++  width: var(--size-control);
++  height: var(--size-control);
++  border-radius: var(--radius-full);
++  color: var(--color-icon-idle);
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease),
++    transform var(--motion-duration-hover) var(--motion-easing-standard);
++}
++
++.icon-button:active {
++  background: var(--color-surface-press);
++  transform: scale(0.971);
++}
++
++/* Count badge on the cart button. */
++.count {
++  display: inline-grid;
++  place-items: center;
++  min-width: 16px;
++  height: 16px;
++  padding: 0 var(--space-4);
++  border: 0;
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font: var(--font-weight-semibold) var(--font-size-micro) / 1 var(--font-family-sans);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+-.badge {
+-  display: inline-block;
+-  min-width: 20px;
+-  padding: 0 var(--space-1);
+-  border-radius: var(--radius-pill);
+-  background: var(--color-badge-bg);
+-  color: var(--color-badge-text);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
+-  text-align: center;
+-}
+-
+-/* Panels */
+-.panel {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
+-}
+-
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.cart-button .count {
++  position: absolute;
++  top: -3px;
++  right: -5px;
++  pointer-events: none;
+ }
+ 
+-/* Catalog toolbar */
+-.toolbar {
+-  display: flex;
+-  flex-wrap: wrap;
+-  justify-content: space-between;
+-  align-items: center;
+-  gap: var(--space-3);
+-  margin-bottom: var(--space-3);
++.cart-button-label {
++  display: none;
+ }
+ 
+-.toolbar-controls {
+-  display: flex;
+-  flex-wrap: wrap;
++/* ---------- Badge ---------- */
++.badge {
++  --badge-dot: var(--color-icon-idle);
++  display: inline-flex;
+   align-items: center;
+-  gap: var(--space-4);
+-}
+-
+-.chip-group {
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-}
+-
+-.chip {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius-pill);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  cursor: pointer;
+-}
+-
+-.chip[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++  gap: var(--space-6);
++  height: 20px;
++  padding: 0 var(--space-8);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: transparent;
++  color: var(--color-text-body);
++  font: var(--font-weight-medium) var(--font-size-caption) / 1 var(--font-family-sans);
++  white-space: nowrap;
+ }
+ 
+-/* Product grid */
+-.product-grid {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(var(--product-card-min), 1fr));
+-  gap: var(--space-4);
++.badge::before {
++  content: '';
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: var(--badge-dot);
+ }
+ 
+-.product-card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  overflow: hidden;
++/* ---------- Fields ---------- */
++.field {
+   display: flex;
+   flex-direction: column;
++  gap: var(--space-6);
+ }
+ 
+-.product-card-body {
+-  padding: var(--space-3);
+-}
+-
+-.product-card-body p {
+-  margin-bottom: var(--space-1);
+-}
+-
+-.product-card-title {
+-  margin-bottom: var(--space-1);
+-}
+-
+-.product-card-meta {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-}
+-
+-.price {
+-  font-weight: bold;
+-  font-variant-numeric: tabular-nums;
++.field-label {
++  color: var(--color-text-body);
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-ui);
+ }
+ 
+-.price-large {
+-  font-size: var(--font-size-price-large);
++.input,
++.select {
++  min-width: 0;
++  height: var(--size-field);
++  padding: 0 var(--space-12);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-card);
++  color: var(--color-text-primary);
++  font: var(--font-weight-regular) var(--font-size-dense) / var(--font-line-height-ui) var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
++  transition: border-color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+-.tag {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.input::placeholder {
++  color: var(--color-text-tertiary);
+ }
+ 
+-.tag-muted {
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
++.input:focus-visible,
++.select:focus-visible {
++  border-color: var(--color-accent-default);
+ }
+ 
+-/* Image placeholder */
+-.product-image {
+-  display: flex;
+-  align-items: center;
+-  justify-content: center;
+-  color: var(--color-image-icon);
+-  aspect-ratio: 4 / 3;
+-  width: 100%;
++.input[aria-invalid='true'] {
++  border-color: var(--color-status-danger);
+ }
+ 
+-.product-image-large {
+-  aspect-ratio: 1 / 1;
+-  border-radius: var(--radius);
++.input:disabled,
++.select:disabled {
++  opacity: var(--opacity-disabled);
++  background: var(--color-surface-subtle);
++  cursor: not-allowed;
+ }
+ 
+-.tone-sand {
+-  background: var(--color-tone-sand);
++.textarea {
++  height: auto;
++  min-height: calc(3lh + 2 * var(--space-8) + 2px);
++  padding: var(--space-8) var(--space-12);
++  resize: vertical;
+ }
+ 
+-.tone-olive {
+-  background: var(--color-tone-olive);
++.field-error {
++  margin: 0;
++  color: var(--color-status-danger);
++  font-size: var(--font-size-caption);
++  line-height: var(--font-line-height-caption);
+ }
+ 
+-.tone-slate {
+-  background: var(--color-tone-slate);
++.select-wrap {
++  position: relative;
++  display: inline-flex;
+ }
+ 
+-.tone-clay {
+-  background: var(--color-tone-clay);
++.select {
++  appearance: none;
++  padding-right: var(--space-32);
++  cursor: pointer;
+ }
+ 
+-.tone-stone {
+-  background: var(--color-tone-stone);
++.select-chevron {
++  position: absolute;
++  right: var(--space-12);
++  top: 50%;
++  translate: 0 -50%;
++  color: var(--color-icon-idle);
++  pointer-events: none;
+ }
+ 
+-/* Product detail */
+-.breadcrumb ol {
+-  list-style: none;
++.field-inline {
+   display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin: 0;
+-  padding: 0;
++  align-items: center;
++  gap: var(--space-8);
++  color: var(--color-text-body);
+   font-size: var(--font-size-small);
+ }
+ 
+-.breadcrumb li + li::before {
+-  content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
++/* Checkbox: native input, 14px box. */
++.checkbox {
++  min-height: var(--size-row-dense);
++  cursor: pointer;
+ }
+ 
+-.product-detail {
+-  display: grid;
+-  grid-template-columns: 1fr 1fr;
+-  gap: var(--space-8);
+-  align-items: start;
++.checkbox input {
++  appearance: none;
++  position: relative;
++  display: inline-grid;
++  place-items: center;
++  flex: none;
++  width: 14px;
++  height: 14px;
++  margin: 0;
++  border: var(--border-width-hairline) solid var(--color-border-check);
++  border-radius: var(--radius-xs);
++  background: transparent;
++  cursor: pointer;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    border-color var(--motion-duration-hover) var(--motion-easing-ease);
+ }
+ 
+-.purchase-form {
+-  display: flex;
+-  flex-direction: column;
+-  align-items: flex-start;
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0;
++.checkbox input::after {
++  content: '';
++  width: 4px;
++  height: 7px;
++  margin-top: -2px;
++  border: solid var(--color-text-on-accent);
++  border-width: 0 1.5px 1.5px 0;
++  rotate: 45deg;
++  opacity: 0;
+ }
+ 
+-.variant-fieldset {
+-  border: none;
+-  margin: 0;
+-  padding: 0;
++.checkbox input:checked {
++  background: var(--color-accent-default);
++  border-color: var(--color-accent-default);
+ }
+ 
+-.variant-options {
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin-top: var(--space-1);
++.checkbox input:checked::after {
++  opacity: 1;
+ }
+ 
+-.variant-option {
++/* ---------- Filter chips ---------- */
++.chip {
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-1);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  background: transparent;
++  color: var(--color-text-secondary);
++  font: var(--font-weight-medium) var(--font-size-small) / 1 var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
+   cursor: pointer;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease),
++    border-color var(--motion-duration-hover) var(--motion-easing-ease),
++    transform var(--motion-duration-hover) var(--motion-easing-standard);
+ }
+ 
+-.stepper {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
+-}
+-
+-.stepper-controls {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-1);
+-}
+-
+-.stepper-button {
+-  width: 32px;
+-  height: 32px;
+-  padding: 0;
+-}
+-
+-.stepper-input {
+-  width: 56px;
+-  height: 32px;
+-  text-align: center;
++.chip:active {
++  transform: scale(0.971);
+ }
+ 
+-.added-message p {
+-  background: var(--color-success-bg);
+-  color: var(--color-success-text);
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
++.chip[aria-pressed='true'] {
++  background: var(--color-surface-press);
++  border-color: var(--color-border-strong);
++  color: var(--color-text-primary);
+ }
+ 
+-.detail-list {
+-  margin: 0;
+-  padding-left: var(--space-6);
++/* ---------- Notices and banners ---------- */
++.notice,
++.banner {
++  display: flex;
++  align-items: baseline;
++  gap: var(--space-8);
++  padding: var(--space-12) var(--space-16);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  color: var(--color-text-body);
++  font-size: var(--font-size-small);
++  line-height: var(--font-line-height-ui);
+ }
+ 
+-/* Cart */
+-.cart-layout {
+-  display: grid;
+-  grid-template-columns: 3fr 2fr;
+-  gap: var(--space-6);
+-  align-items: start;
++.notice-dot {
++  flex: none;
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: var(--color-status-success);
++  translate: 0 -1px;
+ }
+ 
+-.cart-lines {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
++.notice--success {
++  background: var(--color-status-success-tint);
+ }
+ 
+-.cart-line {
+-  display: grid;
+-  grid-template-columns: 1fr auto auto auto;
+-  align-items: center;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++.banner--danger {
++  background: var(--color-status-danger-tint);
+ }
+ 
+-.cart-line-info p {
+-  margin: 0;
++.banner--danger .notice-dot {
++  background: var(--color-status-danger);
+ }
+ 
+-.cart-line-name {
+-  font-weight: bold;
+-}
+-
+-.cart-line-total {
+-  margin: 0;
+-  min-width: 80px;
+-  text-align: right;
+-}
+-
+-.summary {
+-  margin: var(--space-4) 0 0;
+-}
++/* ---------- Hover (fine pointers only) ---------- */
++@media (hover: hover) and (pointer: fine) {
++  a:hover {
++    text-decoration-color: var(--color-text-primary);
++  }
+ 
+-.summary-row {
+-  display: flex;
+-  justify-content: space-between;
+-  padding: var(--space-1) 0;
+-}
++  .nav-link:hover {
++    background: var(--color-action-ghost-hover);
++    color: var(--color-text-primary);
++  }
+ 
+-.summary-row dd {
+-  margin: 0;
+-  font-variant-numeric: tabular-nums;
+-}
++  .button:not(:disabled):hover {
++    background: var(--color-action-secondary-hover);
++    color: var(--color-text-primary);
++  }
+ 
+-.summary-total {
+-  border-top: var(--border-width) solid var(--color-border);
+-  margin-top: var(--space-2);
+-  padding-top: var(--space-2);
+-  font-weight: bold;
+-}
++  .button-primary:not(:disabled):hover {
++    background: var(--color-action-primary-hover);
++    color: var(--color-text-on-action);
++  }
+ 
+-.checkout-form {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
+-}
++  .button-bordered:not(:disabled):hover {
++    background: transparent;
++    border-color: var(--color-border-strong);
++    color: var(--color-text-primary);
++  }
+ 
+-.checkout-form .button-primary {
+-  align-self: flex-start;
+-}
++  .icon-button:hover {
++    background: var(--color-action-ghost-hover);
++    color: var(--color-icon-active);
++  }
+ 
+-.confirmation {
+-  background: var(--color-success-bg);
+-  color: var(--color-success-text);
+-}
++  .chip:hover {
++    border-color: var(--color-border-strong);
++    color: var(--color-text-primary);
++  }
+ 
+-@media (max-width: 900px) {
+-  .site-header {
+-    flex-wrap: wrap;
+-    gap: var(--space-3);
+-    padding: var(--space-3) var(--space-4);
++  .input:not(:disabled):not(:focus-visible):not([aria-invalid='true']):hover,
++  .select:not(:disabled):not(:focus-visible):hover {
++    border-color: var(--color-border-strong);
+   }
+ 
+-  .content {
+-    padding: var(--space-4);
++  .checkbox:hover input:not(:checked) {
++    border-color: var(--color-text-secondary);
+   }
++}
+ 
+-  .product-detail,
+-  .cart-layout {
+-    grid-template-columns: 1fr;
++/* ---------- Reduced motion: loops end on their base frame ---------- */
++@media (prefers-reduced-motion: reduce) {
++  *,
++  *::before,
++  *::after {
++    animation-duration: var(--motion-duration-instant) !important;
++    animation-iteration-count: 1 !important;
++    animation-delay: 0s !important;
++    transition-duration: var(--motion-duration-instant) !important;
++    transition-delay: 0s !important;
+   }
+ 
+-  .cart-line {
+-    grid-template-columns: 1fr auto;
++  .button:active:not(:disabled),
++  .chip:active,
++  .icon-button:active {
++    transform: none;
+   }
+ }

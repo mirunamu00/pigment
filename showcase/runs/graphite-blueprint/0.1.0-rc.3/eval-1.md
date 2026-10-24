@@ -1,0 +1,102 @@
+# graphite-blueprint@0.1.0-rc.3 — evaluation 1
+
+Verdict: **pass** · 2026-10-17T10:32:43.890Z
+
+## blog (20261017-095917)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## commerce (20261017-095917)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 10 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## dashboard (20261017-095917)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## settings (20261017-095917)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 8 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## Cross-app and reference
+
+| Check | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| palette-consistency | pass | 1 | 0.75 |
+| type-consistency | pass | 0.878 | 0.7 |
+| reference-palette-distance | pass | 0.18 | reported |
+
+## Critic
+
+```json
+{
+  "referenceFidelity": 4,
+  "crossAppConsistency": 4,
+  "hierarchy": 4,
+  "spacingRhythm": 4,
+  "componentStates": 4,
+  "polish": 4,
+  "signature": 4,
+  "notes": [
+    "rc.2 issues, checked one by one. (1) Dashboard hole: fixed. The quiet-stage chart and the Recent activity card now end on one line at about y=795 in both modes, and the dot columns grow to fill the stage (dashboard/home-desktop-dark.png, home-desktop-light.png, state-empty-filter-desktop-dark.png, state-user-menu-open-desktop-light.png). (2) Pinned columns slicing text on mobile: mostly fixed. Settings sessions now show the device with a mono location and time line underneath, and an opaque pinned Revoke column with an edge (settings/settings-security-mobile-dark.png). Dashboard projects fold the owner into the second line (dashboard/home-mobile-dark.png, projects-mobile-light.png). Two smaller remnants are left; see Polish. (3) Lost store closing: fixed. 'Free shipping over $100. Returns within 30 days.' sits over the dot field with two pills (commerce/home-desktop-dark.png, home-desktop-light.png, home-mobile-dark.png). (4) Plates looking alike: fixed. All eight kinds appear, and no grid neighbour shares one. Commerce runs perspective, sphere, dot wave, square lattice, helix, bars, perspective, sphere, lattice, fan, orbit (commerce/home-desktop-dark.png). Blog cards differ from each other and from the featured bars plate (blog/home-desktop-dark.png). Compared with reference/screenshots/p11-desktop-light.png, the vocabulary now has the reference's range. (5) Small security blueprint: resolved by removal. Security no longer has a blueprint (no settings-security drawing in shots.json). Applying → Settings does not ask for one, so this is not deducted. (6) Bare commerce error summary: fixed. Checkout shows the tinted danger banner '3 fields need attention' with a dot (commerce/state-checkout-errors-desktop-dark.png), matching settings (settings/state-password-mismatch-desktop-light.png).",
+    "Regressions vs rc.2: none that matter. Every rc.2 capture I compared reads the same or better. The only change in coverage is the security blueprint being dropped (see 5), which the spec allows.",
+    "Reference fidelity (4): the captures read as the reference's language without copying it. They share the near-black ground, hairline openers with split headline and lead, two-tone statements, inverse pills, Inter 510/590 with tight tracking, mono uppercase captions, and a centred closing over the dot field (blog/about-desktop-light.png and blog/home-desktop-dark.png vs reference/screenshots/p1-desktop-light.png and p11-desktop-light.png). The plate grid is now as varied as the reference's generative thumbnails (commerce/home-desktop-dark.png vs p11-desktop-light.png). The strongest product translations are the dashboard dot-column chart on a quiet stage and the settings profile preview card on a quiet stage (settings/settings-profile-desktop-dark.png). Light is a coherent derivation in which nothing stays dark. Not a 5, as before: the reference's defining move, a lit stage showing the product's own UI, has no home in these four apps. That follows the spec and is not deducted.",
+    "Cross-app consistency (4): one family. Every app screen uses the same screen head: a mono label ('DASHBOARD · OCT 2026', 'ACCOUNT · 03 / 04', 'CART · 1 ITEM') over a 590 h1, with a two-tone summary on the right. All four apps share hairline tables with mono heads, the status icon with a word, pill chips with the pressed one filled, the 48px empty glyph with a mono 'NO RESULTS' (dashboard/state-empty-filter-desktop-dark.png), the dimmed slab stack for empty states (commerce/cart-desktop-light.png), the danger banner on every failed form (commerce/state-checkout-errors-desktop-dark.png, settings/state-password-mismatch-desktop-light.png, blog/state-newsletter-error-desktop-dark.png), and the indigo focus ring. Palette consistency is 1.0 and type consistency 0.878 (eval-1.md). The rc.2 drift in the error summary is gone.",
+    "Hierarchy (4): app screens lead with the screen head, then KPIs or content. Product detail reads name, then price, options and the inverse 'Add to cart' (commerce/products-canvas-field-tote-desktop-light.png). The commerce home reads opener, then chips, then grid, then closing. Content pages put the h2 openers above the grids, and the closing statement is larger than the section h2, as on reference/screenshots/p11-desktop-light.png (fidelity, not deducted).",
+    "Spacing rhythm (4): the 4/8 scale holds. App padding is 32 and KPI cards sit 16 apart. Settings groups are split rows with hairlines and roughly 48px between them (settings/settings-profile-desktop-dark.png, settings-billing-desktop-light.png). Content openers keep large top gaps (blog/about-desktop-light.png vs reference p1). The dashboard row now closes cleanly. Minor: on the mobile team page, the header hairline and the table's top rule sit about 50px apart with nothing between them (dashboard/team-mobile-dark.png). Not deducted.",
+    "Component states (4): states are designed. Focus is a 1px indigo outline plus an accent border on inputs, and it layers over the red error border (commerce/state-checkout-errors-desktop-dark.png Full name; settings/state-password-mismatch-desktop-light.png). Errors replace the helper text and show the danger banner. The strength dot meter goes green at 'Strong'. Row and card hover use the surface steps (commerce/state-card-hover-desktop-dark.png). The user menu is raised with an email header (dashboard/state-user-menu-open-desktop-light.png). The dialog has a mono 'PLAN CHANGE' label, a 590 title, a bordered Cancel and an inverse Confirm (settings/state-plan-dialog-desktop-dark.png). The empty filter shows the glyph, a mono label, a title, a hint and 'Clear filters'. Gates are all green.",
+    "Polish (4): the rc.2 hole is gone and settings mobile is clean. Two smaller leftovers of the same pinned-column problem remain. (a) dashboard/team-mobile-dark.png: the email line under each name runs under the pinned 'Active projects' column and is cut mid-letter ('marcus@northwind.examp', 'tomas@northwind.example' with a half 'e'). Rows are also uneven: the Marcus Lee and Dana Whitfield rows are about 30px taller than the others. (b) dashboard/projects-mobile-light.png and home-mobile-dark.png: on the rows with six-digit budgets ($125,000, $240,000, $143,000), the scrolled-away Budget column leaves a ghost '$' just left of the pinned Status edge. The spec's own Verification line ('no cell cut mid-letter at 390px') is breached on the team page. The cause is a gap in the spec: the hide list names only location, last active and owner, so budget and due date still scroll, and nothing makes the first cell's text stop before the pin. The reference stacks or drops columns on mobile instead (reference/screenshots/p11-mobile-light.png archive list). Each leftover is a few glyphs on one screen, not broken layout, so this is no longer blocking. Everything else is clean: no default-browser leftovers, and the select, checkbox, switch and textarea are all styled.",
+    "Signature (4): each element is present in the four apps, built to its recipe and placed per Applying the concept. Blog: wide featured plate, 4:3 card plates with 'NO. 0n · TOPIC', article plates with a .fig caption, the about page's three-blueprint row, and the dot-field closing. Commerce: a hairline plate grid with eight distinct kinds, a product figure on a quiet stage with a FIG caption, a dimmed slab stack for the empty cart, and the dot-field closing. Dashboard: KPI cards, a dot-column chart on a quiet stage with a teal highlight and track dots, status icons, a dot meter for team load, and the empty glyph. Settings: mono counters, split rows, a profile preview on a quiet stage, the strength dot meter, and tier slabs. Motion: dashboard/motion/motion-m1.png shows chart-in at 420ms on the standard curve with the columns rising, as specified. Reduced motion is clean. Not a 5: the about page's blueprints render well below their size. The spec puts the three-blueprint row at size.blueprintLg (280px), and slabs side by side at size.blueprintMd (160px) each. The crops measure about 190px for the stack (blog/drawings/about-d1.png) and about 100px per slab in the connected pair (about-d2.png). Next to the reference's blueprint, which fills its column at about 290px (reference/illustrations/p1-i5.png), the row reads as small icons above text rather than the section's figures. The spec already sets this, so it is an agent miss and should be made verifiable. Non-blocking.",
+    "Not penalized (known harness gaps): no real pending request, so no scan glyph, shimmer or loading button was captured. Full-page captures show the sticky header mid-page (blog/state-newsletter-error-desktop-dark.png), and the dialog scrim ends at about 900px (settings/state-plan-dialog-desktop-dark.png). Motion frames and drawing counts come only from the first route. Faint colour fringing in the scaled-down article capture (blog/posts-shipping-a-design-system-desktop-dark.png) is a downscaling artifact: the mobile capture shows the same text in plain body colour. 'Account Settings', title-case data and the always-visible '0' cart count come from the base apps.",
+    "Bar: scores are 4, 4, 4, 4, 4, 4 and 4, an average of 4.0, with nothing below 4. Every rc.2 promptFix landed, and no regression was found. What remains is two non-blocking refinements: the residual mobile table clipping on dashboard team and projects, and undersized about-page blueprints."
+  ],
+  "promptFixes": [
+    "Polish, non-blocking (residual pinned-column clipping; spec gap). In Components → Table → Small screens, replace the hide list with: 'Under `breakpoint.sm` the table shows only the first column and the pinned column; every other column is hidden (`display:none`) and any value worth keeping goes into the first cell's second line via `content:attr(data-sub)`. The first cell's lines are `white-space:nowrap;overflow:hidden;text-overflow:ellipsis` and stop at the pin's edge, and rows keep one height (two lines).' Add to Verification: 'At 390px, on every table, no glyph or fragment of a hidden column shows beside the pinned column, and long values (emails, IDs) end in an ellipsis.' Evidence: dashboard/team-mobile-dark.png (emails cut at 'examp' under the pinned column; uneven row heights) and dashboard/projects-mobile-light.png (ghost '$' from the Budget column on three rows) vs reference/screenshots/p11-mobile-light.png (columns dropped, nothing clipped).",
+    "Signature, non-blocking (undersized about-page blueprints; agent miss of an existing rule). In Signature 3 → Where, change the three-blueprint row line to: 'a row of three captioned blueprints, each drawing's svg rendered at least `size.blueprintLg` (280px) wide, or the full column width if the column is narrower, never smaller than 200px; a connected pair counts as one drawing at that width'. Add to Verification: 'Measure each blueprint in the browser (getBoundingClientRect): opener-row drawings at least 200px wide, side-by-side slabs at least `size.blueprintMd` each.' Evidence: blog/drawings/about-d1.png (stack about 190px) and about-d2.png (two slabs of about 100px) vs reference/illustrations/p1-i5.png (about 290px, filling its column)."
+  ]
+}
+```

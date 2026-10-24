@@ -1,0 +1,111 @@
+# night-cartridge@0.1.0-rc.4 — evaluation 1
+
+Verdict: **fail** · 2026-10-14T23:01:37.630Z
+
+## blog (20261014-221142)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## commerce (20261014-221142)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 10 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## dashboard (20261014-221142)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 9 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## settings (20261014-221142)
+
+| Gate | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| agent-finished | pass | 0 | 0 |
+| build | pass | true |  |
+| functional-preservation | pass | 8 passed, 0 failed | all pass |
+| no-console-errors | pass | 0 | 0 |
+| no-horizontal-scroll | pass | 0 | 0 |
+| accessibility | pass | 0 | 0 |
+| reduced-motion | pass | 0 | 0 |
+| color-adherence | pass | 1 | 0.9 |
+| font-adherence | pass | 1 | 0.98 |
+| radius-adherence | pass | 1 | 0.85 |
+
+## Cross-app and reference
+
+| Check | Result | Value | Threshold |
+| --- | --- | --- | --- |
+| palette-consistency | pass | 0.854 | 0.75 |
+| type-consistency | pass | 1 | 0.7 |
+| reference-palette-distance | pass | 0 | reported |
+
+## Critic
+
+```json
+{
+  "referenceFidelity": 4,
+  "crossAppConsistency": 4,
+  "hierarchy": 4,
+  "spacingRhythm": 4,
+  "componentStates": 4,
+  "polish": 4,
+  "signature": 3,
+  "notes": [
+    "Overall: rc.4 fixes every non-scene item from the rc.3 list and passes every gate. The chrome language (16px pixel face, night ground, cream type, 4px windows with darker interiors, dither header rule and h2 rules, gold marker, hue top bars and bullets, block meters, checkered grass strip) still reads as the reference without copying it (blog/home-desktop-dark.png, dashboard/home-desktop-dark.png, settings/settings-profile-desktop-dark.png vs reference/screenshots/p1-desktop-light.png). Scene craft improved clearly in the blog hero and only partly elsewhere. Banners and strips still read as a catalogue row of small, saturated props on one baseline, not a composed scene like the reference banners. Arithmetic: 4, 4, 4, 4, 4, 4, 3 averages 3.86, below the 4.0 bar. No score is below 3. The only dimension below 4 is signature.",
+    "rc.3 issues, one by one. (1) Meter in dl (gate failure): FIXED. dashboard/projects-apollo-migration-desktop-dark.png 'Tasks 2 of 6 complete' with the meter in the tile, and the accessibility gate passes (eval-1.md). (2) Skyline gap and notches: FIXED. No background slab between the sky and the ridge in any banner, and the ridge tops are irregular (blog/drawings/posts-shipping-a-design-system-d1.png, commerce/drawings/products-canvas-field-tote-d1.png). (3) Square moon: FIXED. Every app draws a round stepped disc with craters and a checkered halo (blog/drawings/home-d1.png, dashboard/projects-apollo-migration-desktop-dark.png). (4) Gold in the dashboard header: FIXED. Search is a framed button (dashboard/home-desktop-dark.png). (5) Dashboard section titles: FIXED. 'Key metrics', 'Deployment throughput', 'Recent activity' and 'Projects' are 32px titles on dither rules outside the panels. (6) Invented meter maximum: FIXED. Only Service uptime has a meter, and lead time shows the delta only. (7) Upright strip props: NOT FIXED in commerce or settings (see signature). (8) Facade detail: FIXED in the blog hero, where the multi-storey buildings have window grids, a framed door, a clock and siding (blog/drawings/home-d1.png). (9) Ground sprite size: mostly fixed. The blog post box is about 44px (blog/drawings/home-d2.png) and the dashboard rack about 44px (dashboard/drawings/home-d2.png). Commerce has none at 20+ units: its crates are about 20px and its tallest object is a lamp pole (commerce/home-desktop-dark.png bottom). (10) Inline figure: FIXED. blog/drawings/posts-shipping-a-design-system-d2.png has sky bands, a ridge and ground, and the inventory board spans about 55% of the width. (11) User menu highlight on open: FIXED, after being open since rc.2. dashboard/state-user-menu-open-desktop-dark.png opens with '▶ Account settings' highlighted. No regressions found against rc.3.",
+    "Signature (3). Placement passes: hero on the blog home; banners on the article, about, product detail and project detail; strips on the store, cart, dashboard and settings; vignettes on empty states (blog/state-search-empty-desktop-dark.png, dashboard/state-empty-filter-desktop-dark.png); a prose figure; the ground strip everywhere. Motion keyframes (drift, twinkle, blink, rare, bob or swap) are present in all four apps (shots.json motion). Reduced motion passes. Frame sequences were captured only for the blog (motion/motion-m1.png bob at steps(1)), a harness gap and not penalized. Did the rc.4 detail pass and 2x review bring scenes near the reference banners? The hero, yes, mostly. The banners and strips, no. (a) The blog hero (blog/drawings/home-d1.png) is a real step up: window grids, lit warm windows, a clock tower, a mail van, a cat, three star levels including a cross-armed bright star, a round moon, and a city-silhouette ridge with lit window dots. It is the first scene in this series a reference-literate lead would accept. (b) The banners are a row, not a scene. blog/drawings/posts-shipping-a-design-system-d1.png has about 16 buildings of near-equal size evenly strung on one baseline across 720 units. commerce/drawings/products-canvas-field-tote-d1.png and dashboard/drawings/projects-apollo-migration-d1.png have 15 to 17 props, against the recipe's 6 to 12. The focal group is no larger than its neighbours, so nothing leads the eye. The reference banners (reference/illustrations/p2-i2.png, p2-i3.png) and hero (p1-i1.png) have one focal subject (a figure with a sparkle and tall snowy trees, or a cabin, tree and figure) with props stepping in scale and depth around it. (c) The back layer is one flat ridge tone filling about 45% of each banner (blog/drawings/posts-shipping-a-design-system-d1.png, commerce/drawings/products-canvas-field-tote-d1.png). The reference stacks 3 or 4 ridge and cloud layers in graded tones (p2-i2.png). The single `far` ridge is the recipe's own limit. (d) The strips fail the recipe's own numbers. commerce/drawings/home-d1.png stalls are about 35×12 units, around 3:1 wide. settings/drawings/settings-profile-d1.png benches are about 24×10. Both have about 15 props and many under 12 units tall. They read as specks in a band, and the rc.3 'squat strip' note stands. (e) Props keep full daytime saturation at night: hot pink, cyan and violet walls under a starry sky (blog/home-desktop-dark.png, commerce/home-desktop-dark.png). In the reference night scene, the cabin and hill take the night tones (darker, cooler) and only the windows and moon glow (p1-i1.png). (f) The hero Window covers four props at the left of the blog hero (blog/home-desktop-dark.png x 0-510, the yellow, teal and orange buildings), against rule 8 'never behind text'. The reference keeps props clear of its text window (p1-desktop-light.png). (g) The vignettes are a single small prop (a signpost or one rack) on a dark field, about 100px (blog/state-search-empty-desktop-dark.png, dashboard/state-empty-filter-desktop-dark.png). The reference's small art (the profile-card scene in p1-desktop-light.png) holds a figure, two trees and a banded sky at a similar size. (h) The settings strip repeats variants visibly: two identical benches, two radios, two round reels and three crates (settings/drawings/settings-profile-d1.png), against step 6 'no two props match'.",
+    "Cross-app consistency (4): one family. The chrome, type, meters, markers and the ground strip match in all four apps, light and dark. The world split (post office, market, server yard, workshop) works. The drift is in scene quality. The blog hero is composed; the settings and commerce strips are thin rows of tiny props (settings/settings-profile-desktop-dark.png, commerce/home-desktop-dark.png), so the products look like they come from different hands. This is scored under signature, not twice.",
+    "Hierarchy (4): fixed from rc.3. Every screen leads with the scene window and its h1, then section titles on dither rules, then content, as in the reference (p1-desktop-light.png). Gold is now the page commit only: Subscribe, Add to cart, Place order, Save changes, Confirm change. Remaining weakness: the solid cyan chart bars (about 360px tall, dashboard/home-desktop-dark.png) are still the heaviest mass on the dashboard home. The reference has no comparably dominant solid block outside its hero art. This is minor and not deducted further.",
+    "Spacing (4): the 4px scale, 64px section rhythm, window-to-h2 gaps and full-width payment window all hold (settings/settings-billing-desktop-light.png, fixed from rc.3). Small issue: on the product detail page the left column ends with the 320px picture window, leaving about 400px of empty column next to the purchase window and Details (commerce/products-canvas-field-tote-desktop-dark.png).",
+    "Component states (4): designed throughout. A gold 4px focus ring and danger frames with pixel '!' messages (commerce/state-checkout-errors-desktop-dark.png). A highlighted first option in the user menu. A selected tab with frame and marker. A dialog with title bar, framed close button, framed Cancel and gold Confirm (settings/state-plan-dialog-desktop-dark.png). Empty states with vignette, sentence and a framed '▶ Clear filters' (blog/state-search-empty-desktop-dark.png). A disabled ◀ stepper. The current plan is gold-framed with a marker. Not a 5 because loading and pending states are never captured (harness gap, not penalized).",
+    "Polish (4): no default-browser leftovers. Radius is 0 everywhere, borders are 2/4px, and the hard shadow appears only on the gold button and dialog. The section titles, hue bars and meters align to the content column. Scene defects are scored only under signature.",
+    "Not penalized (known harness gaps): the sticky header captured mid-page in state shots (commerce/state-checkout-errors-desktop-dark.png, dashboard/state-empty-filter-desktop-dark.png, blog/state-search-empty-desktop-dark.png); the dialog scrim ending at about 900px in the full-page capture; no pending request; motion frames captured for the blog only. Light theme is derived: the mint ridge and bright blue sky in light banners are accepted as the derived day palette."
+  ],
+  "promptFixes": [
+    "Focal composition instead of a row (signature, spec gap): in Pixel stage step 3 Middle/Front, replace the single `row()` of 6 to 12 props with: 'Compose, do not line up. The focal group (2 or 3 sprites, 28 to 40 units tall, the tallest in the scene) stands in the central 180 units on the near ground. The middle row is 4 to 8 props at 12 to 24 units, smaller than the focal group, with at least one gap of 40+ units of open ridge on each side of the focal group. No more than 12 objects in total, focal included.' Change the `row()` demo so it stops at a given count and takes an exclusion zone for the focal group. Add to step 7: 'squint at the render: the focal group is the first thing you see; if every prop is the same height, it is a catalogue and fails.' Evidence: blog/drawings/posts-shipping-a-design-system-d1.png (16 equal buildings), dashboard/drawings/projects-apollo-migration-d1.png (17 props), vs reference/illustrations/p2-i2.png and p1-i1.png (one subject, props stepping in scale).",
+    "Two ridge layers (signature, spec gap): in step 3 Back, add a second silhouette: 'a mid ridge in `color-mix(far, sky6)` (or a `color.art.mid` token) with its own `tops()` seed, 6 to 12 units below the far ridge's tops, `edge()` checkered; no single flat tone covers more than 30% of the scene height.' Add a `.mid` class to the CSS and the demo. Evidence: blog/drawings/posts-shipping-a-design-system-d1.png and commerce/drawings/products-canvas-field-tote-d1.png (one flat ridge band about 45% of the height) vs reference/illustrations/p2-i2.png (3 to 4 graded ridge and cloud layers).",
+    "Strip numbers into Verification (signature, agent mistake the spec already forbids): move the strip rule into the Never list and Verification: 'a strip has 5 to 9 props, each 12 to 20 units tall and at most twice as wide as tall; count them in the 2x render and list the counts in the report.' Add: 'benches, stalls and counters become upright by adding an awning, sign, shelf or person above them.' Evidence: commerce/drawings/home-d1.png (stalls about 35×12 units, about 15 props), settings/drawings/settings-profile-d1.png (benches about 24×10, about 17 props).",
+    "Night tones on props (signature, spec gap): in step 4 add: 'At night (dark theme) prop walls use `color-mix(in srgb, var(--base) 55%, var(--color-art-sky1))` as base, so walls sit in the night and only lights, signs and the moon are bright. Day (light theme) uses the full hue.' Provide the class (`.base` under `:root[data-theme=dark]`). Evidence: blog/home-desktop-dark.png and commerce/home-desktop-dark.png (hot pink, cyan and violet walls at full strength under stars) vs reference/illustrations/p1-i1.png (dark cabin wall, glowing windows only).",
+    "Hero Window clear of props (signature, agent mistake against rule 8): in the Hero placement add: 'the row and focal group start right of the Window's right edge plus 16 units; under the Window only sky, ridge and near ground.' Add to Verification: 'no prop is covered by the hero Window at 1440px.' Evidence: blog/home-desktop-dark.png (four buildings behind the Window at x 0-510) vs reference/screenshots/p1-desktop-light.png (Window over sky and ridge only).",
+    "Vignette content (signature, spec gap): in the Vignette placement add: 'a vignette is a small scene, not an icon: sky bands, ridge and ground, plus a focal group of 2 sprites (e.g. a figure or prop and a tree or lamp) covering at least half its width.' Evidence: blog/state-search-empty-desktop-dark.png (one signpost), dashboard/state-empty-filter-desktop-dark.png (one rack) vs the reference profile-card art in reference/screenshots/p1-desktop-light.png (figure, two trees, banded sky).",
+    "No visible duplicates (signature, agent mistake the spec already forbids): move 'repeated variants differ by 4+ units; no two props match' from step 6 into Verification as a checked item: 'list every variant used twice and the 4+ unit difference between the copies.' Evidence: settings/drawings/settings-profile-d1.png (identical benches, radios, reels and crates).",
+    "Ground sprite in commerce (signature, agent mistake the spec already forbids): add to Verification: 'measure the tallest ground-strip sprite: it is 20 to 24 units (40 to 48px), and a pole or lamp does not count.' Evidence: commerce/home-desktop-dark.png and products-canvas-field-tote-desktop-dark.png (crates about 20px; the tallest object is a lamp pole).",
+    "Product detail column balance (spacing, spec gap): in the Store row of Applying the concept add: 'on product detail at 1440px the picture window is sticky or as tall as the purchase column, or Details spans both columns below them; never leave a column more than 160px shorter than its neighbour.' Evidence: commerce/products-canvas-field-tote-desktop-dark.png (about 400px empty left column)."
+  ]
+}
+```
+
+## Reasons
+
+- critic: average 3.86 (needs 4.0), lowest 3 (needs 3)

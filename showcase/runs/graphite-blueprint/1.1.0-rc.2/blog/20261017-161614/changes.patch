@@ -1,0 +1,1599 @@
+diff --git a/index.html b/index.html
+index 65315b6..0c4ebb4 100644
+--- a/index.html
++++ b/index.html
+@@ -4,6 +4,13 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <link rel="icon" href="data:," />
++    <meta name="color-scheme" content="light dark" />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400&family=Inter:wght@400..600&display=swap"
++    />
+     <title>Field Notes</title>
+   </head>
+   <body>
+diff --git a/src/components/ArticleBody.tsx b/src/components/ArticleBody.tsx
+index e696cf8..82b08c7 100644
+--- a/src/components/ArticleBody.tsx
++++ b/src/components/ArticleBody.tsx
+@@ -1,7 +1,12 @@
+-import type { Block } from '../data/posts';
++import { TAG_LABELS, type Block, type Post } from '../data/posts';
+ import ImagePlaceholder from './ImagePlaceholder';
+ 
+-function renderBlock(block: Block, index: number) {
++/** 1-based position of a figure among the post's figures. */
++function figureNumber(post: Post, index: number) {
++  return post.body.slice(0, index + 1).filter((block) => block.type === 'figure').length;
++}
++
++function renderBlock(post: Post, block: Block, index: number) {
+   switch (block.type) {
+     case 'heading':
+       return block.level === 2 ? (
+@@ -25,7 +30,7 @@ function renderBlock(block: Block, index: number) {
+           <blockquote data-testid="body-quote">
+             <p>{block.text}</p>
+           </blockquote>
+-          {block.cite && <figcaption className="muted small">{block.cite}</figcaption>}
++          {block.cite && <figcaption className="quote-cite">{block.cite}</figcaption>}
+         </figure>
+       );
+     case 'code':
+@@ -49,8 +54,12 @@ function renderBlock(block: Block, index: number) {
+     case 'figure':
+       return (
+         <figure key={index} className="body-figure" data-testid="body-figure">
+-          <ImagePlaceholder alt={block.alt} />
+-          <figcaption className="muted small" data-testid="figure-caption">
++          <ImagePlaceholder
++            alt={block.alt}
++            id={`${post.slug}-figure-${index}`}
++            caption={`Fig 0.${figureNumber(post, index)} · ${TAG_LABELS[post.tags[0]]}`}
++          />
++          <figcaption className="fig" data-testid="figure-caption">
+             {block.caption}
+           </figcaption>
+         </figure>
+@@ -58,10 +67,10 @@ function renderBlock(block: Block, index: number) {
+   }
+ }
+ 
+-export default function ArticleBody({ blocks }: { blocks: Block[] }) {
++export default function ArticleBody({ post }: { post: Post }) {
+   return (
+     <div className="article-body" data-testid="article-body">
+-      {blocks.map(renderBlock)}
++      {post.body.map((block, index) => renderBlock(post, block, index))}
+     </div>
+   );
+ }
+diff --git a/src/components/ImagePlaceholder.tsx b/src/components/ImagePlaceholder.tsx
+index d2c3e71..b74b3bf 100644
+--- a/src/components/ImagePlaceholder.tsx
++++ b/src/components/ImagePlaceholder.tsx
+@@ -1,9 +1,13 @@
+-export default function ImagePlaceholder({ alt }: { alt: string }) {
+-  return (
+-    <svg className="image-placeholder" viewBox="0 0 640 320" role="img" aria-label={alt}>
+-      <rect className="image-placeholder-bg" x="0" y="0" width="640" height="320" />
+-      <circle className="image-placeholder-shape" cx="220" cy="120" r="36" />
+-      <path className="image-placeholder-shape" d="M120 260 L260 150 L360 230 L440 170 L540 260 Z" />
+-    </svg>
+-  );
++import SpecPlate from '../design/SpecPlate';
++
++interface ImagePlaceholderProps {
++  alt: string;
++  /** Stable id for the figure, so it draws the same plate every time. */
++  id: string;
++  /** Number and one fact, e.g. "FIG 0.1 · DESIGN". */
++  caption: string;
++}
++
++export default function ImagePlaceholder({ alt, id, caption }: ImagePlaceholderProps) {
++  return <SpecPlate id={id} caption={caption} wide imageLabel={alt} className="image-placeholder" />;
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 968c47e..dd85037 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -27,10 +27,6 @@ export default function Layout() {
+       <header className="site-header">
+         <div className="container site-header-inner">
+           <Link to="/" className="brand" data-testid="brand-link">
+-            <svg className="brand-mark" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+-              <path d="M4 4h12l4 4v12H4z" fill="none" stroke="currentColor" strokeWidth="2" />
+-              <path d="M8 11h8M8 15h6" stroke="currentColor" strokeWidth="2" />
+-            </svg>
+             <span>Field Notes</span>
+           </Link>
+           <nav aria-label="Primary" data-testid="primary-nav">
+@@ -44,6 +40,9 @@ export default function Layout() {
+               ))}
+             </ul>
+           </nav>
++          <a href="#newsletter" className="button button-primary header-action">
++            Subscribe
++          </a>
+         </div>
+       </header>
+ 
+@@ -52,11 +51,14 @@ export default function Layout() {
+       </main>
+ 
+       <footer className="site-footer">
+-        <div className="container site-footer-inner">
++        <div className="container">
+           <NewsletterForm />
+-          <p className="muted small">
+-            Field Notes is written by a small product team. Opinions are our own and change as we learn.
+-          </p>
++          <div className="footer-bar">
++            <p className="footer-name">Field Notes</p>
++            <p className="footer-note">
++              Field Notes is written by a small product team. Opinions are our own and change as we learn.
++            </p>
++          </div>
+         </div>
+       </footer>
+     </div>
+diff --git a/src/components/NewsletterForm.tsx b/src/components/NewsletterForm.tsx
+index ed061f8..517f416 100644
+--- a/src/components/NewsletterForm.tsx
++++ b/src/components/NewsletterForm.tsx
+@@ -1,4 +1,6 @@
+-import { useId, useState, type FormEvent } from 'react';
++import { useId, useRef, useState, type FormEvent } from 'react';
++import DoneMark from '../design/DoneMark';
++import { DotField } from '../design/DotGlyph';
+ 
+ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+ 
+@@ -7,19 +9,25 @@ export default function NewsletterForm() {
+   const headingId = `${baseId}-heading`;
+   const inputId = `${baseId}-email`;
+   const errorId = `${baseId}-error`;
++  const inputRef = useRef<HTMLInputElement>(null);
+   const [email, setEmail] = useState('');
+   const [error, setError] = useState<string | null>(null);
+   const [subscribedEmail, setSubscribedEmail] = useState<string | null>(null);
+ 
++  function fail(message: string) {
++    setError(message);
++    inputRef.current?.focus();
++  }
++
+   function handleSubmit(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+     const value = email.trim();
+     if (!value) {
+-      setError('Enter your email address.');
++      fail('Enter your email address.');
+       return;
+     }
+     if (!EMAIL_PATTERN.test(value)) {
+-      setError('Enter a valid email address, like name@example.com.');
++      fail('Enter a valid email address, like name@example.com.');
+       return;
+     }
+     setError(null);
+@@ -28,20 +36,25 @@ export default function NewsletterForm() {
+   }
+ 
+   return (
+-    <section className="newsletter" aria-labelledby={headingId} data-testid="newsletter">
+-      <h2 id={headingId}>Subscribe to the newsletter</h2>
+-      <p className="muted">One email when a new post goes up. Never more than twice a month.</p>
++    <section id="newsletter" className="newsletter closing" aria-labelledby={headingId} data-testid="newsletter">
++      <DotField />
++      <div className="closing-statement">
++        <h2 id={headingId}>Subscribe to the newsletter</h2>
++        <p>One email when a new post goes up. Never more than twice a month.</p>
++      </div>
+       {subscribedEmail ? (
+         <p className="form-success" role="status" data-testid="newsletter-success">
+-          Thanks for subscribing. New posts will arrive at {subscribedEmail}.
++          <DoneMark />
++          <span>Thanks for subscribing. New posts will arrive at {subscribedEmail}.</span>
+         </p>
+       ) : (
+         <form className="newsletter-form" noValidate onSubmit={handleSubmit} data-testid="newsletter-form">
+-          <label htmlFor={inputId} className="field-label">
+-            Email address
+-          </label>
+-          <div className="field-row">
++          <div className="field">
++            <label htmlFor={inputId} className="field-label">
++              Email address
++            </label>
+             <input
++              ref={inputRef}
+               id={inputId}
+               type="email"
+               name="email"
+@@ -54,15 +67,18 @@ export default function NewsletterForm() {
+               aria-describedby={error ? errorId : undefined}
+               data-testid="newsletter-email"
+             />
+-            <button type="submit" className="button button-primary" data-testid="newsletter-submit">
+-              Subscribe
+-            </button>
+           </div>
+           {error && (
+             <p id={errorId} className="form-error" role="alert" data-testid="newsletter-error">
++              <span className="status-dot status-dot--danger" aria-hidden="true" />
+               {error}
+             </p>
+           )}
++          <div className="form-actions">
++            <button type="submit" className="button button-primary button-lg" data-testid="newsletter-submit">
++              Subscribe
++            </button>
++          </div>
+         </form>
+       )}
+     </section>
+diff --git a/src/components/PostCard.tsx b/src/components/PostCard.tsx
+index 1a013b4..9635156 100644
+--- a/src/components/PostCard.tsx
++++ b/src/components/PostCard.tsx
+@@ -1,6 +1,7 @@
+ import { Link } from 'react-router';
+ import type { Post } from '../data/posts';
+ import PostMeta from './PostMeta';
++import PostPlate from './PostPlate';
+ import TagChip from './TagChip';
+ 
+ interface PostCardProps {
+@@ -12,13 +13,14 @@ interface PostCardProps {
+ export default function PostCard({ post, testId = 'post-card', linkTestId = 'post-link' }: PostCardProps) {
+   return (
+     <article className="post-card" data-testid={testId}>
++      <PostPlate post={post} />
++      <PostMeta post={post} />
+       <h3 className="post-card-title">
+         <Link to={`/posts/${post.slug}`} data-testid={linkTestId}>
+           {post.title}
+         </Link>
+       </h3>
+-      <PostMeta post={post} />
+-      <p>{post.excerpt}</p>
++      <p className="post-card-excerpt">{post.excerpt}</p>
+       <ul className="tag-list" aria-label="Tags">
+         {post.tags.map((tag) => (
+           <li key={tag}>
+diff --git a/src/components/PostMeta.tsx b/src/components/PostMeta.tsx
+index 8e5233f..2504224 100644
+--- a/src/components/PostMeta.tsx
++++ b/src/components/PostMeta.tsx
+@@ -4,10 +4,12 @@ import { formatDate, readingTime, type Post } from '../data/posts';
+ export default function PostMeta({ post, detailed = false }: { post: Post; detailed?: boolean }) {
+   const author = findAuthor(post.authorId);
+   return (
+-    <p className="post-meta muted small">
+-      <span data-testid={detailed ? 'article-author' : undefined}>{author.name}</span>
++    <p className="post-meta">
++      <span className="post-meta-author" data-testid={detailed ? 'article-author' : undefined}>
++        {author.name}
++      </span>
+       <span aria-hidden="true"> · </span>
+-      <time dateTime={post.date} data-testid={detailed ? 'article-date' : undefined}>
++      <time className="mono-date" dateTime={post.date} data-testid={detailed ? 'article-date' : undefined}>
+         {formatDate(post.date)}
+       </time>
+       <span aria-hidden="true"> · </span>
+diff --git a/src/components/TableOfContents.tsx b/src/components/TableOfContents.tsx
+index 8c45cab..1c54ae8 100644
+--- a/src/components/TableOfContents.tsx
++++ b/src/components/TableOfContents.tsx
+@@ -1,20 +1,54 @@
++import { useEffect, useState } from 'react';
+ import type { Block } from '../data/posts';
+ 
+ type Heading = Extract<Block, { type: 'heading' }>;
+ 
++/** The id of the last heading that has scrolled past the top third of the viewport. */
++function useCurrentHeading(ids: string[]) {
++  const [current, setCurrent] = useState<string | null>(ids[0] ?? null);
++  const key = ids.join('|');
++
++  useEffect(() => {
++    function update() {
++      const line = window.innerHeight / 3;
++      let found = ids[0] ?? null;
++      for (const id of ids) {
++        const element = document.getElementById(id);
++        if (element && element.getBoundingClientRect().top <= line) found = id;
++      }
++      setCurrent(found);
++    }
++    update();
++    window.addEventListener('scroll', update, { passive: true });
++    window.addEventListener('resize', update);
++    return () => {
++      window.removeEventListener('scroll', update);
++      window.removeEventListener('resize', update);
++    };
++  }, [key]);
++
++  return current;
++}
++
+ export default function TableOfContents({ blocks }: { blocks: Block[] }) {
+   const headings = blocks.filter((block): block is Heading => block.type === 'heading');
++  const current = useCurrentHeading(headings.map((heading) => heading.id));
+   if (headings.length === 0) return null;
+ 
+   return (
+     <nav className="toc" aria-labelledby="toc-heading" data-testid="toc">
+-      <h2 id="toc-heading" className="toc-heading">
++      <h2 id="toc-heading" className="toc-heading mono-label">
+         On this page
+       </h2>
+       <ol className="toc-list">
+         {headings.map((heading) => (
+           <li key={heading.id} className={heading.level === 3 ? 'toc-item toc-item-nested' : 'toc-item'}>
+-            <a href={`#${heading.id}`} className="toc-link" data-testid="toc-link">
++            <a
++              href={`#${heading.id}`}
++              className="toc-link"
++              aria-current={current === heading.id ? 'location' : undefined}
++              data-testid="toc-link"
++            >
+               {heading.text}
+             </a>
+           </li>
+diff --git a/src/components/TagChip.tsx b/src/components/TagChip.tsx
+index ef5314f..9495249 100644
+--- a/src/components/TagChip.tsx
++++ b/src/components/TagChip.tsx
+@@ -2,7 +2,7 @@ import { TAG_LABELS, type TagId } from '../data/posts';
+ 
+ export default function TagChip({ tag }: { tag: TagId }) {
+   return (
+-    <span className="tag-chip" data-testid="post-tag">
++    <span className="badge tag-chip" data-testid="post-tag">
+       {TAG_LABELS[tag]}
+     </span>
+   );
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..8c1d970 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,7 +2,11 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import './styles/tokens.css';
+ import './styles/base.css';
++import './styles/signature.css';
++import './styles/layout.css';
++import './styles/pages.css';
+ 
+ const rootElement = document.getElementById('root');
+ if (!rootElement) throw new Error('Root element #root not found');
+diff --git a/src/pages/AboutPage.tsx b/src/pages/AboutPage.tsx
+index 173a48c..14d8cd9 100644
+--- a/src/pages/AboutPage.tsx
++++ b/src/pages/AboutPage.tsx
+@@ -1,35 +1,72 @@
+ import { Link } from 'react-router';
++import Blueprint from '../design/Blueprint';
++import Opener from '../design/Opener';
+ import { authors } from '../data/authors';
+ import { posts } from '../data/posts';
+ 
+ export default function AboutPage() {
+   return (
+     <>
+-      <div className="page-header">
++      <div className="page-header masthead">
+         <h1>About Field Notes</h1>
+-        <p className="muted">A small publication about the unglamorous parts of making software.</p>
++        <p>A small publication about the unglamorous parts of making software.</p>
+       </div>
+ 
+-      <section className="prose" aria-labelledby="about-why-heading">
+-        <h2 id="about-why-heading">Why we write</h2>
+-        <p>
+-          Field Notes started as an internal wiki page where we collected things we wished someone had told us sooner.
+-          Over time the page grew long enough that colleagues at other companies started asking for the link, so we
+-          turned it into this blog.
+-        </p>
+-        <p>
+-          We publish about twice a month. Posts are written by the people doing the work, edited lightly, and kept
+-          practical. If a post does not change how at least one reader works next week, we have not done our job.
+-        </p>
+-        <p>
+-          So far we have published {posts.length} posts. Start with the <Link to="/">latest writing</Link>, or
+-          subscribe below to get new posts by email.
+-        </p>
++      <section className="page-section" aria-labelledby="about-why-heading">
++        <Opener id="about-why-heading" title="Why we write">
++          <div className="prose">
++            <p>
++              Field Notes started as an internal wiki page where we collected things we wished someone had told us
++              sooner. Over time the page grew long enough that colleagues at other companies started asking for the
++              link, so we turned it into this blog.
++            </p>
++            <p>
++              We publish about twice a month. Posts are written by the people doing the work, edited lightly, and kept
++              practical. If a post does not change how at least one reader works next week, we have not done our job.
++            </p>
++            <p>
++              So far we have published {posts.length} posts. Start with the <Link to="/">latest writing</Link>, or
++              subscribe below to get new posts by email.
++            </p>
++          </div>
++        </Opener>
++
++        <ul className="bp-row section-body" aria-label="How a post is made">
++          <li className="bp-cell">
++            <p className="mono-label">Fig 0.1</p>
++            <Blueprint kind="stack" />
++            <p className="bp-caption">
++              <b>Drafts</b>
++              <span>Every post goes through a draft, an edit and a final read.</span>
++            </p>
++          </li>
++          <li className="bp-cell">
++            <p className="mono-label">Fig 0.2</p>
++            <Blueprint kind="pair" />
++            <p className="bp-caption">
++              <b>Delivery</b>
++              <span>New posts reach subscribers by email the day they go up.</span>
++            </p>
++          </li>
++          <li className="bp-cell">
++            <p className="mono-label">Fig 0.3</p>
++            <Blueprint kind="box" />
++            <p className="bp-caption">
++              <b>Archive</b>
++              <span>{posts.length} posts so far, all of them still online.</span>
++            </p>
++          </li>
++        </ul>
+       </section>
+ 
+-      <section className="authors" aria-labelledby="about-authors-heading">
+-        <h2 id="about-authors-heading">The authors</h2>
+-        <ul className="author-list">
++      <section className="authors page-section" aria-labelledby="about-authors-heading">
++        <Opener id="about-authors-heading" title="The authors">
++          <p>Three people who write about the work they do every week.</p>
++          <Link to="/" className="opener-link">
++            Read their posts →
++          </Link>
++        </Opener>
++        <ul className="author-list card-grid section-body">
+           {authors.map((author) => (
+             <li key={author.id}>
+               <article className="author-card" data-testid="author-card">
+@@ -38,8 +75,8 @@ export default function AboutPage() {
+                 </span>
+                 <div>
+                   <h3>{author.name}</h3>
+-                  <p className="muted small">{author.role}</p>
+-                  <p>{author.bio}</p>
++                  <p className="author-role">{author.role}</p>
++                  <p className="author-bio">{author.bio}</p>
+                 </div>
+               </article>
+             </li>
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index 4e9f0fb..61507e5 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -2,7 +2,11 @@ import { useState } from 'react';
+ import { Link } from 'react-router';
+ import PostCard from '../components/PostCard';
+ import PostMeta from '../components/PostMeta';
++import PostPlate from '../components/PostPlate';
+ import TagChip from '../components/TagChip';
++import Blueprint from '../design/Blueprint';
++import { SearchIcon } from '../design/icons';
++import Opener from '../design/Opener';
+ import { getFeaturedPost, posts, TAGS, type TagId } from '../data/posts';
+ 
+ type TagFilter = TagId | 'all';
+@@ -29,57 +33,68 @@ export default function HomePage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
++      <div className="page-header masthead">
+         <h1>Field Notes</h1>
+-        <p className="muted">Essays on building software, writing clearly and working well together.</p>
++        <p>Essays on building software, writing clearly and working well together.</p>
+       </div>
+ 
+       <section className="featured" aria-labelledby="featured-heading">
+-        <h2 id="featured-heading" className="section-label">
++        <h2 id="featured-heading" className="section-label mono-label">
+           Featured
+         </h2>
+         <article className="featured-post" data-testid="featured-post">
+-          <h3 className="featured-title">
+-            <Link to={`/posts/${featured.slug}`} data-testid="featured-post-link">
+-              {featured.title}
+-            </Link>
+-          </h3>
+-          <PostMeta post={featured} />
+-          <p className="featured-excerpt">{featured.excerpt}</p>
+-          <ul className="tag-list" aria-label="Tags">
+-            {featured.tags.map((tag) => (
+-              <li key={tag}>
+-                <TagChip tag={tag} />
+-              </li>
+-            ))}
+-          </ul>
++          <PostPlate post={featured} wide />
++          <div className="featured-text">
++            <PostMeta post={featured} />
++            <h3 className="featured-title">
++              <Link to={`/posts/${featured.slug}`} data-testid="featured-post-link">
++                {featured.title}
++              </Link>
++            </h3>
++            <p className="featured-excerpt">{featured.excerpt}</p>
++            <ul className="tag-list" aria-label="Tags">
++              {featured.tags.map((tag) => (
++                <li key={tag}>
++                  <TagChip tag={tag} />
++                </li>
++              ))}
++            </ul>
++          </div>
+         </article>
+       </section>
+ 
+-      <section className="post-list-section" aria-labelledby="posts-heading">
+-        <h2 id="posts-heading">More posts</h2>
++      <section className="post-list-section page-section" aria-labelledby="posts-heading">
++        <Opener id="posts-heading" title="More posts">
++          <p>Every essay, newest first. Filter by topic or search a title.</p>
++          <Link to="/about" className="opener-link">
++            Meet the authors →
++          </Link>
++        </Opener>
+ 
+         <div className="filter-bar">
+           <div className="field">
+             <label htmlFor="post-search" className="field-label">
+               Search posts
+             </label>
+-            <input
+-              id="post-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search by title or summary"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="post-search"
+-            />
++            <div className="search">
++              <SearchIcon />
++              <input
++                id="post-search"
++                type="search"
++                className="input input-search"
++                placeholder="Search by title or summary"
++                value={query}
++                onChange={(event) => setQuery(event.target.value)}
++                data-testid="post-search"
++              />
++            </div>
+           </div>
+           <div role="group" aria-label="Filter by tag" className="tag-filter" data-testid="tag-filter">
+             {filterOptions.map((option) => (
+               <button
+                 key={option.id}
+                 type="button"
+-                className="button tag-filter-button"
++                className="button chip tag-filter-button"
+                 aria-pressed={activeTag === option.id}
+                 onClick={() => setActiveTag(option.id)}
+                 data-testid={`tag-filter-${option.id}`}
+@@ -90,12 +105,12 @@ export default function HomePage() {
+           </div>
+         </div>
+ 
+-        <p className="muted small" aria-live="polite" data-testid="result-count">
++        <p className="result-count" aria-live="polite" data-testid="result-count">
+           Showing {visible.length} of {listPosts.length} posts
+         </p>
+ 
+         {visible.length > 0 ? (
+-          <ul className="post-list">
++          <ul className="post-list card-grid">
+             {visible.map((post) => (
+               <li key={post.slug}>
+                 <PostCard post={post} />
+@@ -104,9 +119,12 @@ export default function HomePage() {
+           </ul>
+         ) : (
+           <div className="empty-state" data-testid="posts-empty">
+-            <h3>No posts match these filters</h3>
+-            <p className="muted">Try a different tag or a shorter search.</p>
+-            <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++            <Blueprint kind="stack" size="md" className="empty-state-drawing" />
++            <p className="mono-label">No results</p>
++            <div className="empty-state-text">
++              <h3>No posts match these filters</h3> <p>Try a different tag or a shorter search.</p>
++            </div>
++            <button type="button" className="button button-secondary" onClick={clearFilters} data-testid="clear-filters">
+               Clear filters
+             </button>
+           </div>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index d0cb7f0..64d7069 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,24 @@
+ import { Link } from 'react-router';
++import ErrorState from '../components/ErrorState';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to the home page</Link>
+-    </section>
++    <ErrorState
++      testId="not-found"
++      code="Err 404"
++      title="Page not found"
++      actions={
++        <>
++          <Link to="/" className="button button-primary button-lg">
++            Go to the home page
++          </Link>
++          <Link to="/about" className="button button-secondary button-lg">
++            About Field Notes
++          </Link>
++        </>
++      }
++    >
++      The page you are looking for does not exist or has moved.
++    </ErrorState>
+   );
+ }
+diff --git a/src/pages/PostPage.tsx b/src/pages/PostPage.tsx
+index 2976cb4..5b06fe2 100644
+--- a/src/pages/PostPage.tsx
++++ b/src/pages/PostPage.tsx
+@@ -1,10 +1,13 @@
+ import { Link, useParams } from 'react-router';
+ import ArticleBody from '../components/ArticleBody';
++import ErrorState from '../components/ErrorState';
+ import PostCard from '../components/PostCard';
+ import PostMeta from '../components/PostMeta';
++import PostPlate from '../components/PostPlate';
+ import TableOfContents from '../components/TableOfContents';
+ import TagChip from '../components/TagChip';
+-import { findPost, getRelatedPosts } from '../data/posts';
++import Opener from '../design/Opener';
++import { findPost, getRelatedPosts, TAG_LABELS } from '../data/posts';
+ 
+ export default function PostPage() {
+   const { slug } = useParams();
+@@ -12,18 +15,32 @@ export default function PostPage() {
+ 
+   if (!post) {
+     return (
+-      <div className="empty-state" data-testid="post-not-found">
+-        <h1>Post not found</h1>
+-        <p className="muted">There is no post at “{slug}”. It may have been renamed.</p>
+-        <Link to="/">Back to all posts</Link>
+-      </div>
++      <ErrorState
++        as="div"
++        testId="post-not-found"
++        code="Err 404"
++        title="Post not found"
++        actions={
++          <>
++            <Link to="/" className="button button-primary button-lg">
++              Back to all posts
++            </Link>
++            <Link to="/about" className="button button-secondary button-lg">
++              About Field Notes
++            </Link>
++          </>
++        }
++      >
++        There is no post at “{slug}”. It may have been renamed.
++      </ErrorState>
+     );
+   }
+ 
+   const related = getRelatedPosts(post);
++  const topics = post.tags.map((tag) => TAG_LABELS[tag].toLowerCase());
+ 
+   return (
+-    <>
++    <div className="article-page">
+       <nav aria-label="Breadcrumb" className="breadcrumb">
+         <ol>
+           <li>
+@@ -37,16 +54,19 @@ export default function PostPage() {
+         <article className="article" data-testid="article">
+           <header className="article-header">
+             <h1 data-testid="article-title">{post.title}</h1>
+-            <PostMeta post={post} detailed />
+-            <ul className="tag-list" aria-label="Tags">
+-              {post.tags.map((tag) => (
+-                <li key={tag}>
+-                  <TagChip tag={tag} />
+-                </li>
+-              ))}
+-            </ul>
++            <div className="article-header-meta">
++              <PostMeta post={post} detailed />
++              <ul className="tag-list" aria-label="Tags">
++                {post.tags.map((tag) => (
++                  <li key={tag}>
++                    <TagChip tag={tag} />
++                  </li>
++                ))}
++              </ul>
++            </div>
++            <PostPlate post={post} wide />
+           </header>
+-          <ArticleBody blocks={post.body} />
++          <ArticleBody post={post} />
+         </article>
+ 
+         <aside className="article-aside">
+@@ -55,9 +75,14 @@ export default function PostPage() {
+       </div>
+ 
+       {related.length > 0 && (
+-        <section className="related" aria-labelledby="related-heading" data-testid="related-posts">
+-          <h2 id="related-heading">Related posts</h2>
+-          <ul className="post-list post-list-grid">
++        <section className="related page-section" aria-labelledby="related-heading" data-testid="related-posts">
++          <Opener id="related-heading" title="Related posts">
++            <p>More on {topics.join(', ')}.</p>
++            <Link to="/" className="opener-link">
++              All posts →
++            </Link>
++          </Opener>
++          <ul className="post-list post-list-grid card-grid">
+             {related.map((item) => (
+               <li key={item.slug}>
+                 <PostCard post={item} testId="related-post" linkTestId="related-post-link" />
+@@ -66,6 +91,6 @@ export default function PostPage() {
+           </ul>
+         </section>
+       )}
+-    </>
++    </div>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 7b07d1b..d99cc51 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,57 +1,38 @@
+ /*
+- * Base styles for the Field Notes blog.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Field Notes on Graphite Blueprint (design-system/). Values come from tokens.css only.
++ * Root setup and shared components; signature elements live in signature.css.
+  */
+-:root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-header-bg: #ffffff;
+-  --color-footer-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-error: #b00020;
+-  --color-success: #2e7d32;
+-  --color-success-bg: #e8f5e9;
+-  --color-tag-bg: #eeeeee;
+-  --color-tag-text: #444444;
+-  --color-pressed-bg: #dde6f5;
+-  --color-quote-border: #cccccc;
+-  --color-code-bg: #f5f5f5;
+-  --color-code-text: #222222;
+-  --color-placeholder-bg: #eeeeee;
+-  --color-placeholder-shape: #cccccc;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-heading: var(--font-body);
+-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+-  --font-size-base: 16px;
+-  --font-size-small: 13px;
+-  --font-size-code: 14px;
+-  --font-size-h1: 28px;
+-  --font-size-h2: 21px;
+-  --font-size-h3: 17px;
+-  --line-height: 1.6;
+ 
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --space-12: 48px;
+-  --container-width: 960px;
+-  --measure: 680px;
+-  --toc-width: 220px;
++/* Old names, aliased to the design tokens so anything still using them keeps working. */
++:root {
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-default);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-text: var(--color-text-body);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-primary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-error: var(--color-status-danger);
++  --color-success: var(--color-status-success);
++  --font-body: var(--font-family-sans);
++  --font-mono: var(--font-family-mono);
++  --radius: var(--radius-sm);
++  --radius-pill: var(--radius-full);
++  --container-width: var(--size-container);
++  --measure: var(--size-measure);
++  --page-gutter: clamp(var(--space-20), 4vw, var(--space-48));
++  color-scheme: light;
++}
++[data-theme='dark'] {
++  color-scheme: dark;
++}
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) {
++    color-scheme: dark;
++  }
+ }
+ 
+ *,
+@@ -63,53 +44,66 @@
+ html,
+ body {
+   margin: 0;
++  overflow-x: clip;
+ }
+ 
+ html {
+-  scroll-padding-top: var(--space-4);
++  scroll-padding-top: calc(var(--size-header) + var(--space-24));
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-body);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  font-family: var(--font-heading);
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
+-}
+-
+-h1 {
+-  font-size: var(--font-size-h1);
+-}
+-
+-h2 {
+-  font-size: var(--font-size-h2);
++  margin: 0;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+-h3 {
+-  font-size: var(--font-size-h3);
++p {
++  margin: 0;
+ }
+ 
+-p {
+-  margin: 0 0 var(--space-3);
++pre,
++code,
++kbd,
++samp {
++  font-family: var(--font-family-mono);
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
++  text-decoration: underline;
++  text-decoration-color: var(--color-icon-idle);
++  text-decoration-thickness: var(--border-width-hairline);
++  text-underline-offset: 3px;
++  transition: text-decoration-color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++@media (hover: hover) and (pointer: fine) {
++  a:hover {
++    text-decoration-color: var(--color-text-primary);
++  }
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-hairline) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
++::selection {
++  background: var(--color-accent-subtle);
++}
++
+ .visually-hidden {
+   position: absolute;
+   width: 1px;
+@@ -125,438 +119,270 @@ a {
+ .skip-link {
+   position: absolute;
+   left: -9999px;
++  z-index: 20;
+ }
+-
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
+-}
+-
+-.muted {
+-  color: var(--color-text-muted);
+-}
+-
+-.small {
++  left: var(--space-8);
++  top: var(--space-8);
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+   font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
+ }
+ 
+-/* Layout */
+-.site-shell {
+-  display: flex;
+-  flex-direction: column;
+-  min-height: 100vh;
+-}
+-
+-.container {
+-  width: 100%;
+-  max-width: var(--container-width);
+-  margin: 0 auto;
+-  padding: 0 var(--space-4);
+-}
+-
+-.site-header {
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-}
+-
+-.site-header-inner {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: center;
+-  gap: var(--space-4);
+-  padding-top: var(--space-3);
+-  padding-bottom: var(--space-3);
++.icon {
++  display: block;
++  flex: none;
++  width: var(--size-icon);
++  height: var(--size-icon);
+ }
+ 
+-.brand {
++/* Buttons: pills. Inverse is the one primary action per region. */
++.button {
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  font-weight: 700;
+-  color: var(--color-text);
++  justify-content: center;
++  gap: var(--space-6);
++  height: var(--size-control);
++  padding: 0 var(--space-12);
++  border: var(--border-width-hairline) solid transparent;
++  border-radius: var(--radius-full);
++  background: var(--color-action-secondary);
++  color: var(--color-text-body);
++  font: var(--font-weight-medium) var(--font-size-small) / 1 var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
+   text-decoration: none;
++  white-space: nowrap;
++  cursor: pointer;
++  transition:
++    background-color var(--motion-duration-hover) var(--motion-easing-ease),
++    color var(--motion-duration-hover) var(--motion-easing-ease),
++    border-color var(--motion-duration-hover) var(--motion-easing-ease),
++    transform var(--motion-duration-hover) var(--motion-easing-standard);
+ }
+-
+-.brand-mark {
+-  flex-shrink: 0;
+-}
+-
+-.nav-list {
+-  list-style: none;
+-  display: flex;
+-  gap: var(--space-4);
+-  margin: 0;
+-  padding: 0;
+-}
+-
+-.nav-link {
+-  color: var(--color-link);
+-}
+-
+-.nav-link.active {
+-  font-weight: 700;
+-  color: var(--color-text);
+-}
+-
+-.content {
+-  flex: 1;
+-  padding-top: var(--space-6);
+-  padding-bottom: var(--space-12);
+-}
+-
+-.content:focus {
+-  outline: none;
++.button:active {
++  transform: scale(0.971);
+ }
+-
+-.site-footer {
+-  background: var(--color-footer-bg);
+-  border-top: var(--border-width) solid var(--color-border);
++.button-lg {
++  height: var(--size-control-lg);
++  padding: 0 var(--space-16);
+ }
+-
+-.site-footer-inner {
+-  padding-top: var(--space-6);
+-  padding-bottom: var(--space-6);
+-}
+-
+-.page-header {
+-  margin-bottom: var(--space-6);
++.button-primary {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++}
++.button-secondary {
++  background: var(--color-action-secondary);
++  color: var(--color-text-body);
++}
++.button-bordered,
++.chip {
++  background: transparent;
++  color: var(--color-text-secondary);
++  border-color: var(--color-border-default);
++}
++.chip[aria-pressed='true'] {
++  background: var(--color-surface-press);
++  color: var(--color-text-primary);
++  border-color: var(--color-border-strong);
++}
++.button:disabled {
++  opacity: var(--opacity-disabled);
++  cursor: not-allowed;
++  transform: none;
++}
++@media (hover: hover) and (pointer: fine) {
++  .button-primary:hover {
++    background: var(--color-action-primary-hover);
++  }
++  .button-secondary:hover {
++    background: var(--color-action-secondary-hover);
++    color: var(--color-text-primary);
++  }
++  .chip:hover {
++    color: var(--color-text-primary);
++    border-color: var(--color-border-strong);
++  }
+ }
+ 
+-/* Controls */
++/* Fields */
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
++  gap: var(--space-6);
++  min-width: 0;
+ }
+ 
+ .field-label {
+   display: block;
+-  font-weight: 600;
+-  margin-bottom: var(--space-1);
+-}
+-
+-.field-row {
+-  display: flex;
+-  gap: var(--space-2);
+-  max-width: 480px;
++  font-size: var(--font-size-small);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-ui);
++  color: var(--color-text-body);
+ }
+ 
+ .input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  width: 100%;
+   min-width: 0;
+-  flex: 1;
++  height: var(--size-field);
++  padding: 0 var(--space-12);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-card);
++  color: var(--color-text-primary);
++  font: var(--font-weight-regular) var(--font-size-dense) / var(--font-line-height-ui) var(--font-family-sans);
++  letter-spacing: var(--font-tracking-body);
++  transition: border-color var(--motion-duration-hover) var(--motion-easing-ease);
++}
++.input::placeholder {
++  color: var(--color-text-tertiary);
++}
++.input:focus-visible {
++  border-color: var(--color-accent-default);
+ }
+-
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-error);
++  border-color: var(--color-status-danger);
+ }
+-
+-.button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
++@media (hover: hover) and (pointer: fine) {
++  .input:hover:not(:focus-visible):not([aria-invalid='true']) {
++    border-color: var(--color-border-strong);
++  }
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.search {
++  position: relative;
++  color: var(--color-icon-idle);
++}
++.search .icon {
++  position: absolute;
++  left: var(--space-12);
++  top: 50%;
++  translate: 0 -50%;
++  pointer-events: none;
++}
++.input-search {
++  height: var(--size-control);
++  padding-left: 36px;
++  border-radius: var(--radius-full);
++  appearance: none;
++}
++.input-search::-webkit-search-cancel-button {
++  cursor: pointer;
+ }
+ 
++/* Banner on a failed submit: hairline box, danger tint, 6px dot, body text. */
+ .form-error {
+-  color: var(--color-error);
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  padding: var(--space-8) var(--space-12);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  background: var(--color-status-danger-tint);
++  color: var(--color-text-body);
+   font-size: var(--font-size-small);
+-  margin: var(--space-2) 0 0;
++  line-height: var(--font-line-height-ui);
+ }
+ 
+-.form-success {
+-  background: var(--color-success-bg);
+-  color: var(--color-success);
+-  border-radius: var(--radius);
+-  padding: var(--space-2) var(--space-3);
+-  max-width: 480px;
++.status-dot {
++  flex: none;
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  background: var(--color-icon-idle);
+ }
+-
+-.newsletter {
+-  margin-bottom: var(--space-4);
++.status-dot--danger {
++  background: var(--color-status-danger);
+ }
+ 
+-/* Tags */
++/* Badges (tags) */
+ .tag-list {
+   list-style: none;
+   display: flex;
+   flex-wrap: wrap;
+-  gap: var(--space-2);
++  gap: var(--space-6);
+   margin: 0;
+   padding: 0;
+ }
+ 
+-.tag-chip {
+-  display: inline-block;
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-  border-radius: var(--radius-pill);
+-  padding: 0 var(--space-2);
+-  font-size: var(--font-size-small);
+-}
+-
+-/* Home */
+-.section-label {
+-  font-size: var(--font-size-small);
+-  text-transform: uppercase;
+-  color: var(--color-text-muted);
+-}
+-
+-.featured {
+-  margin-bottom: var(--space-8);
+-}
+-
+-.featured-post {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-6);
+-  background: var(--color-surface);
+-}
+-
+-.featured-title {
+-  font-size: var(--font-size-h1);
+-}
+-
+-.featured-excerpt {
+-  max-width: var(--measure);
+-}
+-
+-.filter-bar {
+-  display: flex;
+-  flex-wrap: wrap;
+-  align-items: flex-end;
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 var(--space-3);
+-}
+-
+-.tag-filter {
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-}
+-
+-.tag-filter-button[aria-pressed='true'] {
+-  background: var(--color-pressed-bg);
+-  border-color: var(--color-primary);
+-  font-weight: 600;
++.badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-6);
++  height: 20px;
++  padding: 0 var(--space-8);
++  border: var(--border-width-hairline) solid var(--color-border-default);
++  border-radius: var(--radius-full);
++  color: var(--color-text-body);
++  font: var(--font-weight-medium) var(--font-size-caption) / 1 var(--font-family-sans);
++  white-space: nowrap;
+ }
+ 
+-.post-list {
++/* Hairline card grid: 3 columns, 2 under breakpoint.lg, 1 under breakpoint.sm. */
++.card-grid {
+   list-style: none;
++  display: grid;
++  grid-template-columns: repeat(3, minmax(0, 1fr));
+   margin: 0;
+   padding: 0;
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
++  border-top: var(--border-width-hairline) solid var(--color-border-subtle);
++  border-left: var(--border-width-hairline) solid var(--color-border-subtle);
+ }
+-
+-.post-list-grid {
+-  display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+-}
+-
+-.post-card {
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  padding-bottom: var(--space-4);
+-}
+-
+-.post-card-title {
+-  margin-bottom: var(--space-1);
+-}
+-
+-.post-meta {
+-  margin-bottom: var(--space-2);
+-}
+-
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
+-}
+-
+-/* Article */
+-.breadcrumb ol {
+-  list-style: none;
++.card-grid > li {
+   display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin: 0 0 var(--space-4);
+-  padding: 0;
+-  font-size: var(--font-size-small);
+-}
+-
+-.breadcrumb li + li::before {
+-  content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
+-}
+-
+-.article-layout {
+-  display: grid;
+-  grid-template-columns: minmax(0, var(--measure)) var(--toc-width);
+-  gap: var(--space-8);
+-  align-items: start;
+-}
+-
+-.article-header {
+-  margin-bottom: var(--space-6);
+-}
+-
+-.article-body h2,
+-.article-body h3 {
+-  margin-top: var(--space-6);
+-}
+-
+-.body-quote {
+-  margin: var(--space-4) 0;
+-}
+-
+-.body-quote blockquote {
+-  margin: 0;
+-  padding-left: var(--space-4);
+-  border-left: 3px solid var(--color-quote-border);
+-  font-style: italic;
+-}
+-
+-.code-block {
+-  background: var(--color-code-bg);
+-  color: var(--color-code-text);
+-  font-family: var(--font-mono);
+-  font-size: var(--font-size-code);
+-  border-radius: var(--radius);
+-  padding: var(--space-3) var(--space-4);
+-  overflow-x: auto;
+-  margin: 0 0 var(--space-4);
+-}
+-
+-.body-list {
+-  margin: 0 0 var(--space-4);
+-  padding-left: var(--space-6);
+-}
+-
+-.body-list li + li {
+-  margin-top: var(--space-1);
+-}
+-
+-.body-figure {
+-  margin: var(--space-4) 0;
+-}
+-
+-.image-placeholder {
+-  display: block;
+-  width: 100%;
+-  height: auto;
+-  border-radius: var(--radius);
+-}
+-
+-.image-placeholder-bg {
+-  fill: var(--color-placeholder-bg);
+-}
+-
+-.image-placeholder-shape {
+-  fill: var(--color-placeholder-shape);
++  min-width: 0;
++  box-shadow:
++    1px 0 0 var(--color-border-subtle),
++    0 1px 0 var(--color-border-subtle);
+ }
+-
+-.body-figure figcaption {
+-  margin-top: var(--space-2);
++.card-grid > li > * {
++  flex: 1;
++  min-width: 0;
+ }
+-
+-.article-aside {
+-  position: sticky;
+-  top: var(--space-4);
++@media (max-width: 1023.98px) {
++  .card-grid {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
+ }
+-
+-.toc {
+-  border-left: var(--border-width) solid var(--color-border);
+-  padding-left: var(--space-4);
++@media (max-width: 639.98px) {
++  .card-grid {
++    grid-template-columns: minmax(0, 1fr);
++  }
+ }
+ 
+-.toc-heading {
+-  font-size: var(--font-size-small);
++.mono-date {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-caption);
+   text-transform: uppercase;
+-  color: var(--color-text-muted);
+-}
+-
+-.toc-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  font-size: var(--font-size-small);
+-}
+-
+-.toc-item + .toc-item {
+-  margin-top: var(--space-1);
+-}
+-
+-.toc-item-nested {
+-  padding-left: var(--space-3);
+-}
+-
+-.related {
+-  margin-top: var(--space-12);
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding-top: var(--space-6);
++  font-variant-numeric: tabular-nums;
++  letter-spacing: 0;
+ }
+ 
+-/* About */
+-.prose {
+-  max-width: var(--measure);
+-  margin-bottom: var(--space-8);
+-}
+-
+-.author-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
++.pill-row {
+   display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
+-  max-width: var(--measure);
+-}
+-
+-.author-card {
+-  display: flex;
+-  gap: var(--space-4);
+-  align-items: flex-start;
+-}
+-
+-.avatar {
+-  display: inline-flex;
+-  align-items: center;
++  flex-wrap: wrap;
+   justify-content: center;
+-  flex-shrink: 0;
+-  width: 44px;
+-  height: 44px;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-  font-weight: 700;
+-  font-size: var(--font-size-small);
++  gap: var(--space-8);
+ }
+ 
+-@media (max-width: 760px) {
+-  .article-layout {
+-    grid-template-columns: minmax(0, 1fr);
++/* Reduced motion, globally: loops end on their base frame. */
++@media (prefers-reduced-motion: reduce) {
++  *,
++  *::before,
++  *::after {
++    animation-duration: var(--motion-duration-instant) !important;
++    animation-iteration-count: 1 !important;
++    animation-delay: 0s !important;
++    transition-duration: var(--motion-duration-instant) !important;
++    transition-delay: 0s !important;
+   }
+-
+-  .article-aside {
+-    position: static;
+-    grid-row: 1;
++  .button:active {
++    transform: none;
+   }
+ }
