@@ -153,7 +153,7 @@ prompt, so the prompt is never patched with rules that only tell agents to write
 ### Calibration
 
 The review is only as good as its agreement with people who know the reference. `showcase/calibration.json` lists
-candidates the user has judged (as they accept or turn down systems, add them there); `pnpm harness calibrate` reviews them again without
+candidates the user has judged (one accepted, one found crude); `pnpm harness calibrate` reviews them again without
 touching their evaluations and writes `showcase/calibration-report.md`. While the review disagrees with a judged
 case, its scores are advice and the user's direction check decides. Run it after every change to the review.
 
