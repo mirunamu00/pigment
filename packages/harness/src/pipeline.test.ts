@@ -13,6 +13,7 @@ import { sheetHtml } from "./review/sheets.ts";
 import { paths } from "./paths.ts";
 import { swatchPage } from "./commands/check-analysis.ts";
 import { cropFirstScreens } from "./crop.ts";
+import { expandScrollContainers } from "./fullpage.ts";
 import { layoutTemplate, selectDeep, type Survey, type SurveyPage } from "./survey.ts";
 import { applyOverrides, GATING_CHECKS, judgeCritic, layoutCounts, promptInduced, shareOnScale } from "./commands/evaluate.ts";
 import { runQueue, sampleRunIds } from "./commands/generate.ts";
@@ -105,6 +106,20 @@ test("crops keep a full page's first screen at native resolution", async () => {
     assert.ok(job, "the crop was written");
     const png = readFileSync(join(dir, "crop.png"));
     assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1440, 900]);
+  } finally {
+    await browser.close();
+  }
+});
+
+test("full-page captures reach the end of a page that scrolls inside a box", async () => {
+  const { chromium } = await import("playwright");
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.setContent('<style>html,body{margin:0;height:100%;overflow:hidden}#app{height:100vh;overflow-y:auto}</style><div id="app"><div style="height:4000px">long page</div></div>');
+    assert.ok(((await expandScrollContainers(page)) ?? 0) >= 4000, "the document now carries the whole page");
+    await page.setContent('<div style="height:3000px">a normal page</div>');
+    assert.equal(await expandScrollContainers(page), null, "a page that scrolls on its own is left alone");
   } finally {
     await browser.close();
   }

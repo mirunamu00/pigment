@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { expandScrollContainers } from "../fullpage.ts";
 import { chromium, type Browser, type Page } from "playwright";
 import { cleanUrl } from "../discover.ts";
 import { extractStyles, mergeSamples, settle, type StyleSample } from "../extract.ts";
@@ -117,6 +118,7 @@ export async function capture(slug: string, options: { headed?: boolean; maxPage
             if (scheme === "light" || darkDiffers) {
               samples.push(sample);
               const file = join(outDir, "screenshots", `${key}-${viewport}-${scheme}.png`);
+              await expandScrollContainers(page);
               await page.screenshot({ path: file, fullPage: true });
               shots.push(rel(file));
               if (viewport === "desktop") await cropComponents(page, join(outDir, "components"), `${key}-${scheme}`);
