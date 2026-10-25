@@ -1,0 +1,147 @@
+I've gone through all 16 holdout screens next to the reference. Here are the verdicts.
+
+```json
+{
+  "items": [
+    { "id": "landing--page--home--desktop-light", "status": "finding", "fidelity": 4, "note": "The lemon hero band has a 96px headline, a black CTA beside an outline button at the same height, and five different thick ink-outlined stickers (pad, clock, hourglass, envelope, mug) cropped at the side edges. Below come a drawn calendar mockup on a slab, a periwinkle | black split band, a pink closing band and a black footer. It reads as 01's team. The feature-card section and the stat strip are thinner and greyer than the reference's sections." },
+    { "id": "landing--page--home--mobile-light", "status": "finding", "fidelity": 4, "note": "Phone hero: four stickers cropped at the edges, a big three-line headline, full-width stacked black and outline actions, and the drawn calendar below, close to 09's banding. Lower down, the six feature cards stack as one long run of small grey text before the periwinkle and black split, which is looser than the reference's bands." },
+    { "id": "landing--page--home--desktop-dark", "status": "ok", "fidelity": 4, "note": "Faithful to 11's inversion. The header goes black with a full-height pink sign-up block and the hero CTA turns pink. The lemon band and stickers stay unchanged, and the bands keep their colour on a black body with dark ruled cards and the FAQ." },
+    { "id": "landing--page--home--mobile-dark", "status": "ok", "fidelity": 4, "note": "Same phone hero in dark: black header with the pink block, a pink stacked CTA over the white outline button, and the stickers unchanged on lemon. It holds the reference's dark mode as well as the light version holds the light." },
+    { "id": "landing--page--pricing--desktop-light", "status": "finding", "fidelity": 3, "note": "Pricing opens on a compact teal header band with a ~48px title and one lemon disc, then three white plan cards with 18px pink price flags, a compare table, an FAQ and the pink closing band. The parts are well drawn, but 02's poster moment is missing: a full hero band ringed by coins and then a split band with a huge fee figure." },
+    { "id": "landing--page--pricing--mobile-light", "status": "finding", "fidelity": 3, "note": "Teal header band with one disc cropped at the trailing edge, a monthly/yearly pill toggle, and stacked plan cards with small flags. Next to 09's marigold hero and periwinkle band with a big fee number, it reads like a product settings page. The compare table shows only the first plan column." },
+    { "id": "landing--page--pricing--desktop-dark", "status": "finding", "fidelity": 3, "note": "The dark inversion is right: white current pill, pink sign-up block, dark-grey cards on black, and a pink primary plan button. It has the same compact band in place of a poster pricing hero, and the teal band meets the black body with no visible ink seam." },
+    { "id": "landing--page--pricing--mobile-dark", "status": "finding", "fidelity": 3, "note": "The phone dark version keeps bands and flags unchanged and has a pink primary button. As in light mode, pricing gets no hero weight and no big fee figure, and the compare table drops every plan column after the first." },
+    { "id": "landing--page--customers--desktop-light", "status": "finding", "fidelity": 4, "note": "Marigold header band with title and lead, a large quote panel with a marigold highlight, a pill filter row with an outlined current chip, and a 4-up grid of white ink-framed story cards with band-coloured tag pills, close to 08's flat drawn grid. The band's one sticker, a white ticket, is cropped well past half and reads as a thin slab. It is the weakest drawing in the run." },
+    { "id": "landing--page--customers--mobile-light", "status": "finding", "fidelity": 4, "note": "Marigold band with the ticket sticker at the trailing edge, then the quote panel and the cards stacked. The pill row wraps to three lines, leaving one chip alone, where 10 keeps a tight row. The language is clearly the reference's." },
+    { "id": "landing--page--customers--desktop-dark", "status": "finding", "fidelity": 4, "note": "Dark mode carries well: white current pill, pink header block, dark ruled quote and cards, and tag pills unchanged. The marigold band runs into the black body without an ink seam, where 11 keeps every field edge crisp." },
+    { "id": "landing--page--customers--mobile-dark", "status": "ok", "fidelity": 4, "note": "Stacked dark story cards with coloured tag pills, a marigold band with the ticket sticker, a pink closing band and a black footer with the pink arrow input. Consistent with the reference's dark appearance." },
+    { "id": "landing--page--signup--desktop-light", "status": "ok", "fidelity": 4, "note": "Narrow lemon title band with no sticker, a benefit list on the left and one white ink-framed panel on the right with 48px hairline inputs, a select, a password field with an outline Show button, a checkbox and a pink submit. This is close to 07's form density and ink-hairline character." },
+    { "id": "landing--page--signup--mobile-light", "status": "ok", "fidelity": 4, "note": "Lemon band with an eyebrow, title and lead, then the checklist and a full-width white panel with tall hairline fields. It stacks cleanly and keeps the drawn, flat character of 10." },
+    { "id": "landing--page--signup--desktop-dark", "status": "finding", "fidelity": 4, "note": "Dark panel and fields with grey hairlines, a pink header block, and the lemon band unchanged. The band's bottom edge meets the black body with no seam, and the field outlines soften to grey where 11 keeps crisp edges." },
+    { "id": "landing--page--signup--mobile-dark", "status": "ok", "fidelity": 4, "note": "Phone dark signup: lemon band, a light-on-black checklist, and a dark panel with grey-outlined fields. It reads as the reference's dark mode and is laid out as cleanly as the light version." }
+  ],
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "major",
+      "area": "signature",
+      "summary": "The marketing pricing page opens on a compact product header band: a title-size heading, one sticker and no actions. Plan prices are 18px flags inside cards. The reference treats pricing as a poster: a full-bleed hero band with a display headline ringed by cropped coin stickers, closed by a seam into a split band where each half holds one huge fee figure. The page that sells the product loses the system's loudest moments.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/crops/landing--page--pricing--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/crops/landing--page--pricing--mobile-light--s1.png",
+        "pipeline/gumroad-study/reference/set/02-desktop.png",
+        "pipeline/gumroad-study/reference/set/09-mobile.png"
+      ],
+      "items": [
+        "landing--page--pricing--desktop-light",
+        "landing--page--pricing--mobile-light",
+        "landing--page--pricing--desktop-dark",
+        "landing--page--pricing--mobile-dark"
+      ],
+      "promptFix": "Every top-level page of a marketing site (pricing, features, about, customers), not only its home, opens on a hero band, never a compact header band. Use an eyebrow, a font.size.display–font.size.hero headline, a lead and 3–6 stickers cropped at the side edges, in a band colour other than the home hero's. On a pricing page, follow the hero with a split band (one half per plan or fee) whose figure is set at font.size.display, before any card grid or comparison table. Compact header bands belong to product, form and settings screens."
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "signature",
+      "summary": "The customers page's header-band sticker, a white ticket, is cropped by well over 40%. What shows reads as a thin slab whose depth runs sideways and down. It weighs nothing against the title, where the reference's stickers are whole, nameable objects with one downward depth.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/crops/landing--page--customers--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/crops/landing--page--customers--mobile-light--s1.png",
+        "pipeline/gumroad-study/reference/set/03-desktop.png"
+      ],
+      "items": [
+        "landing--page--customers--desktop-light",
+        "landing--page--customers--mobile-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "hierarchy",
+      "summary": "Below the hero, the home page's middle sections slip into generic SaaS forms. Six small icon cards with ~12px grey copy, a stat strip and three small quote cards sit on paper, and the pink closing band carries a small default button. The reference keeps sections weighty: checkerboard split bands, large titles and process ribbons with stickers.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/sheets/landing--page--home--desktop-light.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/sheets/landing--page--home--mobile-light.png",
+        "pipeline/gumroad-study/reference/set/03-desktop.png"
+      ],
+      "items": [
+        "landing--page--home--desktop-light",
+        "landing--page--home--mobile-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "In dark mode, header bands end straight into the black body with no visible ink or light seam, and panel and field outlines fade to grey. The reference's dark appearance (11) keeps every field and control edge crisp.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/crops/landing--page--signup--desktop-dark--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/crops/landing--page--customers--desktop-dark--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/crops/landing--page--pricing--desktop-dark--s1.png",
+        "pipeline/gumroad-study/reference/set/11-desktop.png"
+      ],
+      "items": [
+        "landing--page--signup--desktop-dark",
+        "landing--page--customers--desktop-dark"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "On phones the plan comparison table shows only the feature column and the first plan. The other plan columns are hidden with no scroll cue, sticky first column or stacked fallback.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/sheets/landing--page--pricing--mobile-light.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/sheets/landing--page--pricing--mobile-dark.png"
+      ],
+      "items": [
+        "landing--page--pricing--mobile-light",
+        "landing--page--pricing--mobile-dark"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "spacingRhythm",
+      "summary": "On phones the customers filter pill row wraps to three lines and leaves one chip alone. The reference's phone screens keep the pill row as one tight line.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-3-holdout/sheets/landing--page--customers--mobile-dark.png",
+        "pipeline/gumroad-study/reference/set/10-mobile.png"
+      ],
+      "items": [
+        "landing--page--customers--mobile-light"
+      ],
+      "promptFix": ""
+    }
+  ]
+}
+```

@@ -1,0 +1,100 @@
+```json
+{
+  "items": [
+    { "id": "settings--page--settings-profile--desktop-light", "status": "finding", "fidelity": 4, "note": "Lemon header band with breadcrumb, a section-size title and a lead, closed by an ink seam. On the left, underlined section links with a black current pill; on the right, one white ink-hairline panel with 48px inputs, a pink save button and an outline reset button, then a black footer. This is very close to the hairline density of reference 07. In two samples a badge sticker stretches the band about 60px past its content, which makes the settings band less quiet than the reference's compact header bands." },
+    { "id": "settings--page--settings-profile--mobile-light", "status": "finding", "fidelity": 4, "note": "On the phone the band, the panel stacked to full width, the full-width pink save button and the black footer with its pink arrow match the stacked rhythm of reference 10. The section-link pill row is the weak part. In one sample the last link wraps onto its own line, and in another it runs off the edge cut mid-word, where the reference keeps one tight row." },
+    { "id": "settings--page--settings-profile--desktop-dark", "status": "finding", "fidelity": 4, "note": "The dark mode follows reference 11. The ground is black, panels sit one step lighter with a 35% white hairline, the current nav pill turns white, and the lemon band and its sticker are unchanged. As in light, the sticker pads the band in two samples, and the band meets the black body with no visible seam." },
+    { "id": "settings--page--settings-profile--mobile-dark", "status": "finding", "fidelity": 4, "note": "The dark phone layout keeps the lemon band, the raised panels and the white current pill, so it reads as the same system. The section-link row again overflows or wraps onto a second line, as it does in light." },
+    { "id": "settings--page--settings-notifications--desktop-light", "status": "ok", "fidelity": 4, "note": "Periwinkle area band holding a notched pink count flag. Settings groups are single white boxes divided by 1px ink rules, with pink-on switches and a black knob. This is the ruled-panel language of reference 07 and close in craft. One sample's thick bell sticker is well built and cropped at the trailing edge." },
+    { "id": "settings--page--settings-notifications--mobile-light", "status": "finding", "fidelity": 4, "note": "The ruled switch groups and the band with its flag hold up well at phone width. Rows keep their height and the hairlines stay crisp. As on the other screens, the section-link row wraps or runs off the edge." },
+    { "id": "settings--page--settings-notifications--desktop-dark", "status": "finding", "fidelity": 4, "note": "The inversion is correct: the periwinkle band and the flag are unchanged, and the boxes are raised. But the off switches become grey-on-grey tracks that nearly vanish, and the band runs into the black body with no seam. Every edge in reference 11 is crisper than this." },
+    { "id": "settings--page--settings-notifications--mobile-dark", "status": "finding", "fidelity": 4, "note": "The dark phone version keeps the band, the flag and the ruled groups. The off switches are low-contrast grey on the raised fill, softer than the reference's drawn ink controls." },
+    { "id": "settings--page--settings-security--desktop-light", "status": "finding", "fidelity": 4, "note": "Teal band, then a password panel and a sessions panel holding an ink-framed table with a paper header row, ruled rows, a status pill with a dot, and outline row actions. In all three samples the password fields stop at 40–55% of a wide panel, leaving half of it empty. Reference 07 keeps its panel filled by putting a description column beside it." },
+    { "id": "settings--page--settings-security--mobile-light", "status": "finding", "fidelity": 4, "note": "Password fields go full width and the pink button is full width, which is good. The sessions table, however, is cut at the frame on the phone. In one sample only the device column shows and the row actions are out of view, with no sticky column or scroll cue." },
+    { "id": "settings--page--settings-security--desktop-dark", "status": "finding", "fidelity": 4, "note": "The dark panels and the table invert cleanly, and the key sticker in one sample is thick and properly die-cut. The same half-empty password panel as in light leaves a large dead area of raised fill." },
+    { "id": "settings--page--settings-security--mobile-dark", "status": "finding", "fidelity": 4, "note": "Same as the light phone screen: the chrome is faithful, but the sessions table cuts its columns at the frame, so last-active and the row actions disappear without a cue." },
+    { "id": "settings--page--settings-billing--desktop-light", "status": "finding", "fidelity": 4, "note": "Marigold band. The plan cards have checklists and notched price flags; the current plan has a pink selected border and a check disc in two samples, and black in one. Below are a payment method row and an invoice table. The structure matches the reference well, but a pink flag on all three plans and on every invoice row makes pink the loudest thing on the screen, where the reference spends it on one accent." },
+    { "id": "settings--page--settings-billing--mobile-light", "status": "finding", "fidelity": 4, "note": "Plan cards stack cleanly with full-width outline actions. In one sample the invoice table slices its amount column and its flags at the frame. The other two samples drop the status column without any cue." },
+    { "id": "settings--page--settings-billing--desktop-dark", "status": "finding", "fidelity": 4, "note": "The dark billing screen keeps the marigold band, the flags and the pink selected plan correctly. The column of pink flags in the invoice table glows even louder against the dark raised panel." },
+    { "id": "settings--page--settings-billing--mobile-dark", "status": "finding", "fidelity": 4, "note": "Faithful dark stacking of the plans and panels. The invoice amounts are all pink flags, five in a row, which again outweighs the title and the selected plan." }
+  ],
+  "findings": [
+    {
+      "kind": "gap", "severity": "minor", "area": "spacingRhythm",
+      "summary": "On desktop, the password form fields stop at about 40–55% of a full-width white panel, leaving its right half as dead space. Reference 07 never leaves a panel half-empty: it puts a description column beside the panel so the fields fill it. This gap from rc.4 review-1 is still open in all samples.",
+      "samples": 3, "of": 3, "specCaused": false, "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/settings--page--settings-security--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/settings--page--settings-security--desktop-light--s3.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/settings--page--settings-security--desktop-dark--s2.png",
+        "pipeline/gumroad-study/reference/set/07-desktop.png"
+      ],
+      "items": ["settings--page--settings-security--desktop-light", "settings--page--settings-security--desktop-dark"],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap", "severity": "minor", "area": "polish",
+      "summary": "The billing screens put a pink notched flag on every plan card and in every invoice row. A column of five flags under three more becomes the loudest thing on the screen. The reference spends its hot colour on one or two accents and lets ink and paper carry the rest. This gap is still open from review-1.",
+      "samples": 3, "of": 3, "specCaused": false, "specRule": "one key amount cell per table row",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/sheets/settings--page--settings-billing--desktop-light.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/sheets/settings--page--settings-billing--desktop-dark.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/sheets/settings--page--settings-billing--mobile-dark.png",
+        "pipeline/gumroad-study/reference/set/06-desktop.png"
+      ],
+      "items": ["settings--page--settings-billing--desktop-light", "settings--page--settings-billing--desktop-dark", "settings--page--settings-billing--mobile-dark"],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap", "severity": "minor", "area": "spacingRhythm",
+      "summary": "On settings sub-pages, two samples add a header-band sticker and grow the band to fit it, leaving about 60–100px of empty colour under the lead. The spec asks for a quiet settings band with stickers only on overviews. The reference's product header bands are compact and filled with content.",
+      "samples": 2, "of": 3, "specCaused": false, "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/settings--page--settings-profile--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/settings--page--settings-profile--desktop-light--s2.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/settings--page--settings-profile--desktop-dark--s2.png",
+        "pipeline/gumroad-study/reference/set/06-desktop.png"
+      ],
+      "items": ["settings--page--settings-profile--desktop-light", "settings--page--settings-profile--desktop-dark"],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap", "severity": "minor", "area": "spacingRhythm",
+      "summary": "On phones the settings section-link pill row either wraps and leaves the last link alone on a second line, or runs off the right edge cut mid-word with no scroll cue. The reference keeps its pill row as one tight line. This gap is still open from review-1.",
+      "samples": 3, "of": 3, "specCaused": false, "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/settings--page--settings-profile--mobile-light--s3.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/settings--page--settings-profile--mobile-light--s2.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/settings--page--settings-notifications--mobile-light--s3.png",
+        "pipeline/gumroad-study/reference/set/10-mobile.png"
+      ],
+      "items": ["settings--page--settings-profile--mobile-light", "settings--page--settings-profile--mobile-dark", "settings--page--settings-notifications--mobile-light"],
+      "promptFix": ""
+    },
+    {
+      "kind": "defect", "severity": "minor", "area": "polish",
+      "summary": "On phones, the sessions and invoice tables cut columns at the frame with no sticky first column or scroll cue. Row actions and statuses vanish, and the amount flags are sliced mid-figure. The spec asks for a sticky first column or a ruled list, so this is the agents' own error.",
+      "samples": 3, "of": 3, "specCaused": false, "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/settings/20261025-035935/screenshots/settings-security-mobile-light.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/sheets/settings--page--settings-security--mobile-light.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/sheets/settings--page--settings-billing--mobile-light.png"
+      ],
+      "items": ["settings--page--settings-security--mobile-light", "settings--page--settings-security--mobile-dark", "settings--page--settings-billing--mobile-light"],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap", "severity": "minor", "area": "polish",
+      "summary": "In dark mode the edges go soft. Off switches are grey tracks on the grey raised fill and nearly disappear, and the area band meets the black body with no visible seam. The reference keeps every control and field closed by a crisp edge in dark.",
+      "samples": 3, "of": 3, "specCaused": false, "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/settings--page--settings-notifications--desktop-dark--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/settings--page--settings-notifications--mobile-dark--s2.png",
+        "pipeline/gumroad-study/reference/set/11-desktop.png"
+      ],
+      "items": ["settings--page--settings-notifications--desktop-dark", "settings--page--settings-notifications--mobile-dark"],
+      "promptFix": ""
+    }
+  ]
+}
+```

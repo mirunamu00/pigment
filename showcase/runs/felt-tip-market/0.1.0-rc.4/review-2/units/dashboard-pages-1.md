@@ -1,0 +1,196 @@
+```json
+{
+  "items": [
+    {
+      "id": "dashboard--page--home--desktop-light",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The lemon header band has a title, a lead, a lone outline Refresh button and one thick cropped sticker. Below it, the hairline stat tiles with dot legends, the framed grey-bar chart with a pink trend line, and the ruled activity list all read as the system. But about 100px of the band below the lead is empty colour, the screen's search sits in the top bar and the table's filters sit on paper below it. Every budget cell in the table is a pink flag. Next to 06's compact, control-filled band and its ink-and-paper discipline, the result is cruder."
+    },
+    {
+      "id": "dashboard--page--home--mobile-light",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "On a phone the band is tighter: the title, lead and Refresh button sit beside a cropped sticker at a good size, and the tiles stack cleanly, close to 10's rhythm. The nav pill row runs past the right edge with no menu button. The table cuts its second column mid-word at the frame, with no sticky column or scroll cue."
+    },
+    {
+      "id": "dashboard--page--home--desktop-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The dark inversion follows 11: black ground, the lemon band unchanged, a white current nav pill, dark-grey hairline tiles and a pink trend line. It carries the same oversized empty band and the column of pink flags as light mode, so it falls short in the same ways."
+    },
+    {
+      "id": "dashboard--page--home--mobile-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "This is a faithful dark version of the phone layout, with the lemon band and sticker unchanged and stacked dark tiles. The nav row still overflows its right edge, and the table still clips its second column."
+    },
+    {
+      "id": "dashboard--page--projects--desktop-light",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The periwinkle band holds only the title and lead, padded to about 250px around its sticker (one sample has no sticker). The status pill tabs and the filter field sit on paper below the band, where 06 puts them inside it. The ink-framed table with a paper header row and ruled rows is well drawn, but all eight budget cells carry a pink flag, which makes that column louder than the page title."
+    },
+    {
+      "id": "dashboard--page--projects--mobile-light",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The band is compact, with a cropped sticker in two of the three samples. The pill tabs and the full-width filter field stack the way 10's filter stack does. The table clips the owner column mid-name at the right frame, with no sticky first column or ruled-list fallback."
+    },
+    {
+      "id": "dashboard--page--projects--desktop-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "This is a correct dark inversion: the band colour is unchanged, the tables are dark grey with light rules, and the current pill is white. The empty band height and the column of flags are carried over from light mode."
+    },
+    {
+      "id": "dashboard--page--projects--mobile-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "This is the dark version of the phone list, consistent with light mode. The clipped table column and the overflowing nav pill row are carried over."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--desktop-light",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "This is the best band here and close to 06: the breadcrumb, title, meta line, a status pill and outline pill tabs all sit inside a compact periwinkle band. The body is weaker. In two samples it is a box nested in a box that stops short of the content width, with a lone flag on the budget figure. The third sample's single panel with a four-up stat row is cleaner."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--mobile-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "On a phone the breadcrumb, title, status pill and tabs stack inside the band with good rhythm. The detail panel is a white hairline box with ruled label–value rows, in keeping with 07 and 10. The only weakness is the doubled frame in two of the samples."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--desktop-dark",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "This is a clean dark inversion of the detail screen. The band, with its controls inside, is unchanged, and the panel is dark grey with light rules. The nested frame in two samples still leaves the right side of the body empty."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--mobile-dark",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The dark phone detail screen is consistent with light mode. The band carries its own controls, and the ruled panel reads clearly on the black ground."
+    },
+    {
+      "id": "dashboard--page--team--desktop-light",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The teal band is about 250px tall around its sticker but holds only a title and a one-line lead. The member table is crisp ink-on-paper with outlined initials. In two of the three samples, every small count in the last column is a pink flag, which spends the hot colour where the reference would keep plain tabular ink."
+    },
+    {
+      "id": "dashboard--page--team--mobile-light",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The band is compact and its sticker is cropped well. The table keeps the role column and cuts it mid-word at the frame, so on a phone it is neither a scrolling table with a sticky column nor a ruled list."
+    },
+    {
+      "id": "dashboard--page--team--desktop-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "This is a faithful dark inversion with the teal band unchanged and a dark table with light rules. The empty band and the column of pink count flags remain."
+    },
+    {
+      "id": "dashboard--page--team--mobile-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The dark phone version matches light mode, including the clipped role column and the nav row that runs past the right edge."
+    }
+  ],
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "major",
+      "area": "spacingRhythm",
+      "summary": "On overview and list screens, the product header band holds only a title and a lead and is stretched to its sticker's height, leaving 100–140px of empty band colour. The screen's search, pill tabs and filter field sit in the top bar or on paper below the band. The reference's header band (06) is compact and full: search, pill tabs and breadcrumb live inside it, so the colour carries the controls. The detail screen in these same runs, with its breadcrumb and tabs in the band, shows how much better that reads. This gap from rc.3 and rc.4 review 1 is still open.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "specRule": "min-height: calc(var(--ft-s) + var(--space-6) * 2) — One sticker, at least as tall as the title block plus lead (`size.stickerBand` on desktop, never under `size.stickerSm`)",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/dashboard--page--home--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/dashboard--page--projects--desktop-light--s2.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/dashboard--page--team--desktop-light--s2.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/dashboard--page--projects-apollo-migration--desktop-light--s1.png",
+        "pipeline/gumroad-study/reference/set/06-desktop.png"
+      ],
+      "items": [
+        "dashboard--page--home--desktop-light",
+        "dashboard--page--home--desktop-dark",
+        "dashboard--page--projects--desktop-light",
+        "dashboard--page--projects--desktop-dark",
+        "dashboard--page--team--desktop-light",
+        "dashboard--page--team--desktop-dark"
+      ],
+      "promptFix": "A header band is as tall as its content plus space.6–space.8 of padding, never as tall as its sticker. Fill it with the screen's own controls, in this order: breadcrumb (when the screen has a parent), title, lead, then one row with the screen's search or filter field and its pill tabs or view filters. Any screen-level search, filter field or tab row that would sit just under the band goes inside it. Size the sticker to the band's content height, between size.stickerSm and size.stickerBand, cropped at the trailing edge, and never grow the band to fit the sticker. Below the last line of content, leave no more empty band colour than the band's own padding."
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "Data tables put a pink notched flag in every row, on budgets and even on small counts. A column of six to eight flags becomes the loudest thing on the screen, where the reference spends its hot colour on one or two accents and lets an ink-and-paper table carry the page. The spec's wording leads agents to this.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "specRule": "one key amount cell per table row",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/dashboard--page--projects--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/dashboard--page--team--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/dashboard--page--team--desktop-light--s3.png",
+        "pipeline/gumroad-study/reference/set/06-desktop.png"
+      ],
+      "items": [
+        "dashboard--page--projects--desktop-light",
+        "dashboard--page--team--desktop-light",
+        "dashboard--page--home--desktop-light"
+      ],
+      "promptFix": "In a table, the flag marks one figure for the whole table: its total, or the single row that matters, never a whole column. Plain amounts are tabular ink text, and counts never get a flag."
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "On phones, every data table cuts its second column mid-word at the frame, with no sticky first column, scroll cue or ruled-list fallback. The primary nav pill row runs past the right edge where the spec asks for a menu button. The spec's own rules ask for the right behaviour, so these are the agents' errors.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/dashboard--page--team--mobile-light--s3.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/dashboard--page--home--mobile-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/sheets/dashboard--page--projects--mobile-light.png"
+      ],
+      "items": [
+        "dashboard--page--home--mobile-light",
+        "dashboard--page--home--mobile-dark",
+        "dashboard--page--projects--mobile-light",
+        "dashboard--page--projects--mobile-dark",
+        "dashboard--page--team--mobile-light",
+        "dashboard--page--team--mobile-dark"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "spacingRhythm",
+      "summary": "On desktop the detail body is a white box nested inside another box, which stops short of the content width and leaves an empty strip on the right. The reference draws one ink frame divided by rules (07), as the third sample does with its single panel and four-up stat row.",
+      "samples": 2,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/dashboard--page--projects-apollo-migration--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.4/review-2/crops/dashboard--page--projects-apollo-migration--desktop-light--s3.png",
+        "pipeline/gumroad-study/reference/set/07-desktop.png"
+      ],
+      "items": [
+        "dashboard--page--projects-apollo-migration--desktop-light",
+        "dashboard--page--projects-apollo-migration--desktop-dark"
+      ],
+      "promptFix": ""
+    }
+  ]
+}
+```

@@ -1,0 +1,275 @@
+```json
+{
+  "mode": "quality",
+  "referenceFidelity": 4,
+  "signature": 3,
+  "crossAppConsistency": 4,
+  "hierarchy": 4,
+  "spacingRhythm": 4,
+  "componentStates": 4,
+  "polish": 3,
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "major",
+      "area": "signature",
+      "summary": "Large drawings still read as flat outlines. On the item page the main drawing has a back strip only a few pixels deep, or its depth shows as a second hem line. In the heroes, objects that are thin in real life (notepad, envelope, clipboard) have a side strip of about 3–5% of their height. The reference's objects are chunky die-cuts with a deep solid rim at every size, and that weight is what makes them hold their own against the headline. Boxy and round nouns (button, jar, clock, ticket, folder, badge) now meet the recipe, so the gap has narrowed but is still open on the largest and flattest objects. The spec already says 'at least 10%' and 'measure before you finish', and agents still miss it on irregular and flat shapes.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/commerce--page--products-canvas-field-tote--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/commerce--page--products-merino-crew-sweater--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/blog--page--home--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/blog/20261025-031927/drawings/home-d2.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/sheets/blog--drawings--about.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/dashboard--page--projects--desktop-light--s1.png",
+        "pipeline/gumroad-study/reference/set/01-desktop.png"
+      ],
+      "items": [
+        "commerce--drawings--products-canvas-field-tote",
+        "commerce--drawings--products-merino-crew-sweater",
+        "commerce--page--products-canvas-field-tote--desktop-light",
+        "commerce--page--products-merino-crew-sweater--desktop-light",
+        "blog--drawings--home",
+        "blog--drawings--about",
+        "dashboard--page--projects--desktop-light",
+        "dashboard--page--home--desktop-light"
+      ],
+      "promptFix": "Measure the depth in rendered screen pixels, not viewBox units. The solid strip between face and back must be at least 10% of the drawing's rendered height (about 30px on a 300px object) and show along the whole lower edge, not just at the corners. Apply the back's offset outside any rotation, so it shifts straight down on screen. For irregular shapes (garments, bags), draw the back as the whole silhouette shifted down and fill the gap as one solid region; never leave a doubled outline, and never let the back line up with a hem or rim so it reads as decoration. Objects that are thin in real life (sheet, pad, envelope, card, clipboard, ticket) are drawn as thick board: a pad with a page stack, an envelope as a padded mailer, with the same 10–15% strip as a box. In a media box wider than 320px the outer outline is 3px. Before finishing, compare the largest drawing on each screen with the smallest card vignette: if the big one shows less strip, deepen it."
+    },
+    {
+      "kind": "gap",
+      "severity": "major",
+      "area": "signature",
+      "summary": "Every front-page hero anchors its action with one compact pink button, about 48px tall. The reference sets a large block CTA next to a bordered input of the same height under the 96px headline, and that pair gives the hero its weight. The spec asks for 'plate-stack CTA + bordered input' in the hero row. No app followed it, so the hero rows look light and generic beside a strong sticker ring.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/commerce--page--home--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/blog--page--home--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/blog--page--home--mobile-light--s1.png",
+        "pipeline/gumroad-study/reference/set/01-desktop.png"
+      ],
+      "items": [
+        "blog--page--home--desktop-light",
+        "blog--page--home--mobile-light",
+        "commerce--page--home--desktop-light",
+        "commerce--page--home--desktop-dark",
+        "commerce--state--card-hover--desktop-light"
+      ],
+      "promptFix": "The hero's action row is always a pair at one shared height (56–64px on desktop): the primary CTA as a large block button in the plate stack (ink in light, pink in dark), and beside it a bordered input that fits the product (search, email, or a lookup), at least as wide as the CTA. If the product has no natural input, make the second element an outline button of the same height. Never leave a lone default-size button under a hero headline. On phones the pair stacks at full width."
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "Data tables put a pink price flag in every row, including on a plain count column, so a column of 6–8 flags becomes the loudest thing on the screen. The reference spends pink on a few accents and lets the ink-and-paper table carry the screen. The spec leads agents here with 'one amount cell per table row'.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/dashboard--page--projects--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/dashboard--page--team--desktop-light--s1.png",
+        "pipeline/gumroad-study/reference/set/06-desktop.png"
+      ],
+      "items": [
+        "dashboard--page--projects--desktop-light",
+        "dashboard--page--team--desktop-light",
+        "dashboard--state--row-hover--desktop-light",
+        "settings--page--settings-billing--mobile-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "componentStates",
+      "summary": "Success states are quieter than the errors next to them. Saving a profile shows only a small outline pill with an 8px dot, which nearly disappears in dark. The subscribe confirmation is a word badge loose on the black footer, and its slab is lost against the black. The reference draws outcomes as framed, picked-up ink panels.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/settings/20261025-031927/screenshots/state-profile-saved-desktop-light.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/settings--state--profile-saved--desktop-dark--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/sheets/blog--state--newsletter-success--desktop-light.png",
+        "pipeline/gumroad-study/reference/set/05-desktop.png"
+      ],
+      "items": [
+        "settings--state--profile-saved--desktop-light",
+        "settings--state--profile-saved--desktop-dark",
+        "settings--state--profile-saved--mobile-light",
+        "blog--state--newsletter-success--desktop-light",
+        "blog--state--newsletter-success--mobile-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "componentStates",
+      "summary": "Disabled stepper buttons are a grey-filled box in light mode, and the selected option on the buy panel is marked with a radio dot rather than a check disc. Both read as browser-default UI next to the reference's white, hairline controls. The spec's disabled rows prescribe a 'color.surface.subtle fill', which puts agents on this path.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/commerce--page--products-canvas-field-tote--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/commerce--state--checkout-errors--desktop-light--s1.png",
+        "pipeline/gumroad-study/reference/set/07-desktop.png"
+      ],
+      "items": [
+        "commerce--page--products-canvas-field-tote--desktop-light",
+        "commerce--page--products-merino-crew-sweater--desktop-light",
+        "commerce--state--checkout-errors--desktop-light",
+        "commerce--state--added-to-cart--desktop-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "spacingRhythm",
+      "summary": "On desktop, product header bands are sized to their sticker, not their content, so a 100–150px empty strip of band colour sits under the title. The reference's header band is compact and full (search, pills, breadcrumb). Elsewhere, the password form leaves half its panel empty, and the phone catalog filters wrap into loose rows instead of the reference's ruled stack.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/dashboard--page--home--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/settings--page--settings-security--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/commerce--page--home--mobile-light--s1.png",
+        "pipeline/gumroad-study/reference/set/06-desktop.png"
+      ],
+      "items": [
+        "dashboard--page--home--desktop-light",
+        "dashboard--page--team--desktop-light",
+        "settings--page--settings-security--desktop-light",
+        "settings--state--password-mismatch--desktop-light",
+        "commerce--page--home--mobile-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "Dark mode loses some ink edges. Colour bands on blog and product pages meet the black ground with no seam. The account menu's light offset shadow vanishes over the lemon band, so the menu looks pasted on. The reference closes every field with a visible seam and keeps overlays visibly picked up.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/blog--page--home--desktop-dark--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/commerce--page--products-merino-crew-sweater--desktop-dark--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/dashboard--state--user-menu-open--desktop-dark--s1.png",
+        "pipeline/gumroad-study/reference/set/11-desktop.png"
+      ],
+      "items": [
+        "blog--page--home--desktop-dark",
+        "blog--page--posts-shipping-a-design-system--desktop-dark",
+        "commerce--page--products-canvas-field-tote--desktop-dark",
+        "commerce--page--products-canvas-field-tote--mobile-dark",
+        "dashboard--state--user-menu-open--desktop-dark"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "referenceFidelity",
+      "summary": "Settings pages end on the ground with no black footer, so the settings app is the one member of the family without the closing black field that balances the colour band at the top, as the reference does on every page. Smaller off-system marks: article code blocks are grey boxes with grey borders, and a search clear glyph is still browser blue.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/settings/20261025-031927/screenshots/settings-profile-desktop-light.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/blog/20261025-031927/screenshots/posts-release-notes-people-read-desktop-light.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/dashboard/20261025-031927/screenshots/state-search-focus-desktop-light.png",
+        "pipeline/gumroad-study/reference/set/06-desktop.png"
+      ],
+      "items": [
+        "settings--page--settings-profile--desktop-light",
+        "settings--page--settings-billing--desktop-light",
+        "blog--page--posts-release-notes-people-read--desktop-light",
+        "dashboard--state--search-focus--desktop-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "hierarchy",
+      "summary": "On phones, the article header band's breadcrumb wraps and repeats the full title right above the large title, so the band says the title twice and grows tall. The reference keeps its breadcrumb to one short line.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/blog--page--posts-shipping-a-design-system--mobile-light--s1.png",
+        "pipeline/gumroad-study/reference/set/10-mobile.png"
+      ],
+      "items": [
+        "blog--page--posts-shipping-a-design-system--mobile-light",
+        "blog--page--posts-release-notes-people-read--mobile-light",
+        "commerce--page--products-merino-crew-sweater--mobile-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "Phone overflow slips: data and invoice tables cut their second or amount column mid-word at the frame with no scroll cue, and the section or nav pill rows run past the screen edge. The spec asks for a sticky column or a ruled list, so these are the agent's own errors.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/dashboard--page--team--mobile-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/settings--page--settings-profile--mobile-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/settings/20261025-031927/screenshots/settings-billing-mobile-light.png"
+      ],
+      "items": [
+        "dashboard--page--team--mobile-light",
+        "dashboard--page--projects--mobile-light",
+        "dashboard--page--home--mobile-light",
+        "settings--page--settings-profile--mobile-light",
+        "settings--page--settings-billing--mobile-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "At rest, the empty cart's plate-stack CTA shows a strip of the lemon plate above the button, and the account address in the menu header breaks mid-word. Neither comes from the spec: the given plate CSS stacks the plates behind the button.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/commerce--page--cart--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.3/review-1/crops/dashboard--state--user-menu-open--desktop-light--s1.png"
+      ],
+      "items": [
+        "commerce--page--cart--desktop-light",
+        "commerce--page--cart--mobile-light",
+        "dashboard--state--user-menu-open--desktop-light"
+      ],
+      "promptFix": ""
+    }
+  ],
+  "notes": [
+    "This is clearly the reference's language across all four apps, more than rc.2 was. Lemon and periwinkle bands closed by ink seams, the black current pill and full-height CTA block, ink-hairline tables and option cards, dashed empty states with their own sticker, and a faithful dark inversion all read as one family. The hero sticker rings now have real scale and edge cropping.",
+    "What keeps it from the reference's craft is how the drawings and the hero are built. The largest objects (product media, flat-paper hero stickers) are still flat line drawings with a sliver of edge where the reference has chunky die-cut coins. Every hero ends in a small lone pink button instead of the heavy CTA-plus-input pair. Those two keep the signature at 3.",
+    "Dark mode seams and overlay shadows, the quiet success states and loud per-row flags are minor. The phone overflow slips are the agents' own errors and do not count against the scores."
+  ]
+}
+```

@@ -1,0 +1,3067 @@
+diff --git a/index.html b/index.html
+index 3114c26..92635fe 100644
+--- a/index.html
++++ b/index.html
+@@ -3,7 +3,14 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <meta name="color-scheme" content="light dark" />
+     <link rel="icon" href="data:," />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&family=Space+Grotesk:wght@400;500;600;700&display=swap"
++    />
+     <title>Fieldhouse Supply</title>
+   </head>
+   <body>
+diff --git a/src/App.tsx b/src/App.tsx
+index e3dee45..957b3bc 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -5,7 +5,6 @@ import ProductsPage from './pages/ProductsPage';
+ import ProductDetailPage from './pages/ProductDetailPage';
+ import CartPage from './pages/CartPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <CartProvider>
+@@ -13,8 +12,7 @@ export default function App() {
+         <Route element={<Layout />}>
+           <Route index element={<ProductsPage />} />
+           <Route path="products/:slug" element={<ProductDetailPage />} />
+-          <Route path="cart" element={<CartPage />} />
+-          <Route path="*" element={<NotFoundPage />} />
++          <Route path="cart" element={<CartPage />} />          <Route path="*" element={<NotFoundPage />} />
+         </Route>
+       </Routes>
+     </CartProvider>
+diff --git a/src/components/Icons.tsx b/src/components/Icons.tsx
+index f025d98..e8b8489 100644
+--- a/src/components/Icons.tsx
++++ b/src/components/Icons.tsx
+@@ -2,6 +2,8 @@ interface IconProps {
+   className?: string;
+ }
+ 
++/* 2px round-cap line icons on a 24px grid, drawn in currentColor. */
++
+ export function CartIcon({ className = 'icon' }: IconProps) {
+   return (
+     <svg className={className} viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+@@ -9,22 +11,29 @@ export function CartIcon({ className = 'icon' }: IconProps) {
+         d="M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2"
+         fill="none"
+         stroke="currentColor"
+-        strokeWidth="1.8"
++        strokeWidth="2"
+         strokeLinecap="round"
+         strokeLinejoin="round"
+       />
+-      <circle cx="9" cy="19" r="1.5" fill="currentColor" />
+-      <circle cx="17" cy="19" r="1.5" fill="currentColor" />
++      <circle cx="9" cy="19" r="1.75" fill="currentColor" />
++      <circle cx="17" cy="19" r="1.75" fill="currentColor" />
++    </svg>
++  );
++}
++
++export function SearchIcon({ className = 'icon' }: IconProps) {
++  return (
++    <svg className={className} viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
++      <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" strokeWidth="2" />
++      <path d="M15.5 15.5L21 21" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+     </svg>
+   );
+ }
+ 
+-export function ImageIcon({ className = 'icon' }: IconProps) {
++export function ChevronIcon({ className = 'icon' }: IconProps) {
+   return (
+-    <svg className={className} viewBox="0 0 24 24" width="40" height="40" aria-hidden="true" focusable="false">
+-      <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-      <circle cx="9" cy="10" r="1.8" fill="currentColor" />
+-      <path d="M4 17l5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
++    <svg className={className} viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
++      <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+     </svg>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 24ef3b6..858fc68 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,6 +1,8 @@
+-import { Link, NavLink, Outlet } from 'react-router';
++import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
++import { Link, NavLink, Outlet, useLocation } from 'react-router';
+ import { useCart } from '../cart/CartContext';
+ import { CartIcon } from './Icons';
++import SiteFooter from './SiteFooter';
+ 
+ const NAV_ITEMS = [
+   { to: '/', label: 'Shop', testId: 'nav-shop', end: true },
+@@ -10,6 +12,47 @@ const NAV_ITEMS = [
+ export default function Layout() {
+   const { itemCount } = useCart();
+   const itemLabel = itemCount === 1 ? '1 item' : `${itemCount} items`;
++  const [menuOpen, setMenuOpen] = useState(false);
++  const menuButtonRef = useRef<HTMLButtonElement>(null);
++  const navRef = useRef<HTMLElement>(null);
++  const location = useLocation();
++
++  // Close the mobile menu after navigating.
++  useEffect(() => {
++    setMenuOpen(false);
++  }, [location.pathname, location.search]);
++
++  useEffect(() => {
++    if (menuOpen) navRef.current?.querySelector<HTMLElement>('a')?.focus();
++  }, [menuOpen]);
++
++  function closeMenu() {
++    setMenuOpen(false);
++    menuButtonRef.current?.focus();
++  }
++
++  // While the mobile panel is open, Escape closes it and Tab cycles between the menu button and the panel links.
++  function handleMenuKeys(event: KeyboardEvent<HTMLDivElement>) {
++    if (!menuOpen) return;
++    if (event.key === 'Escape') {
++      event.preventDefault();
++      closeMenu();
++      return;
++    }
++    if (event.key !== 'Tab') return;
++    const focusables = [menuButtonRef.current, ...Array.from(navRef.current?.querySelectorAll<HTMLElement>('a') ?? [])].filter(
++      (element): element is HTMLElement => element !== null,
++    );
++    const first = focusables[0];
++    const last = focusables[focusables.length - 1];
++    if (event.shiftKey && document.activeElement === first) {
++      event.preventDefault();
++      last.focus();
++    } else if (!event.shiftKey && document.activeElement === last) {
++      event.preventDefault();
++      first.focus();
++    }
++  }
+ 
+   return (
+     <div className="app-shell">
+@@ -20,18 +63,31 @@ export default function Layout() {
+         <Link to="/" className="brand" data-testid="brand-link">
+           Fieldhouse Supply
+         </Link>
+-        <nav aria-label="Primary" className="site-nav" data-testid="primary-nav">
+-          <ul className="nav-list">
+-            {NAV_ITEMS.map((item) => (
+-              <li key={item.to}>
+-                <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
+-                  {item.label}
+-                </NavLink>
+-              </li>
+-            ))}
+-          </ul>
+-        </nav>
+-        <Link to="/cart" className="button cart-button" aria-label={`Cart, ${itemLabel}`} data-testid="cart-button">
++        <div className="site-nav-wrap" data-open={menuOpen ? 'true' : undefined} onKeyDown={handleMenuKeys}>
++          <button
++            ref={menuButtonRef}
++            type="button"
++            className="menu-button ft-lift"
++            aria-expanded={menuOpen}
++            aria-controls="primary-nav"
++            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
++            onClick={() => setMenuOpen((open) => !open)}
++          >
++            <span className="menu-button-lines" aria-hidden="true" />
++          </button>
++          <nav id="primary-nav" ref={navRef} aria-label="Primary" className="site-nav" data-testid="primary-nav">
++            <ul className="nav-list">
++              {NAV_ITEMS.map((item) => (
++                <li key={item.to}>
++                  <NavLink to={item.to} end={item.end} className="nav-link ft-pill" data-testid={item.testId}>
++                    {item.label}
++                  </NavLink>
++                </li>
++              ))}
++            </ul>
++          </nav>
++        </div>
++        <Link to="/cart" className="cart-button" aria-label={`Cart, ${itemLabel}`} data-testid="cart-button">
+           <CartIcon />
+           <span className="cart-button-label" aria-hidden="true">
+             Cart
+@@ -46,9 +102,7 @@ export default function Layout() {
+         <Outlet />
+       </main>
+ 
+-      <footer className="site-footer">
+-        <p className="muted small">Fieldhouse Supply · Free shipping on orders over $100 · Returns within 30 days</p>
+-      </footer>
++      <SiteFooter />
+     </div>
+   );
+ }
+diff --git a/src/components/ProductImage.tsx b/src/components/ProductImage.tsx
+index e4a67f2..aca26a6 100644
+--- a/src/components/ProductImage.tsx
++++ b/src/components/ProductImage.tsx
+@@ -1,21 +1,28 @@
+-import type { Product } from '../data/products';
+-import { ImageIcon } from './Icons';
++import { products, type Product } from '../data/products';
++import Sticker from '../stickers/Sticker';
++import { artFill, GROUNDS, productArt } from '../stickers/kit';
+ 
+ interface ProductImageProps {
+   product: Product;
+   size?: 'card' | 'large';
+ }
+ 
+-/** Image placeholder: a tinted CSS box with an icon. No network images. */
++/**
++ * Drawn vignette for products without a photo: a band-color art ground (cycling by catalog order)
++ * with the product's own object as a thick sticker. No network images.
++ */
+ export default function ProductImage({ product, size = 'card' }: ProductImageProps) {
++  const index = Math.max(0, products.findIndex((item) => item.slug === product.slug));
++  const ground = GROUNDS[index % GROUNDS.length];
++
+   return (
+     <div
+-      className={`product-image product-image-${size} tone-${product.tone}`}
++      className={`product-image product-image-${size} ft-media ft-media--drawn ground-${ground}`}
+       role="img"
+       aria-label={`${product.name} product photo placeholder`}
+       data-testid="product-image"
+     >
+-      <ImageIcon className="product-image-icon" />
++      <Sticker art={productArt[product.slug]} fill={artFill(index)} viewBox="18 18 164 164" />
+     </div>
+   );
+ }
+diff --git a/src/components/QuantityStepper.tsx b/src/components/QuantityStepper.tsx
+index 13815b8..41c0bfe 100644
+--- a/src/components/QuantityStepper.tsx
++++ b/src/components/QuantityStepper.tsx
+@@ -28,7 +28,7 @@ export default function QuantityStepper({ id, label, value, onChange, testIdPref
+       <div className="stepper-controls">
+         <button
+           type="button"
+-          className="button stepper-button"
++          className="ft-btn ft-btn--outline ft-btn--square ft-lift stepper-button"
+           aria-label={`Decrease quantity${suffix}`}
+           disabled={value <= 1}
+           onClick={() => set(value - 1)}
+@@ -49,7 +49,7 @@ export default function QuantityStepper({ id, label, value, onChange, testIdPref
+         />
+         <button
+           type="button"
+-          className="button stepper-button"
++          className="ft-btn ft-btn--outline ft-btn--square ft-lift stepper-button"
+           aria-label={`Increase quantity${suffix}`}
+           disabled={value >= MAX_QUANTITY}
+           onClick={() => set(value + 1)}
+diff --git a/src/pages/CartPage.tsx b/src/pages/CartPage.tsx
+index e453a07..698b03e 100644
+--- a/src/pages/CartPage.tsx
++++ b/src/pages/CartPage.tsx
+@@ -1,8 +1,12 @@
+ import { useRef, useState, type FormEvent } from 'react';
+ import { Link } from 'react-router';
+ import { useCart } from '../cart/CartContext';
++import PlateStack from '../components/PlateStack';
+ import QuantityStepper from '../components/QuantityStepper';
++import WordBadge from '../components/WordBadge';
+ import { FREE_SHIPPING_THRESHOLD, formatPrice } from '../data/products';
++import Sticker from '../stickers/Sticker';
++import { basket } from '../stickers/kit';
+ 
+ type FieldName = 'name' | 'email' | 'address';
+ type FormValues = Record<FieldName, string>;
+@@ -60,40 +64,67 @@ export default function CartPage() {
+ 
+   if (confirmation) {
+     return (
+-      <section className="panel confirmation" data-testid="order-confirmation" aria-labelledby="confirmation-heading">
+-        <h1 id="confirmation-heading">Thank you for your order</h1>
+-        <p>
+-          {confirmation.name}, we have received your order of {confirmation.itemCount}{' '}
+-          {confirmation.itemCount === 1 ? 'item' : 'items'} totalling{' '}
+-          <strong data-testid="confirmation-total">{formatPrice(confirmation.total)}</strong>.
+-        </p>
+-        <p className="muted">A receipt has been sent to {confirmation.email}. Orders usually ship within two days.</p>
+-        <Link to="/" data-testid="continue-shopping">
+-          Continue shopping
+-        </Link>
++      <section className="ft-band band-cart confirmation" data-testid="order-confirmation" aria-labelledby="confirmation-heading">
++        <div className="ft-band__inner confirmation-inner">
++          <WordBadge word="done" />
++          <h1 id="confirmation-heading" className="page-title">
++            Thank you for your order
++          </h1>
++          <p className="lead">
++            {confirmation.name}, we have received your order of {confirmation.itemCount}{' '}
++            {confirmation.itemCount === 1 ? 'item' : 'items'} totalling{' '}
++            <strong className="ft-flag" data-testid="confirmation-total">
++              {formatPrice(confirmation.total)}
++            </strong>
++            .
++          </p>
++          <p>A receipt has been sent to {confirmation.email}. Orders usually ship within two days.</p>
++          <PlateStack className="confirmation-cta">
++            <Link to="/" className="ft-btn ft-btn--ink" data-testid="continue-shopping">
++              Continue shopping
++            </Link>
++          </PlateStack>
++        </div>
+       </section>
+     );
+   }
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Your cart</h1>
+-        <p className="muted">Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}.</p>
+-      </div>
++      <header className="ft-band ft-band--header band-cart">
++        <div className="ft-band__inner page-band-inner page-band-inner--narrow">
++          <nav aria-label="Breadcrumb" className="breadcrumb">
++            <ol>
++              <li>
++                <Link to="/">Shop</Link>
++              </li>
++              <li aria-current="page">Cart</li>
++            </ol>
++          </nav>
++          <h1 className="page-title">Your cart</h1>
++          <p className="page-lead">Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}.</p>
++        </div>
++      </header>
+ 
+       {cart.lines.length === 0 ? (
+-        <section className="panel empty-state" data-testid="cart-empty">
+-          <h2>Your cart is empty</h2>
+-          <p className="muted">Browse the shop and add something you like.</p>
+-          <Link to="/" data-testid="continue-shopping">
+-            Continue shopping
+-          </Link>
+-        </section>
++        <div className="ft-page ft-page--narrow">
++          <section className="empty-state ft-empty" data-testid="cart-empty">
++            <Sticker art={basket} fill="var(--color-band-periwinkle)" className="empty-sticker" />
++            <h2>Your cart is empty</h2>
++            <p className="muted">Browse the shop and add something you like.</p>
++            <PlateStack>
++              <Link to="/" className="ft-btn ft-btn--ink" data-testid="continue-shopping">
++                Continue shopping
++              </Link>
++            </PlateStack>
++          </section>
++        </div>
+       ) : (
+-        <div className="cart-layout">
+-          <section className="panel" aria-labelledby="cart-items-heading">
+-            <h2 id="cart-items-heading">Items</h2>
++        <div className="ft-page ft-page--narrow cart-layout">
++          <section className="panel ft-box" aria-labelledby="cart-items-heading">
++            <h2 id="cart-items-heading" className="panel-title">
++              Items
++            </h2>
+             <ul className="cart-lines">
+               {cart.lines.map((line) => (
+                 <li key={line.id} className="cart-line" data-testid="cart-line">
+@@ -120,7 +151,7 @@ export default function CartPage() {
+                   </p>
+                   <button
+                     type="button"
+-                    className="link-button"
++                    className="ft-btn ft-btn--outline ft-btn--sm ft-lift"
+                     aria-label={`Remove ${line.product.name} from cart`}
+                     onClick={() => cart.removeItem(line.id)}
+                     data-testid="line-remove"
+@@ -142,13 +173,19 @@ export default function CartPage() {
+               </div>
+               <div className="summary-row summary-total">
+                 <dt>Total</dt>
+-                <dd data-testid="cart-total">{formatPrice(cart.total)}</dd>
++                <dd>
++                  <span className="ft-flag" data-testid="cart-total">
++                    {formatPrice(cart.total)}
++                  </span>
++                </dd>
+               </div>
+             </dl>
+           </section>
+ 
+-          <section className="panel" aria-labelledby="checkout-heading">
+-            <h2 id="checkout-heading">Checkout</h2>
++          <section className="panel ft-box" aria-labelledby="checkout-heading">
++            <h2 id="checkout-heading" className="panel-title">
++              Checkout
++            </h2>
+             <form className="checkout-form" noValidate onSubmit={handleSubmit} data-testid="checkout-form">
+               <div className="field">
+                 <label htmlFor="checkout-name" className="field-label">
+@@ -224,7 +261,7 @@ export default function CartPage() {
+                 )}
+               </div>
+ 
+-              <button type="submit" className="button button-primary" data-testid="place-order">
++              <button type="submit" className="ft-btn ft-btn--primary ft-lift" data-testid="place-order">
+                 Place order
+               </button>
+             </form>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 3582617..ecf1b78 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,9 @@
+-import { Link } from 'react-router';
++import ErrorBand from '../components/ErrorBand';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Back to the shop</Link>
+-    </section>
++    <ErrorBand title="Page not found" testId="not-found">
++      The page you are looking for does not exist or has moved.
++    </ErrorBand>
+   );
+ }
+diff --git a/src/pages/ProductDetailPage.tsx b/src/pages/ProductDetailPage.tsx
+index fc75a5d..2e531ea 100644
+--- a/src/pages/ProductDetailPage.tsx
++++ b/src/pages/ProductDetailPage.tsx
+@@ -1,6 +1,7 @@
+ import { useState } from 'react';
+ import { Link, useParams } from 'react-router';
+ import { useCart } from '../cart/CartContext';
++import ErrorBand from '../components/ErrorBand';
+ import ProductImage from '../components/ProductImage';
+ import QuantityStepper from '../components/QuantityStepper';
+ import { categoryLabel, findProduct, formatPrice, type Product } from '../data/products';
+@@ -11,11 +12,9 @@ export default function ProductDetailPage() {
+ 
+   if (!product) {
+     return (
+-      <div className="empty-state" data-testid="product-not-found">
+-        <h1>Product not found</h1>
+-        <p className="muted">We could not find a product called “{slug}”.</p>
+-        <Link to="/">Back to the shop</Link>
+-      </div>
++      <ErrorBand title="Product not found" testId="product-not-found">
++        We could not find a product called “{slug}”.
++      </ErrorBand>
+     );
+   }
+ 
+@@ -41,30 +40,40 @@ function ProductDetail({ product }: { product: Product }) {
+ 
+   return (
+     <>
+-      <nav aria-label="Breadcrumb" className="breadcrumb">
+-        <ol>
+-          <li>
+-            <Link to="/">Shop</Link>
+-          </li>
+-          <li>
+-            <Link to={`/?category=${product.category}`}>{categoryLabel(product.category)}</Link>
+-          </li>
+-          <li aria-current="page">{product.name}</li>
+-        </ol>
+-      </nav>
++      <header className="ft-band ft-band--header band-shop">
++        <div className="ft-band__inner page-band-inner">
++          <nav aria-label="Breadcrumb" className="breadcrumb">
++            <ol>
++              <li>
++                <Link to="/">Shop</Link>
++              </li>
++              <li>
++                <Link to={`/?category=${product.category}`}>{categoryLabel(product.category)}</Link>
++              </li>
++              <li aria-current="page">{product.name}</li>
++            </ol>
++          </nav>
++          <h1 className="page-title" data-testid="product-title">
++            {product.name}
++          </h1>
++        </div>
++      </header>
+ 
+-      <article className="product-detail">
+-        <ProductImage product={product} size="large" />
++      <article className="ft-page product-detail" aria-label={product.name}>
++        <div className="product-detail-media">
++          <ProductImage product={product} size="large" />
++        </div>
+ 
+         <div className="product-detail-info">
+-          <h1 data-testid="product-title">{product.name}</h1>
+-          <p className="price price-large" data-testid="product-detail-price">
+-            {formatPrice(product.price)}
++          <p className="product-detail-price-row">
++            <span className="price ft-flag" data-testid="product-detail-price">
++              {formatPrice(product.price)}
++            </span>
+           </p>
+-          <p>{product.description}</p>
++          <p className="product-detail-description">{product.description}</p>
+ 
+           <form
+-            className="purchase-form"
++            className="purchase-form ft-box"
+             onSubmit={(event) => {
+               event.preventDefault();
+               if (product.inStock) handleAdd();
+@@ -79,6 +88,7 @@ function ProductDetail({ product }: { product: Product }) {
+                     <label key={option} htmlFor={optionId} className="variant-option">
+                       <input
+                         id={optionId}
++                        className="ft-radio"
+                         type="radio"
+                         name="variant"
+                         value={option}
+@@ -102,12 +112,12 @@ function ProductDetail({ product }: { product: Product }) {
+             />
+ 
+             {product.inStock ? (
+-              <button type="submit" className="button button-primary" data-testid="add-to-cart">
++              <button type="submit" className="ft-btn ft-btn--primary ft-lift" data-testid="add-to-cart">
+                 Add to cart
+               </button>
+             ) : (
+               <>
+-                <button type="submit" className="button button-primary" disabled data-testid="add-to-cart">
++                <button type="submit" className="ft-btn ft-btn--primary ft-lift" disabled data-testid="add-to-cart">
+                   Sold out
+                 </button>
+                 <p className="muted small" data-testid="stock-note">
+@@ -119,14 +129,18 @@ function ProductDetail({ product }: { product: Product }) {
+ 
+           <div role="status" className="added-message" data-testid="added-message">
+             {confirmation && (
+-              <p>
+-                {confirmation} <Link to="/cart">View cart</Link>
++              <p className="ft-toast">
++                <span className="ft-dot ft-dot--success" aria-hidden="true" />
++                <span className="ft-toast-text">{confirmation}</span>{' '}
++                <Link to="/cart" className="ft-btn ft-btn--outline ft-btn--sm ft-lift">
++                  View cart
++                </Link>
+               </p>
+             )}
+           </div>
+ 
+-          <h2>Details</h2>
+-          <ul className="detail-list">
++          <h2 className="detail-heading">Details</h2>
++          <ul className="detail-list ft-box ft-group">
+             {product.details.map((detail) => (
+               <li key={detail}>{detail}</li>
+             ))}
+diff --git a/src/pages/ProductsPage.tsx b/src/pages/ProductsPage.tsx
+index 2506d4f..9e9b097 100644
+--- a/src/pages/ProductsPage.tsx
++++ b/src/pages/ProductsPage.tsx
+@@ -1,7 +1,11 @@
+-import { useEffect, useMemo, useState } from 'react';
++import { useEffect, useMemo, useState, type FormEvent } from 'react';
+ import { Link, useSearchParams } from 'react-router';
++import { ChevronIcon, SearchIcon } from '../components/Icons';
++import PlateStack from '../components/PlateStack';
+ import ProductImage from '../components/ProductImage';
+ import { categories, categoryLabel, formatPrice, products, type CategoryId, type Product } from '../data/products';
++import Sticker from '../stickers/Sticker';
++import { button, crate, parcel, receipt, spool, swingTag } from '../stickers/kit';
+ 
+ type CategoryFilter = 'all' | CategoryId;
+ type SortKey = 'featured' | 'price-asc' | 'price-desc' | 'name';
+@@ -50,6 +54,8 @@ export default function ProductsPage() {
+   const [category, setCategory] = useState<CategoryFilter>(urlCategory);
+   const [sort, setSort] = useState<SortKey>(urlSort);
+   const [inStockOnly, setInStockOnly] = useState(urlInStockOnly);
++  // The hero search narrows the grid as you type; it stays local so typing never races the URL.
++  const [query, setQuery] = useState('');
+ 
+   // Follow URL changes that come from elsewhere (links, back/forward).
+   useEffect(() => {
+@@ -59,11 +65,15 @@ export default function ProductsPage() {
+   }, [urlCategory, urlSort, urlInStockOnly]);
+ 
+   const visible = useMemo(() => {
++    const needle = query.trim().toLowerCase();
+     const filtered = products.filter(
+-      (product) => (category === 'all' || product.category === category) && (!inStockOnly || product.inStock),
++      (product) =>
++        (category === 'all' || product.category === category) &&
++        (!inStockOnly || product.inStock) &&
++        (needle === '' || `${product.name} ${product.summary}`.toLowerCase().includes(needle)),
+     );
+     return sortProducts(filtered, sort);
+-  }, [category, sort, inStockOnly]);
++  }, [category, sort, inStockOnly, query]);
+ 
+   function updateParam(key: string, value: string | null) {
+     setSearchParams(
+@@ -92,10 +102,16 @@ export default function ProductsPage() {
+     updateParam('stock', checked ? 'in' : null);
+   }
+ 
++  function submitSearch(event: FormEvent<HTMLFormElement>) {
++    event.preventDefault();
++    document.getElementById('catalog')?.scrollIntoView();
++  }
++
+   function clearFilters() {
+     setCategory('all');
+     setSort('featured');
+     setInStockOnly(false);
++    setQuery('');
+     setSearchParams(new URLSearchParams(), { replace: true });
+   }
+ 
+@@ -103,22 +119,51 @@ export default function ProductsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Shop all goods</h1>
+-        <p className="muted">Durable bags, clothing and kitchen goods made to be used every day.</p>
+-      </div>
++      <section className="ft-band ft-hero band-shop" aria-labelledby="shop-heading">
++        <div className="ft-sticker-layer hero-stickers" aria-hidden="true">
++          <Sticker art={swingTag} fill="var(--color-band-periwinkle)" size="lg" className="hero-sticker hero-sticker-1" />
++          <Sticker art={button} fill="var(--color-band-teal)" size="md" className="hero-sticker hero-sticker-2" />
++          <Sticker art={receipt} fill="var(--color-art-white)" size="md" className="hero-sticker hero-sticker-3" />
++          <Sticker art={spool} fill="var(--color-art-red)" size="lg" className="hero-sticker hero-sticker-4" />
++          <Sticker art={parcel} fill="var(--color-band-marigold)" size="lg" className="hero-sticker hero-sticker-5" />
++        </div>
++        <div className="ft-band__inner ft-hero__inner">
++          <h1 id="shop-heading" className="ft-hero__title">
++            Shop all goods
++          </h1>
++          <p className="ft-hero__lead">Durable bags, clothing and kitchen goods made to be used every day.</p>
++          <div className="ft-hero-actions">
++            <PlateStack>
++              <a href="#catalog" className="ft-btn ft-btn--ink ft-btn--hero">
++                Browse goods
++              </a>
++            </PlateStack>
++            <form className="ft-hero-field" role="search" onSubmit={submitSearch}>
++              <SearchIcon className="icon ft-field-icon" />
++              <input
++                type="search"
++                className="ft-field ft-field--with-icon"
++                aria-label="Search products"
++                placeholder="Search totes, mugs, sweaters"
++                value={query}
++                onChange={(event) => setQuery(event.target.value)}
++              />
++            </form>
++          </div>
++        </div>
++      </section>
+ 
+-      <section className="panel" aria-labelledby="catalog-heading">
++      <section id="catalog" className="ft-page catalog" aria-labelledby="catalog-heading">
+         <h2 id="catalog-heading" className="visually-hidden">
+           Products
+         </h2>
+-        <div className="toolbar">
++        <div className="toolbar ft-box">
+           <div className="chip-group" role="group" aria-label="Filter by category">
+             {FILTERS.map((filter) => (
+               <button
+                 key={filter.value}
+                 type="button"
+-                className="chip"
++                className="chip ft-pill"
+                 aria-pressed={category === filter.value}
+                 onClick={() => selectCategory(filter.value)}
+                 data-testid={`category-filter-${filter.value}`}
+@@ -129,9 +174,10 @@ export default function ProductsPage() {
+           </div>
+ 
+           <div className="toolbar-controls">
+-            <label className="field-inline">
++            <label className="field-inline check-row">
+               <input
+                 type="checkbox"
++                className="ft-check"
+                 checked={inStockOnly}
+                 onChange={(event) => toggleInStock(event.target.checked)}
+                 data-testid="in-stock-toggle"
+@@ -140,39 +186,43 @@ export default function ProductsPage() {
+             </label>
+             <div className="field-inline">
+               <label htmlFor="sort-select">Sort by</label>
+-              <select
+-                id="sort-select"
+-                className="select"
+-                value={sort}
+-                onChange={(event) => selectSort(parseSort(event.target.value))}
+-                data-testid="sort-select"
+-              >
+-                {SORT_OPTIONS.map((option) => (
+-                  <option key={option.value} value={option.value}>
+-                    {option.label}
+-                  </option>
+-                ))}
+-              </select>
++              <span className="select-wrap">
++                <select
++                  id="sort-select"
++                  className="select"
++                  value={sort}
++                  onChange={(event) => selectSort(parseSort(event.target.value))}
++                  data-testid="sort-select"
++                >
++                  {SORT_OPTIONS.map((option) => (
++                    <option key={option.value} value={option.value}>
++                      {option.label}
++                    </option>
++                  ))}
++                </select>
++                <ChevronIcon className="icon select-chevron" />
++              </span>
+             </div>
+           </div>
+         </div>
+ 
+-        <p className="muted small" role="status" data-testid="result-count">
++        <p className="muted small result-count" role="status" data-testid="result-count">
+           Showing {countLabel}
+         </p>
+ 
+         {visible.length === 0 ? (
+-          <div className="empty-state" data-testid="products-empty">
++          <div className="empty-state ft-empty" data-testid="products-empty">
++            <Sticker art={crate} fill="var(--color-band-marigold)" className="empty-sticker" />
+             <h3>No products match these filters</h3>
+             <p className="muted">Try another category or include items that are out of stock.</p>
+-            <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++            <button type="button" className="ft-btn ft-btn--outline ft-lift" onClick={clearFilters} data-testid="clear-filters">
+               Clear filters
+             </button>
+           </div>
+         ) : (
+           <ul className="product-grid" data-testid="product-grid">
+             {visible.map((product) => (
+-              <li key={product.slug} className="product-card" data-testid="product-card">
++              <li key={product.slug} className="product-card ft-card ft-lift" data-testid="product-card">
+                 <ProductImage product={product} />
+                 <div className="product-card-body">
+                   <p className="muted small">{categoryLabel(product.category)}</p>
+@@ -181,13 +231,14 @@ export default function ProductsPage() {
+                       {product.name}
+                     </Link>
+                   </h3>
+-                  <p className="small">{product.summary}</p>
++                  <p className="product-card-summary">{product.summary}</p>
+                   <p className="product-card-meta">
+-                    <span className="price" data-testid="product-price">
++                    <span className="price ft-flag" data-testid="product-price">
+                       {formatPrice(product.price)}
+                     </span>
+                     {!product.inStock && (
+-                      <span className="tag tag-muted" data-testid="sold-out-tag">
++                      <span className="tag tag-muted ft-status" data-testid="sold-out-tag">
++                        <span className="ft-dot ft-dot--warning" aria-hidden="true" />
+                         Sold out
+                       </span>
+                     )}
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 651c82a..184a680 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,57 +1,56 @@
+ /*
+- * Base styles for the Fieldhouse Supply store.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Fieldhouse Supply on felt-tip-market@0.1.0-rc.4.
++ * Tokens come verbatim from design-system/tokens.css; this file only references them.
++ * Read design-system/components.md before adding screens.
+  */
++@import '../../design-system/tokens.css';
++
++/* ---------------------------------------------------------------------------
++ * Legacy variable names, aliased onto the system tokens so nothing that still
++ * reads them breaks.
++ * ------------------------------------------------------------------------- */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-header-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-error: #b00020;
+-  --color-success-bg: #e3f2e5;
+-  --color-success-text: #1b5e20;
+-  --color-badge-bg: #b00020;
+-  --color-badge-text: #ffffff;
+-  --color-tag-bg: #e8e8e8;
+-  --color-tag-text: #444444;
+-  --color-disabled-bg: #e8e8e8;
+-  --color-disabled-text: #888888;
+-  --color-image-icon: #777777;
+-  --color-tone-sand: #ece4d4;
+-  --color-tone-olive: #dfe3d0;
+-  --color-tone-slate: #d9dee5;
+-  --color-tone-clay: #ead8cf;
+-  --color-tone-stone: #e4e4e4;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --font-size-price-large: 22px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --content-max-width: 1120px;
+-  --product-card-min: 220px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-raised);
++  --color-surface-muted: var(--color-surface-default);
++  --color-header-bg: var(--color-surface-bar);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-primary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-error: var(--color-status-danger);
++  --color-badge-bg: var(--color-action-ink);
++  --color-badge-text: var(--color-action-on-ink);
++  --color-disabled-bg: var(--color-surface-subtle);
++  --color-disabled-text: var(--color-text-secondary);
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --font-size-small: var(--font-size-meta);
++  --font-size-h1: var(--font-size-section);
++  --font-size-h2: var(--font-size-lead);
++  --line-height: var(--font-line-height-body);
++  --radius: var(--radius-sm);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hair);
++  --content-max-width: var(--size-content-app);
++
++  /* Local derived values (all from tokens). */
++  --bar-height: calc(var(--size-control-hero) + var(--space-5));
++  --ft-shadow-lift: var(--offset-lift) var(--offset-lift) 0 0 var(--color-shadow-hard);
++}
++
++@media (max-width: 1023px) {
++  :root {
++    --bar-height: var(--space-16);
++  }
+ }
+ 
++/* ---------------------------------------------------------------------------
++ * Base
++ * ------------------------------------------------------------------------- */
+ *,
+ *::before,
+ *::after {
+@@ -63,31 +62,44 @@ body {
+   margin: 0;
+ }
+ 
++html {
++  scroll-behavior: auto;
++}
++
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+   margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-size: var(--font-size-section);
+ }
+ 
+ h2 {
+-  font-size: var(--font-size-h2);
++  font-size: var(--font-size-lead);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-lead);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-base);
++  font-size: var(--font-size-card-title);
++  font-weight: var(--font-weight-regular);
++  letter-spacing: var(--font-tracking-normal);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ p {
+@@ -95,11 +107,17 @@ p {
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
++  text-decoration-thickness: var(--border-width-hair);
++  text-underline-offset: 3px;
++}
++
++strong {
++  font-weight: var(--font-weight-bold);
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
+@@ -123,516 +141,1757 @@ a {
+ .skip-link:focus {
+   left: var(--space-2);
+   top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  z-index: 20;
++  display: inline-flex;
++  align-items: center;
++  height: var(--size-control);
++  padding: 0 var(--space-6);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-meta);
++  line-height: var(--font-line-height-lead);
++}
++
++.lead {
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++  letter-spacing: var(--font-tracking-display);
+ }
+ 
+ .icon {
+   display: block;
+   flex-shrink: 0;
++  width: var(--size-icon);
++  height: var(--size-icon);
+ }
+ 
+-/* Layout */
+-.app-shell {
+-  display: flex;
+-  flex-direction: column;
+-  min-height: 100vh;
+-}
+-
+-.site-header {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-6);
+-  padding: var(--space-3) var(--space-6);
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
++/* ===========================================================================
++ * Signature 1 — lift and slam, plate stack, hero action row
++ * ========================================================================= */
++.ft-lift {
++  border: var(--border-width-hair) solid var(--color-art-ink);
++  border-radius: var(--radius-sm);
++  transition:
++    translate var(--motion-duration-lift) var(--motion-easing-lift),
++    box-shadow var(--motion-duration-lift) var(--motion-easing-lift);
+ }
+ 
+-.brand {
+-  font-weight: bold;
+-  color: var(--color-text);
+-  text-decoration: none;
++@media (hover: hover) {
++  .ft-lift:hover {
++    translate: calc(var(--offset-lift) * -1) calc(var(--offset-lift) * -1);
++    box-shadow: var(--ft-shadow-lift);
++  }
+ }
+ 
+-.site-nav {
+-  flex: 1;
++.ft-lift:active {
++  translate: 0 0;
++  box-shadow: none;
+ }
+ 
+-.nav-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  display: flex;
+-  gap: var(--space-2);
++.ft-lift:disabled,
++.ft-lift:disabled:hover {
++  translate: 0 0;
++  box-shadow: none;
+ }
+ 
+-.nav-link {
+-  display: block;
+-  padding: var(--space-1) var(--space-3);
+-  border-radius: var(--radius);
+-  text-decoration: none;
++.ft-plates {
++  position: relative;
++  display: inline-block;
++  isolation: isolate;
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
++.ft-plate {
++  position: absolute;
++  inset: 0;
++  border-radius: var(--radius-sm);
++  border: var(--border-width-hair) solid var(--color-art-ink);
++  transition: translate var(--motion-duration-lift) var(--motion-easing-lift);
+ }
+ 
+-.content {
+-  flex: 1;
+-  width: 100%;
+-  max-width: var(--content-max-width);
+-  margin: 0 auto;
+-  padding: var(--space-6);
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-6);
++.ft-plate--a {
++  background: var(--color-plate-a);
++  z-index: -1;
+ }
+ 
+-.site-footer {
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4) var(--space-6);
++.ft-plate--b {
++  background: var(--color-plate-b);
++  z-index: -2;
+ }
+ 
+-.site-footer p {
+-  margin: 0;
++.ft-plates > .ft-btn {
++  position: relative;
++  display: inline-flex;
++  transition: translate var(--motion-duration-lift) var(--motion-easing-lift);
+ }
+ 
+-/* Controls */
+-.input,
+-.select {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
++.ft-plates:hover > .ft-btn,
++.ft-plates:focus-within > .ft-btn {
++  translate: calc(var(--offset-plate) * -1) calc(var(--offset-plate) * -1);
+ }
+ 
+-.textarea {
+-  resize: vertical;
++.ft-plates:hover > .ft-plate--a,
++.ft-plates:focus-within > .ft-plate--a {
++  translate: calc(var(--offset-lift) * -1) calc(var(--offset-lift) * -1);
+ }
+ 
+-.input[aria-invalid='true'] {
+-  border-color: var(--color-error);
++@media (prefers-reduced-motion: reduce) {
++  .ft-lift,
++  .ft-plate,
++  .ft-plates > .ft-btn {
++    transition: none;
++  }
+ }
+ 
+-.button {
+-  font: inherit;
+-  display: inline-flex;
+-  align-items: center;
++.ft-hero-actions {
++  display: flex;
++  flex-wrap: wrap;
+   justify-content: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  text-decoration: none;
+-  cursor: pointer;
+-}
+-
+-.button:disabled {
+-  background: var(--color-disabled-bg);
+-  color: var(--color-disabled-text);
+-  cursor: not-allowed;
++  gap: var(--space-4);
++  margin-block-start: var(--space-8);
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
+-  padding: var(--space-2) var(--space-4);
++.ft-hero-actions > * {
++  height: var(--size-control-hero);
+ }
+ 
+-.link-button {
+-  font: inherit;
+-  background: none;
+-  border: none;
+-  padding: 0;
+-  color: var(--color-link);
+-  text-decoration: underline;
+-  cursor: pointer;
++.ft-btn.ft-btn--hero {
++  height: 100%;
++  padding: 0 var(--space-8);
++  font-size: var(--font-size-lead);
+ }
+ 
+-.field-inline {
++.ft-hero-field {
++  position: relative;
+   display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++  flex: 0 1 400px;
+ }
+ 
+-.field {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
++.ft-hero-field .ft-field {
++  height: 100%;
++  width: 100%;
++  font-size: var(--font-size-lead);
+ }
+ 
+-.field-label {
+-  font-weight: bold;
+-  font-size: var(--font-size-small);
+-}
++@media (max-width: 767px) {
++  .ft-hero-actions {
++    flex-direction: column;
++  }
+ 
+-.field-error {
+-  color: var(--color-error);
+-  font-size: var(--font-size-small);
+-  margin: 0;
+-}
++  .ft-hero-actions > *,
++  .ft-hero-actions .ft-btn {
++    width: 100%;
++    flex: none;
++    height: var(--size-control);
++  }
+ 
+-/* Cart button */
+-.cart-button {
+-  position: relative;
++  .ft-btn.ft-btn--hero,
++  .ft-hero-field .ft-field {
++    font-size: var(--font-size-body);
++  }
+ }
+ 
+-.badge {
+-  display: inline-block;
+-  min-width: 20px;
+-  padding: 0 var(--space-1);
+-  border-radius: var(--radius-pill);
+-  background: var(--color-badge-bg);
+-  color: var(--color-badge-text);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
+-  text-align: center;
++/* ===========================================================================
++ * Signature 2 — ink-outlined stickers, word badge
++ * ========================================================================= */
++.ft-sticker {
++  display: block;
++  height: auto;
++  overflow: visible;
+ }
+ 
+-/* Panels */
+-.panel {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++.ft-sticker-layer {
++  position: absolute;
++  inset: 0;
++  overflow: hidden;
++  pointer-events: none;
++  z-index: 0;
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.ft-sticker-layer > svg {
++  position: absolute;
+ }
+ 
+-/* Catalog toolbar */
+-.toolbar {
+-  display: flex;
+-  flex-wrap: wrap;
+-  justify-content: space-between;
+-  align-items: center;
+-  gap: var(--space-3);
+-  margin-bottom: var(--space-3);
++.ft-sticker--lg {
++  width: clamp(var(--size-sticker-sm), 18vw, var(--size-sticker-hero));
+ }
+ 
+-.toolbar-controls {
+-  display: flex;
+-  flex-wrap: wrap;
+-  align-items: center;
+-  gap: var(--space-4);
++.ft-sticker--md {
++  width: clamp(var(--size-sticker-sm), 11vw, var(--size-sticker-md));
+ }
+ 
+-.chip-group {
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
++.ft-sticker *,
++.ft-badge * {
++  vector-effect: non-scaling-stroke;
+ }
+ 
+-.chip {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius-pill);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  cursor: pointer;
++/* Header-band sticker (overview and dashboard screens). */
++.ft-band--with-sticker {
++  --ft-s: clamp(var(--size-sticker-sm), 14vw, var(--size-sticker-band));
++  overflow: hidden;
++  min-height: calc(var(--ft-s) + var(--space-6) * 2);
++  padding-inline-end: calc(var(--ft-s) * 0.75 + var(--space-6));
+ }
+ 
+-.chip[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.ft-band__sticker {
++  position: absolute;
++  inset-inline-end: 0;
++  inset-block-start: 50%;
++  width: var(--ft-s);
++  height: var(--ft-s);
++  translate: 25% -50%;
++  pointer-events: none;
++  z-index: 0;
++}
++
++@supports (animation-timeline: scroll()) {
++  @media (prefers-reduced-motion: no-preference) {
++    .ft-sticker-layer > svg {
++      animation: ft-drift linear both;
++      animation-timeline: scroll(root);
++    }
++  }
+ }
+ 
+-/* Product grid */
+-.product-grid {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(var(--product-card-min), 1fr));
+-  gap: var(--space-4);
++@keyframes ft-drift {
++  from {
++    translate: 0 0;
++  }
++  to {
++    translate: 0 -50%;
++  }
+ }
+ 
+-.product-card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  overflow: hidden;
+-  display: flex;
+-  flex-direction: column;
++@keyframes ft-rock {
++  0% {
++    rotate: -8deg;
++  }
++  50% {
++    rotate: 8deg;
++  }
+ }
+ 
+-.product-card-body {
+-  padding: var(--space-3);
++.ft-sticker--loading {
++  animation: ft-rock calc(var(--motion-duration-rock) * 2) steps(1, end) infinite;
+ }
+ 
+-.product-card-body p {
+-  margin-bottom: var(--space-1);
++@media (prefers-reduced-motion: reduce) {
++  .ft-sticker--loading {
++    animation: none;
++  }
+ }
+ 
+-.product-card-title {
+-  margin-bottom: var(--space-1);
++.ft-badge {
++  display: block;
++  width: min(230px, 60vw);
++  height: auto;
++  overflow: visible;
+ }
+ 
+-.product-card-meta {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++/* ===========================================================================
++ * Signature 3 — hard-seamed poster bands
++ * ========================================================================= */
++.ft-band {
++  position: relative;
++  background: var(--ft-band, var(--color-band-lemon));
++  color: var(--color-text-on-band);
++  border-block-end: var(--border-width-hair) solid var(--color-art-ink);
++  padding-block: clamp(var(--space-16), 9vw, var(--space-32));
++  /* Anything on a band keeps its light-mode look: ink focus ring included. */
++  --color-focus-ring: var(--color-art-ink);
+ }
+ 
+-.price {
+-  font-weight: bold;
+-  font-variant-numeric: tabular-nums;
++.ft-band--header {
++  padding-block: var(--space-6) var(--space-8);
+ }
+ 
+-.price-large {
+-  font-size: var(--font-size-price-large);
++.ft-band > .ft-band__inner {
++  position: relative;
++  z-index: 1;
++  max-width: var(--size-content-marketing);
++  margin-inline: auto;
++  padding-inline: var(--space-6);
+ }
+ 
+-.tag {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.ft-band :is(input, select, .ft-btn--outline, .ft-status) {
++  background: var(--color-surface-on-band);
++  color: var(--color-text-on-band);
++  border-color: var(--color-art-ink);
+ }
+ 
+-.tag-muted {
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
++.ft-band input::placeholder {
++  color: var(--color-grey-muted);
+ }
+ 
+-/* Image placeholder */
+-.product-image {
+-  display: flex;
+-  align-items: center;
+-  justify-content: center;
+-  color: var(--color-image-icon);
+-  aspect-ratio: 4 / 3;
+-  width: 100%;
++.ft-band a:not(.ft-btn) {
++  color: var(--color-text-on-band);
+ }
+ 
+-.product-image-large {
+-  aspect-ratio: 1 / 1;
+-  border-radius: var(--radius);
++.ft-band .ft-pill {
++  color: var(--color-text-on-band);
+ }
+ 
+-.tone-sand {
+-  background: var(--color-tone-sand);
++.ft-band .ft-pill:hover,
++.ft-band .ft-pill[aria-selected='true'] {
++  border-color: var(--color-art-ink);
+ }
+ 
+-.tone-olive {
+-  background: var(--color-tone-olive);
++.band-shop {
++  --ft-band: var(--color-band-lemon);
+ }
+ 
+-.tone-slate {
+-  background: var(--color-tone-slate);
++.band-cart {
++  --ft-band: var(--color-band-periwinkle);
+ }
+ 
+-.tone-clay {
+-  background: var(--color-tone-clay);
++.band-error {
++  --ft-band: var(--color-band-teal);
+ }
+ 
+-.tone-stone {
+-  background: var(--color-tone-stone);
++/* ===========================================================================
++ * Signature 4 — ink hairline frame with pill markers
++ * ========================================================================= */
++.ft-box {
++  background: var(--color-surface-raised);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
+ }
+ 
+-/* Product detail */
+-.breadcrumb ol {
++.ft-group {
+   list-style: none;
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+   margin: 0;
+   padding: 0;
+-  font-size: var(--font-size-small);
+-}
+-
+-.breadcrumb li + li::before {
+-  content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
+-}
+-
+-.product-detail {
+-  display: grid;
+-  grid-template-columns: 1fr 1fr;
+-  gap: var(--space-8);
+-  align-items: start;
+-}
+-
+-.purchase-form {
+-  display: flex;
+-  flex-direction: column;
+-  align-items: flex-start;
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0;
+ }
+ 
+-.variant-fieldset {
+-  border: none;
+-  margin: 0;
+-  padding: 0;
++.ft-group > * + * {
++  border-block-start: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+-.variant-options {
++.ft-group > * {
++  min-height: var(--size-row);
+   display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin-top: var(--space-1);
++  align-items: center;
++  padding-inline: var(--space-4);
+ }
+ 
+-.variant-option {
++.ft-pill {
++  position: relative;
++  height: var(--size-control-sm);
++  padding-inline: var(--space-4);
++  border-radius: var(--radius-full);
++  border: var(--border-width-hair) solid transparent;
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-1);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
++  background: transparent;
++  color: var(--color-text-primary);
++  font: inherit;
++  text-decoration: none;
+   cursor: pointer;
++  transition: border-color var(--motion-duration-instant);
+ }
+ 
+-.stepper {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
++/* Extend the 40px pill to a 44px hit area. */
++.ft-pill::before {
++  content: '';
++  position: absolute;
++  inset: -2px 0;
+ }
+ 
+-.stepper-controls {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-1);
++.ft-pill:hover,
++.ft-pill[aria-selected='true'],
++.ft-pill[aria-pressed='true'] {
++  border-color: var(--color-border-default);
+ }
+ 
+-.stepper-button {
+-  width: 32px;
+-  height: 32px;
+-  padding: 0;
++.ft-pill[aria-current='page'] {
++  background: var(--color-nav-current);
++  color: var(--color-nav-on-current);
+ }
+ 
+-.stepper-input {
+-  width: 56px;
+-  height: 32px;
++.ft-empty {
++  border: var(--border-width-hair) dashed var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  padding: var(--space-12) var(--space-6);
+   text-align: center;
+ }
+ 
+-.added-message p {
+-  background: var(--color-success-bg);
+-  color: var(--color-success-text);
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
++/* ===========================================================================
++ * Signature 5 — notched price flag
++ * ========================================================================= */
++.ft-flag {
++  position: relative;
++  isolation: isolate;
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  height: var(--size-flag);
++  padding: 0 calc(var(--size-notch) + var(--space-2)) 0 var(--space-2);
++  font: var(--font-weight-regular) var(--font-size-body) / 1 var(--font-family-sans);
++  font-variant-numeric: tabular-nums;
++  color: var(--color-flag-text);
++  background: var(--color-art-ink);
++  clip-path: polygon(0 0, 100% 0, calc(100% - var(--size-notch)) 50%, 100% 100%, 0 100%);
+ }
+ 
+-.detail-list {
+-  margin: 0;
+-  padding-left: var(--space-6);
++.ft-flag::before {
++  content: '';
++  position: absolute;
++  inset: var(--border-width-hair);
++  z-index: -1;
++  background: var(--color-flag-fill);
++  clip-path: polygon(0 0, 100% 0, calc(100% - var(--size-notch) + 2px) 50%, 100% 100%, 0 100%);
+ }
+ 
+-/* Cart */
+-.cart-layout {
+-  display: grid;
+-  grid-template-columns: 3fr 2fr;
+-  gap: var(--space-6);
+-  align-items: start;
++.ft-flag s {
++  text-decoration-thickness: var(--border-width-hair);
+ }
+ 
+-.cart-lines {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
++/* ===========================================================================
++ * Imagery — drawn media vignette and glyph box
++ * ========================================================================= */
++.ft-media {
++  aspect-ratio: 4 / 3;
++  overflow: hidden;
++  container-type: inline-size;
++  border-block-end: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+-.cart-line {
++.ft-media--drawn {
++  background: var(--ft-band);
+   display: grid;
+-  grid-template-columns: 1fr auto auto auto;
+-  align-items: center;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  place-items: center;
+ }
+ 
+-.cart-line-info p {
+-  margin: 0;
++.ft-media--drawn > svg {
++  width: 62%;
++  max-height: 84%;
+ }
+ 
+-.cart-line-name {
+-  font-weight: bold;
++@container (min-width: 321px) {
++  .ft-media--drawn > svg {
++    --ft-outline: var(--border-width-art-lg);
++  }
+ }
+ 
+-.cart-line-total {
+-  margin: 0;
+-  min-width: 80px;
+-  text-align: right;
++.ft-media--glyph {
++  display: grid;
++  place-items: center;
++  background: var(--color-surface-raised);
++  border: var(--border-width-hair) dashed var(--color-border-default);
++  border-radius: var(--radius-sm);
+ }
+ 
+-.summary {
+-  margin: var(--space-4) 0 0;
++.ft-media--glyph svg {
++  width: calc(var(--size-icon) * 1.5);
++  height: calc(var(--size-icon) * 1.5);
++  fill: var(--color-text-primary);
+ }
+ 
+-.summary-row {
+-  display: flex;
+-  justify-content: space-between;
+-  padding: var(--space-1) 0;
++.ground-lemon {
++  --ft-band: var(--color-band-lemon);
+ }
+ 
+-.summary-row dd {
+-  margin: 0;
+-  font-variant-numeric: tabular-nums;
++.ground-periwinkle {
++  --ft-band: var(--color-band-periwinkle);
+ }
+ 
+-.summary-total {
+-  border-top: var(--border-width) solid var(--color-border);
+-  margin-top: var(--space-2);
+-  padding-top: var(--space-2);
+-  font-weight: bold;
++.ground-teal {
++  --ft-band: var(--color-band-teal);
+ }
+ 
+-.checkout-form {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
++.ground-marigold {
++  --ft-band: var(--color-band-marigold);
+ }
+ 
+-.checkout-form .button-primary {
+-  align-self: flex-start;
++/* ===========================================================================
++ * Components — button
++ * ========================================================================= */
++.ft-btn {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-2);
++  height: var(--size-control);
++  padding: 0 var(--space-6);
++  font: inherit;
++  font-size: var(--font-size-body);
++  line-height: 1;
++  white-space: nowrap;
++  text-decoration: none;
++  cursor: pointer;
++  border: var(--border-width-hair) solid var(--color-art-ink);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+ }
+ 
+-.confirmation {
+-  background: var(--color-success-bg);
+-  color: var(--color-success-text);
++.ft-btn--primary {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  border-color: var(--color-art-ink);
++}
++
++.ft-btn--ink {
++  background: var(--color-action-ink);
++  color: var(--color-action-on-ink);
++  border-color: var(--color-art-ink);
++}
++
++.ft-btn--outline {
++  background: transparent;
++  color: var(--color-text-primary);
++  border-color: var(--color-border-strong);
++}
++
++.ft-box .ft-btn--outline {
++  background: var(--color-surface-raised);
++}
++
++.ft-btn--sm {
++  height: var(--size-control-sm);
++  padding: 0 var(--space-4);
++}
++
++.ft-btn--square {
++  width: var(--size-control);
++  padding: 0;
++}
++
++.ft-btn--square.ft-btn--sm {
++  width: var(--size-control-sm);
++}
++
++.ft-btn:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
++  cursor: not-allowed;
++}
++
++/* ===========================================================================
++ * Components — text field, select, checkbox, radio
++ * ========================================================================= */
++.input,
++.select,
++.ft-field {
++  font: inherit;
++  font-size: var(--font-size-body);
++  height: var(--size-control);
++  padding: 0 var(--space-4);
++  border: var(--border-width-hair) solid var(--color-border-strong);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  min-width: 0;
++}
++
++.input::placeholder,
++.ft-field::placeholder {
++  color: var(--color-text-secondary);
++}
++
++.input:focus-visible,
++.select:focus-visible,
++.ft-field:focus-visible {
++  box-shadow: 0 0 0 var(--border-width-thick) var(--color-focus-halo);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: calc(var(--border-width-thick) + var(--border-width-thick));
++}
++
++.input:disabled,
++.select:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
++}
++
++.textarea {
++  height: auto;
++  min-height: calc(var(--font-size-body) * var(--font-line-height-body) * 4 + var(--space-3) * 2 + 2px);
++  padding: var(--space-3) var(--space-4);
++  resize: vertical;
++}
++
++.input[aria-invalid='true'] {
++  border-color: var(--color-status-danger);
++  box-shadow: inset 0 0 0 var(--border-width-hair) var(--color-status-danger);
++}
++
++.input[aria-invalid='true']:focus-visible {
++  box-shadow:
++    inset 0 0 0 var(--border-width-hair) var(--color-status-danger),
++    0 0 0 var(--border-width-thick) var(--color-focus-halo);
++}
++
++.ft-field--with-icon {
++  padding-inline-start: calc(var(--space-4) + var(--size-icon) + var(--space-3));
++}
++
++.ft-field-icon {
++  position: absolute;
++  inset-inline-start: var(--space-4);
++  inset-block-start: 50%;
++  translate: 0 -50%;
++  color: var(--color-text-on-band);
++  pointer-events: none;
++}
++
++.field-inline {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++}
++
++.field {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-2);
++}
++
++.field-label {
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-regular);
++}
++
++.field-error {
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++  margin: 0;
++  color: var(--color-text-primary);
++  font-size: var(--font-size-meta);
++  line-height: var(--font-line-height-lead);
++}
++
++.field-error::before {
++  content: '!';
++  flex: none;
++  display: inline-grid;
++  place-items: center;
++  width: var(--space-4);
++  height: var(--space-4);
++  border-radius: var(--radius-full);
++  border: var(--border-width-hair) solid var(--color-art-ink);
++  background: var(--color-status-danger);
++  color: var(--color-art-ink);
++  font-size: var(--space-3);
++  font-weight: var(--font-weight-bold);
++  line-height: 1;
++}
++
++.select-wrap {
++  position: relative;
++  display: inline-flex;
++}
++
++.select {
++  appearance: none;
++  padding-inline-end: calc(var(--space-4) + var(--size-icon) + var(--space-2));
++  cursor: pointer;
++}
++
++.select-chevron {
++  position: absolute;
++  inset-inline-end: var(--space-3);
++  inset-block-start: 50%;
++  translate: 0 -50%;
++  pointer-events: none;
++  transition: rotate var(--motion-duration-open) var(--motion-easing-open);
++}
++
++.select option {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++}
++
++.ft-check,
++.ft-radio {
++  appearance: none;
++  position: relative;
++  flex: none;
++  width: var(--size-icon);
++  height: var(--size-icon);
++  margin: 0;
++  border: var(--border-width-hair) solid var(--color-border-strong);
++  background: var(--color-surface-raised);
++  cursor: pointer;
++}
++
++.ft-check {
++  border-radius: var(--radius-sm);
++}
++
++.ft-radio {
++  border-radius: var(--radius-full);
++}
++
++.ft-check:checked,
++.ft-radio:checked {
++  background: var(--color-action-primary);
++  border-color: var(--color-art-ink);
++}
++
++.ft-check:checked::after {
++  content: '';
++  position: absolute;
++  left: 6px;
++  top: 2px;
++  width: 5px;
++  height: 10px;
++  border: solid var(--color-art-ink);
++  border-width: 0 var(--border-width-thick) var(--border-width-thick) 0;
++  rotate: 45deg;
++}
++
++.ft-radio:checked::after {
++  content: '';
++  position: absolute;
++  inset: 0;
++  margin: auto;
++  width: var(--space-2);
++  height: var(--space-2);
++  border-radius: var(--radius-full);
++  background: var(--color-art-ink);
++}
++
++.check-row {
++  min-height: calc(var(--size-control-sm) + var(--space-1));
++  cursor: pointer;
++}
++
++/* ===========================================================================
++ * Components — badge, status pill, toast
++ * ========================================================================= */
++.ft-status {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  height: var(--size-flag);
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-meta);
++  white-space: nowrap;
++}
++
++.ft-dot {
++  flex: none;
++  width: var(--space-2);
++  height: var(--space-2);
++  border-radius: var(--radius-full);
++  border: var(--border-width-hair) solid var(--color-art-ink);
++}
++
++.ft-dot--success {
++  background: var(--color-status-success);
++}
++
++.ft-dot--warning {
++  background: var(--color-status-warning);
++}
++
++.ft-dot--info {
++  background: var(--color-status-info);
++}
++
++.ft-toast {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: var(--space-3);
++  min-height: var(--size-row);
++  margin: 0;
++  padding: var(--space-3) var(--space-4);
++  background: var(--color-surface-raised);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  box-shadow: var(--ft-shadow-lift);
++  animation: ft-arrive-up var(--motion-duration-lift) var(--motion-easing-lift);
++}
++
++.ft-toast-text {
++  flex: 1 1 200px;
++}
++
++@keyframes ft-arrive-up {
++  from {
++    translate: 0 8px;
++  }
++  to {
++    translate: 0 0;
++  }
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .ft-toast {
++    animation: none;
++  }
++}
++
++/* ===========================================================================
++ * Top bar and navigation
++ * ========================================================================= */
++.app-shell {
++  display: flex;
++  flex-direction: column;
++  min-height: 100vh;
++}
++
++.site-header {
++  position: relative;
++  z-index: 10;
++  display: flex;
++  align-items: stretch;
++  height: var(--bar-height);
++  background: var(--color-surface-bar);
++  border-bottom: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.brand {
++  display: flex;
++  align-items: center;
++  padding: 0 var(--space-8);
++  font-size: var(--font-size-lead);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++  color: var(--color-text-primary);
++  text-decoration: none;
++  white-space: nowrap;
++}
++
++.site-nav-wrap {
++  flex: 1;
++  display: flex;
++  align-items: center;
++}
++
++.site-nav {
++  flex: 1;
++}
++
++.nav-list {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++  display: flex;
++  gap: var(--space-2);
++}
++
++.menu-button {
++  display: none;
++}
++
++.cart-button {
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++  padding: 0 var(--space-6);
++  background: var(--color-action-ink);
++  color: var(--color-action-on-ink);
++  border-left: var(--border-width-hair) solid var(--color-border-default);
++  text-decoration: none;
++  transition:
++    translate var(--motion-duration-lift) var(--motion-easing-lift),
++    box-shadow var(--motion-duration-lift) var(--motion-easing-lift);
++}
++
++@media (hover: hover) {
++  .cart-button:hover {
++    translate: calc(var(--offset-lift) * -1) calc(var(--offset-lift) * -1);
++    box-shadow: var(--ft-shadow-lift);
++  }
++}
++
++.cart-button:active {
++  translate: 0 0;
++  box-shadow: none;
++}
++
++.cart-button:focus-visible {
++  outline-offset: -4px;
++  outline-color: var(--color-action-on-ink);
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .cart-button {
++    transition: none;
++  }
++}
++
++.badge {
++  display: inline-grid;
++  place-items: center;
++  min-width: 20px;
++  height: 20px;
++  padding: 0 var(--space-1);
++  border-radius: var(--radius-full);
++  background: var(--color-action-on-ink);
++  color: var(--color-action-ink);
++  font-size: var(--font-size-meta);
++  font-variant-numeric: tabular-nums;
++  line-height: 1;
++}
++
++@media (max-width: 1023px) {
++  .brand {
++    flex: 1;
++    padding: 0 var(--space-4);
++    font-size: var(--font-size-card-title);
++  }
++
++  .site-nav-wrap {
++    flex: none;
++    padding-inline-end: var(--space-3);
++  }
++
++  .menu-button {
++    display: inline-grid;
++    place-items: center;
++    width: var(--size-control-sm);
++    height: var(--size-control-sm);
++    padding: 0;
++    background: var(--color-surface-bar);
++    color: var(--color-text-primary);
++    border-color: var(--color-border-strong);
++    cursor: pointer;
++  }
++
++  .menu-button-lines {
++    position: relative;
++    display: block;
++    width: 24px;
++    height: 8px;
++    border-block: var(--border-width-thick) solid currentColor;
++  }
++
++  .site-nav {
++    display: none;
++  }
++
++  .site-nav-wrap[data-open='true'] .site-nav {
++    display: block;
++    position: fixed;
++    inset: var(--bar-height) 0 0 0;
++    background: var(--color-surface-raised);
++    border-top: var(--border-width-hair) solid var(--color-border-default);
++    overflow-y: auto;
++  }
++
++  .site-nav-wrap[data-open='true'] .nav-list {
++    flex-direction: column;
++    gap: 0;
++  }
++
++  .site-nav-wrap[data-open='true'] .nav-list li {
++    display: flex;
++    align-items: center;
++    min-height: var(--size-row);
++    padding-inline: var(--space-4);
++    border-bottom: var(--border-width-hair) solid var(--color-border-default);
++  }
++
++  .cart-button {
++    padding: 0 var(--space-4);
++  }
++}
++
++@media (max-width: 639px) {
++  .cart-button-label {
++    display: none;
++  }
++}
++
++/* ===========================================================================
++ * Page structure
++ * ========================================================================= */
++.content {
++  flex: 1;
++  width: 100%;
++  display: flex;
++  flex-direction: column;
++}
++
++.content:focus {
++  outline: none;
++}
++
++.ft-page {
++  width: 100%;
++  max-width: calc(var(--size-content-app) + var(--space-8) * 2);
++  margin-inline: auto;
++  padding: var(--space-12) var(--space-8) var(--space-16);
++}
++
++.ft-page--narrow {
++  max-width: calc(var(--size-content-narrow) + var(--space-8) * 2);
++}
++
++.page-band-inner.page-band-inner {
++  max-width: calc(var(--size-content-app) + var(--space-8) * 2);
++  padding-inline: var(--space-8);
++}
++
++.page-band-inner--narrow.page-band-inner--narrow {
++  max-width: calc(var(--size-content-narrow) + var(--space-8) * 2);
++}
++
++.page-title {
++  margin: 0;
++  font-size: var(--font-size-section);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++  line-height: var(--font-line-height-heading);
++}
++
++.page-lead {
++  margin: var(--space-2) 0 0;
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.panel {
++  padding: var(--space-6);
++}
++
++.panel-title {
++  margin: 0 0 var(--space-4);
++}
++
++.breadcrumb {
++  margin-bottom: var(--space-4);
++}
++
++.breadcrumb ol {
++  list-style: none;
++  display: flex;
++  flex-wrap: wrap;
++  margin: 0;
++  padding: 0;
++  font-size: var(--font-size-card-title);
++  line-height: var(--font-line-height-title);
++}
++
++.breadcrumb li + li::before {
++  content: ' / ';
++  white-space: pre;
++}
++
++@media (max-width: 767px) {
++  .page-title,
++  h1 {
++    font-size: var(--font-size-section-mobile);
++  }
++
++  .page-lead {
++    font-size: var(--font-size-card-title);
++  }
++
++  .breadcrumb ol {
++    font-size: var(--font-size-body);
++  }
++}
++
++@media (max-width: 639px) {
++  .ft-page {
++    padding: var(--space-8) var(--space-4) var(--space-12);
++  }
++
++  .page-band-inner.page-band-inner {
++    padding-inline: var(--space-4);
++  }
++
++  .panel {
++    padding: var(--space-4);
++  }
++}
++
++/* ===========================================================================
++ * Shop — hero band
++ * ========================================================================= */
++.ft-hero {
++  --ft-lg: clamp(var(--size-sticker-sm), 18vw, var(--size-sticker-hero));
++  --ft-md: clamp(var(--size-sticker-sm), 11vw, var(--size-sticker-md));
++  overflow: hidden;
++  padding-block-end: calc(var(--ft-lg) * 0.72 + var(--space-12));
++  text-align: center;
++}
++
++.ft-hero__title {
++  margin: 0;
++  font-size: var(--font-size-hero);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-mega);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.ft-hero__lead {
++  max-width: 720px;
++  margin: var(--space-6) auto 0;
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.hero-sticker-1 {
++  left: calc(var(--ft-lg) * -0.28);
++  top: var(--space-6);
++}
++
++.hero-sticker-2 {
++  display: none;
++}
++
++.hero-sticker-3 {
++  left: var(--space-8);
++  top: calc(100% - var(--ft-md) * 0.7);
++}
++
++.hero-sticker-4 {
++  right: calc(var(--ft-lg) * -0.28);
++  top: var(--space-4);
++}
++
++.hero-sticker-5 {
++  right: var(--space-16);
++  top: calc(100% - var(--ft-lg) * 0.72);
++}
++
++@media (min-width: 1400px) {
++  .hero-sticker-2 {
++    display: block;
++    right: calc(var(--ft-lg) * 0.66 + var(--space-2));
++    top: calc(clamp(var(--space-16), 9vw, var(--space-32)) + var(--space-24) + var(--space-4));
++  }
++}
++
++/* Narrower than the side gutters can hold: stickers sit above the title and below the actions. */
++@media (max-width: 1099px) {
++  .ft-hero {
++    padding-block-start: calc(var(--ft-lg) + var(--space-6));
++  }
++
++  .hero-sticker-1 {
++    top: var(--space-2);
++  }
++
++  .hero-sticker-4 {
++    top: var(--space-2);
++  }
++
++  .hero-sticker-3 {
++    left: var(--space-4);
++  }
++
++  .hero-sticker-5 {
++    right: var(--space-4);
++  }
++}
++
++@media (max-width: 767px) {
++  .ft-hero__title {
++    font-size: var(--font-size-hero-mobile);
++  }
++
++  .ft-hero__lead {
++    font-size: var(--font-size-card-title);
++  }
++
++  .ft-hero > .ft-band__inner {
++    padding-inline: var(--space-4);
++  }
++}
++
++/* ===========================================================================
++ * Shop — catalog
++ * ========================================================================= */
++.toolbar {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: space-between;
++  align-items: center;
++  gap: var(--space-4);
++  padding: var(--space-4) var(--space-6);
++}
++
++.toolbar-controls {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: var(--space-6);
++}
++
++.chip-group {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-2);
++}
++
++.result-count {
++  margin: var(--space-6) 0 var(--space-4);
++}
++
++.product-grid {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++  display: grid;
++  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
++  gap: var(--space-6);
++}
++
++.product-card {
++  position: relative;
++  display: flex;
++  flex-direction: column;
++  overflow: hidden;
++  background: var(--color-surface-raised);
++  border-color: var(--color-border-default);
++}
++
++.product-card:has(.product-link:focus-visible) {
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: 2px;
++}
++
++.product-card-body {
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++  padding: var(--space-6);
++}
++
++.product-card-body p {
++  margin-bottom: var(--space-2);
++}
++
++.product-card-title {
++  margin-bottom: var(--space-2);
++}
++
++.product-link {
++  color: var(--color-text-primary);
++  text-decoration: none;
++}
++
++.product-link::after {
++  content: '';
++  position: absolute;
++  inset: 0;
++}
++
++.product-link:focus-visible {
++  outline: none;
++}
++
++.product-card-summary {
++  color: var(--color-text-secondary);
++  display: -webkit-box;
++  -webkit-box-orient: vertical;
++  -webkit-line-clamp: 3;
++  overflow: hidden;
++}
++
++.product-card-meta {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--space-2);
++  margin-top: auto;
++  padding-top: var(--space-4);
++}
++
++.product-card-body .product-card-meta {
++  margin-bottom: 0;
++}
++
++.empty-sticker {
++  width: var(--size-sticker-md);
++  margin: 0 auto var(--space-6);
++}
++
++.empty-state h2,
++.empty-state h3 {
++  margin-bottom: var(--space-2);
++}
++
++.empty-state p {
++  margin-bottom: var(--space-6);
++}
++
++@media (max-width: 767px) {
++  .product-grid {
++    grid-template-columns: 1fr;
++    gap: var(--space-4);
++  }
++}
++
++@media (max-width: 639px) {
++  .toolbar {
++    padding: var(--space-4);
++  }
++
++  .product-card-body {
++    padding: var(--space-4);
++  }
++}
++
++/* ===========================================================================
++ * Shop — product detail
++ * ========================================================================= */
++.product-detail {
++  display: grid;
++  grid-template-columns: 1fr 1fr;
++  gap: var(--space-12);
++  align-items: start;
++}
++
++.product-detail-media {
++  overflow: hidden;
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++}
++
++.product-image-large {
++  aspect-ratio: 1 / 1;
++  border-block-end: 0;
++}
++
++.product-detail-price-row {
++  margin: 0 0 var(--space-4);
++}
++
++.product-detail-description {
++  max-width: var(--size-measure);
++  margin-bottom: var(--space-8);
++  line-height: var(--font-line-height-prose);
++}
++
++.purchase-form {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-6);
++  margin: 0 0 var(--space-6);
++  padding: var(--space-6);
++}
++
++.purchase-form p {
++  margin: calc(var(--space-4) * -1) 0 0;
++}
++
++.variant-fieldset {
++  border: none;
++  margin: 0;
++  padding: 0;
++  min-width: 0;
++}
++
++.variant-fieldset legend {
++  padding: 0;
++  margin-bottom: var(--space-2);
++}
++
++.variant-options {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-2);
++}
++
++.variant-option {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-3);
++  height: var(--size-control);
++  padding: 0 var(--space-4);
++  border: var(--border-width-hair) solid transparent;
++  border-radius: var(--radius-full);
++  cursor: pointer;
++  transition: border-color var(--motion-duration-instant);
++}
++
++.variant-option:hover,
++.variant-option:has(input:checked) {
++  border-color: var(--color-border-default);
++}
++
++.stepper {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-2);
++}
++
++.stepper-controls {
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++}
++
++.stepper-button {
++  font-size: var(--font-size-card-title);
++}
++
++.stepper-input {
++  width: 64px;
++  text-align: center;
++  font-variant-numeric: tabular-nums;
++  -moz-appearance: textfield;
+ }
+ 
+-@media (max-width: 900px) {
+-  .site-header {
+-    flex-wrap: wrap;
+-    gap: var(--space-3);
+-    padding: var(--space-3) var(--space-4);
++.stepper-input::-webkit-inner-spin-button,
++.stepper-input::-webkit-outer-spin-button {
++  -webkit-appearance: none;
++  margin: 0;
++}
++
++.added-message {
++  margin-bottom: var(--space-8);
++}
++
++.added-message:empty {
++  margin: 0;
++}
++
++.detail-heading {
++  margin-bottom: var(--space-4);
++}
++
++.detail-list {
++  margin: 0;
++}
++
++@media (max-width: 1023px) {
++  .product-detail {
++    grid-template-columns: 1fr;
++    gap: var(--space-8);
+   }
++}
+ 
+-  .content {
++@media (max-width: 639px) {
++  .purchase-form {
+     padding: var(--space-4);
++    align-items: stretch;
+   }
+ 
+-  .product-detail,
++  .purchase-form > .ft-btn {
++    width: 100%;
++  }
++}
++
++/* ===========================================================================
++ * Cart and checkout
++ * ========================================================================= */
++.cart-layout {
++  display: grid;
++  grid-template-columns: 3fr 2fr;
++  gap: var(--space-6);
++  align-items: start;
++}
++
++.cart-lines {
++  list-style: none;
++  margin: 0 calc(var(--space-6) * -1);
++  padding: 0;
++  border-block: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.cart-line {
++  display: grid;
++  grid-template-columns: 1fr auto auto auto;
++  align-items: center;
++  gap: var(--space-4);
++  min-height: var(--size-row);
++  padding: var(--space-4) var(--space-6);
++}
++
++.cart-line + .cart-line {
++  border-top: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.cart-line-info p {
++  margin: 0;
++}
++
++.cart-line-name {
++  font-size: var(--font-size-card-title);
++  line-height: var(--font-line-height-title);
++}
++
++.cart-line .stepper-button {
++  width: var(--size-control-sm);
++  height: var(--size-control-sm);
++}
++
++.cart-line .stepper-input {
++  height: var(--size-control-sm);
++  width: 56px;
++}
++
++.cart-line-total {
++  margin: 0;
++  min-width: 80px;
++  text-align: right;
++  font-variant-numeric: tabular-nums;
++}
++
++.summary {
++  margin: var(--space-4) 0 0;
++}
++
++.summary-row {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  min-height: var(--size-control-sm);
++}
++
++.summary-row dd {
++  margin: 0;
++  font-variant-numeric: tabular-nums;
++}
++
++.summary-total {
++  border-top: var(--border-width-hair) solid var(--color-border-default);
++  margin-top: var(--space-2);
++  padding-top: var(--space-2);
++  font-size: var(--font-size-card-title);
++}
++
++.checkout-form {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-6);
++}
++
++.checkout-form .ft-btn--primary {
++  align-self: flex-start;
++}
++
++.confirmation {
++  text-align: center;
++}
++
++.confirmation-inner {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  max-width: 760px;
++}
++
++.confirmation .ft-badge {
++  margin-bottom: var(--space-8);
++}
++
++.confirmation .page-title {
++  margin-bottom: var(--space-4);
++}
++
++.confirmation .lead {
++  margin-bottom: var(--space-4);
++}
++
++.confirmation-cta {
++  margin-top: var(--space-8);
++}
++
++@media (max-width: 1023px) {
+   .cart-layout {
+     grid-template-columns: 1fr;
+   }
++}
++
++@media (max-width: 639px) {
++  .cart-lines {
++    margin-inline: calc(var(--space-4) * -1);
++  }
+ 
+   .cart-line {
+     grid-template-columns: 1fr auto;
++    padding: var(--space-4);
++  }
++
++  .checkout-form .ft-btn--primary {
++    align-self: stretch;
++  }
++}
++
++/* ===========================================================================
++ * Error band (404, product not found)
++ * ========================================================================= */
++.error-band {
++  --ft-band: var(--color-band-teal);
++  --ft-lg: clamp(var(--size-sticker-sm), 18vw, var(--size-sticker-hero));
++  flex: 1;
++  display: grid;
++  align-items: center;
++  min-height: calc(100vh - var(--bar-height));
++  overflow: hidden;
++  text-align: center;
++}
++
++.error-band-inner {
++  max-width: 760px;
++}
++
++.error-title {
++  margin: 0 0 var(--space-6);
++  font-size: var(--font-size-display);
++  line-height: var(--font-line-height-display);
++}
++
++.error-sticker-1 {
++  left: calc(var(--ft-lg) * -0.3);
++  top: 55%;
++}
++
++.error-sticker-2 {
++  right: calc(var(--ft-lg) * -0.3);
++  top: 12%;
++}
++
++@media (max-width: 1099px) {
++  .error-band {
++    padding-block: calc(var(--ft-lg) + var(--space-8));
++  }
++
++  .error-sticker-1 {
++    top: auto;
++    bottom: var(--space-4);
++  }
++
++  .error-sticker-2 {
++    top: var(--space-4);
++  }
++}
++
++@media (max-width: 767px) {
++  .error-title {
++    font-size: var(--font-size-display-mobile);
++  }
++}
++
++/* ===========================================================================
++ * Footer — black band
++ * ========================================================================= */
++.site-footer {
++  background: var(--color-surface-inverse);
++  color: var(--color-text-inverse);
++  padding: var(--space-16) var(--space-8) var(--space-8);
++  --color-focus-ring: var(--color-text-inverse);
++}
++
++.site-footer-inner {
++  display: grid;
++  grid-template-columns: 3fr 2fr;
++  gap: var(--space-12);
++  max-width: var(--size-content-app);
++  margin: 0 auto;
++}
++
++.site-footer-headline {
++  margin: 0 0 var(--space-8);
++  font-size: var(--font-size-section);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++  line-height: var(--font-line-height-heading);
++}
++
++.footer-signup {
++  max-width: 480px;
++}
++
++.footer-signup-label {
++  display: block;
++  margin-bottom: var(--space-2);
++}
++
++.ft-inline-action {
++  display: flex;
++}
++
++.ft-inline-action .input {
++  flex: 1;
++  background: var(--color-surface-on-band);
++  color: var(--color-text-on-band);
++  border-color: var(--color-art-ink);
++  border-start-end-radius: 0;
++  border-end-end-radius: 0;
++}
++
++.ft-inline-action .input::placeholder {
++  color: var(--color-grey-muted);
++}
++
++.ft-inline-action .ft-btn {
++  border-start-start-radius: 0;
++  border-end-start-radius: 0;
++  font-size: var(--font-size-card-title);
++}
++
++.footer-signup-status {
++  min-height: calc(var(--font-size-meta) * var(--font-line-height-lead));
++  margin: var(--space-2) 0 0;
++  font-size: var(--font-size-meta);
++}
++
++.site-footer-links {
++  display: flex;
++  gap: var(--space-16);
++}
++
++.site-footer-heading {
++  margin: 0 0 var(--space-3);
++  font-size: var(--font-size-card-title);
++}
++
++.site-footer-links ul {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++}
++
++.site-footer-links li {
++  margin-bottom: var(--space-2);
++}
++
++.site-footer a {
++  color: var(--color-text-inverse);
++}
++
++.site-footer-meta {
++  max-width: var(--size-content-app);
++  margin: var(--space-16) auto 0;
++  font-size: var(--font-size-meta);
++}
++
++@media (max-width: 767px) {
++  .site-footer {
++    padding: var(--space-12) var(--space-4) var(--space-8);
++  }
++
++  .site-footer-inner {
++    grid-template-columns: 1fr;
++    gap: var(--space-8);
++  }
++
++  .site-footer-headline {
++    font-size: var(--font-size-section-mobile);
++  }
++
++  .site-footer-links {
++    gap: var(--space-12);
++  }
++
++  .site-footer-meta {
++    margin-top: var(--space-12);
+   }
+ }
