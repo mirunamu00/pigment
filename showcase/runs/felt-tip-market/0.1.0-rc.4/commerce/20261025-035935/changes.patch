@@ -1,0 +1,2384 @@
+diff --git a/package.json b/package.json
+index 1e80f4e..8eb9cc4 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource/jetbrains-mono": "^5.0.0",
++    "@fontsource/space-grotesk": "^5.0.0",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/App.tsx b/src/App.tsx
+index e3dee45..957b3bc 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -5,7 +5,6 @@ import ProductsPage from './pages/ProductsPage';
+ import ProductDetailPage from './pages/ProductDetailPage';
+ import CartPage from './pages/CartPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <CartProvider>
+@@ -13,8 +12,7 @@ export default function App() {
+         <Route element={<Layout />}>
+           <Route index element={<ProductsPage />} />
+           <Route path="products/:slug" element={<ProductDetailPage />} />
+-          <Route path="cart" element={<CartPage />} />
+-          <Route path="*" element={<NotFoundPage />} />
++          <Route path="cart" element={<CartPage />} />          <Route path="*" element={<NotFoundPage />} />
+         </Route>
+       </Routes>
+     </CartProvider>
+diff --git a/src/components/Icons.tsx b/src/components/Icons.tsx
+index f025d98..8f57c39 100644
+--- a/src/components/Icons.tsx
++++ b/src/components/Icons.tsx
+@@ -9,7 +9,7 @@ export function CartIcon({ className = 'icon' }: IconProps) {
+         d="M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2"
+         fill="none"
+         stroke="currentColor"
+-        strokeWidth="1.8"
++        strokeWidth="2"
+         strokeLinecap="round"
+         strokeLinejoin="round"
+       />
+@@ -18,13 +18,3 @@ export function CartIcon({ className = 'icon' }: IconProps) {
+     </svg>
+   );
+ }
+-
+-export function ImageIcon({ className = 'icon' }: IconProps) {
+-  return (
+-    <svg className={className} viewBox="0 0 24 24" width="40" height="40" aria-hidden="true" focusable="false">
+-      <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-      <circle cx="9" cy="10" r="1.8" fill="currentColor" />
+-      <path d="M4 17l5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+-    </svg>
+-  );
+-}
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 24ef3b6..6c6a42d 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,5 +1,7 @@
+-import { Link, NavLink, Outlet } from 'react-router';
++import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
++import { Link, NavLink, Outlet, useLocation } from 'react-router';
+ import { useCart } from '../cart/CartContext';
++import { categories } from '../data/products';
+ import { CartIcon } from './Icons';
+ 
+ const NAV_ITEMS = [
+@@ -10,6 +12,36 @@ const NAV_ITEMS = [
+ export default function Layout() {
+   const { itemCount } = useCart();
+   const itemLabel = itemCount === 1 ? '1 item' : `${itemCount} items`;
++  const location = useLocation();
++  const [menuOpen, setMenuOpen] = useState(false);
++  const menuButtonRef = useRef<HTMLButtonElement>(null);
++  const navRef = useRef<HTMLElement>(null);
++
++  // Close the mobile menu whenever the route changes.
++  useEffect(() => {
++    setMenuOpen(false);
++  }, [location.pathname, location.search]);
++
++  function handleNavKeyDown(event: KeyboardEvent<HTMLElement>) {
++    if (!menuOpen) return;
++    if (event.key === 'Escape') {
++      setMenuOpen(false);
++      menuButtonRef.current?.focus();
++      return;
++    }
++    if (event.key !== 'Tab' || !navRef.current) return;
++    // Keep focus inside the open panel (menu button + links).
++    const focusable = Array.from(navRef.current.querySelectorAll<HTMLElement>('button, a[href]'));
++    const first = focusable[0];
++    const last = focusable[focusable.length - 1];
++    if (event.shiftKey && document.activeElement === first) {
++      event.preventDefault();
++      last.focus();
++    } else if (!event.shiftKey && document.activeElement === last) {
++      event.preventDefault();
++      first.focus();
++    }
++  }
+ 
+   return (
+     <div className="app-shell">
+@@ -20,11 +52,28 @@ export default function Layout() {
+         <Link to="/" className="brand" data-testid="brand-link">
+           Fieldhouse Supply
+         </Link>
+-        <nav aria-label="Primary" className="site-nav" data-testid="primary-nav">
+-          <ul className="nav-list">
++        <nav
++          aria-label="Primary"
++          className={`site-nav${menuOpen ? ' is-open' : ''}`}
++          data-testid="primary-nav"
++          ref={navRef}
++          onKeyDown={handleNavKeyDown}
++        >
++          <button
++            type="button"
++            className="menu-button"
++            aria-expanded={menuOpen}
++            aria-controls="primary-nav-list"
++            onClick={() => setMenuOpen((open) => !open)}
++            ref={menuButtonRef}
++          >
++            <span className="menu-button-lines" aria-hidden="true" />
++            <span className="visually-hidden">Menu</span>
++          </button>
++          <ul className="nav-list" id="primary-nav-list">
+             {NAV_ITEMS.map((item) => (
+               <li key={item.to}>
+-                <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
++                <NavLink to={item.to} end={item.end} className="nav-link ft-pill" data-testid={item.testId}>
+                   {item.label}
+                 </NavLink>
+               </li>
+@@ -46,9 +95,80 @@ export default function Layout() {
+         <Outlet />
+       </main>
+ 
+-      <footer className="site-footer">
+-        <p className="muted small">Fieldhouse Supply · Free shipping on orders over $100 · Returns within 30 days</p>
+-      </footer>
++      <SiteFooter />
+     </div>
+   );
+ }
++
++function SiteFooter() {
++  const [email, setEmail] = useState('');
++  const [note, setNote] = useState('');
++
++  function handleSubscribe(event: FormEvent<HTMLFormElement>) {
++    event.preventDefault();
++    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
++      setNote('Enter an email address like name@example.com.');
++      return;
++    }
++    setNote('Thanks. New arrivals will reach your inbox.');
++    setEmail('');
++  }
++
++  return (
++    <footer className="site-footer">
++      <div className="footer-inner">
++        <div className="footer-lead">
++          <h2 className="footer-headline">Goods made to be used every day.</h2>
++          <form className="footer-form" noValidate onSubmit={handleSubscribe}>
++            <label htmlFor="footer-email" className="footer-label">
++              Get new arrivals by email
++            </label>
++            <div className="ft-inline-field">
++              <input
++                id="footer-email"
++                type="email"
++                className="input"
++                autoComplete="email"
++                placeholder="name@example.com"
++                value={email}
++                onChange={(event) => setEmail(event.target.value)}
++              />
++              <button type="submit" className="button button-primary ft-arrow-button" aria-label="Subscribe">
++                →
++              </button>
++            </div>
++            <p className="footer-note" role="status">
++              {note}
++            </p>
++          </form>
++        </div>
++        <div className="footer-columns">
++          <div>
++            <h3 className="footer-column-title">Shop</h3>
++            <ul>
++              <li>
++                <Link to="/">All goods</Link>
++              </li>
++              {categories.map((category) => (
++                <li key={category.id}>
++                  <Link to={`/?category=${category.id}`}>{category.label}</Link>
++                </li>
++              ))}
++            </ul>
++          </div>
++          <div>
++            <h3 className="footer-column-title">Orders</h3>
++            <ul>
++              <li>
++                <Link to="/cart">Your cart</Link>
++              </li>
++              <li>Free shipping over $100</li>
++              <li>Returns within 30 days</li>
++            </ul>
++          </div>
++        </div>
++      </div>
++      <p className="footer-meta">Fieldhouse Supply · Free shipping on orders over $100 · Returns within 30 days</p>
++    </footer>
++  );
++}
+diff --git a/src/components/ProductImage.tsx b/src/components/ProductImage.tsx
+index e4a67f2..699f434 100644
+--- a/src/components/ProductImage.tsx
++++ b/src/components/ProductImage.tsx
+@@ -1,21 +1,29 @@
+-import type { Product } from '../data/products';
+-import { ImageIcon } from './Icons';
++import { products, type Product } from '../data/products';
++import Sticker from '../stickers/Sticker';
++import { productArt } from '../stickers/kit';
+ 
+ interface ProductImageProps {
+   product: Product;
+   size?: 'card' | 'large';
+ }
+ 
+-/** Image placeholder: a tinted CSS box with an icon. No network images. */
++/* Vignette grounds cycle through the band colors by catalog order. */
++const GROUNDS = ['lemon', 'periwinkle', 'teal', 'marigold'] as const;
++
++/** Drawn vignette: a band-color ground holding the item's own thick sticker. No network images. */
+ export default function ProductImage({ product, size = 'card' }: ProductImageProps) {
++  const index = Math.max(0, products.findIndex((item) => item.slug === product.slug));
++  const ground = GROUNDS[index % GROUNDS.length];
++  const art = productArt[product.slug];
++
+   return (
+     <div
+-      className={`product-image product-image-${size} tone-${product.tone}`}
++      className={`product-image product-image-${size} ft-media ft-media--drawn ft-ground-${ground}`}
+       role="img"
+       aria-label={`${product.name} product photo placeholder`}
+       data-testid="product-image"
+     >
+-      <ImageIcon className="product-image-icon" />
++      {art && <Sticker art={art} />}
+     </div>
+   );
+ }
+diff --git a/src/components/QuantityStepper.tsx b/src/components/QuantityStepper.tsx
+index 13815b8..5be8e55 100644
+--- a/src/components/QuantityStepper.tsx
++++ b/src/components/QuantityStepper.tsx
+@@ -28,7 +28,7 @@ export default function QuantityStepper({ id, label, value, onChange, testIdPref
+       <div className="stepper-controls">
+         <button
+           type="button"
+-          className="button stepper-button"
++          className="button button-outline stepper-button ft-lift"
+           aria-label={`Decrease quantity${suffix}`}
+           disabled={value <= 1}
+           onClick={() => set(value - 1)}
+@@ -49,7 +49,7 @@ export default function QuantityStepper({ id, label, value, onChange, testIdPref
+         />
+         <button
+           type="button"
+-          className="button stepper-button"
++          className="button button-outline stepper-button ft-lift"
+           aria-label={`Increase quantity${suffix}`}
+           disabled={value >= MAX_QUANTITY}
+           onClick={() => set(value + 1)}
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..300df3d 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,13 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '@fontsource/space-grotesk/400.css';
++import '@fontsource/space-grotesk/500.css';
++import '@fontsource/space-grotesk/600.css';
++import '@fontsource/space-grotesk/700.css';
++import '@fontsource/jetbrains-mono/400.css';
++import '../design-system/tokens.css';
++import './styles/felt-tip.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/CartPage.tsx b/src/pages/CartPage.tsx
+index e453a07..95d67eb 100644
+--- a/src/pages/CartPage.tsx
++++ b/src/pages/CartPage.tsx
+@@ -2,6 +2,9 @@ import { useRef, useState, type FormEvent } from 'react';
+ import { Link } from 'react-router';
+ import { useCart } from '../cart/CartContext';
+ import QuantityStepper from '../components/QuantityStepper';
++import { ErrorDisc, PlateStack, PriceFlag, WordBadge } from '../components/Signature';
++import Sticker from '../stickers/Sticker';
++import { basket } from '../stickers/kit';
+ import { FREE_SHIPPING_THRESHOLD, formatPrice } from '../data/products';
+ 
+ type FieldName = 'name' | 'email' | 'address';
+@@ -60,40 +63,70 @@ export default function CartPage() {
+ 
+   if (confirmation) {
+     return (
+-      <section className="panel confirmation" data-testid="order-confirmation" aria-labelledby="confirmation-heading">
+-        <h1 id="confirmation-heading">Thank you for your order</h1>
+-        <p>
+-          {confirmation.name}, we have received your order of {confirmation.itemCount}{' '}
+-          {confirmation.itemCount === 1 ? 'item' : 'items'} totalling{' '}
+-          <strong data-testid="confirmation-total">{formatPrice(confirmation.total)}</strong>.
+-        </p>
+-        <p className="muted">A receipt has been sent to {confirmation.email}. Orders usually ship within two days.</p>
+-        <Link to="/" data-testid="continue-shopping">
+-          Continue shopping
+-        </Link>
++      <section className="confirmation" data-testid="order-confirmation" aria-labelledby="confirmation-heading">
++        <div className="ft-band ft-band--header ft-band--periwinkle">
++          <div className="ft-band__inner ft-band__inner--narrow">
++            <h1 id="confirmation-heading" className="band-title">
++              Thank you for your order
++            </h1>
++            <p className="band-lead">Your goods are on their way to the packing table.</p>
++          </div>
++        </div>
++        <div className="page-body page-body--narrow">
++          <div className="confirmation-panel ft-box">
++            <WordBadge word="thanks" />
++            <div className="confirmation-text">
++              <p>
++                {confirmation.name}, we have received your order of {confirmation.itemCount}{' '}
++                {confirmation.itemCount === 1 ? 'item' : 'items'} totalling{' '}
++                <PriceFlag as="strong" testId="confirmation-total">
++                  {formatPrice(confirmation.total)}
++                </PriceFlag>
++                .
++              </p>
++              <p className="muted">
++                A receipt has been sent to {confirmation.email}. Orders usually ship within two days.
++              </p>
++              <PlateStack>
++                <Link to="/" className="button button-ink ft-btn" data-testid="continue-shopping">
++                  Continue shopping
++                </Link>
++              </PlateStack>
++            </div>
++          </div>
++        </div>
+       </section>
+     );
+   }
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Your cart</h1>
+-        <p className="muted">Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}.</p>
++      <div className="ft-band ft-band--header ft-band--periwinkle page-header">
++        <div className="ft-band__inner ft-band__inner--narrow">
++          <h1 className="band-title">Your cart</h1>
++          <p className="band-lead">Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}.</p>
++        </div>
+       </div>
+ 
+       {cart.lines.length === 0 ? (
+-        <section className="panel empty-state" data-testid="cart-empty">
+-          <h2>Your cart is empty</h2>
+-          <p className="muted">Browse the shop and add something you like.</p>
+-          <Link to="/" data-testid="continue-shopping">
+-            Continue shopping
+-          </Link>
+-        </section>
++        <div className="page-body page-body--narrow">
++          <section className="empty-state ft-empty" data-testid="cart-empty">
++            <Sticker art={basket} className="empty-sticker" />
++            <h2>Your cart is empty</h2>
++            <p className="muted">Browse the shop and add something you like.</p>
++            <PlateStack>
++              <Link to="/" className="button button-ink ft-btn" data-testid="continue-shopping">
++                Continue shopping
++              </Link>
++            </PlateStack>
++          </section>
++        </div>
+       ) : (
+-        <div className="cart-layout">
+-          <section className="panel" aria-labelledby="cart-items-heading">
+-            <h2 id="cart-items-heading">Items</h2>
++        <div className="page-body page-body--narrow cart-layout">
++          <section className="panel ft-box" aria-labelledby="cart-items-heading">
++            <h2 id="cart-items-heading" className="panel-title">
++              Items
++            </h2>
+             <ul className="cart-lines">
+               {cart.lines.map((line) => (
+                 <li key={line.id} className="cart-line" data-testid="cart-line">
+@@ -120,7 +153,7 @@ export default function CartPage() {
+                   </p>
+                   <button
+                     type="button"
+-                    className="link-button"
++                    className="button button-outline button-compact ft-lift"
+                     aria-label={`Remove ${line.product.name} from cart`}
+                     onClick={() => cart.removeItem(line.id)}
+                     data-testid="line-remove"
+@@ -142,13 +175,17 @@ export default function CartPage() {
+               </div>
+               <div className="summary-row summary-total">
+                 <dt>Total</dt>
+-                <dd data-testid="cart-total">{formatPrice(cart.total)}</dd>
++                <dd>
++                  <PriceFlag testId="cart-total">{formatPrice(cart.total)}</PriceFlag>
++                </dd>
+               </div>
+             </dl>
+           </section>
+ 
+-          <section className="panel" aria-labelledby="checkout-heading">
+-            <h2 id="checkout-heading">Checkout</h2>
++          <section className="panel ft-box" aria-labelledby="checkout-heading">
++            <h2 id="checkout-heading" className="panel-title">
++              Checkout
++            </h2>
+             <form className="checkout-form" noValidate onSubmit={handleSubmit} data-testid="checkout-form">
+               <div className="field">
+                 <label htmlFor="checkout-name" className="field-label">
+@@ -169,6 +206,7 @@ export default function CartPage() {
+                 />
+                 {errors.name && (
+                   <p id="checkout-name-error" className="field-error" data-testid="error-name">
++                    <ErrorDisc />
+                     {errors.name}
+                   </p>
+                 )}
+@@ -194,6 +232,7 @@ export default function CartPage() {
+                 />
+                 {errors.email && (
+                   <p id="checkout-email-error" className="field-error" data-testid="error-email">
++                    <ErrorDisc />
+                     {errors.email}
+                   </p>
+                 )}
+@@ -219,12 +258,13 @@ export default function CartPage() {
+                 />
+                 {errors.address && (
+                   <p id="checkout-address-error" className="field-error" data-testid="error-address">
++                    <ErrorDisc />
+                     {errors.address}
+                   </p>
+                 )}
+               </div>
+ 
+-              <button type="submit" className="button button-primary" data-testid="place-order">
++              <button type="submit" className="button button-primary ft-lift" data-testid="place-order">
+                 Place order
+               </button>
+             </form>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 3582617..ecf1b78 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,9 @@
+-import { Link } from 'react-router';
++import ErrorBand from '../components/ErrorBand';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Back to the shop</Link>
+-    </section>
++    <ErrorBand title="Page not found" testId="not-found">
++      The page you are looking for does not exist or has moved.
++    </ErrorBand>
+   );
+ }
+diff --git a/src/pages/ProductDetailPage.tsx b/src/pages/ProductDetailPage.tsx
+index fc75a5d..bb8f815 100644
+--- a/src/pages/ProductDetailPage.tsx
++++ b/src/pages/ProductDetailPage.tsx
+@@ -1,8 +1,10 @@
+ import { useState } from 'react';
+ import { Link, useParams } from 'react-router';
+ import { useCart } from '../cart/CartContext';
++import ErrorBand from '../components/ErrorBand';
+ import ProductImage from '../components/ProductImage';
+ import QuantityStepper from '../components/QuantityStepper';
++import { PriceFlag, StatusPill } from '../components/Signature';
+ import { categoryLabel, findProduct, formatPrice, type Product } from '../data/products';
+ 
+ export default function ProductDetailPage() {
+@@ -11,11 +13,9 @@ export default function ProductDetailPage() {
+ 
+   if (!product) {
+     return (
+-      <div className="empty-state" data-testid="product-not-found">
+-        <h1>Product not found</h1>
+-        <p className="muted">We could not find a product called “{slug}”.</p>
+-        <Link to="/">Back to the shop</Link>
+-      </div>
++      <ErrorBand title="Product not found" testId="product-not-found">
++        We could not find a product called “{slug}”.
++      </ErrorBand>
+     );
+   }
+ 
+@@ -40,31 +40,47 @@ function ProductDetail({ product }: { product: Product }) {
+   }
+ 
+   return (
+-    <>
+-      <nav aria-label="Breadcrumb" className="breadcrumb">
+-        <ol>
+-          <li>
+-            <Link to="/">Shop</Link>
+-          </li>
+-          <li>
+-            <Link to={`/?category=${product.category}`}>{categoryLabel(product.category)}</Link>
+-          </li>
+-          <li aria-current="page">{product.name}</li>
+-        </ol>
+-      </nav>
++    <article className="product-page">
++      <header className="ft-band ft-band--header ft-band--lemon">
++        <div className="ft-band__inner">
++          <nav aria-label="Breadcrumb" className="breadcrumb">
++            <ol>
++              <li>
++                <Link to="/">Shop</Link>
++              </li>
++              <li>
++                <Link to={`/?category=${product.category}`}>{categoryLabel(product.category)}</Link>
++              </li>
++              <li aria-current="page">{product.name}</li>
++            </ol>
++          </nav>
++          <h1 className="band-title" data-testid="product-title">
++            {product.name}
++          </h1>
++          <p className="band-lead">{product.summary}</p>
++        </div>
++      </header>
+ 
+-      <article className="product-detail">
+-        <ProductImage product={product} size="large" />
++      <div className="page-body product-detail">
++        <div className="product-media ft-box">
++          <ProductImage product={product} size="large" />
++        </div>
+ 
+         <div className="product-detail-info">
+-          <h1 data-testid="product-title">{product.name}</h1>
+-          <p className="price price-large" data-testid="product-detail-price">
+-            {formatPrice(product.price)}
+-          </p>
+-          <p>{product.description}</p>
++          <div className="product-price-row">
++            <PriceFlag className="price price-large" testId="product-detail-price">
++              {formatPrice(product.price)}
++            </PriceFlag>
++            {product.inStock ? (
++              <StatusPill status="success">In stock</StatusPill>
++            ) : (
++              <StatusPill status="danger">Sold out</StatusPill>
++            )}
++          </div>
++          <p className="product-description">{product.description}</p>
+ 
+           <form
+-            className="purchase-form"
++            className="purchase-form ft-box"
+             onSubmit={(event) => {
+               event.preventDefault();
+               if (product.inStock) handleAdd();
+@@ -102,7 +118,7 @@ function ProductDetail({ product }: { product: Product }) {
+             />
+ 
+             {product.inStock ? (
+-              <button type="submit" className="button button-primary" data-testid="add-to-cart">
++              <button type="submit" className="button button-primary ft-lift" data-testid="add-to-cart">
+                 Add to cart
+               </button>
+             ) : (
+@@ -119,20 +135,27 @@ function ProductDetail({ product }: { product: Product }) {
+ 
+           <div role="status" className="added-message" data-testid="added-message">
+             {confirmation && (
+-              <p>
+-                {confirmation} <Link to="/cart">View cart</Link>
++              <p className="ft-toast">
++                <span className="ft-dot ft-dot--success" aria-hidden="true" />
++                <span>
++                  {confirmation} <Link to="/cart">View cart</Link>
++                </span>
+               </p>
+             )}
+           </div>
+ 
+-          <h2>Details</h2>
+-          <ul className="detail-list">
+-            {product.details.map((detail) => (
+-              <li key={detail}>{detail}</li>
+-            ))}
+-          </ul>
++          <section className="detail-panel ft-box" aria-labelledby="details-heading">
++            <h2 id="details-heading" className="panel-title">
++              Details
++            </h2>
++            <ul className="detail-list ft-group">
++              {product.details.map((detail) => (
++                <li key={detail}>{detail}</li>
++              ))}
++            </ul>
++          </section>
+         </div>
+-      </article>
+-    </>
++      </div>
++    </article>
+   );
+ }
+diff --git a/src/pages/ProductsPage.tsx b/src/pages/ProductsPage.tsx
+index 2506d4f..15bd593 100644
+--- a/src/pages/ProductsPage.tsx
++++ b/src/pages/ProductsPage.tsx
+@@ -1,6 +1,9 @@
+ import { useEffect, useMemo, useState } from 'react';
+ import { Link, useSearchParams } from 'react-router';
+ import ProductImage from '../components/ProductImage';
++import { PlateStack, PriceFlag, StatusPill } from '../components/Signature';
++import Sticker from '../stickers/Sticker';
++import { hanger, magnifier, parcel, priceTag, receipt, sewingButton } from '../stickers/kit';
+ import { categories, categoryLabel, formatPrice, products, type CategoryId, type Product } from '../data/products';
+ 
+ type CategoryFilter = 'all' | CategoryId;
+@@ -103,12 +106,31 @@ export default function ProductsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Shop all goods</h1>
+-        <p className="muted">Durable bags, clothing and kitchen goods made to be used every day.</p>
++      <div className="ft-band ft-band--hero ft-band--lemon page-header">
++        <div className="ft-sticker-layer ft-sticker-layer--drift hero-stickers" aria-hidden="true">
++          <Sticker art={parcel} size="lg" className="hero-sticker hero-sticker--1" />
++          <Sticker art={sewingButton} size="md" className="hero-sticker hero-sticker--2" />
++          <Sticker art={hanger} size="lg" className="hero-sticker hero-sticker--3" />
++          <Sticker art={priceTag} size="md" className="hero-sticker hero-sticker--4" />
++          <Sticker art={receipt} size="lg" className="hero-sticker hero-sticker--5" />
++        </div>
++        <div className="ft-band__inner hero-inner">
++          <h1 className="hero-title">Shop all goods</h1>
++          <p className="hero-lead">Durable bags, clothing and kitchen goods made to be used every day.</p>
++          <div className="ft-hero-actions">
++            <PlateStack>
++              <a href="#catalog" className="button button-ink ft-btn ft-btn--hero">
++                Browse goods
++              </a>
++            </PlateStack>
++            <Link to="/cart" className="button button-outline ft-btn--hero ft-lift">
++              View cart
++            </Link>
++          </div>
++        </div>
+       </div>
+ 
+-      <section className="panel" aria-labelledby="catalog-heading">
++      <section className="page-body catalog" id="catalog" aria-labelledby="catalog-heading">
+         <h2 id="catalog-heading" className="visually-hidden">
+           Products
+         </h2>
+@@ -118,7 +140,7 @@ export default function ProductsPage() {
+               <button
+                 key={filter.value}
+                 type="button"
+-                className="chip"
++                className="chip ft-pill"
+                 aria-pressed={category === filter.value}
+                 onClick={() => selectCategory(filter.value)}
+                 data-testid={`category-filter-${filter.value}`}
+@@ -129,9 +151,10 @@ export default function ProductsPage() {
+           </div>
+ 
+           <div className="toolbar-controls">
+-            <label className="field-inline">
++            <label className="field-inline checkbox-row">
+               <input
+                 type="checkbox"
++                className="checkbox"
+                 checked={inStockOnly}
+                 onChange={(event) => toggleInStock(event.target.checked)}
+                 data-testid="in-stock-toggle"
+@@ -140,6 +163,7 @@ export default function ProductsPage() {
+             </label>
+             <div className="field-inline">
+               <label htmlFor="sort-select">Sort by</label>
++              <span className="select-wrap">
+               <select
+                 id="sort-select"
+                 className="select"
+@@ -153,6 +177,7 @@ export default function ProductsPage() {
+                   </option>
+                 ))}
+               </select>
++              </span>
+             </div>
+           </div>
+         </div>
+@@ -162,17 +187,23 @@ export default function ProductsPage() {
+         </p>
+ 
+         {visible.length === 0 ? (
+-          <div className="empty-state" data-testid="products-empty">
++          <div className="empty-state ft-empty" data-testid="products-empty">
++            <Sticker art={magnifier} className="empty-sticker" />
+             <h3>No products match these filters</h3>
+             <p className="muted">Try another category or include items that are out of stock.</p>
+-            <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++            <button
++              type="button"
++              className="button button-outline ft-lift"
++              onClick={clearFilters}
++              data-testid="clear-filters"
++            >
+               Clear filters
+             </button>
+           </div>
+         ) : (
+           <ul className="product-grid" data-testid="product-grid">
+             {visible.map((product) => (
+-              <li key={product.slug} className="product-card" data-testid="product-card">
++              <li key={product.slug} className="product-card ft-lift" data-testid="product-card">
+                 <ProductImage product={product} />
+                 <div className="product-card-body">
+                   <p className="muted small">{categoryLabel(product.category)}</p>
+@@ -181,17 +212,19 @@ export default function ProductsPage() {
+                       {product.name}
+                     </Link>
+                   </h3>
+-                  <p className="small">{product.summary}</p>
+-                  <p className="product-card-meta">
+-                    <span className="price" data-testid="product-price">
++                  <p className="product-card-summary">{product.summary}</p>
++                  <div className="product-card-meta">
++                    <PriceFlag className="price" testId="product-price">
+                       {formatPrice(product.price)}
+-                    </span>
+-                    {!product.inStock && (
+-                      <span className="tag tag-muted" data-testid="sold-out-tag">
++                    </PriceFlag>
++                    {product.inStock ? (
++                      <StatusPill status="success">In stock</StatusPill>
++                    ) : (
++                      <StatusPill status="danger" testId="sold-out-tag">
+                         Sold out
+-                      </span>
++                      </StatusPill>
+                     )}
+-                  </p>
++                  </div>
+                 </div>
+               </li>
+             ))}
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 651c82a..e56cbee 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,55 +1,62 @@
+ /*
+- * Base styles for the Fieldhouse Supply store.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Base styles for the Fieldhouse Supply store, restyled with Felt-tip Market 0.1.0-rc.4.
++ * Token values live in design-system/tokens.css; signature pieces in ./felt-tip.css.
++ * The original custom property names are kept as aliases so nothing breaks.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-header-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-error: #b00020;
+-  --color-success-bg: #e3f2e5;
+-  --color-success-text: #1b5e20;
+-  --color-badge-bg: #b00020;
+-  --color-badge-text: #ffffff;
+-  --color-tag-bg: #e8e8e8;
+-  --color-tag-text: #444444;
+-  --color-disabled-bg: #e8e8e8;
+-  --color-disabled-text: #888888;
+-  --color-image-icon: #777777;
+-  --color-tone-sand: #ece4d4;
+-  --color-tone-olive: #dfe3d0;
+-  --color-tone-slate: #d9dee5;
+-  --color-tone-clay: #ead8cf;
+-  --color-tone-stone: #e4e4e4;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --font-size-price-large: 22px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --content-max-width: 1120px;
+-  --product-card-min: 220px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-raised);
++  --color-surface-muted: var(--color-surface-default);
++  --color-header-bg: var(--color-surface-bar);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-primary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-error: var(--color-status-danger);
++  --color-success-bg: var(--color-surface-raised);
++  --color-success-text: var(--color-text-primary);
++  --color-badge-bg: var(--color-action-ink);
++  --color-badge-text: var(--color-action-on-ink);
++  --color-tag-bg: var(--color-surface-raised);
++  --color-tag-text: var(--color-text-primary);
++  --color-disabled-bg: var(--color-surface-subtle);
++  --color-disabled-text: var(--color-text-secondary);
++  --color-image-icon: var(--color-text-primary);
++
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --font-size-small: var(--font-size-meta);
++  --font-size-h1: var(--font-size-section);
++  --font-size-h2: var(--font-size-lead);
++  --font-size-price-large: var(--font-size-body);
++  --line-height: var(--font-line-height-body);
++
++  --radius: var(--radius-sm);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hair);
++  --content-max-width: var(--size-content-app);
++  --product-card-min: 260px;
++
++  /* Sticker sizes from the recipe, reused for positioning. */
++  --ft-lg: clamp(var(--size-sticker-sm), 18vw, var(--size-sticker-hero));
++  --ft-md: clamp(var(--size-sticker-sm), 11vw, var(--size-sticker-md));
++  --page-gutter: var(--space-8);
++  --header-height: 80px;
++}
++
++@media (max-width: 1023px) {
++  :root {
++    --header-height: 64px;
++  }
++}
++
++@media (max-width: 639px) {
++  :root {
++    --page-gutter: var(--space-4);
++  }
+ }
+ 
+ *,
+@@ -64,42 +71,38 @@ body {
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-body);
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
+-}
+-
+-h1 {
+-  font-size: var(--font-size-h1);
+-}
+-
+-h2 {
+-  font-size: var(--font-size-h2);
++  margin: 0;
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-base);
++  font-size: var(--font-size-card-title);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-2);
++  margin: 0;
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-primary);
++  text-decoration-thickness: var(--border-width-hair);
++  text-underline-offset: 3px;
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
+@@ -123,17 +126,21 @@ a {
+ .skip-link:focus {
+   left: var(--space-2);
+   top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  padding: var(--space-2) var(--space-4);
++  z-index: 30;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-meta);
++  line-height: var(--font-line-height-lead);
+ }
+ 
+ .icon {
+@@ -141,7 +148,7 @@ a {
+   flex-shrink: 0;
+ }
+ 
+-/* Layout */
++/* ---------- Layout ---------- */
+ .app-shell {
+   display: flex;
+   flex-direction: column;
+@@ -149,22 +156,33 @@ a {
+ }
+ 
+ .site-header {
++  position: relative;
++  z-index: 20;
+   display: flex;
+-  align-items: center;
+-  gap: var(--space-6);
+-  padding: var(--space-3) var(--space-6);
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  align-items: stretch;
++  height: var(--header-height);
++  padding-inline-start: var(--page-gutter);
++  background: var(--color-surface-bar);
++  border-bottom: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+ .brand {
+-  font-weight: bold;
+-  color: var(--color-text);
++  display: flex;
++  align-items: center;
++  flex: none;
++  color: var(--color-text-primary);
++  font-size: var(--font-size-lead);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
+   text-decoration: none;
++  white-space: nowrap;
+ }
+ 
+ .site-nav {
+   flex: 1;
++  display: flex;
++  align-items: center;
++  padding-inline: var(--space-6);
+ }
+ 
+ .nav-list {
+@@ -176,56 +194,402 @@ a {
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-1) var(--space-3);
+-  border-radius: var(--radius);
++  color: var(--color-text-primary);
+   text-decoration: none;
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
++.menu-button {
++  display: none;
++  width: var(--size-control-sm);
++  height: var(--size-control-sm);
++  margin-inline-start: auto;
++  padding: 0;
++  align-items: center;
++  justify-content: center;
++  background: transparent;
++  color: var(--color-text-primary);
++  border: var(--border-width-hair) solid var(--color-border-strong);
++  border-radius: var(--radius-sm);
++  cursor: pointer;
++  transition:
++    translate var(--motion-duration-lift) var(--motion-easing-lift),
++    box-shadow var(--motion-duration-lift) var(--motion-easing-lift);
++}
++
++.menu-button-lines {
++  position: relative;
++  display: block;
++  width: 24px;
++  height: 10px;
++}
++
++.menu-button-lines::before,
++.menu-button-lines::after {
++  content: '';
++  position: absolute;
++  left: 0;
++  right: 0;
++  height: var(--border-width-thick);
++  background: currentColor;
++}
++
++.menu-button-lines::before {
++  top: 0;
++}
++
++.menu-button-lines::after {
++  bottom: 0;
++}
++
++/* Cart: the primary full-height edge block of the top bar. */
++.button.cart-button {
++  flex: none;
++  height: 100%;
++  padding: 0 var(--space-6);
++  border-radius: 0;
++  border: 0;
++  border-inline-start: var(--border-width-hair) solid var(--color-border-default);
++  background: var(--color-action-ink);
++  color: var(--color-action-on-ink);
++  transition:
++    translate var(--motion-duration-lift) var(--motion-easing-lift),
++    box-shadow var(--motion-duration-lift) var(--motion-easing-lift);
++}
++
++@media (hover: hover) {
++  .cart-button:hover,
++  .menu-button:hover {
++    translate: calc(var(--offset-lift) * -1) calc(var(--offset-lift) * -1);
++    box-shadow: var(--offset-lift) var(--offset-lift) 0 0 var(--color-shadow-hard);
++  }
++}
++
++.cart-button:active,
++.menu-button:active {
++  translate: 0 0;
++  box-shadow: none;
++}
++
++.cart-button:focus-visible {
++  outline-offset: -4px;
++  outline-color: var(--color-action-on-ink);
++}
++
++.badge {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  min-width: 20px;
++  height: 20px;
++  padding: 0 var(--space-1);
++  border-radius: var(--radius-full);
++  background: var(--color-action-on-ink);
++  color: var(--color-action-ink);
++  font-size: var(--font-size-meta);
++  line-height: 1;
++  font-variant-numeric: tabular-nums;
++}
++
++@media (max-width: 1023px) {
++  .site-nav {
++    justify-content: flex-end;
++    padding-inline: var(--space-4);
++  }
++
++  .menu-button {
++    display: inline-flex;
++  }
++
++  .nav-list {
++    display: none;
++  }
++
++  .site-nav.is-open .nav-list {
++    position: fixed;
++    inset: var(--header-height) 0 0 0;
++    display: flex;
++    flex-direction: column;
++    gap: 0;
++    padding: var(--space-4);
++    background: var(--color-surface-raised);
++    border-top: var(--border-width-hair) solid var(--color-border-default);
++    overflow-y: auto;
++  }
++
++  .site-nav.is-open .nav-list li {
++    display: flex;
++    align-items: center;
++    min-height: var(--size-row);
++    border-bottom: var(--border-width-hair) solid var(--color-border-default);
++  }
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .cart-button,
++  .menu-button {
++    transition: none;
++  }
++}
++
++@media (max-width: 639px) {
++  .brand {
++    font-size: var(--font-size-card-title);
++  }
++
++  .button.cart-button {
++    padding: 0 var(--space-4);
++  }
++
++  .cart-button-label {
++    display: none;
++  }
+ }
+ 
+ .content {
+   flex: 1;
+   width: 100%;
+-  max-width: var(--content-max-width);
+-  margin: 0 auto;
+-  padding: var(--space-6);
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-6);
+ }
+ 
++.content:focus {
++  outline: none;
++}
++
++.page-body {
++  width: 100%;
++  max-width: calc(var(--size-content-app) + var(--page-gutter) * 2);
++  margin-inline: auto;
++  padding: var(--space-12) var(--page-gutter) var(--space-16);
++}
++
++.page-body--narrow {
++  max-width: calc(var(--size-content-narrow) + var(--page-gutter) * 2);
++}
++
++@media (max-width: 639px) {
++  .page-body {
++    padding-block: var(--space-8) var(--space-12);
++  }
++}
++
++/* ---------- Footer: black band ---------- */
+ .site-footer {
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4) var(--space-6);
++  background: var(--color-surface-inverse);
++  color: var(--color-text-inverse);
++  border-top: var(--border-width-hair) solid var(--color-border-default);
++  padding: var(--space-16) var(--page-gutter) var(--space-8);
+ }
+ 
+-.site-footer p {
++.footer-inner {
++  max-width: var(--size-content-app);
++  margin-inline: auto;
++  display: grid;
++  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
++  gap: var(--space-12);
++}
++
++.footer-headline {
++  font-size: var(--font-size-section);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-display);
++  max-width: 14ch;
++  margin-bottom: var(--space-8);
++}
++
++.footer-form {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-2);
++  max-width: 420px;
++}
++
++.ft-inline-field {
++  display: flex;
++}
++
++.site-footer .input {
++  flex: 1;
++  background: var(--color-surface-on-band);
++  color: var(--color-text-on-band);
++  border-color: var(--color-art-ink);
++  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
++}
++
++.ft-arrow-button {
++  flex: none;
++  width: var(--size-control);
++  padding: 0;
++  font-size: var(--font-size-card-title);
++  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
++  margin-inline-start: calc(var(--border-width-hair) * -1);
++}
++
++.site-footer .ft-arrow-button:focus-visible,
++.site-footer .input:focus-visible {
++  outline-color: var(--color-text-inverse);
++}
++
++.footer-note {
++  min-height: calc(var(--font-size-meta) * var(--font-line-height-lead));
++  font-size: var(--font-size-meta);
++  line-height: var(--font-line-height-lead);
++}
++
++.footer-columns {
++  display: grid;
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: var(--space-6);
++}
++
++.footer-column-title {
++  font-size: var(--font-size-card-title);
++  font-weight: var(--font-weight-semibold);
++  margin-bottom: var(--space-4);
++}
++
++.footer-columns ul {
++  list-style: none;
+   margin: 0;
++  padding: 0;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-3);
++}
++
++.site-footer a {
++  color: var(--color-text-inverse);
++}
++
++.site-footer a:focus-visible {
++  outline-color: var(--color-text-inverse);
++}
++
++.footer-meta {
++  max-width: var(--size-content-app);
++  margin: var(--space-12) auto 0;
++  padding-top: var(--space-6);
++  border-top: var(--border-width-hair) solid var(--color-text-inverse);
++  font-size: var(--font-size-meta);
++  line-height: var(--font-line-height-lead);
++}
++
++@media (max-width: 767px) {
++  .footer-inner {
++    grid-template-columns: 1fr;
++    gap: var(--space-8);
++  }
++
++  .footer-headline {
++    font-size: var(--font-size-section-mobile);
++  }
+ }
+ 
+-/* Controls */
++/* ---------- Controls ---------- */
+ .input,
+ .select {
+   font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  height: var(--size-control);
++  padding: 0 var(--space-4);
++  border: var(--border-width-hair) solid var(--color-border-strong);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+   min-width: 0;
+ }
+ 
++.input::placeholder {
++  color: var(--color-text-secondary);
++}
++
++.input:focus-visible,
++.select:focus-visible {
++  box-shadow: 0 0 0 var(--border-width-thick) var(--color-focus-halo);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: 2px;
++}
++
+ .textarea {
++  height: auto;
++  min-height: calc(var(--font-size-body) * var(--font-line-height-body) * 4 + var(--space-3) * 2);
++  padding: var(--space-3) var(--space-4);
+   resize: vertical;
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-error);
++  border: var(--border-width-thick) solid var(--color-status-danger);
++  padding-inline: calc(var(--space-4) - var(--border-width-hair));
++}
++
++.textarea[aria-invalid='true'] {
++  padding: calc(var(--space-3) - var(--border-width-hair)) calc(var(--space-4) - var(--border-width-hair));
++}
++
++.select-wrap {
++  position: relative;
++  display: inline-flex;
++}
++
++.select-wrap .select {
++  appearance: none;
++  padding-inline-end: calc(var(--space-4) + var(--size-icon) + var(--space-2));
++  cursor: pointer;
++}
++
++.select-wrap::after {
++  content: '';
++  position: absolute;
++  top: 50%;
++  right: var(--space-4);
++  width: 8px;
++  height: 8px;
++  margin-top: -6px;
++  border-right: var(--border-width-thick) solid var(--color-text-primary);
++  border-bottom: var(--border-width-thick) solid var(--color-text-primary);
++  rotate: 45deg;
++  pointer-events: none;
++}
++
++.checkbox,
++.variant-option input[type='radio'] {
++  appearance: none;
++  position: relative;
++  flex: none;
++  width: 20px;
++  height: 20px;
++  margin: 0;
++  background: var(--color-surface-raised);
++  border: var(--border-width-hair) solid var(--color-border-strong);
++  border-radius: var(--radius-sm);
++  cursor: pointer;
++}
++
++.checkbox:checked {
++  background: var(--color-action-primary);
++  border-color: var(--color-art-ink);
++}
++
++.checkbox:checked::after {
++  content: '';
++  position: absolute;
++  left: 6px;
++  top: 2px;
++  width: 6px;
++  height: 11px;
++  border-right: var(--border-width-thick) solid var(--color-art-ink);
++  border-bottom: var(--border-width-thick) solid var(--color-art-ink);
++  rotate: 45deg;
++}
++
++.variant-option input[type='radio'] {
++  border-radius: var(--radius-full);
++}
++
++.variant-option input[type='radio']:checked {
++  background: var(--color-art-ink);
++  border-color: var(--color-art-ink);
++  box-shadow: inset 0 0 0 5px var(--color-action-primary);
+ }
+ 
+ .button {
+@@ -234,106 +598,326 @@ a {
+   align-items: center;
+   justify-content: center;
+   gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
++  height: var(--size-control);
++  padding: 0 var(--space-6);
++  border: var(--border-width-hair) solid var(--color-art-ink);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+   text-decoration: none;
++  white-space: nowrap;
+   cursor: pointer;
+ }
+ 
+-.button:disabled {
+-  background: var(--color-disabled-bg);
+-  color: var(--color-disabled-text);
+-  cursor: not-allowed;
++.button-primary {
++  background: var(--color-action-primary);
++  border-color: var(--color-art-ink);
++  color: var(--color-text-on-action);
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
+-  padding: var(--space-2) var(--space-4);
++.button-ink {
++  background: var(--color-action-ink);
++  border-color: var(--color-art-ink);
++  color: var(--color-action-on-ink);
+ }
+ 
+-.link-button {
+-  font: inherit;
+-  background: none;
+-  border: none;
+-  padding: 0;
+-  color: var(--color-link);
+-  text-decoration: underline;
+-  cursor: pointer;
++.button-outline {
++  background: transparent;
++  border-color: var(--color-border-strong);
++  color: var(--color-text-primary);
++}
++
++.button-compact {
++  height: var(--size-control-sm);
++  padding: 0 var(--space-4);
++}
++
++.button:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
++  cursor: not-allowed;
+ }
+ 
+ .field-inline {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-3);
++}
++
++.checkbox-row {
++  min-height: 44px;
++  cursor: pointer;
+ }
+ 
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
++  gap: var(--space-2);
+ }
+ 
+ .field-label {
+-  font-weight: bold;
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-regular);
+ }
+ 
+ .field-error {
+-  color: var(--color-error);
+-  font-size: var(--font-size-small);
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-meta);
++  line-height: var(--font-line-height-lead);
+   margin: 0;
+ }
+ 
+-/* Cart button */
+-.cart-button {
+-  position: relative;
++/* ---------- Panels ---------- */
++.panel {
++  overflow: hidden;
+ }
+ 
+-.badge {
+-  display: inline-block;
+-  min-width: 20px;
+-  padding: 0 var(--space-1);
+-  border-radius: var(--radius-pill);
+-  background: var(--color-badge-bg);
+-  color: var(--color-badge-text);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
++.panel-title {
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++  letter-spacing: var(--font-tracking-display);
++  padding: var(--space-4) var(--space-6);
++  border-bottom: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.empty-state.ft-empty {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: var(--space-4);
++}
++
++.empty-state h2,
++.empty-state h3 {
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.empty-sticker {
++  width: var(--size-sticker-md);
++}
++
++.empty-state > .ft-plates,
++.empty-state > .button {
++  margin-top: var(--space-2);
++}
++
++/* ---------- Hero band (front page) ---------- */
++.ft-band--hero {
+   text-align: center;
++  overflow: hidden;
+ }
+ 
+-/* Panels */
+-.panel {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++.hero-title {
++  font-size: var(--font-size-hero);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-mega);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.hero-lead {
++  max-width: 720px;
++  margin: var(--space-6) auto 0;
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.hero-sticker--1 {
++  left: calc(var(--ft-lg) * -0.28);
++  top: var(--space-12);
++}
++
++.hero-sticker--2 {
++  left: calc(var(--ft-lg) * 0.72);
++  top: var(--space-6);
++}
++
++.hero-sticker--3 {
++  right: calc(var(--ft-lg) * -0.28);
++  top: var(--space-8);
++}
++
++.hero-sticker--4 {
++  right: calc(var(--ft-lg) * 0.78);
++  bottom: calc(var(--ft-md) * -0.3);
++}
++
++.hero-sticker--5 {
++  left: calc(var(--ft-lg) * 0.6);
++  bottom: calc(var(--ft-lg) * -0.3);
++}
++
++@media (max-width: 1279px) {
++  .hero-sticker--2 {
++    display: none;
++  }
++}
++
++@media (max-width: 767px) {
++  .ft-band--hero {
++    padding-block: calc(var(--size-sticker-sm) + var(--space-8)) calc(var(--size-sticker-sm) + var(--space-4));
++  }
++
++  .hero-title {
++    font-size: var(--font-size-hero-mobile);
++  }
++
++  .hero-lead {
++    font-size: var(--font-size-card-title);
++  }
++
++  .hero-sticker--1 {
++    left: calc(var(--ft-lg) * -0.3);
++    top: var(--space-4);
++  }
++
++  .hero-sticker--3 {
++    right: calc(var(--ft-lg) * -0.3);
++    top: var(--space-2);
++  }
++
++  .hero-sticker--4 {
++    right: auto;
++    left: calc(50% - var(--ft-md) / 2);
++    bottom: calc(var(--ft-md) * -0.3);
++  }
++
++  .hero-sticker--5 {
++    display: none;
++  }
++}
++
++/* ---------- Header bands (product screens) ---------- */
++.band-title {
++  font-size: var(--font-size-section);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.band-lead {
++  margin-top: var(--space-2);
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++  letter-spacing: var(--font-tracking-display);
++  max-width: var(--size-measure);
++}
++
++@media (max-width: 767px) {
++  .band-title {
++    font-size: var(--font-size-section-mobile);
++  }
++
++  .band-lead {
++    font-size: var(--font-size-card-title);
++  }
++}
++
++.breadcrumb {
++  margin-bottom: var(--space-4);
+ }
+ 
+-.empty-state {
++.breadcrumb ol {
++  list-style: none;
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-2);
++  margin: 0;
++  padding: 0;
++  font-size: var(--font-size-card-title);
++  line-height: var(--font-line-height-title);
++}
++
++.breadcrumb li + li::before {
++  content: '/';
++  margin-right: var(--space-2);
++}
++
++/* ---------- Error band ---------- */
++.error-band {
++  min-height: calc(100vh - var(--header-height));
++  display: grid;
++  place-items: center;
+   text-align: center;
+-  padding: var(--space-8) var(--space-4);
++  overflow: hidden;
++}
++
++.error-inner {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: var(--space-6);
++}
++
++.error-title {
++  font-size: var(--font-size-display);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-display);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.error-message {
++  max-width: 40ch;
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++  margin-bottom: var(--space-2);
++}
++
++.error-sticker--1 {
++  left: calc(var(--ft-lg) * -0.25);
++  top: 12%;
++}
++
++.error-sticker--2 {
++  right: calc(var(--ft-md) * -0.25);
++  bottom: 12%;
++}
++
++@media (max-width: 767px) {
++  .error-band {
++    padding-block: calc(var(--size-sticker-sm) + var(--space-8));
++  }
++
++  .error-title {
++    font-size: var(--font-size-display-mobile);
++  }
++
++  .error-message {
++    font-size: var(--font-size-card-title);
++  }
++
++  .error-sticker--1 {
++    top: var(--space-4);
++  }
++
++  .error-sticker--2 {
++    bottom: var(--space-4);
++  }
+ }
+ 
+-/* Catalog toolbar */
++/* ---------- Catalog toolbar ---------- */
+ .toolbar {
+   display: flex;
+   flex-wrap: wrap;
+   justify-content: space-between;
+   align-items: center;
+-  gap: var(--space-3);
+-  margin-bottom: var(--space-3);
++  gap: var(--space-4);
++  padding: var(--space-4) var(--space-6);
++  background: var(--color-surface-raised);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
+ }
+ 
+ .toolbar-controls {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+-  gap: var(--space-4);
++  gap: var(--space-6);
+ }
+ 
+ .chip-group {
+@@ -344,208 +928,290 @@ a {
+ 
+ .chip {
+   font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius-pill);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  background: transparent;
++  color: var(--color-text-primary);
+   cursor: pointer;
+ }
+ 
+ .chip[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++  box-shadow: inset 0 0 0 var(--border-width-hair) var(--color-border-default);
++}
++
++.catalog [role='status'] {
++  margin: var(--space-6) 0 var(--space-4);
+ }
+ 
+-/* Product grid */
++@media (max-width: 639px) {
++  .toolbar {
++    padding: var(--space-4);
++  }
++
++  .toolbar-controls {
++    gap: var(--space-4);
++  }
++}
++
++/* ---------- Product grid ---------- */
+ .product-grid {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+   display: grid;
+   grid-template-columns: repeat(auto-fill, minmax(var(--product-card-min), 1fr));
+-  gap: var(--space-4);
++  gap: var(--space-6);
+ }
+ 
+ .product-card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  overflow: hidden;
++  position: relative;
+   display: flex;
+   flex-direction: column;
++  overflow: hidden;
++  background: var(--color-surface-raised);
++  border-color: var(--color-border-default);
+ }
+ 
+-.product-card-body {
+-  padding: var(--space-3);
++.product-card:has(.product-link:focus-visible) {
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: 2px;
+ }
+ 
+-.product-card-body p {
+-  margin-bottom: var(--space-1);
++.product-card-body {
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-2);
++  padding: var(--space-6);
+ }
+ 
+ .product-card-title {
+-  margin-bottom: var(--space-1);
++  font-size: var(--font-size-card-title);
++  line-height: var(--font-line-height-title);
++}
++
++.product-link {
++  color: var(--color-text-primary);
++  text-decoration: none;
++}
++
++.product-link::after {
++  content: '';
++  position: absolute;
++  inset: 0;
++}
++
++.product-link:focus-visible {
++  outline: none;
++}
++
++.product-card-summary {
++  color: var(--color-text-secondary);
++  display: -webkit-box;
++  -webkit-line-clamp: 3;
++  -webkit-box-orient: vertical;
++  overflow: hidden;
+ }
+ 
+ .product-card-meta {
++  margin-top: auto;
++  padding-top: var(--space-4);
+   display: flex;
+   align-items: center;
++  justify-content: space-between;
+   gap: var(--space-2);
+ }
+ 
+ .price {
+-  font-weight: bold;
+   font-variant-numeric: tabular-nums;
+ }
+ 
+-.price-large {
+-  font-size: var(--font-size-price-large);
+-}
+-
+-.tag {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++@media (max-width: 767px) {
++  .product-grid {
++    grid-template-columns: 1fr;
++    gap: var(--space-4);
++  }
+ }
+ 
+-.tag-muted {
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
++@media (max-width: 639px) {
++  .product-card-body {
++    padding: var(--space-4);
++  }
+ }
+ 
+-/* Image placeholder */
++/* ---------- Image placeholder (drawn vignette) ---------- */
+ .product-image {
+-  display: flex;
+-  align-items: center;
+-  justify-content: center;
+-  color: var(--color-image-icon);
+-  aspect-ratio: 4 / 3;
+   width: 100%;
+ }
+ 
+ .product-image-large {
+   aspect-ratio: 1 / 1;
+-  border-radius: var(--radius);
+-}
+-
+-.tone-sand {
+-  background: var(--color-tone-sand);
+-}
+-
+-.tone-olive {
+-  background: var(--color-tone-olive);
++  border-block-end: 0;
+ }
+ 
+-.tone-slate {
+-  background: var(--color-tone-slate);
++/* ---------- Product detail ---------- */
++.product-detail {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
++  gap: var(--space-8);
++  align-items: start;
+ }
+ 
+-.tone-clay {
+-  background: var(--color-tone-clay);
++.product-media {
++  overflow: hidden;
+ }
+ 
+-.tone-stone {
+-  background: var(--color-tone-stone);
++.product-detail-info {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-6);
+ }
+ 
+-/* Product detail */
+-.breadcrumb ol {
+-  list-style: none;
++.product-price-row {
+   display: flex;
++  align-items: center;
+   flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin: 0;
+-  padding: 0;
+-  font-size: var(--font-size-small);
+-}
+-
+-.breadcrumb li + li::before {
+-  content: '/';
+-  margin-right: var(--space-2);
+-  color: var(--color-text-muted);
++  gap: var(--space-3);
+ }
+ 
+-.product-detail {
+-  display: grid;
+-  grid-template-columns: 1fr 1fr;
+-  gap: var(--space-8);
+-  align-items: start;
++.product-description {
++  max-width: var(--size-measure);
++  line-height: var(--font-line-height-prose);
+ }
+ 
+ .purchase-form {
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0;
++  gap: var(--space-6);
++  padding: var(--space-6);
+ }
+ 
+ .variant-fieldset {
+   border: none;
+   margin: 0;
+   padding: 0;
++  min-width: 0;
++}
++
++.variant-fieldset legend {
++  padding: 0;
++  margin-bottom: var(--space-2);
+ }
+ 
+ .variant-options {
+   display: flex;
+   flex-wrap: wrap;
+-  gap: var(--space-2);
+-  margin-top: var(--space-1);
++  gap: var(--space-3);
+ }
+ 
+ .variant-option {
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-1);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
++  gap: var(--space-3);
++  min-height: var(--size-control);
++  padding: 0 var(--space-4);
++  background: var(--color-surface-raised);
++  border: var(--border-width-hair) solid var(--color-border-strong);
++  border-radius: var(--radius-sm);
+   cursor: pointer;
++  transition:
++    translate var(--motion-duration-lift) var(--motion-easing-lift),
++    box-shadow var(--motion-duration-lift) var(--motion-easing-lift);
++}
++
++@media (hover: hover) {
++  .variant-option:hover {
++    translate: calc(var(--offset-lift) * -1) calc(var(--offset-lift) * -1);
++    box-shadow: var(--offset-lift) var(--offset-lift) 0 0 var(--color-shadow-hard);
++  }
++}
++
++.variant-option:active {
++  translate: 0 0;
++  box-shadow: none;
++}
++
++.variant-option:has(input:checked) {
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  padding: 0 calc(var(--space-4) - var(--border-width-hair));
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .variant-option {
++    transition: none;
++  }
+ }
+ 
+ .stepper {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
++  gap: var(--space-2);
+ }
+ 
+ .stepper-controls {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-1);
++  gap: var(--space-2);
+ }
+ 
+ .stepper-button {
+-  width: 32px;
+-  height: 32px;
++  width: var(--size-control);
+   padding: 0;
++  font-size: var(--font-size-card-title);
+ }
+ 
+ .stepper-input {
+-  width: 56px;
+-  height: 32px;
++  width: 64px;
++  padding: 0 var(--space-2);
+   text-align: center;
++  font-variant-numeric: tabular-nums;
++  appearance: textfield;
++  -moz-appearance: textfield;
+ }
+ 
+-.added-message p {
+-  background: var(--color-success-bg);
+-  color: var(--color-success-text);
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
++.stepper-input::-webkit-outer-spin-button,
++.stepper-input::-webkit-inner-spin-button {
++  -webkit-appearance: none;
++  margin: 0;
+ }
+ 
+-.detail-list {
+-  margin: 0;
+-  padding-left: var(--space-6);
++.added-message:empty {
++  display: none;
++}
++
++.added-message a {
++  white-space: nowrap;
++}
++
++.detail-panel {
++  overflow: hidden;
++}
++
++.detail-list li {
++  min-height: var(--size-control);
+ }
+ 
+-/* Cart */
++@media (max-width: 900px) {
++  .product-detail {
++    grid-template-columns: 1fr;
++    gap: var(--space-6);
++  }
++}
++
++@media (max-width: 639px) {
++  .purchase-form {
++    padding: var(--space-4);
++    align-items: stretch;
++  }
++
++  .purchase-form .button-primary {
++    width: 100%;
++  }
++}
++
++/* ---------- Cart ---------- */
+ .cart-layout {
+   display: grid;
+-  grid-template-columns: 3fr 2fr;
++  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+   gap: var(--space-6);
+   align-items: start;
+ }
+@@ -558,35 +1224,44 @@ a {
+ 
+ .cart-line {
+   display: grid;
+-  grid-template-columns: 1fr auto auto auto;
++  grid-template-columns: minmax(0, 1fr) auto auto auto;
+   align-items: center;
+   gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  padding: var(--space-4) var(--space-6);
++  border-bottom: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+-.cart-line-info p {
+-  margin: 0;
++.cart-line-info {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-1);
+ }
+ 
+ .cart-line-name {
+-  font-weight: bold;
++  font-size: var(--font-size-card-title);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ .cart-line-total {
+-  margin: 0;
+   min-width: 80px;
+   text-align: right;
++  font-variant-numeric: tabular-nums;
+ }
+ 
+ .summary {
+-  margin: var(--space-4) 0 0;
++  margin: 0;
++  padding: var(--space-2) var(--space-6) var(--space-4);
+ }
+ 
+ .summary-row {
+   display: flex;
+   justify-content: space-between;
+-  padding: var(--space-1) 0;
++  align-items: center;
++  min-height: var(--size-control);
++}
++
++.summary-row + .summary-row {
++  border-top: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+ .summary-row dd {
+@@ -595,44 +1270,86 @@ a {
+ }
+ 
+ .summary-total {
+-  border-top: var(--border-width) solid var(--color-border);
+-  margin-top: var(--space-2);
+-  padding-top: var(--space-2);
+-  font-weight: bold;
++  min-height: var(--size-row);
++  font-size: var(--font-size-card-title);
+ }
+ 
+ .checkout-form {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-4);
++  gap: var(--space-6);
++  padding: var(--space-6);
+ }
+ 
+ .checkout-form .button-primary {
+   align-self: flex-start;
+ }
+ 
+-.confirmation {
+-  background: var(--color-success-bg);
+-  color: var(--color-success-text);
++@media (max-width: 900px) {
++  .cart-layout {
++    grid-template-columns: 1fr;
++  }
+ }
+ 
+-@media (max-width: 900px) {
+-  .site-header {
+-    flex-wrap: wrap;
+-    gap: var(--space-3);
+-    padding: var(--space-3) var(--space-4);
++@media (max-width: 639px) {
++  .cart-line {
++    grid-template-columns: minmax(0, 1fr) auto;
++    padding: var(--space-4);
+   }
+ 
+-  .content {
++  .summary {
++    padding-inline: var(--space-4);
++  }
++
++  .checkout-form {
+     padding: var(--space-4);
+   }
+ 
+-  .product-detail,
+-  .cart-layout {
+-    grid-template-columns: 1fr;
++  .checkout-form .button-primary {
++    align-self: stretch;
++    width: 100%;
+   }
+ 
+-  .cart-line {
+-    grid-template-columns: 1fr auto;
++  .panel-title {
++    padding: var(--space-4);
++  }
++}
++
++/* ---------- Confirmation (success screen) ---------- */
++.confirmation-panel {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  padding: var(--space-8);
++}
++
++.confirmation-panel .ft-badge {
++  flex: none;
++}
++
++.confirmation-text {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-4);
++}
++
++.confirmation-text p {
++  line-height: 2;
++}
++
++.confirmation-text .ft-plates {
++  margin-top: var(--space-2);
++}
++
++@media (max-width: 767px) {
++  .confirmation-panel {
++    flex-direction: column;
++    align-items: flex-start;
++    padding: var(--space-6) var(--space-4);
++  }
++
++  .confirmation-panel .ft-badge {
++    width: 180px;
+   }
+ }

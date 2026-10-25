@@ -1,0 +1,2649 @@
+diff --git a/index.html b/index.html
+index 5602a04..f95831b 100644
+--- a/index.html
++++ b/index.html
+@@ -4,6 +4,13 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <link rel="icon" href="data:," />
++    <meta name="color-scheme" content="light dark" />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&family=Space+Grotesk:wght@400;500;600;700&display=swap"
++    />
+     <title>Northwind Ops</title>
+   </head>
+   <body>
+diff --git a/src/components/BarChart.tsx b/src/components/BarChart.tsx
+index 63f7c3f..9a94fe6 100644
+--- a/src/components/BarChart.tsx
++++ b/src/components/BarChart.tsx
+@@ -6,10 +6,12 @@ interface BarChartProps {
+ }
+ 
+ const WIDTH = 600;
+-const HEIGHT = 240;
+-const PADDING_TOP = 24;
+-const PADDING_BOTTOM = 28;
++const HEIGHT = 260;
++const PADDING_TOP = 40;
++const PADDING_BOTTOM = 40;
+ const PADDING_X = 16;
++/** Window of the trailing average drawn as the pink line over the bars. */
++const AVERAGE_WINDOW = 3;
+ 
+ export default function BarChart({ title, data }: BarChartProps) {
+   const max = Math.max(...data.map((point) => point.value), 1);
+@@ -17,10 +19,29 @@ export default function BarChart({ title, data }: BarChartProps) {
+   const slot = (WIDTH - PADDING_X * 2) / data.length;
+   const barWidth = slot * 0.6;
+   const summary = data.map((point) => `${point.month}: ${point.value}`).join(', ');
++  const baseline = HEIGHT - PADDING_BOTTOM;
++  const yFor = (value: number) => baseline - (value / max) * plotHeight;
++  const centerFor = (index: number) => PADDING_X + index * slot + slot / 2;
++
++  const average = data.map((_, index) => {
++    const window = data.slice(Math.max(0, index - AVERAGE_WINDOW + 1), index + 1);
++    return window.reduce((sum, point) => sum + point.value, 0) / window.length;
++  });
++  const linePath = average.map((value, index) => `${index === 0 ? 'M' : 'L'}${centerFor(index)} ${yFor(value)}`).join(' ');
+ 
+   return (
+     <figure className="chart" data-testid="bar-chart">
+       <figcaption className="chart-title">{title}</figcaption>
++      <ul className="chart-legend" aria-hidden="true">
++        <li>
++          <span className="legend-dot legend-dot-bar" />
++          Deployments
++        </li>
++        <li>
++          <span className="legend-dot legend-dot-line" />
++          {AVERAGE_WINDOW}-month average
++        </li>
++      </ul>
+       <svg
+         className="chart-svg"
+         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+@@ -28,29 +49,27 @@ export default function BarChart({ title, data }: BarChartProps) {
+         aria-label={`${title}. ${summary}`}
+         preserveAspectRatio="xMidYMid meet"
+       >
+-        <line
+-          className="chart-axis"
+-          x1={PADDING_X}
+-          x2={WIDTH - PADDING_X}
+-          y1={HEIGHT - PADDING_BOTTOM}
+-          y2={HEIGHT - PADDING_BOTTOM}
+-        />
+         {data.map((point, index) => {
+-          const barHeight = (point.value / max) * plotHeight;
+-          const x = PADDING_X + index * slot + (slot - barWidth) / 2;
+-          const y = HEIGHT - PADDING_BOTTOM - barHeight;
++          const y = yFor(point.value);
++          const x = centerFor(index) - barWidth / 2;
+           return (
+             <g key={point.month} data-testid="chart-bar">
+-              <rect className="chart-bar" x={x} y={y} width={barWidth} height={barHeight} />
+-              <text className="chart-value" x={x + barWidth / 2} y={y - 6} textAnchor="middle">
++              <rect className="chart-bar" x={x} y={y} width={barWidth} height={baseline - y} />
++              <line className="chart-cap" x1={x} x2={x + barWidth} y1={y + 1} y2={y + 1} />
++              <text className="chart-value" x={x + barWidth / 2} y={y - 14} textAnchor="middle">
+                 {point.value}
+               </text>
+-              <text className="chart-label" x={x + barWidth / 2} y={HEIGHT - 8} textAnchor="middle">
++              <text className="chart-label" x={x + barWidth / 2} y={HEIGHT - 12} textAnchor="middle">
+                 {point.month}
+               </text>
+             </g>
+           );
+         })}
++        <line className="chart-axis" x1={PADDING_X} x2={WIDTH - PADDING_X} y1={baseline} y2={baseline} />
++        <path className="chart-line" d={linePath} />
++        {average.map((value, index) => (
++          <circle key={data[index].month} className="chart-dot" cx={centerFor(index)} cy={yFor(value)} r={4} />
++        ))}
+       </svg>
+     </figure>
+   );
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 2a82e37..7b5bed6 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,6 +1,7 @@
+ import { useEffect, useRef, useState, type FormEvent } from 'react';
+ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+ import { currentUser } from '../data/team';
++import { ChevronIcon, SearchIcon, type Band } from './ft';
+ 
+ const NAV_ITEMS = [
+   { to: '/', label: 'Overview', testId: 'nav-overview', end: true },
+@@ -13,6 +14,7 @@ export default function Layout() {
+   const navigate = useNavigate();
+   const location = useLocation();
+   const [query, setQuery] = useState('');
++  const [jump, setJump] = useState('');
+   const [menuOpen, setMenuOpen] = useState(false);
+   const menuRef = useRef<HTMLDivElement>(null);
+ 
+@@ -43,18 +45,28 @@ export default function Layout() {
+     navigate(term ? `/projects?q=${encodeURIComponent(term)}` : '/projects');
+   }
+ 
++  function handleJump(event: FormEvent<HTMLFormElement>) {
++    event.preventDefault();
++    const term = jump.trim();
++    setJump('');
++    navigate(term ? `/projects?q=${encodeURIComponent(term)}` : '/projects');
++  }
++
+   return (
+-    <div className="app-shell">
++    <div className={`app-shell ft-band--${areaBand(location.pathname)}`}>
+       <a className="skip-link" href="#main-content">
+         Skip to content
+       </a>
+       <aside className="sidebar">
+-        <div className="brand">Northwind Ops</div>
++        <div className="brand">
++          <span className="brand-mark" aria-hidden="true" />
++          Northwind Ops
++        </div>
+         <nav aria-label="Primary" data-testid="sidebar-nav">
+           <ul className="nav-list">
+             {NAV_ITEMS.map((item) => (
+               <li key={item.to}>
+-                <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
++                <NavLink to={item.to} end={item.end} className="nav-link ft-pill" data-testid={item.testId}>
+                   {item.label}
+                 </NavLink>
+               </li>
+@@ -69,16 +81,19 @@ export default function Layout() {
+             <label htmlFor="global-search" className="visually-hidden">
+               Search projects
+             </label>
+-            <input
+-              id="global-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search projects…"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="global-search"
+-            />
+-            <button type="submit" className="button" data-testid="global-search-submit">
++            <span className="input-with-icon">
++              <SearchIcon />
++              <input
++                id="global-search"
++                type="search"
++                className="input"
++                placeholder="Search projects…"
++                value={query}
++                onChange={(event) => setQuery(event.target.value)}
++                data-testid="global-search"
++              />
++            </span>
++            <button type="submit" className="button button-ink ft-lift" data-testid="global-search-submit">
+               Search
+             </button>
+           </form>
+@@ -86,7 +101,7 @@ export default function Layout() {
+           <div className="user-menu" ref={menuRef}>
+             <button
+               type="button"
+-              className="button user-menu-button"
++              className="user-menu-button ft-lift"
+               aria-expanded={menuOpen}
+               aria-controls="user-menu-panel"
+               onClick={() => setMenuOpen((open) => !open)}
+@@ -95,7 +110,8 @@ export default function Layout() {
+               <span className="avatar" aria-hidden="true">
+                 {currentUser.initials}
+               </span>
+-              <span>{currentUser.name}</span>
++              <span className="user-menu-name">{currentUser.name}</span>
++              <ChevronIcon className="icon user-menu-chevron" />
+             </button>
+             {menuOpen && (
+               <div id="user-menu-panel" className="user-menu-panel" data-testid="user-menu">
+@@ -125,7 +141,51 @@ export default function Layout() {
+         <main id="main-content" className="content" tabIndex={-1}>
+           <Outlet />
+         </main>
++
++        <footer className="ft-footer">
++          <div className="ft-footer__inner">
++            <p className="ft-footer__headline">Ship every project on time.</p>
++            <div className="ft-footer__columns">
++              <nav aria-label="Footer" className="ft-footer__column">
++                <p className="ft-footer__label">Workspace</p>
++                <ul>
++                  {NAV_ITEMS.map((item) => (
++                    <li key={item.to}>
++                      <Link to={item.to}>{item.label}</Link>
++                    </li>
++                  ))}
++                </ul>
++              </nav>
++              <form role="search" className="ft-footer__column ft-footer__jump" onSubmit={handleJump}>
++                <label htmlFor="footer-jump" className="ft-footer__label">
++                  Jump to a project
++                </label>
++                <span className="ft-footer__field">
++                  <input
++                    id="footer-jump"
++                    type="search"
++                    className="input"
++                    placeholder="Project name"
++                    value={jump}
++                    onChange={(event) => setJump(event.target.value)}
++                  />
++                  <button type="submit" className="button button-square ft-lift" aria-label="Go to project search">
++                    →
++                  </button>
++                </span>
++              </form>
++            </div>
++          </div>
++        </footer>
+       </div>
+     </div>
+   );
+ }
++
++/** Area-to-band map, in nav order: Overview lemon, Projects periwinkle, Team teal, Settings marigold. */
++function areaBand(pathname: string): Band {
++  if (pathname.startsWith('/projects')) return 'periwinkle';
++  if (pathname.startsWith('/team')) return 'teal';
++  if (pathname.startsWith('/settings')) return 'marigold';
++  return 'lemon';
++}
+diff --git a/src/components/ProjectsTable.tsx b/src/components/ProjectsTable.tsx
+index 28169e4..feee1db 100644
+--- a/src/components/ProjectsTable.tsx
++++ b/src/components/ProjectsTable.tsx
+@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
+ import { Link } from 'react-router';
+ import { projects, type Project, type ProjectStatus } from '../data/projects';
+ import StatusPill from './StatusPill';
++import { PriceFlag, SearchIcon } from './ft';
++import { FolderSticker } from './ft/Stickers';
+ 
+ type StatusFilter = 'all' | ProjectStatus;
+ type SortKey = 'name' | 'owner' | 'status' | 'budget' | 'dueDate';
+@@ -77,8 +79,8 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+   }
+ 
+   return (
+-    <section className="panel" aria-labelledby="projects-table-heading">
+-      <div className="panel-header">
++    <section className="table-section" aria-labelledby="projects-table-heading">
++      <div className="section-header">
+         <h2 id="projects-table-heading">{heading}</h2>
+         <p className="muted" data-testid="result-count" aria-live="polite">
+           Showing {rows.length} of {projects.length} projects
+@@ -91,7 +93,7 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+             <button
+               key={filter.value}
+               type="button"
+-              className="segmented-button"
++              className="segmented-button ft-pill"
+               aria-pressed={status === filter.value}
+               onClick={() => setStatus(filter.value)}
+               data-testid={`status-filter-${filter.value}`}
+@@ -102,28 +104,32 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+         </div>
+         <div className="field-inline">
+           <label htmlFor="project-filter">Filter projects</label>
+-          <input
+-            id="project-filter"
+-            type="search"
+-            className="input"
+-            placeholder="Name, owner or team"
+-            value={query}
+-            onChange={(event) => setQuery(event.target.value)}
+-            data-testid="project-search"
+-          />
++          <span className="input-with-icon">
++            <SearchIcon />
++            <input
++              id="project-filter"
++              type="search"
++              className="input"
++              placeholder="Name, owner or team"
++              value={query}
++              onChange={(event) => setQuery(event.target.value)}
++              data-testid="project-search"
++            />
++          </span>
+         </div>
+       </div>
+ 
+       {rows.length === 0 ? (
+-        <div className="empty-state" data-testid="projects-empty">
++        <div className="empty-state ft-empty" data-testid="projects-empty">
++          <FolderSticker className="empty-sticker" />
+           <h3>No projects match your filters</h3>
+           <p className="muted">Try a different search term or status.</p>
+-          <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++          <button type="button" className="button ft-lift" onClick={clearFilters} data-testid="clear-filters">
+             Clear filters
+           </button>
+         </div>
+       ) : (
+-        <div className="table-wrap">
++        <div className="table-wrap" role="region" aria-label={`${heading} table`} tabIndex={0}>
+           <table className="table" data-testid="projects-table">
+             <thead>
+               <tr>
+@@ -131,6 +137,7 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+                   <th
+                     key={column.key}
+                     scope="col"
++                    className={column.key === 'budget' ? 'numeric' : undefined}
+                     aria-sort={sortKey === column.key ? sortDirection : 'none'}
+                     data-testid={`column-${column.key}`}
+                   >
+@@ -162,7 +169,9 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+                   <td>
+                     <StatusPill status={project.status} />
+                   </td>
+-                  <td className="numeric">{currency.format(project.budget)}</td>
++                  <td className="numeric">
++                    <PriceFlag>{currency.format(project.budget)}</PriceFlag>
++                  </td>
+                   <td>{formatDate(project.dueDate)}</td>
+                 </tr>
+               ))}
+diff --git a/src/components/StatusPill.tsx b/src/components/StatusPill.tsx
+index 5abae07..e476a72 100644
+--- a/src/components/StatusPill.tsx
++++ b/src/components/StatusPill.tsx
+@@ -3,6 +3,7 @@ import { STATUS_LABELS, type ProjectStatus } from '../data/projects';
+ export default function StatusPill({ status }: { status: ProjectStatus }) {
+   return (
+     <span className={`pill pill-${status}`} data-testid="status-pill">
++      <span className="status-dot" aria-hidden="true" />
+       {STATUS_LABELS[status]}
+     </span>
+   );
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..cd974e2 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '../design-system/tokens.css';
++import './styles/felt-tip.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index dde83ce..c8efabe 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,20 @@
+-import { Link } from 'react-router';
++import ErrorBand from '../components/ft/ErrorBand';
++import { CalendarSticker, SlipSticker } from '../components/ft/Stickers';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to overview</Link>
+-    </section>
++    <ErrorBand
++      band="marigold"
++      testId="not-found"
++      title="Page not found"
++      message="The page you are looking for does not exist or has moved."
++      action={{ to: '/', label: 'Go to overview' }}
++      stickers={
++        <>
++          <SlipSticker className="error-sticker error-sticker-a" />
++          <CalendarSticker className="error-sticker error-sticker-b" />
++        </>
++      }
++    />
+   );
+ }
+diff --git a/src/pages/OverviewPage.tsx b/src/pages/OverviewPage.tsx
+index c7d849a..d5ca935 100644
+--- a/src/pages/OverviewPage.tsx
++++ b/src/pages/OverviewPage.tsx
+@@ -2,11 +2,15 @@ import { useEffect, useRef, useState } from 'react';
+ import { Link } from 'react-router';
+ import BarChart from '../components/BarChart';
+ import ProjectsTable from '../components/ProjectsTable';
++import { HeaderBand, PriceFlag, RefreshIcon } from '../components/ft';
++import { LoadingGlyph, ParcelSticker } from '../components/ft/Stickers';
+ import { deploymentsByMonth, kpis, recentActivity } from '../data/metrics';
+ import { projects } from '../data/projects';
+ 
+ /** How long a refresh of the metrics takes (mock data: the delay only shows the loading state). */
+ const REFRESH_MS = 1500;
++/** The dashboard's headline figure, marked with the price flag. */
++const HEADLINE_KPI = 'deployments';
+ 
+ export default function OverviewPage() {
+   const [loading, setLoading] = useState(false);
+@@ -20,60 +24,77 @@ export default function OverviewPage() {
+ 
+   return (
+     <>
+-      <div className="page-header page-header-row">
+-        <div>
+-          <h1>Overview</h1>
+-          <p className="muted">Delivery health across all teams for October 2026.</p>
+-        </div>
+-        <button type="button" className="button" data-testid="refresh-metrics" onClick={refresh} disabled={loading}>
+-          {loading ? 'Refreshing…' : 'Refresh'}
+-        </button>
+-      </div>
+-
+-      <section aria-label="Key metrics" aria-busy={loading} className="kpi-grid" data-testid="kpi-grid">
+-        {loading
+-          ? kpis.map((kpi) => (
+-              <article key={kpi.id} className="card kpi-card kpi-card-loading" data-testid="kpi-card-loading" aria-hidden="true">
+-                <span className="skeleton skeleton-label" />
+-                <span className="skeleton skeleton-value" />
+-                <span className="skeleton skeleton-change" />
+-              </article>
+-            ))
+-          : kpis.map((kpi) => (
+-              <article key={kpi.id} className="card kpi-card" data-testid="kpi-card">
+-                <h2 className="kpi-label">{kpi.label}</h2>
+-                <p className="kpi-value">{kpi.value}</p>
+-                <p className={`kpi-change kpi-change-${kpi.trend}`}>{kpi.change}</p>
+-              </article>
+-            ))}
+-      </section>
+-
+-      <div className="two-column">
+-        <section className="panel" aria-labelledby="throughput-heading">
+-          <h2 id="throughput-heading">Deployment throughput</h2>
+-          <BarChart title="Production deployments per month" data={deploymentsByMonth} />
+-        </section>
++      <HeaderBand
++        band="lemon"
++        title={<h1>Overview</h1>}
++        lead="Delivery health across all teams for October 2026."
++        actions={
++          <button
++            type="button"
++            className="button button-on-band ft-lift"
++            data-testid="refresh-metrics"
++            onClick={refresh}
++            disabled={loading}
++            aria-busy={loading}
++          >
++            {loading ? <LoadingGlyph /> : <RefreshIcon />}
++            {loading ? 'Refreshing…' : 'Refresh'}
++          </button>
++        }
++        sticker={<ParcelSticker className="band-sticker" />}
++      />
+ 
+-        <section className="panel" aria-labelledby="activity-heading">
+-          <h2 id="activity-heading">Recent activity</h2>
+-          <ul className="activity-list" data-testid="activity-list">
+-            {recentActivity.map((item) => {
+-              const project = projects.find((p) => p.name === item.target);
+-              return (
+-                <li key={item.id} className="activity-item" data-testid="activity-item">
+-                  <p>
+-                    <strong>{item.actor}</strong> {item.action}{' '}
+-                    {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
++      <div className="page-body">
++        <section aria-label="Key metrics" aria-busy={loading} className="kpi-grid" data-testid="kpi-grid">
++          {loading
++            ? kpis.map((kpi) => (
++                <article key={kpi.id} className="card kpi-card kpi-card-loading" data-testid="kpi-card-loading" aria-hidden="true">
++                  <span className="skeleton skeleton-label" />
++                  <span className="skeleton skeleton-value">Loading</span>
++                  <span className="skeleton skeleton-change" />
++                </article>
++              ))
++            : kpis.map((kpi) => (
++                <article key={kpi.id} className={`card kpi-card kpi-card-${kpi.id}`} data-testid="kpi-card">
++                  <h2 className="kpi-label">
++                    <span className="legend-dot" aria-hidden="true" />
++                    {kpi.label}
++                  </h2>
++                  <p className="kpi-value">{kpi.value}</p>
++                  <p className={`kpi-change kpi-change-${kpi.trend}`}>
++                    {kpi.id === HEADLINE_KPI ? <PriceFlag>{kpi.change}</PriceFlag> : kpi.change}
+                   </p>
+-                  <p className="muted small">{item.time}</p>
+-                </li>
+-              );
+-            })}
+-          </ul>
++                </article>
++              ))}
+         </section>
+-      </div>
+ 
+-      <ProjectsTable heading="Projects" />
++        <div className="two-column">
++          <section className="panel" aria-labelledby="throughput-heading">
++            <h2 id="throughput-heading">Deployment throughput</h2>
++            <BarChart title="Production deployments per month" data={deploymentsByMonth} />
++          </section>
++
++          <section className="panel" aria-labelledby="activity-heading">
++            <h2 id="activity-heading">Recent activity</h2>
++            <ul className="activity-list" data-testid="activity-list">
++              {recentActivity.map((item) => {
++                const project = projects.find((p) => p.name === item.target);
++                return (
++                  <li key={item.id} className="activity-item" data-testid="activity-item">
++                    <p>
++                      <strong>{item.actor}</strong> {item.action}{' '}
++                      {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
++                    </p>
++                    <p className="muted small">{item.time}</p>
++                  </li>
++                );
++              })}
++            </ul>
++          </section>
++        </div>
++
++        <ProjectsTable heading="Projects" />
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProjectDetailPage.tsx b/src/pages/ProjectDetailPage.tsx
+index 3e13517..0b0a7fe 100644
+--- a/src/pages/ProjectDetailPage.tsx
++++ b/src/pages/ProjectDetailPage.tsx
+@@ -2,6 +2,9 @@ import { useRef, useState, type KeyboardEvent } from 'react';
+ import { Link, useParams } from 'react-router';
+ import StatusPill from '../components/StatusPill';
+ import { formatDate } from '../components/ProjectsTable';
++import { HeaderBand, PriceFlag } from '../components/ft';
++import ErrorBand from '../components/ft/ErrorBand';
++import { FolderSticker, SlipSticker, WordBadge } from '../components/ft/Stickers';
+ import { findProject, type Project, type Task } from '../data/projects';
+ 
+ type TabId = 'overview' | 'tasks' | 'files';
+@@ -20,11 +23,20 @@ export default function ProjectDetailPage() {
+ 
+   if (!project) {
+     return (
+-      <div className="empty-state" data-testid="project-not-found">
+-        <h1>Project not found</h1>
+-        <p className="muted">There is no project with the id “{id}”.</p>
+-        <Link to="/projects">Back to all projects</Link>
+-      </div>
++      <ErrorBand
++        as="div"
++        band="periwinkle"
++        testId="project-not-found"
++        title="Project not found"
++        message={<>There is no project with the id “{id}”.</>}
++        action={{ to: '/projects', label: 'Back to all projects' }}
++        stickers={
++          <>
++            <FolderSticker className="error-sticker error-sticker-a" fill="white" accent="white" />
++            <SlipSticker className="error-sticker error-sticker-b" />
++          </>
++        }
++      />
+     );
+   }
+ 
+@@ -57,122 +69,130 @@ function ProjectDetail({ project }: { project: Project }) {
+ 
+   return (
+     <>
+-      <nav aria-label="Breadcrumb" className="breadcrumb">
+-        <ol>
+-          <li>
+-            <Link to="/projects">Projects</Link>
+-          </li>
+-          <li aria-current="page">{project.name}</li>
+-        </ol>
+-      </nav>
+-
+-      <div className="page-header page-header-row">
+-        <div>
+-          <h1 data-testid="project-title">{project.name}</h1>
+-          <p className="muted">
+-            {project.client} · Owned by {project.owner}
+-          </p>
+-        </div>
+-        <StatusPill status={project.status} />
+-      </div>
+-
+-      <div className="tabs" role="tablist" aria-label="Project sections">
+-        {TABS.map((tab, index) => (
+-          <button
+-            key={tab.id}
+-            ref={(element) => {
+-              tabRefs.current[tab.id] = element;
+-            }}
+-            type="button"
+-            role="tab"
+-            id={`tab-${tab.id}`}
+-            className="tab"
+-            aria-selected={activeTab === tab.id}
+-            aria-controls={`panel-${tab.id}`}
+-            tabIndex={activeTab === tab.id ? 0 : -1}
+-            onClick={() => setActiveTab(tab.id)}
+-            onKeyDown={(event) => onTabKeyDown(event, index)}
+-            data-testid={`tab-${tab.id}`}
+-          >
+-            {tab.label}
+-          </button>
+-        ))}
+-      </div>
+-
+-      {activeTab === 'overview' && (
+-        <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="panel" data-testid="panel-overview">
+-          <p>{project.description}</p>
+-          <dl className="details">
+-            <div>
+-              <dt>Budget</dt>
+-              <dd>{currency.format(project.budget)}</dd>
+-            </div>
+-            <div>
+-              <dt>Due date</dt>
+-              <dd>{formatDate(project.dueDate)}</dd>
+-            </div>
+-            <div>
+-              <dt>Tasks</dt>
+-              <dd>
+-                {completed} of {tasks.length} complete
+-              </dd>
+-            </div>
+-            <div>
+-              <dt>Files</dt>
+-              <dd>{project.files.length}</dd>
+-            </div>
+-          </dl>
+-        </section>
+-      )}
+-
+-      {activeTab === 'tasks' && (
+-        <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="panel" data-testid="panel-tasks">
+-          <div className="progress-row">
+-            <p data-testid="task-progress" aria-live="polite">
+-              {completed} of {tasks.length} tasks complete
+-            </p>
+-            <progress className="progress" max={tasks.length} value={completed} aria-label="Task completion" />
+-          </div>
+-          <ul className="task-list">
+-            {tasks.map((task) => (
+-              <li key={task.id} className={task.done ? 'task task-done' : 'task'} data-testid="task-item">
+-                <input
+-                  id={`task-${task.id}`}
+-                  type="checkbox"
+-                  checked={task.done}
+-                  onChange={() => toggleTask(task.id)}
+-                  data-testid={`task-checkbox-${task.id}`}
+-                />
+-                <label htmlFor={`task-${task.id}`}>{task.title}</label>
+-                <span className="muted small">{task.assignee}</span>
++      <HeaderBand
++        band="periwinkle"
++        breadcrumb={
++          <nav aria-label="Breadcrumb" className="breadcrumb">
++            <ol>
++              <li>
++                <Link to="/projects">Projects</Link>
+               </li>
++              <li aria-current="page">{project.name}</li>
++            </ol>
++          </nav>
++        }
++        title={<h1 data-testid="project-title">{project.name}</h1>}
++        lead={
++          <>
++            {project.client} · Owned by {project.owner}
++          </>
++        }
++        actions={<StatusPill status={project.status} />}
++        tabs={
++          <div className="tabs" role="tablist" aria-label="Project sections">
++            {TABS.map((tab, index) => (
++              <button
++                key={tab.id}
++                ref={(element) => {
++                  tabRefs.current[tab.id] = element;
++                }}
++                type="button"
++                role="tab"
++                id={`tab-${tab.id}`}
++                className="tab ft-pill"
++                aria-selected={activeTab === tab.id}
++                aria-controls={`panel-${tab.id}`}
++                tabIndex={activeTab === tab.id ? 0 : -1}
++                onClick={() => setActiveTab(tab.id)}
++                onKeyDown={(event) => onTabKeyDown(event, index)}
++                data-testid={`tab-${tab.id}`}
++              >
++                {tab.label}
++              </button>
+             ))}
+-          </ul>
+-        </section>
+-      )}
+-
+-      {activeTab === 'files' && (
+-        <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="panel" data-testid="panel-files">
+-          <table className="table">
+-            <thead>
+-              <tr>
+-                <th scope="col">File name</th>
+-                <th scope="col">Size</th>
+-                <th scope="col">Last updated</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {project.files.map((file) => (
+-                <tr key={file.id} data-testid="file-row">
+-                  <td>{file.name}</td>
+-                  <td>{file.size}</td>
+-                  <td>{formatDate(file.updated)}</td>
+-                </tr>
++          </div>
++        }
++      />
++
++      <div className="page-body">
++        {activeTab === 'overview' && (
++          <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="panel" data-testid="panel-overview">
++            <p className="prose">{project.description}</p>
++            <dl className="details">
++              <div>
++                <dt>Budget</dt>
++                <dd>
++                  <PriceFlag>{currency.format(project.budget)}</PriceFlag>
++                </dd>
++              </div>
++              <div>
++                <dt>Due date</dt>
++                <dd>{formatDate(project.dueDate)}</dd>
++              </div>
++              <div>
++                <dt>Tasks</dt>
++                <dd>
++                  {completed} of {tasks.length} complete
++                </dd>
++              </div>
++              <div>
++                <dt>Files</dt>
++                <dd>{project.files.length}</dd>
++              </div>
++            </dl>
++          </section>
++        )}
++
++        {activeTab === 'tasks' && (
++          <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="panel" data-testid="panel-tasks">
++            <div className="progress-row">
++              <p data-testid="task-progress" aria-live="polite">
++                {completed} of {tasks.length} tasks complete
++              </p>
++              <progress className="progress" max={tasks.length} value={completed} aria-label="Task completion" />
++              {completed === tasks.length && <WordBadge word="done" className="done-badge" />}
++            </div>
++            <ul className="task-list ft-box ft-group">
++              {tasks.map((task) => (
++                <li key={task.id} className={task.done ? 'task task-done' : 'task'} data-testid="task-item">
++                  <input
++                    id={`task-${task.id}`}
++                    type="checkbox"
++                    checked={task.done}
++                    onChange={() => toggleTask(task.id)}
++                    data-testid={`task-checkbox-${task.id}`}
++                  />
++                  <label htmlFor={`task-${task.id}`}>{task.title}</label>
++                  <span className="muted small">{task.assignee}</span>
++                </li>
+               ))}
+-            </tbody>
+-          </table>
+-        </section>
+-      )}
++            </ul>
++          </section>
++        )}
++
++        {activeTab === 'files' && (
++          <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="panel panel-flush" data-testid="panel-files">
++            <table className="table">
++              <thead>
++                <tr>
++                  <th scope="col">File name</th>
++                  <th scope="col">Size</th>
++                  <th scope="col">Last updated</th>
++                </tr>
++              </thead>
++              <tbody>
++                {project.files.map((file) => (
++                  <tr key={file.id} data-testid="file-row">
++                    <td className="mono">{file.name}</td>
++                    <td>{file.size}</td>
++                    <td>{formatDate(file.updated)}</td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </section>
++        )}
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProjectsPage.tsx b/src/pages/ProjectsPage.tsx
+index 9529547..41c8b6e 100644
+--- a/src/pages/ProjectsPage.tsx
++++ b/src/pages/ProjectsPage.tsx
+@@ -1,5 +1,6 @@
+ import { useSearchParams } from 'react-router';
+ import ProjectsTable from '../components/ProjectsTable';
++import { HeaderBand } from '../components/ft';
+ 
+ export default function ProjectsPage() {
+   const [searchParams] = useSearchParams();
+@@ -7,12 +8,11 @@ export default function ProjectsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Projects</h1>
+-        <p className="muted">Every initiative tracked by the operations team.</p>
++      <HeaderBand band="periwinkle" title={<h1>Projects</h1>} lead="Every initiative tracked by the operations team." />
++      <div className="page-body">
++        {/* Re-mount when the global search changes so the table picks up the new query. */}
++        <ProjectsTable key={initialQuery} heading="All projects" initialQuery={initialQuery} />
+       </div>
+-      {/* Re-mount when the global search changes so the table picks up the new query. */}
+-      <ProjectsTable key={initialQuery} heading="All projects" initialQuery={initialQuery} />
+     </>
+   );
+ }
+diff --git a/src/pages/SettingsPage.tsx b/src/pages/SettingsPage.tsx
+index 920db50..d77a87d 100644
+--- a/src/pages/SettingsPage.tsx
++++ b/src/pages/SettingsPage.tsx
+@@ -1,19 +1,26 @@
+ import { Link } from 'react-router';
++import { HeaderBand, Plates } from '../components/ft';
++import { KeySticker } from '../components/ft/Stickers';
+ 
+ export default function SettingsPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Settings</h1>
++      <HeaderBand band="marigold" title={<h1>Settings</h1>} />
++      <div className="page-body page-body-narrow">
++        <section className="empty-state ft-empty" data-testid="settings-placeholder">
++          <KeySticker className="empty-sticker" />
++          <h2>Workspace settings are coming soon</h2>
++          <p className="muted">
++            Notification rules, integrations and access control will live here. For now, ask a workspace admin to make
++            changes.
++          </p>
++          <Plates>
++            <Link to="/" className="button button-primary ft-btn">
++              Back to overview
++            </Link>
++          </Plates>
++        </section>
+       </div>
+-      <section className="panel empty-state" data-testid="settings-placeholder">
+-        <h2>Workspace settings are coming soon</h2>
+-        <p className="muted">
+-          Notification rules, integrations and access control will live here. For now, ask a workspace admin to make
+-          changes.
+-        </p>
+-        <Link to="/">Back to overview</Link>
+-      </section>
+     </>
+   );
+ }
+diff --git a/src/pages/TeamPage.tsx b/src/pages/TeamPage.tsx
+index c6c6245..23becee 100644
+--- a/src/pages/TeamPage.tsx
++++ b/src/pages/TeamPage.tsx
+@@ -1,51 +1,59 @@
++import { HeaderBand, PriceFlag } from '../components/ft';
+ import { team } from '../data/team';
+ 
+ export default function TeamPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Team</h1>
+-        <p className="muted">{team.length} people across engineering, design and operations.</p>
+-      </div>
+-      <section className="panel" aria-label="Team members">
+-        <div className="table-wrap">
+-          <table className="table" data-testid="team-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Name</th>
+-                <th scope="col">Role</th>
+-                <th scope="col">Location</th>
+-                <th scope="col">Active projects</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {team.map((member) => (
+-                <tr key={member.id} data-testid="team-row">
+-                  <td>
+-                    <div className="person">
+-                      <span className="avatar" aria-hidden="true">
+-                        {member.name
+-                          .split(' ')
+-                          .map((part) => part[0])
+-                          .join('')}
+-                      </span>
+-                      <div>
+-                        <div>{member.name}</div>
+-                        <a href={`mailto:${member.email}`} className="small">
+-                          {member.email}
+-                        </a>
+-                      </div>
+-                    </div>
+-                  </td>
+-                  <td>{member.role}</td>
+-                  <td>{member.location}</td>
+-                  <td className="numeric">{member.activeProjects}</td>
++      <HeaderBand
++        band="teal"
++        title={<h1>Team</h1>}
++        lead={`${team.length} people across engineering, design and operations.`}
++      />
++      <div className="page-body">
++        <section className="table-section" aria-label="Team members">
++          <div className="table-wrap" role="region" aria-label="Team members table" tabIndex={0}>
++            <table className="table" data-testid="team-table">
++              <thead>
++                <tr>
++                  <th scope="col">Name</th>
++                  <th scope="col">Role</th>
++                  <th scope="col">Location</th>
++                  <th scope="col" className="numeric">
++                    Active projects
++                  </th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
+-      </section>
++              </thead>
++              <tbody>
++                {team.map((member) => (
++                  <tr key={member.id} data-testid="team-row">
++                    <td>
++                      <div className="person">
++                        <span className="avatar" aria-hidden="true">
++                          {member.name
++                            .split(' ')
++                            .map((part) => part[0])
++                            .join('')}
++                        </span>
++                        <div>
++                          <div>{member.name}</div>
++                          <a href={`mailto:${member.email}`} className="small">
++                            {member.email}
++                          </a>
++                        </div>
++                      </div>
++                    </td>
++                    <td>{member.role}</td>
++                    <td>{member.location}</td>
++                    <td className="numeric">
++                      <PriceFlag>{member.activeProjects}</PriceFlag>
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++        </section>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index cc4cee9..c658196 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,48 +1,47 @@
+ /*
+- * Base styles for the Northwind Ops dashboard.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Base styles for the Northwind Ops dashboard, restyled with felt-tip-market@0.1.0-rc.1.
++ * Token values live in design-system/tokens.css; signature pieces in felt-tip.css.
++ * The legacy variable names below are aliases onto the system tokens so older code keeps working.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-status-active-bg: #e3f2e5;
+-  --color-status-active-text: #1b5e20;
+-  --color-status-paused-bg: #fff4d6;
+-  --color-status-paused-text: #7a5a00;
+-  --color-status-done-bg: #e8e8e8;
+-  --color-status-done-text: #444444;
+-  --color-chart-bar: #6f8fbf;
+-  --color-chart-axis: #999999;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-raised);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-default);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-primary);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-text-primary);
++  --color-negative: var(--color-text-primary);
++  --color-chart-axis: var(--color-chart-cap);
++
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --font-size-small: var(--font-size-meta);
++  --font-size-h1: var(--font-size-section);
++  --font-size-h2: var(--font-size-lead);
++  --line-height: var(--font-line-height-body);
++
++  --radius: var(--radius-sm);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hair);
++
++  /* Layout sizes composed from the scale. */
++  --sidebar-width: calc(var(--space-24) * 2 + var(--space-12)); /* 240px */
++  --topbar-height: calc(var(--space-16) + var(--space-4)); /* 80px */
++  --avatar-size: var(--space-8);
++
++  color-scheme: light dark;
++}
++:root[data-theme='light'] {
++  color-scheme: light;
++}
++:root[data-theme='dark'] {
++  color-scheme: dark;
+ }
+ 
+ *,
+@@ -57,43 +56,68 @@ body {
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  font-weight: var(--font-weight-regular);
+ }
+ 
+ h1,
+ h2,
+ h3 {
+   margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  font-weight: var(--font-weight-regular);
+ }
+ 
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-size: var(--font-size-section);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
+ }
+ 
+ h2 {
+-  font-size: var(--font-size-h2);
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++  letter-spacing: var(--font-tracking-display);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-base);
++  font-size: var(--font-size-card-title);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ p {
+   margin: 0 0 var(--space-2);
+ }
+ 
++strong {
++  font-weight: var(--font-weight-bold);
++}
++
+ a {
+-  color: var(--color-link);
++  color: inherit;
++  text-decoration: underline;
++  text-decoration-thickness: var(--border-width-hair);
++  text-underline-offset: 0.18em;
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
+-  outline-offset: 2px;
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: var(--border-width-thick);
++}
++
++.icon {
++  width: var(--size-icon);
++  height: var(--size-icon);
++  flex-shrink: 0;
++  fill: none;
++  stroke: currentColor;
++  stroke-width: var(--border-width-art);
++  stroke-linecap: round;
++  stroke-linejoin: round;
+ }
+ 
+ .visually-hidden {
+@@ -116,24 +140,39 @@ a {
+ .skip-link:focus {
+   left: var(--space-2);
+   top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  padding: var(--space-2) var(--space-4);
++  z-index: 30;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-meta);
++  line-height: var(--font-line-height-lead);
+ }
+ 
+ .numeric {
+   font-variant-numeric: tabular-nums;
++  text-align: right;
++}
++
++.mono {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-meta);
+ }
+ 
+-/* Layout */
++.prose {
++  max-width: var(--size-measure);
++  line-height: var(--font-line-height-prose);
++}
++
++/* ---------- Layout ---------- */
+ .app-shell {
+   display: flex;
+   min-height: 100vh;
+@@ -142,35 +181,51 @@ a {
+ .sidebar {
+   width: var(--sidebar-width);
+   flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  background: var(--color-surface-default);
++  border-right: var(--border-width-hair) solid var(--color-border-default);
++  padding: var(--space-6) var(--space-4);
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-8);
+ }
+ 
+ .brand {
+-  font-weight: bold;
+-  margin-bottom: var(--space-4);
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  min-height: var(--size-control-sm);
++  padding-inline: var(--space-2);
++  font-size: var(--font-size-card-title);
++  line-height: var(--font-line-height-title);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++}
++
++/* Product mark: a flat token in the current area's band color. */
++.brand-mark {
++  width: var(--space-6);
++  height: var(--space-6);
++  border-radius: var(--radius-full);
++  border: var(--border-width-hair) solid var(--color-art-ink);
++  background: var(--ft-band);
++  flex-shrink: 0;
+ }
+ 
+ .nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-1);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
++  width: 100%;
++  color: var(--color-text-primary);
+   text-decoration: none;
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
+-}
+-
+ .main-column {
+   flex: 1;
+   min-width: 0;
+@@ -180,56 +235,93 @@ a {
+ 
+ .topbar {
+   display: flex;
+-  align-items: center;
++  align-items: stretch;
+   justify-content: space-between;
+   gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  height: var(--topbar-height);
++  padding-inline-start: var(--space-8);
++  background: var(--color-surface-raised);
++  border-bottom: var(--border-width-hair) solid var(--color-border-default);
++  position: relative;
++  z-index: 10;
+ }
+ 
+ .topbar-search {
+   display: flex;
++  align-items: center;
+   gap: var(--space-2);
+   flex: 1;
+-  max-width: 420px;
++  min-width: 0;
++  max-width: calc(var(--size-content-narrow) / 2);
+ }
+ 
+ .content {
+-  padding: var(--space-6);
++  flex: 1;
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-6);
+ }
+ 
+-.page-header-row {
++.content:focus {
++  outline: none;
++}
++
++/* Product header band content aligns with the page body. */
++.ft-band > .ft-band__inner {
++  max-width: var(--size-content-app);
++  padding-inline: var(--space-8);
++}
++
++.ft-band--with-sticker > .ft-band__inner {
++  padding-inline-end: calc(var(--space-24) + var(--space-8));
++}
++
++.ft-band .muted {
++  color: inherit;
++}
++
++.band-title-row {
+   display: flex;
++  flex-wrap: wrap;
+   justify-content: space-between;
+-  align-items: flex-start;
+-  gap: var(--space-4);
++  align-items: flex-end;
++  gap: var(--space-4) var(--space-6);
+ }
+ 
+-/* Loading placeholders (the metrics refresh) */
+-.skeleton {
+-  display: block;
+-  background: var(--color-surface-muted);
+-  border-radius: var(--radius);
++.band-title h1 {
++  margin: 0;
+ }
+ 
+-.skeleton-label {
+-  width: 60%;
+-  height: 14px;
++.band-lead {
++  margin: var(--space-2) 0 0;
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++  letter-spacing: var(--font-tracking-display);
+ }
+ 
+-.skeleton-value {
+-  width: 40%;
+-  height: 28px;
+-  margin-top: var(--space-2);
++.band-actions {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
+ }
+ 
+-.skeleton-change {
+-  width: 50%;
+-  height: 12px;
+-  margin-top: var(--space-2);
++.ft-sticker-layer > .band-sticker {
++  width: var(--space-24);
++  right: calc(var(--space-6) * -1);
++  top: calc(50% - var(--space-12));
++}
++
++.page-body {
++  width: 100%;
++  max-width: var(--size-content-app);
++  margin-inline: auto;
++  padding: var(--space-8) var(--space-8) var(--space-16);
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-6);
++}
++
++.page-body-narrow {
++  max-width: var(--size-content-narrow);
+ }
+ 
+ .two-column {
+@@ -238,350 +330,666 @@ a {
+   gap: var(--space-6);
+ }
+ 
+-/* Controls */
++/* ---------- Controls ---------- */
+ .input {
+   font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  height: var(--size-control);
++  padding: 0 var(--space-4);
++  border: var(--border-width-hair) solid var(--color-border-strong);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+   min-width: 0;
+   flex: 1;
+ }
+ 
++.input::placeholder {
++  color: var(--color-text-secondary);
++}
++
++.input:focus-visible {
++  box-shadow: 0 0 0 var(--border-width-thick) var(--color-focus-halo);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: var(--border-width-thick);
++}
++
++.input-with-icon {
++  position: relative;
++  display: flex;
++  align-items: center;
++  flex: 1;
++  min-width: 0;
++}
++
++.input-with-icon > .icon {
++  position: absolute;
++  left: var(--space-4);
++  pointer-events: none;
++}
++
++.input-with-icon > .input {
++  padding-left: calc(var(--space-4) + var(--size-icon) + var(--space-2));
++  width: 100%;
++}
++
+ .button {
+   font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-2);
++  height: var(--size-control);
++  padding: 0 var(--space-6);
++  border: var(--border-width-hair) solid var(--color-border-strong);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  text-decoration: none;
++  white-space: nowrap;
+   cursor: pointer;
+ }
+ 
++.button-primary {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  border-color: var(--color-art-ink);
++}
++
++.button-ink {
++  background: var(--color-action-ink);
++  color: var(--color-action-on-ink);
++  border-color: var(--color-art-ink);
++}
++
++.button-square {
++  width: var(--size-control);
++  padding: 0;
++}
++
++.button:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
++  cursor: not-allowed;
++}
++
++/* Loading keeps the variant look and label; the icon becomes the rocking glyph. */
++.button[aria-busy='true']:disabled {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  cursor: progress;
++}
++
+ .link-button {
+   font: inherit;
+   background: none;
+   border: none;
+   padding: 0;
+-  color: var(--color-link);
++  color: inherit;
+   text-decoration: underline;
+   cursor: pointer;
+ }
+ 
+ .field-inline {
+   display: flex;
+-  align-items: center;
++  flex-direction: column;
+   gap: var(--space-2);
++  width: min(100%, calc(var(--space-16) * 5));
+ }
+ 
+-/* User menu */
++/* ---------- User menu ---------- */
+ .user-menu {
+   position: relative;
++  display: flex;
+ }
+ 
+ .user-menu-button {
++  font: inherit;
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-3);
++  height: 100%;
++  padding: 0 var(--space-6);
++  border: 0;
++  border-inline-start: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-none);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  cursor: pointer;
++}
++
++.user-menu-chevron {
++  transition: rotate var(--motion-duration-open) var(--motion-easing-open);
++}
++
++.user-menu-button[aria-expanded='true'] .user-menu-chevron {
++  rotate: 180deg;
+ }
+ 
+ .user-menu-panel {
+   position: absolute;
+-  right: 0;
+-  top: calc(100% + var(--space-1));
+-  min-width: 220px;
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-3);
+-  z-index: 5;
++  right: var(--space-4);
++  top: calc(100% + var(--space-2));
++  min-width: calc(var(--space-16) * 4);
++  background: var(--color-surface-raised);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  box-shadow: var(--offset-lift) var(--offset-lift) 0 0 var(--color-shadow-hard);
++  padding-block: var(--space-2);
++  z-index: 20;
++  animation: ft-drop var(--motion-duration-lift) var(--motion-easing-lift);
++}
++
++@keyframes ft-drop {
++  from {
++    translate: 0 calc(var(--space-2) * -1);
++  }
++  to {
++    translate: 0 0;
++  }
++}
++
++.user-menu-email {
++  margin: 0 0 var(--space-2);
++  padding: var(--space-1) var(--space-4) var(--space-3);
++  border-bottom: var(--border-width-hair) solid var(--color-border-default);
++  font-size: var(--font-size-meta);
++  color: var(--color-text-secondary);
+ }
+ 
+ .user-menu-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+-  display: grid;
+-  gap: var(--space-2);
++}
++
++.user-menu-link,
++.user-menu-list .link-button {
++  display: flex;
++  align-items: center;
++  width: 100%;
++  height: var(--size-control-sm);
++  padding: 0 var(--space-4);
++  color: var(--color-text-primary);
++  text-decoration: none;
++  text-align: left;
++}
++
++.user-menu-link:hover,
++.user-menu-list .link-button:hover,
++.user-menu-link:focus-visible,
++.user-menu-list .link-button:focus-visible {
++  background: var(--color-surface-default);
++}
++
++.user-menu-link:focus-visible,
++.user-menu-list .link-button:focus-visible {
++  outline-offset: calc(var(--border-width-thick) * -1);
+ }
+ 
+ .avatar {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+-  width: 28px;
+-  height: 28px;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
++  width: var(--avatar-size);
++  height: var(--avatar-size);
++  flex-shrink: 0;
++  border-radius: var(--radius-full);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-meta);
+ }
+ 
+ .person {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-3);
+ }
+ 
+-/* Cards and panels */
++/* ---------- Cards and panels ---------- */
+ .panel,
+ .card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  padding: var(--space-6);
+ }
+ 
+-.panel-header {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: baseline;
+-  gap: var(--space-4);
++.panel > h2 {
++  margin-bottom: var(--space-4);
++}
++
++.panel-flush {
++  padding: 0;
++  overflow-x: auto;
+ }
+ 
+ .kpi-grid {
+   display: grid;
+   grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
++  gap: var(--space-6);
++}
++
++.kpi-card {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-2);
+ }
+ 
+ .kpi-label {
+-  font-size: var(--font-size-small);
+-  font-weight: normal;
+-  color: var(--color-text-muted);
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++  margin: 0;
++  font-size: var(--font-size-meta);
++  line-height: var(--font-line-height-lead);
++  letter-spacing: var(--font-tracking-normal);
++}
++
++.legend-dot {
++  display: inline-block;
++  width: var(--space-2);
++  height: var(--space-2);
++  flex-shrink: 0;
++  border-radius: var(--radius-full);
++  border: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.kpi-card-deployments .legend-dot,
++.legend-dot-bar {
++  background: var(--color-chart-bar);
++  border-color: var(--color-chart-cap);
++}
++
++.kpi-card-uptime .legend-dot {
++  background: var(--color-status-success);
++}
++
++.kpi-card-incidents .legend-dot {
++  background: var(--color-status-warning);
++}
++
++.kpi-card-lead-time .legend-dot {
++  background: var(--color-status-info);
++}
++
++.legend-dot-line {
++  background: var(--color-chart-line);
++  border-color: var(--color-art-ink);
+ }
+ 
+ .kpi-value {
+-  font-size: 28px;
+-  font-weight: bold;
+   margin: 0;
++  font-size: var(--font-size-section);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+ .kpi-change {
+-  font-size: var(--font-size-small);
++  display: flex;
++  align-items: center;
++  min-height: var(--size-flag);
+   margin: 0;
++  font-size: var(--font-size-meta);
++}
++
++/* Loading placeholders (the metrics refresh): dashed boxes in the final layout. */
++.kpi-card-loading {
++  border-style: dashed;
++}
++
++.skeleton {
++  display: flex;
++  align-items: center;
++  border: var(--border-width-hair) dashed var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++}
++
++.skeleton-label {
++  width: 60%;
++  height: var(--space-5);
+ }
+ 
+-.kpi-change-up {
+-  color: var(--color-positive);
++.skeleton-value {
++  width: 70%;
++  height: calc(var(--font-size-section) * var(--font-line-height-heading));
++  padding-inline: var(--space-3);
++  font-size: var(--font-size-meta);
++  color: var(--color-text-secondary);
+ }
+ 
+-.kpi-change-down {
+-  color: var(--color-negative);
++.skeleton-change {
++  width: 50%;
++  height: var(--size-flag);
+ }
+ 
+-/* Chart */
++/* ---------- Chart ---------- */
+ .chart {
+   margin: 0;
+ }
+ 
+ .chart-title {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  font-size: var(--font-size-meta);
++  color: var(--color-text-secondary);
+   margin-bottom: var(--space-2);
+ }
+ 
++.chart-legend {
++  list-style: none;
++  margin: 0 0 var(--space-4);
++  padding: 0;
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-2) var(--space-4);
++  font-size: var(--font-size-meta);
++}
++
++.chart-legend li {
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++}
++
+ .chart-svg {
+   width: 100%;
+   height: auto;
+   display: block;
++  overflow: visible;
+ }
+ 
+ .chart-bar {
+   fill: var(--color-chart-bar);
+ }
+ 
++.chart-cap {
++  stroke: var(--color-chart-cap);
++  stroke-width: var(--border-width-thick);
++}
++
+ .chart-axis {
+-  stroke: var(--color-chart-axis);
++  stroke: var(--color-chart-cap);
++  stroke-width: var(--border-width-hair);
++  vector-effect: non-scaling-stroke;
++}
++
++.chart-line {
++  fill: none;
++  stroke: var(--color-chart-line);
++  stroke-width: var(--border-width-thick);
++  stroke-linejoin: round;
++  stroke-linecap: round;
++  vector-effect: non-scaling-stroke;
++}
++
++.chart-dot {
++  fill: var(--color-chart-line);
++  stroke: var(--color-art-ink);
++  stroke-width: var(--border-width-hair);
++  vector-effect: non-scaling-stroke;
+ }
+ 
+ .chart-value,
+ .chart-label {
+-  font-size: 12px;
+-  fill: var(--color-text);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-meta);
++  font-variant-numeric: tabular-nums;
++  fill: var(--color-text-primary);
+ }
+ 
+-/* Activity */
++/* ---------- Activity ---------- */
+ .activity-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  border-top: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+ .activity-item {
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  padding: var(--space-3) 0;
++  min-height: var(--size-row);
++}
++
++.activity-item + .activity-item {
++  border-top: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+ .activity-item p {
+   margin: 0;
+ }
+ 
+-/* Toolbar & table */
+-.toolbar {
++.activity-item .small {
++  margin-top: var(--space-1);
++}
++
++/* ---------- Toolbar & table ---------- */
++.table-section {
+   display: flex;
+-  flex-wrap: wrap;
+-  justify-content: space-between;
+-  gap: var(--space-3);
+-  margin: var(--space-3) 0;
++  flex-direction: column;
++  min-width: 0;
+ }
+ 
+-.segmented {
++.page-body > .table-section:not(:first-child) {
++  margin-top: calc(var(--space-16) - var(--space-6));
++}
++
++.section-header {
+   display: flex;
++  flex-wrap: wrap;
++  justify-content: space-between;
++  align-items: baseline;
++  gap: var(--space-2) var(--space-4);
+ }
+ 
+-.segmented-button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  cursor: pointer;
+-  margin-left: -1px;
++.section-header h2,
++.section-header p {
++  margin: 0;
+ }
+ 
+-.segmented-button:first-child {
+-  border-radius: var(--radius) 0 0 var(--radius);
+-  margin-left: 0;
++.toolbar {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: space-between;
++  align-items: flex-end;
++  gap: var(--space-4);
++  margin: var(--space-4) 0;
+ }
+ 
+-.segmented-button:last-child {
+-  border-radius: 0 var(--radius) var(--radius) 0;
++.segmented {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-2);
++  padding: var(--space-1) 0;
+ }
+ 
+-.segmented-button[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.segmented-button,
++.tab {
++  font: inherit;
++  background: transparent;
++  color: inherit;
++  cursor: pointer;
+ }
+ 
+ .table-wrap {
+   overflow-x: auto;
++  background: var(--color-surface-raised);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
+ }
+ 
+ .table {
+   width: 100%;
+-  border-collapse: collapse;
++  border-collapse: separate;
++  border-spacing: 0;
+ }
+ 
+ .table th,
+ .table td {
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  vertical-align: top;
++  padding: var(--space-3) var(--space-4);
++  height: var(--size-row);
++  vertical-align: middle;
+ }
+ 
+ .table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  font-weight: var(--font-weight-bold);
++  background: var(--color-surface-default);
++  border-bottom: var(--border-width-hair) solid var(--color-border-default);
++  white-space: nowrap;
++  padding-block: 0;
++}
++
++.table td {
++  background: var(--color-surface-raised);
++}
++
++.table tbody tr:not(:last-child) td {
++  border-bottom: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.table .numeric {
++  text-align: right;
+ }
+ 
+ .sort-button {
+   font: inherit;
++  font-weight: var(--font-weight-bold);
+   color: inherit;
+   background: none;
+   border: none;
+   padding: 0;
++  height: var(--size-control-sm);
+   cursor: pointer;
+   display: inline-flex;
+-  gap: var(--space-1);
++  align-items: center;
++  gap: var(--space-2);
+ }
+ 
+ .sort-indicator {
+-  font-size: 10px;
++  font-size: var(--font-size-meta);
+ }
+ 
+ .pill {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  height: var(--size-flag);
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-meta);
++  white-space: nowrap;
++}
++
++.status-dot {
++  width: var(--space-2);
++  height: var(--space-2);
++  border-radius: var(--radius-full);
++  border: var(--border-width-hair) solid var(--color-art-ink);
++}
++
++.pill-active .status-dot {
++  background: var(--color-status-success);
++}
++
++.pill-paused .status-dot {
++  background: var(--color-status-warning);
+ }
+ 
+-.pill-active {
+-  background: var(--color-status-active-bg);
+-  color: var(--color-status-active-text);
++.pill-done .status-dot {
++  background: var(--color-status-info);
+ }
+ 
+-.pill-paused {
+-  background: var(--color-status-paused-bg);
+-  color: var(--color-status-paused-text);
++.empty-state h2,
++.empty-state h3 {
++  margin-bottom: var(--space-2);
+ }
+ 
+-.pill-done {
+-  background: var(--color-status-done-bg);
+-  color: var(--color-status-done-text);
++.empty-state p {
++  max-width: var(--size-measure);
++  margin: 0 auto var(--space-6);
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.empty-sticker {
++  width: calc(var(--size-tile) - var(--space-5));
++  margin: 0 auto var(--space-4);
+ }
+ 
+-/* Project detail */
++/* ---------- Project detail ---------- */
+ .breadcrumb ol {
+   list-style: none;
+   display: flex;
++  flex-wrap: wrap;
+   gap: var(--space-2);
+-  margin: 0;
++  margin: 0 0 var(--space-4);
+   padding: 0;
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-card-title);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ .breadcrumb li + li::before {
+   content: '/';
+   margin-right: var(--space-2);
+-  color: var(--color-text-muted);
+ }
+ 
+ .tabs {
+   display: flex;
+-  gap: var(--space-1);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-2);
++  margin-top: var(--space-6);
++  padding: var(--space-1);
++  margin-inline: calc(var(--space-1) * -1);
++  overflow-x: auto;
+ }
+ 
+ .tab {
+-  font: inherit;
+-  background: none;
+-  border: var(--border-width) solid transparent;
+-  border-bottom: none;
+-  border-radius: var(--radius) var(--radius) 0 0;
+-  padding: var(--space-2) var(--space-4);
+-  color: var(--color-text);
+-  cursor: pointer;
+-  margin-bottom: -1px;
+-}
+-
+-.tab[aria-selected='true'] {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  border-bottom: var(--border-width) solid var(--color-surface);
+-  font-weight: bold;
++  flex-shrink: 0;
+ }
+ 
+ .details {
+   display: grid;
+   grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 0;
++  gap: var(--border-width-hair);
++  margin: 0;
++  background: var(--color-border-default);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  overflow: hidden;
++}
++
++.details > div {
++  background: var(--color-surface-raised);
++  padding: var(--space-4) var(--space-6);
+ }
+ 
+ .details dt {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  font-size: var(--font-size-meta);
++  color: var(--color-text-secondary);
+ }
+ 
+ .details dd {
+-  margin: 0;
++  margin: var(--space-2) 0 0;
++  min-height: var(--size-flag);
++  display: flex;
++  align-items: center;
++  font-size: var(--font-size-card-title);
++  line-height: var(--font-line-height-title);
++  font-variant-numeric: tabular-nums;
++}
++
++.panel > .prose {
++  margin-bottom: var(--space-6);
+ }
+ 
+ .progress-row {
+   display: flex;
++  flex-wrap: wrap;
+   align-items: center;
+   gap: var(--space-4);
++  margin-bottom: var(--space-4);
+ }
+ 
+ .progress-row p {
+@@ -589,56 +997,401 @@ a {
+ }
+ 
+ .progress {
++  appearance: none;
+   flex: 1;
+-  max-width: 240px;
++  max-width: calc(var(--space-16) * 4);
++  height: var(--space-3);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  overflow: hidden;
++}
++
++.progress::-webkit-progress-bar {
++  background: var(--color-surface-raised);
++}
++
++.progress::-webkit-progress-value {
++  background: var(--ft-band);
++  border-right: var(--border-width-hair) solid var(--color-art-ink);
++}
++
++.progress::-moz-progress-bar {
++  background: var(--ft-band);
++}
++
++.done-badge {
++  width: var(--space-24);
+ }
+ 
+ .task-list {
+   list-style: none;
+-  margin: var(--space-3) 0 0;
++  margin: 0;
+   padding: 0;
+ }
+ 
+ .task {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-3);
+ }
+ 
+ .task label {
+   flex: 1;
++  padding-block: var(--space-3);
++  cursor: pointer;
+ }
+ 
+ .task-done label {
+   text-decoration: line-through;
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+-@media (max-width: 900px) {
++/* Checkbox: 20px box, pink when checked with a 2px ink check. */
++.task input[type='checkbox'] {
++  appearance: none;
++  display: grid;
++  place-content: center;
++  width: var(--size-icon);
++  height: var(--size-icon);
++  margin: 0;
++  flex-shrink: 0;
++  border: var(--border-width-hair) solid var(--color-border-strong);
++  border-radius: var(--radius-sm);
++  background: var(--color-surface-raised);
++  cursor: pointer;
++}
++
++.task input[type='checkbox']:checked {
++  background: var(--color-action-primary);
++  border-color: var(--color-art-ink);
++}
++
++.task input[type='checkbox']:checked::before {
++  content: '';
++  width: calc(var(--space-1) + var(--border-width-thick));
++  height: calc(var(--space-2) + var(--space-1) - var(--border-width-hair));
++  margin-top: calc(var(--border-width-thick) * -1);
++  border-right: var(--border-width-thick) solid var(--color-art-ink);
++  border-bottom: var(--border-width-thick) solid var(--color-art-ink);
++  rotate: 45deg;
++}
++
++/* ---------- Error band (404, missing project) ---------- */
++.error-band {
++  flex: 1;
++  display: flex;
++  align-items: center;
++  min-height: calc(100vh - var(--topbar-height));
++  overflow: hidden;
++}
++
++.error-band > .ft-band__inner {
++  width: 100%;
++  padding-inline-end: calc(var(--space-32) + var(--space-24));
++}
++
++.error-band__title {
++  margin: 0;
++  font-size: var(--font-size-display);
++  line-height: var(--font-line-height-display);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.error-band__message {
++  max-width: var(--size-measure);
++  margin: var(--space-4) 0 var(--space-8);
++  font-size: var(--font-size-lead);
++  line-height: var(--font-line-height-lead);
++}
++
++.ft-sticker-layer > .error-sticker-a {
++  width: calc(var(--space-32) + var(--space-16));
++  top: var(--space-8);
++  right: calc(var(--space-12) * -1);
++}
++
++.ft-sticker-layer > .error-sticker-b {
++  width: calc(var(--space-32) + var(--space-8));
++  bottom: calc(var(--space-12) * -1);
++  right: calc(var(--space-24) + var(--space-16));
++}
++
++/* ---------- Footer: black band ---------- */
++.ft-footer {
++  background: var(--color-surface-inverse);
++  color: var(--color-text-inverse);
++  border-top: var(--border-width-hair) solid var(--color-art-ink);
++  padding-block: var(--space-16);
++  --color-focus-ring: var(--color-art-white);
++  --color-shadow-hard: var(--color-grey-shadow-night);
++}
++
++.ft-footer__inner {
++  max-width: var(--size-content-app);
++  margin-inline: auto;
++  padding-inline: var(--space-8);
++  display: grid;
++  grid-template-columns: 1fr auto;
++  gap: var(--space-12);
++  align-items: start;
++}
++
++.ft-footer__headline {
++  margin: 0;
++  color: var(--ft-band);
++  font-size: var(--font-size-section);
++  line-height: var(--font-line-height-heading);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-display);
++}
++
++.ft-footer__columns {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-12);
++}
++
++.ft-footer__column ul {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++  display: grid;
++  gap: var(--space-2);
++}
++
++.ft-footer__label {
++  display: block;
++  margin: 0 0 var(--space-3);
++  font-size: var(--font-size-card-title);
++  line-height: var(--font-line-height-title);
++}
++
++.ft-footer a {
++  color: var(--color-text-inverse);
++}
++
++.ft-footer__field {
++  display: flex;
++}
++
++.ft-footer__field .input {
++  width: calc(var(--space-16) * 4);
++  background: var(--color-art-white);
++  color: var(--color-art-ink);
++  border-color: var(--color-art-ink);
++  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
++}
++
++.ft-footer__field .input::placeholder {
++  color: var(--color-grey-muted);
++}
++
++.ft-footer__field .button {
++  background: var(--color-art-white);
++  color: var(--color-art-ink);
++  border-color: var(--color-art-ink);
++  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
++  font-size: var(--font-size-card-title);
++}
++
++/* ---------- Reduced motion ---------- */
++@media (prefers-reduced-motion: reduce) {
++  .user-menu-chevron {
++    transition: none;
++  }
++  .user-menu-panel {
++    animation: none;
++  }
++}
++
++/* ---------- Responsive ---------- */
++@media (max-width: 1023px) {
++  :root {
++    --topbar-height: var(--space-16);
++  }
++
++  .kpi-grid,
++  .details {
++    grid-template-columns: repeat(2, 1fr);
++  }
++
++  .two-column {
++    grid-template-columns: 1fr;
++  }
++
++  .ft-footer__inner {
++    grid-template-columns: 1fr;
++  }
++}
++
++@media (max-width: 767px) {
+   .app-shell {
+     flex-direction: column;
+   }
+ 
+   .sidebar {
++    min-width: 0;
+     width: auto;
+     border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    border-bottom: var(--border-width-hair) solid var(--color-border-default);
++    padding: var(--space-3) var(--space-4);
++    gap: var(--space-2);
++  }
++
++  .brand {
++    padding-inline: 0;
+   }
+ 
+   .nav-list {
+-    display: flex;
+-    flex-wrap: wrap;
++    flex-direction: row;
++    gap: var(--space-1);
++    overflow-x: auto;
++    padding: var(--space-1);
++    margin-inline: calc(var(--space-1) * -1);
++  }
++
++  .nav-link {
++    width: auto;
++    white-space: nowrap;
++  }
++
++  .topbar {
++    padding-inline-start: var(--space-4);
++    gap: var(--space-2);
++  }
++
++  .user-menu-button {
++    padding: 0 var(--space-4);
+     gap: var(--space-2);
+   }
+ 
++  .user-menu-name {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    overflow: hidden;
++    clip: rect(0, 0, 0, 0);
++    white-space: nowrap;
++  }
++
++  .ft-band > .ft-band__inner {
++    padding-inline: var(--space-4);
++  }
++
++  .ft-band--with-sticker > .ft-band__inner {
++    padding-inline-end: calc(var(--space-16) + var(--space-4));
++  }
++
++  .ft-sticker-layer > .band-sticker {
++    width: var(--space-16);
++    right: calc(var(--space-4) * -1);
++    top: var(--space-4);
++  }
++
++  h1 {
++    font-size: var(--font-size-section-mobile);
++  }
++
++  .band-lead,
++  .error-band__message {
++    font-size: var(--font-size-card-title);
++    line-height: var(--font-line-height-title);
++  }
++
++  .page-body {
++    padding: var(--space-6) var(--space-4) var(--space-12);
++  }
++
+   .kpi-grid,
+   .details {
+-    grid-template-columns: repeat(2, 1fr);
++    grid-template-columns: 1fr;
+   }
+ 
+-  .two-column {
+-    grid-template-columns: 1fr;
++  .kpi-grid {
++    gap: var(--space-4);
++  }
++
++  .kpi-value {
++    font-size: var(--font-size-section-mobile);
++  }
++
++  .field-inline {
++    width: 100%;
++  }
++
++  /* Tables scroll inside their frame with the first column pinned. */
++  .table-wrap th:first-child,
++  .table-wrap td:first-child {
++    position: sticky;
++    left: 0;
++    z-index: 1;
++    border-right: var(--border-width-hair) solid var(--color-border-default);
++  }
++
++  .table th,
++  .table td {
++    white-space: nowrap;
++  }
++
++  .error-band {
++    min-height: calc(100vh - var(--space-16) - var(--space-24));
++    padding-block: var(--space-16);
++  }
++
++  .error-band > .ft-band__inner {
++    padding-inline-end: var(--space-4);
++  }
++
++  .error-band__title {
++    font-size: var(--font-size-display-mobile);
++  }
++
++  .ft-sticker-layer > .error-sticker-a {
++    width: var(--space-24);
++    top: var(--space-4);
++    right: calc(var(--space-6) * -1);
++  }
++
++  .ft-sticker-layer > .error-sticker-b {
++    width: var(--space-24);
++    bottom: calc(var(--space-6) * -1);
++    right: var(--space-8);
++  }
++
++  .ft-footer {
++    padding-block: var(--space-12);
++  }
++
++  .ft-footer__inner {
++    padding-inline: var(--space-4);
++    gap: var(--space-8);
++  }
++
++  .ft-footer__headline {
++    font-size: var(--font-size-section-mobile);
++  }
++
++  .ft-footer__columns {
++    gap: var(--space-8);
++  }
++}
++
++@media (max-width: 639px) {
++  .panel,
++  .card {
++    padding: var(--space-4);
++  }
++
++  .chart-value,
++  .chart-label {
++    font-size: var(--font-size-title);
++  }
++
++  .chart-dot {
++    r: var(--space-2);
++  }
++
++  .details > div {
++    padding: var(--space-4);
+   }
+ }

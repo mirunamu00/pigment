@@ -1,0 +1,194 @@
+```json
+{
+  "items": [
+    {
+      "id": "commerce--state--card-hover--desktop-light",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "The hovered product card lifts up-left onto a hard black 4px shadow, as the reference's app lift does (05), on lemon header-band chrome with an outline current chip and notched pink price flags. The header sticker is a ~70px bag mostly cut off at the band's right edge, a fragment next to the reference's big edge-cropped objects. In two samples the image wells are flat grey."
+    },
+    {
+      "id": "commerce--state--card-hover--desktop-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The lemon band and pink edge CTA carry over as in the reference's dark appearance (11). The ground is dark grey, though, and the cards are pure black, the reverse of the reference. The hover shadow is a 35% white smear on grey, so the lift that reads at once in light mode barely shows here."
+    },
+    {
+      "id": "commerce--state--card-hover--mobile-light",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "On the phone the first card lifts with a hard black edge, under a lemon header band and an edge-to-edge black cart block, close to the reference's phone app screen (10). The category pill row is looser than the reference's tidy row. It wraps and leaves one pill alone on a second line, or it cuts the last pill mid-word with no sign that it scrolls."
+    },
+    {
+      "id": "commerce--state--added-to-cart--desktop-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The confirmation is a white ink-framed panel with a static hard shadow, a status dot, one sentence and a single cart link or outline action, right under the pink lifting add button. It reads clearly and stays in the reference's hairline-and-hard-shadow language, though the status dot is tiny and has no ink outline."
+    },
+    {
+      "id": "commerce--state--added-to-cart--desktop-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "Same confirmation panel and pink flag. On the grey dark ground the black panels and the faint white-alpha shadow lose the picked-up depth the light version has, and the ground and panel tones are the reverse of the reference's dark appearance."
+    },
+    {
+      "id": "commerce--state--added-to-cart--mobile-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The stack goes band, framed image, price flag, option panel with the pink add button, then the shadowed confirmation panel and a ruled detail list. Hairline boxes on paper with 48px controls, the same dense-but-drawn character as the reference's form screen (07). The first screen is mostly the grey image placeholder."
+    },
+    {
+      "id": "commerce--state--checkout-errors--desktop-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "A periwinkle cart band sits over two white ink panels: a ruled order summary with a flag on the total, and a checkout form. Its invalid fields take a 2px red border with ink message text and a small solid alert glyph, and the first field adds the focus ring. Clear and in the system's error recipe."
+    },
+    {
+      "id": "commerce--state--checkout-errors--desktop-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The errors read well: salmon 2px borders, white messages, a pink-white ring on the first field. But the grey ground with pure-black panels inverts the reference's black-ground dark appearance and flattens the paper-under-white hierarchy."
+    },
+    {
+      "id": "commerce--state--checkout-errors--mobile-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The summary and checkout panels stack full width, with red-bordered fields, ink messages and a full-width pink submit. The hairline rules and flags carry the reference's ruled-panel look onto the phone. Only the grey-filled disabled decrement brings in a tone the reference avoids."
+    },
+    {
+      "id": "commerce--state--keyboard-focus--desktop-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The focused nav item gets a heavy ink outline pill beside the filled black current pill. It is clear and close to the reference's focus treatment, where the border thickens (05). Under it the rest of the band and card chrome is unchanged."
+    },
+    {
+      "id": "commerce--state--keyboard-focus--desktop-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "A white outline ring marks the focused nav pill next to the white current pill, mirroring the reference's dark nav (11), and it reads well. The body below repeats the grey-ground, black-card inversion."
+    },
+    {
+      "id": "commerce--state--keyboard-focus--mobile-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "Focus sits on the black cart block at the header's edge as an offset ink outline. It shows up against the white bar and lemon band but is subdued against the block itself. The rest matches the reference's phone app screen."
+    },
+    {
+      "id": "commerce--drawings--home",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The one drawing is a tilted shopping-bag sticker in white or marigold with an ink outline, inner strokes and a thin back edge, so it now shows some thickness. At ~70–100px, pushed half out of the band, it is a fragment beside the reference's 150–200px chunky coins. The other eleven slots are a stock picture glyph."
+    },
+    {
+      "id": "commerce--drawings--products-canvas-field-tote",
+      "status": "finding",
+      "fidelity": 2,
+      "note": "The product image well is a generic picture glyph, on grey in two samples and paper in one. The reference keeps empty containers white, with a dashed line and a solid ink glyph of the thing (06)."
+    },
+    {
+      "id": "commerce--drawings--products-merino-crew-sweater",
+      "status": "finding",
+      "fidelity": 2,
+      "note": "The same stock picture glyph on grey or paper as every other product. Nothing is drawn for the item and nothing ties it to the system's ink-object language."
+    },
+    {
+      "id": "commerce--drawings--cart",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The cart drawing is the header's bag sticker again, recoloured periwinkle or kept as the marigold striped tote, in the same silhouette and pose. It is neatly outlined but has only a thin side band, and it is not its own drawing of the empty thing."
+    },
+    {
+      "id": "commerce--motion",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The only motion caught is the header sticker's ft-drift, linear and bound to the scroll, so the frames stand still without scrolling. That matches the spec's sticker drift, with nothing animating on load, as in the reference. The hover lift is shown in the state captures."
+    }
+  ],
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "major",
+      "area": "signature",
+      "summary": "The sticker language stays far below the reference. The product header's single sticker is ~70–100px, and about half of it is pushed off the band's edge, so it reads as a fragment. Its extrusion is only a thin strip. The empty-cart drawing is the same bag in another colour rather than its own object. The reference's objects are big, chunky die-cut things with a deep rim.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.1/review-2/crops/commerce--state--card-hover--desktop-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.1/commerce/20261025-014444-s2/drawings/home-d1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.1/commerce/20261025-014444-s2/drawings/cart-d1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.1/commerce/20261025-011739/drawings/cart-d1.png",
+        "pipeline/gumroad-study/reference/set/01-desktop.png"
+      ],
+      "items": [
+        "commerce--drawings--home",
+        "commerce--drawings--cart",
+        "commerce--state--card-hover--desktop-light"
+      ],
+      "promptFix": "A header-band sticker is at least as tall as the band's title block (never under 96px on desktop). It sits vertically centred at the band's trailing edge with at least 60% of itself visible; if the band is too short, shrink the sticker instead of pushing it out of frame. Every sticker shows its thickness: a back face or side band at least 10% of the object's height, in the same fill and outlined in ink. An empty state draws the missing thing in its own silhouette and pose. It never reuses another sticker from the product, even recoloured."
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "referenceFidelity",
+      "summary": "In dark mode the ground is dark grey and the panels are pure black, the reverse of the reference's black ground. The hover and static hard shadows are 35% white on that grey, so the lift that defines the system barely shows on cards and confirmation panels.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "specRule": "Dark tokens: `color.surface.default` | `#242423`; `color.surface.raised` | `#000000`; `color.shadow.hard` | `#ffffff59`",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.1/review-2/crops/commerce--state--card-hover--desktop-dark--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.1/review-2/crops/commerce--state--added-to-cart--desktop-dark--s3.png",
+        "pipeline/gumroad-study/reference/set/11-desktop.png"
+      ],
+      "items": [
+        "commerce--state--card-hover--desktop-dark",
+        "commerce--state--added-to-cart--desktop-dark",
+        "commerce--state--checkout-errors--desktop-dark",
+        "commerce--state--keyboard-focus--desktop-dark"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "Missing product images become a stock picture glyph, on flat grey in two samples, a tone that is neither paper nor white. The reference keeps empty containers white with a dashed line and a solid ink glyph of the thing.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.1/commerce/20261025-014444-s2/drawings/products-canvas-field-tote-d1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.1/commerce/20261025-011739/drawings/products-merino-crew-sweater-d1.png",
+        "pipeline/gumroad-study/reference/set/06-desktop.png"
+      ],
+      "items": [
+        "commerce--drawings--products-canvas-field-tote",
+        "commerce--drawings--products-merino-crew-sweater"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "On phones the header band's pill row either wraps and leaves one pill alone on a second line, or cuts the last pill mid-word with no scroll cue. It is less tidy than the reference's single clean pill row.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/felt-tip-market/0.1.0-rc.1/review-2/crops/commerce--state--card-hover--mobile-light--s1.png",
+        "showcase/runs/felt-tip-market/0.1.0-rc.1/review-2/crops/commerce--state--card-hover--mobile-light--s2.png",
+        "pipeline/gumroad-study/reference/set/10-mobile.png"
+      ],
+      "items": [
+        "commerce--state--card-hover--mobile-light"
+      ],
+      "promptFix": ""
+    }
+  ]
+}
+```
