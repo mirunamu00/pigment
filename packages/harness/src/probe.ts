@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import { expandScrollContainers } from "./fullpage.ts";
 import { dirname, join } from "node:path";
 import type { Page } from "playwright";
 import { shimNames } from "./extract.ts";
@@ -957,6 +958,7 @@ async function probeTheme(page: Page, outDir: string, key: string, darkDiffers: 
       let screenshot: string | null = null;
       if (bodyAfter !== bodyBefore) {
         screenshot = join(outDir, "screenshots", `${key}-desktop-toggled.png`);
+        await expandScrollContainers(page);
         await page.screenshot({ path: screenshot, fullPage: true });
       }
       theme.toggled = { changed: bodyAfter !== bodyBefore, screenshot, bodyBefore, bodyAfter };

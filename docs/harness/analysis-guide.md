@@ -85,11 +85,19 @@ site by: a drawing style, a motion habit, a texture, a recurring composition, an
 
 `pnpm harness check-analysis <slug>` validates `analysis.json` against the schema, requires every audit
 area once, checks that evidence files exist and that nothing the survey found is called absent, checks
-the sections of `analysis.md`, and warns on thin recipes and short application maps. It sets the intake
-status to `analyzed` when it passes.
+the sections of `analysis.md`, and warns on thin recipes and short application maps. It requires the
+reference set (6–12 entries; warns when it has no phone capture or leans on pages made of other people's images)
+and crops it to `reference/set/` (first screens at native resolution, with `index.json`). It sets the intake status
+to `analyzed` when it passes.
+
+## Reference set
+
+The quality bar. Every review compares the agents' screens with these files, and the prompt-author sees them as
+the target. Pick the reference at its best: pages the brand designs itself and close-ups of its signature
+elements, at least one phone capture, never pages that are mostly other people's covers or photos.
 
 ## Checkpoint
 
 The analysis is shown to the user before authoring starts: the character, the survey summary, every
 signature element with an evidence image, the motion and interaction patterns, the ten defining rules,
-the proposed name. The user confirms or corrects.
+the proposed name, and the reference set (`reference/set/`). The user confirms or corrects.

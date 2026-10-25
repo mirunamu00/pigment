@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
@@ -12,7 +12,10 @@ import { checkUnit, extractJson, UNIT_MINOR_CAP } from "./review/run.ts";
 import { sheetHtml } from "./review/sheets.ts";
 import { paths } from "./paths.ts";
 import { swatchPage } from "./commands/check-analysis.ts";
-import { applyOverrides, judgeCritic, layoutCounts, shareOnScale } from "./commands/evaluate.ts";
+import { cropFirstScreens } from "./crop.ts";
+import { expandScrollContainers } from "./fullpage.ts";
+import { layoutTemplate, selectDeep, type Survey, type SurveyPage } from "./survey.ts";
+import { applyOverrides, GATING_CHECKS, judgeCritic, layoutCounts, promptInduced, shareOnScale } from "./commands/evaluate.ts";
 import { runQueue, sampleRunIds } from "./commands/generate.ts";
 import { galleryRuns } from "./commands/publish.ts";
 import { layFixedLayers } from "./commands/shoot.ts";
@@ -55,6 +58,75 @@ test("critic verdict: minors never fail; reasons name what failed", () => {
   const judged = judgeCritic(critic([finding("blocker", 1, 3), finding("major", 3, 3), finding("minor", 3, 3)]));
   assert.equal(judged.reasons.length, 2);
   assert.match(judged.summary, /1 blocker\(s\), 1 gating major\(s\), 1 minor\(s\)/);
+});
+
+test("quality verdict: the scores against the reference decide, and only prompt-induced defects count", () => {
+  const scores = { mode: "quality" as const, referenceFidelity: 4, signature: 4, crossAppConsistency: 3, hierarchy: 3, spacingRhythm: 3, componentStates: 3, polish: 3, notes: [], promptFixes: [] };
+  const defect = (specCaused: boolean, specRule?: string, severity: CriticFinding["severity"] = "blocker"): CriticFinding => ({ ...finding(severity, 3, 3, specCaused), kind: "defect", specRule });
+  const gap = (severity: CriticFinding["severity"]): CriticFinding => ({ ...finding(severity, 3, 3), kind: "gap" });
+  assert.equal(judgeCritic({ ...scores, findings: [] }).ok, true, "at the bar");
+  assert.equal(judgeCritic({ ...scores, findings: [], referenceFidelity: 3 }).ok, false, "not close enough to the reference");
+  assert.equal(judgeCritic({ ...scores, findings: [], polish: 2 }).ok, false);
+  assert.equal(judgeCritic({ ...scores, findings: [gap("major"), gap("major")] }).ok, true, "gaps lower the scores; they do not fail by themselves");
+  assert.equal(judgeCritic({ ...scores, findings: [defect(false)] }).ok, true, "a blocker the agent made on its own does not count");
+  assert.equal(judgeCritic({ ...scores, findings: [defect(true)] }).ok, true, "a spec cause without the quoted rule does not count");
+  assert.equal(judgeCritic({ ...scores, findings: [defect(true, "toasts sit over the action row")] }).ok, false, "a defect the spec's words induce counts");
+  assert.equal(promptInduced(defect(true, "rule", "minor")), false, "a minor never counts");
+  assert.match(judgeCritic({ ...scores, findings: [], signature: undefined }).reasons.join(), /no signature score/);
+});
+
+test("capture: pages that share a layout are one template; brand pages and new layouts come before more of the same", () => {
+  const band = (bg: string) => [`${bg}|h1|-`, "·|h2|media", "·|h2|media", "·|h2|media", "·|-|-"];
+  assert.equal(layoutTemplate(band("rgb(1, 2, 3)"), ["layout:card-grid"]), layoutTemplate(band("rgb(9, 9, 9)"), ["layout:card-grid"]), "a header colour is not a layout");
+  const page = (path: string, sections: string[], features: string[], imageShare = 0): SurveyPage => ({ url: `https://x.test${path}`, group: path.split("/")[1] || "home", title: "", features, buttons: [], counts: {}, sections, imageShare });
+  const pages = [
+    page("/", ["·|h1|media", "·|h2|-"], ["svg:icon"]),
+    ...["3d", "design", "films", "music", "games"].map((c) => page(`/${c}`, band(`rgb(${c.length}, 0, 0)`), ["layout:card-grid", "ui:tabs"], 0.6)),
+    page("/pricing", ["·|h1|-", "·|h2|-", "·|h2|-"], ["ui:table"]),
+    page("/about", ["·|h1|media", "·|h2|media"], []),
+  ];
+  const survey = { origin: "https://x.test", pages, frequency: [], groups: [] } as unknown as Survey;
+  pages.push(page("/.well-known/oauth-authorization-server", ["·|-|-", "·|-|-"], ["ui:code-block"]), page("/features", ["·|h1|media", "·|h2|-"], []));
+  const picked = selectDeep(survey, [], 5).map((p) => new URL(p.url).pathname);
+  assert.ok(!picked.some((p) => p.startsWith("/.well-known")), "machine files are never captured");
+  assert.ok(picked.includes("/pricing") && picked.includes("/about"), `brand pages with new layouts are captured: ${picked}`);
+  assert.equal(picked.filter((p) => ["/3d", "/design", "/films", "/music", "/games"].includes(p)).length, 1, "one capture of the repeated category layout");
+});
+
+test("crops keep a full page's first screen at native resolution", async () => {
+  const { chromium } = await import("playwright");
+  const dir = tmp();
+  const full = join(dir, "full.png");
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.setContent('<body style="margin:0"><div style="height:3000px;background:linear-gradient(#f00,#00f)"></div></body>');
+    await page.screenshot({ path: full, fullPage: true });
+    const [job] = await cropFirstScreens([{ src: full, out: join(dir, "crop.png"), viewport: "desktop" }], browser);
+    assert.ok(job, "the crop was written");
+    const png = readFileSync(join(dir, "crop.png"));
+    assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1440, 900]);
+  } finally {
+    await browser.close();
+  }
+});
+
+test("full-page captures reach the end of a page that scrolls inside a box", async () => {
+  const { chromium } = await import("playwright");
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.setContent('<style>html,body{margin:0;height:100%;overflow:hidden}#app{height:100vh;overflow-y:auto}</style><div id="app"><div style="height:4000px">long page</div></div>');
+    assert.ok(((await expandScrollContainers(page)) ?? 0) >= 4000, "the document now carries the whole page");
+    await page.setContent('<div style="height:3000px">a normal page</div>');
+    assert.equal(await expandScrollContainers(page), null, "a page that scrolls on its own is left alone");
+  } finally {
+    await browser.close();
+  }
+});
+
+test("only a finished agent and a building app gate a run; every other check is evidence", () => {
+  assert.deepEqual([...GATING_CHECKS].sort(), ["agent-finished", "build"]);
 });
 
 test("critic verdict: older score-only files keep the score bar", () => {
@@ -109,7 +181,9 @@ test("stages: screen, confirm on 3 samples, then the holdout check; each blocks 
   const screened = runsFixture({ "1.1.0-rc.2": 10 }, { "1.1.0-rc.2": evalReport("1.1.0-rc.2", "pass", apps, 1) });
   assert.equal(candidateStage("demo", "1.1.0-rc.2", screened, true).stage, "confirm");
   assert.match(candidateBlock("demo", "1.1.0-rc.3", screened, true) ?? "", /passed the screen/);
-  assert.equal(generationBlock("demo", "1.1.0-rc.2", screened, "main", true), null, "the screened candidate may be confirmed");
+  assert.match(generationBlock("demo", "1.1.0-rc.2", screened, "main", true) ?? "", /approves its direction/, "the user looks at the screen first");
+  write(join(screened, "demo", "1.1.0-rc.2", "direction.json"), { approvedBy: "user", at: "t" });
+  assert.equal(generationBlock("demo", "1.1.0-rc.2", screened, "main", true), null, "then the screened candidate may be confirmed");
   assert.match(generationBlock("demo", "1.1.0-rc.2", screened, "holdout", true) ?? "", /holdout check comes after/);
 
   const confirmed = runsFixture({ "1.1.0-rc.2": 10 }, { "1.1.0-rc.2": evalReport("1.1.0-rc.2", "pass", apps, 3) });
@@ -153,20 +227,21 @@ test("overrides change one finding's severity and are recorded with their reason
 const item = (id: string): ReviewItem => ({ id, app: "blog", holdout: false, kind: "page", subject: "/", viewport: "desktop", scheme: "light", sheet: `${id}.png`, sources: [[`${id}-a.png`]], questions: ["?"] });
 
 test("review: a unit answer counts only with a note about what is on every item", () => {
-  const items = [item("a"), item("b"), item("c")];
+  const items = [item("a"), item("b"), item("c"), item("d")];
   const good = checkUnit(items, {
     items: [
-      { id: "a", status: "ok", note: "Hero headline left, dot field under the close, three samples alike." },
-      { id: "b", status: "finding", note: "Pinned column covers the budget figures in samples 1 and 3." },
-      { id: "c", status: "ok", note: "ok" },
-      { id: "zzz", status: "ok", note: "An item that is not on this checklist at all." },
+      { id: "a", status: "ok", fidelity: 4, note: "Hero headline left, dot field under the close, three samples alike." },
+      { id: "b", status: "finding", fidelity: 3, note: "Pinned column covers the budget figures in samples 1 and 3." },
+      { id: "c", status: "ok", fidelity: 4, note: "ok" },
+      { id: "d", status: "ok", note: "A real note about the screen, but no fidelity mark at all." },
+      { id: "zzz", status: "ok", fidelity: 4, note: "An item that is not on this checklist at all." },
     ],
     findings: [{ severity: "major", area: "polish", summary: "covered figures", samples: 2, of: 3, items: ["b", "nope"] }],
   });
-  assert.deepEqual(good.missing, ["c"], "a contentless note counts as missing");
+  assert.deepEqual(good.missing, ["c", "d"], "a contentless note or a missing fidelity mark counts as missing");
   assert.deepEqual(good.review!.findings[0]!.items, ["b"], "findings only point at checklist items");
   assert.ok(good.problems.some((p) => /unknown item ids: zzz/.test(p)));
-  assert.deepEqual(checkUnit(items, { nonsense: true }).missing, ["a", "b", "c"]);
+  assert.deepEqual(checkUnit(items, { nonsense: true }).missing, ["a", "b", "c", "d"]);
   const minors = Array.from({ length: 12 }, (_, i) => ({ severity: "minor", area: "polish", summary: `m${i}`, samples: 1, of: 3 }));
   assert.equal(checkUnit(items, { items: [], findings: minors }).review!.findings.length, UNIT_MINOR_CAP);
 });
@@ -194,9 +269,9 @@ test("review: the checklist covers every screen, state, drawing set and motion s
   }
   const report = { ...evalReport("9.9.9-rc.1", "pending-review", ["blog"], 2), template: "graphite-blueprint" };
   report.runs = runs.map((runId) => ({ runId, app: "blog" as const, gates: [], metrics: {} }));
-  const plan = buildPlan({ id: "graphite-blueprint", version: "1.2.0", report, reviewDir: join(runsRoot, "review"), runsRoot });
+  const plan = buildPlan({ id: "graphite-blueprint", version: "1.2.0", report, reviewDir: join(runsRoot, "review"), runsRoot, appearance: ["light", "dark"] });
   const ids = plan.items.map((i) => i.id).sort();
-  // graphite-blueprint 1.2.0 has light and dark: both page appearances, the state, drawings and motion.
+  // A system with light and dark: both page appearances, the state, drawings and motion.
   assert.deepEqual(ids, ["blog--drawings--home", "blog--motion", "blog--page--home--desktop-dark", "blog--page--home--desktop-light", "blog--state--search-empty--mobile-light"]);
   const page = plan.items.find((i) => i.id === "blog--page--home--desktop-light")!;
   assert.equal(page.sources.length, 2, "one column per sample");
