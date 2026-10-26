@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { Bloom, INK, INK_3, LINE, Mark, OG_SIZE, PAPER, ogFonts } from "@/lib/og";
 
-export const alt = "Pigment — give your agent a palette, not a prompt.";
+export const alt = "Pigment — design systems your coding agent can apply.";
 export const size = OG_SIZE;
 export const contentType = "image/png";
 
@@ -16,15 +16,10 @@ export default function OpenGraphImage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", maxWidth: 900 }}>
           <div style={{ display: "flex", flexWrap: "wrap", fontSize: 86, lineHeight: 1.02, letterSpacing: "-0.035em", fontWeight: 600 }}>
-            <span>Give your agent a&nbsp;</span>
-            <span style={{ display: "flex" }}>
-              <span style={{ fontFamily: "Instrument Serif", fontStyle: "italic", fontWeight: 400, letterSpacing: "-0.01em" }}>palette</span>
-              <span>,&nbsp;</span>
-            </span>
-            <span>not a prompt.</span>
+            <span>Design systems your coding agent can apply.</span>
           </div>
           <div style={{ marginTop: 28, fontSize: 30, lineHeight: 1.35, color: INK_3, maxWidth: 820 }}>
-            Design systems that Claude Code, Codex and any MCP client can apply.
+            Shown on real products, tested before release. For Claude Code, Codex and any MCP client.
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 24, color: INK_3 }}>

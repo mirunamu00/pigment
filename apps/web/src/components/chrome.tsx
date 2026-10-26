@@ -113,9 +113,9 @@ export function SiteFooter() {
             <Logo />
             Pigment
           </Link>
-          <p className="site-footer__tagline serif">No happy accidents.</p>
           <p className="site-footer__about">
-            Design systems your coding agent can apply — tested on real apps, copied into your project so they never drift.
+            Design systems your coding agent can apply. Each is copied into your project, so every later screen follows the same
+            rules.
           </p>
           <a className="site-footer__gh" href={REPO} target="_blank" rel="noreferrer">
             <GitHubIcon />

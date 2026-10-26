@@ -2,7 +2,7 @@ import Link from "next/link";
 import { listTemplates, type TemplateSummary } from "@pigment/content";
 import { MCP_URL, SITE_URL } from "@pigment/content/prompts";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
-import { Bloom, Note, Swash } from "@/components/details";
+import { Bloom, Note } from "@/components/details";
 import { Gallery } from "@/components/gallery";
 
 export const dynamic = "force-static";
@@ -32,10 +32,11 @@ export default function HomePage() {
         <div className="gallery-intro">
           <div style={{ maxWidth: 760 }}>
             <h1 className="gallery-intro__title">
-              Give your agent a <Swash>palette</Swash>, not&nbsp;a&nbsp;prompt.
+              Design systems your coding agent can&nbsp;apply.
             </h1>
             <p className="gallery-intro__sub">
-              Design systems that Claude Code, Codex and any MCP client can apply.{templates.length > 0 && " Pick one below."}
+              Each one is shown on real products and tested before release. Claude Code, Codex and any MCP client can apply it.
+              {templates.length > 0 && " Pick one below."}
             </p>
           </div>
           <Link href="/connect" className="btn btn--cmd">
@@ -43,7 +44,7 @@ export default function HomePage() {
           </Link>
           {templates.length > 0 && (
             <Note arrow="down-left" arrowFirst style={{ left: 790, bottom: -6 }}>
-              <span style={{ paddingBottom: 30, display: "block" }}>real agent output, not mockups</span>
+              <span style={{ paddingBottom: 30, display: "block" }}>unedited agent output</span>
             </Note>
           )}
         </div>
@@ -57,7 +58,7 @@ export default function HomePage() {
       <section id="how" className="page how">
         <div className="how__text">
           <h2 className="how__title">
-            Mix once. Paint <span className="serif">forever</span>.
+            Set up once. Every new screen follows.
           </h2>
           <ol className="how__steps">
             <li>
@@ -86,7 +87,7 @@ export default function HomePage() {
               <span className="c"># 1 · connect once</span>
               {"\n"}claude mcp add --transport http pigment <span className="s">{MCP_URL}</span>
               {"\n\n"}
-              <span className="c"># 2 · just ask</span>
+              <span className="c"># 2 · ask your agent</span>
               {"\n"}› Apply the Pigment design system <span className="s">&lt;system&gt;</span> to this project.
               {"\n"}  Preserve routes, logic and tests. Show a plan first.
               {"\n\n"}
@@ -94,9 +95,6 @@ export default function HomePage() {
               {"\n"}get_design_system(<span className="s">&quot;&lt;system&gt;&quot;</span>)
             </pre>
           </div>
-          <Note arrow="up-right" style={{ position: "relative", justifyContent: "flex-end", marginTop: 8, marginRight: 28 }}>
-            <span style={{ paddingTop: 18, display: "block" }}>that&apos;s the whole setup</span>
-          </Note>
         </div>
       </section>
       <SiteFooter />

@@ -8,11 +8,11 @@ const UPDATED = "2026-10-11";
 test.describe("gallery", () => {
   test("lists the published system and filters by tone", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("not a prompt");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Design systems your coding agent can apply");
     await expect(page.getByRole("heading", { name: "Fixture System" })).toBeVisible();
     await expect(page.getByText("1 system", { exact: true })).toBeVisible();
     await page.getByRole("group", { name: "Tone" }).getByRole("button", { name: "Brutalist" }).click();
-    await expect(page.getByText("No system matches that mix yet")).toBeVisible();
+    await expect(page.getByText("No system matches these filters")).toBeVisible();
     await page.getByRole("group", { name: "Tone" }).getByRole("button", { name: "All" }).click();
     await expect(page.getByRole("heading", { name: "Fixture System" })).toBeVisible();
   });
@@ -70,7 +70,7 @@ test.describe("system detail", () => {
   test("unknown system is a 404", async ({ page }) => {
     const res = await page.goto("/s/does-not-exist");
     expect(res?.status()).toBe(404);
-    await expect(page.getByText("This page washed")).toBeVisible();
+    await expect(page.getByText("Page not found")).toBeVisible();
   });
 
   test("@mobile shows the sticky apply bar", async ({ page }) => {

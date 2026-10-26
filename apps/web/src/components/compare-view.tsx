@@ -128,7 +128,7 @@ export function CompareView({ items }: { items: CompareItem[] }) {
 
       <div style={{ position: "relative" }}>
         <Note arrow="up-left" arrowFirst style={{ position: "relative", margin: "18px 0 0 8px" }}>
-          <span style={{ paddingTop: 10, display: "block", fontSize: 21 }}>identical product, identical prompt — only the paint differs</span>
+          <span style={{ paddingTop: 10, display: "block", fontSize: 21 }}>same product, same prompt, different system</span>
         </Note>
       </div>
 
