@@ -10,6 +10,14 @@ export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pigmentui.c
 // The remote server is a route of the site itself (apps/web/src/app/mcp), so it shares its domain.
 export const MCP_URL = process.env.NEXT_PUBLIC_MCP_URL ?? `${SITE_URL}/mcp`;
 
+export const REPO_URL = "https://github.com/mirunamu00/pigment";
+
+/**
+ * The one ask Pigment makes of the people who use it: a GitHub star, asked for once the work is done and given only
+ * on their yes. The agent acts on the person's account, so it never stars without asking.
+ */
+export const STAR_ASK = `When everything is done, ask me whether to star Pigment on GitHub (mirunamu00/pigment). Only if I say yes, run \`gh api -X PUT user/starred/mirunamu00/pigment\`; without gh, give me the link ${REPO_URL}.`;
+
 export function specRef(id: string, delivery: Delivery): string {
   if (delivery === "url") return `Spec: ${SITE_URL}/s/${id}/agent.md`;
   return "Read the spec with the Pigment MCP tools (get_design_system, get_component_spec).";
@@ -32,6 +40,7 @@ export function buildPrompt(id: string, mode: Mode, delivery: Delivery): string 
       APPEARANCE,
       "Don't add libraries that don't fit the existing stack. Leave an AGENTS.md / CLAUDE.md pointer so future screens reuse the system.",
       "Report build results, visual checks and anything left unimplemented.",
+      STAR_ASK,
     ].join("\n");
   }
   if (mode === "existing") {
@@ -42,6 +51,7 @@ export function buildPrompt(id: string, mode: Mode, delivery: Delivery): string 
       "Audit styles and components first, then propose a migration plan and wait for my approval. Restyle one screen as a sample and wait again.",
       APPEARANCE,
       "Report build results, visual checks and anything left unimplemented.",
+      STAR_ASK,
     ].join("\n");
   }
   return [

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { buildPrompt, connectSnippet, mcpRequest, type Client, type Delivery, type Mode } from "@pigment/content/prompts";
 import { CopyButton, Segmented } from "./controls";
 import { Note, Tape } from "./details";
+import { StarNote } from "./star-button";
 
 const MODES = [
   ["new", "New"],
@@ -78,6 +79,7 @@ export function ApplyPanel({ id, name }: { id: string; name: string }) {
           <p aria-live="polite" className="apply__status" style={{ color: status?.ok ? "var(--ok)" : "var(--err)" }}>
             {status?.message ?? ""}
           </p>
+          {status?.ok && <StarNote />}
 
           {/* Bottom margin reserves room for the note under the request. */}
           <div className="apply__step" style={{ position: "relative", marginBottom: 30 }}>
@@ -105,6 +107,7 @@ export function ApplyPanel({ id, name }: { id: string; name: string }) {
           <p aria-live="polite" className="apply__status" style={{ color: status?.ok ? "var(--ok)" : "var(--err)" }}>
             {status?.message ?? ""}
           </p>
+          {status?.ok && <StarNote />}
         </>
       )}
 

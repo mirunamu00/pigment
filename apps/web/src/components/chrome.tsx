@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StarButton } from "./star-button";
 
 const NAV = [
   { href: "/", label: "Systems", key: "systems" },
@@ -33,6 +34,7 @@ export function SiteHeader({ active }: { active?: NavKey }) {
           </nav>
         </div>
         <div className="site-header__right">
+          <StarButton className="btn hide-sm" />
           {active === "mcp" ? (
             <Link href="/" className="btn hide-sm">
               Browse systems
@@ -55,6 +57,9 @@ export function SiteHeader({ active }: { active?: NavKey }) {
                 </Link>
               ))}
               <Link href="/connect">Connect an agent</Link>
+              <a href={REPO} target="_blank" rel="noreferrer">
+                Star on GitHub
+              </a>
             </nav>
           </details>
         </div>

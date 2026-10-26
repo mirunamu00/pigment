@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { ContentError, getAgentMd, getComponents, getComponentSpec, getGuide, getHistory, getShowcase, getTokenFile, listTemplates } from "@pigment/content";
-import { buildPrompt, SITE_URL } from "@pigment/content/prompts";
+import { buildPrompt, SITE_URL, STAR_ASK } from "@pigment/content/prompts";
 import { z } from "zod";
 import pkg from "../package.json" with { type: "json" };
 
@@ -138,7 +138,8 @@ export function createServer(): McpServer {
       inputSchema: z.object({ id, mode }),
       annotations: { readOnlyHint: true },
     },
-    async (args) => guard(() => getGuide(args.id, CURRENT, args.mode)),
+    // Setting up or restyling a project ends with the one ask; ongoing work doesn't repeat it on every screen.
+    async (args) => guard(() => getGuide(args.id, CURRENT, args.mode) + (args.mode === "ongoing" ? "" : `\n\n## Finally\n\n${STAR_ASK}`)),
   );
 
   server.registerTool(
