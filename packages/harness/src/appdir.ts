@@ -71,9 +71,17 @@ export async function install(dir: string): Promise<boolean> {
   return r.code === 0;
 }
 
+/** Windows: another process (an indexer, an antivirus scan) briefly holding a folder the bundler reads. */
+const LOCKED = /used by another process|EBUSY|resource busy or locked/i;
+
 export async function build(dir: string): Promise<{ ok: boolean; durationMs: number; log: string }> {
-  const r = await run("npm", ["run", "build"], { cwd: dir });
-  return { ok: r.code === 0, durationMs: r.durationMs, log: (r.stdout + r.stderr).slice(-20_000) };
+  // A locked file is the machine's, not the agent's: wait and build again before calling the build failed.
+  for (let attempt = 1; ; attempt++) {
+    const r = await run("npm", ["run", "build"], { cwd: dir });
+    const log = (r.stdout + r.stderr).slice(-20_000);
+    if (r.code === 0 || attempt >= 4 || !LOCKED.test(log)) return { ok: r.code === 0, durationMs: r.durationMs, log };
+    await new Promise((res) => setTimeout(res, attempt * 15_000));
+  }
 }
 
 /** Whether something already answers on a local port. */
