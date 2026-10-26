@@ -1,0 +1,155 @@
+```json
+{
+  "items": [
+    { "id": "blog--page--home--desktop-light", "status": "finding", "fidelity": 4, "note": "Full-bleed yolk band with a deep sag arc, a 64px tight headline, a blue pill and a white on-field pill, and a crescent-shaded cluster that now fills about a third of the band. Below it are confetti around the section heading, cream borderless cards and pictogram covers in category hues, so it reads as the reference's family. All three samples drew the same sun, cloud and pill cluster, and the hero leaves a wide empty strip where the reference's 02 hero has a richer layered scene." },
+    { "id": "blog--page--home--mobile-light", "status": "finding", "fidelity": 4, "note": "The centered yolk hero with full-width pills is close to the reference phone (04). The cluster is stacked as its own row under the pills, though, so the band fills the entire first screen (about 1250px tall in s2) before any content shows. The reference keeps its phone hero compact and tucks the art against the edge." },
+    { "id": "blog--page--home--desktop-dark", "status": "finding", "fidelity": 4, "note": "A navy page with indigo cream-equivalent panels, the yellow sag band kept at full strength, white pills and saturated covers. This is a convincing night version in the spirit of 03. At the foot of the page, the bottom bar flips to a bright white strip that breaks the night palette." },
+    { "id": "blog--page--home--mobile-dark", "status": "finding", "fidelity": 4, "note": "Same stacked yolk hero on navy, with indigo cards and well-drawn pictogram covers. The palette holds up like the reference's night band, except the white bottom bar at the very end." },
+    { "id": "blog--page--posts-shipping-a-design-system--desktop-light", "status": "ok", "fidelity": 4, "note": "Compact header band (yolk in s1 and s2; cream in s3, where a large pink cover follows, as the spec asks), an h2 title, on-field tags and a crescent-shaded cluster of about 250px. Below it are a prose column, a cream table of contents with a zigzag glyph, cream quote panels and drawn figures. Calm and well spaced, close to the reference's reading rhythm; the cluster is still a little small against the band compared with 02." },
+    { "id": "blog--page--posts-shipping-a-design-system--mobile-light", "status": "finding", "fidelity": 3, "note": "In s1 and s3 the band's whole text column stays narrow beside the corner cluster, so the title breaks into six one- or two-word lines and the band takes the full first screen. s2 runs the title wider in four lines and is close to the reference phone (04). The rc.3 gap is still open in most samples." },
+    { "id": "blog--page--posts-shipping-a-design-system--desktop-dark", "status": "finding", "fidelity": 4, "note": "The yolk band (indigo in s3, which has the cream-band variant) on navy, indigo table of contents and quote panels, and saturated figures. This is a faithful night reading screen, with the white bottom bar as the one jarring piece." },
+    { "id": "blog--page--posts-shipping-a-design-system--mobile-dark", "status": "finding", "fidelity": 3, "note": "Same narrow six-line title in s1 and s3 as the light phone, on navy with indigo panels, so the band fills the first screen before any reading starts. s2 is compact and well balanced." },
+    { "id": "blog--page--posts-release-notes-people-read--desktop-light", "status": "finding", "fidelity": 4, "note": "Well-built article: yolk or cream compact band with an arc, a clean prose column, cream quote and code panels, and figures on saturated panels. s2's cluster pictures the subject (a megaphone on a disc), but s1 and s3 reuse exactly the cluster from their other article (hexagon and pill; card and disc), so the art says nothing about this piece." },
+    { "id": "blog--page--posts-release-notes-people-read--mobile-light", "status": "ok", "fidelity": 4, "note": "With a shorter title the compact band stays at about a third of the screen, the corner cluster is tucked away, and the table of contents, prose and figures stack cleanly. This is close to the reference phone's compact rhythm." },
+    { "id": "blog--page--posts-release-notes-people-read--desktop-dark", "status": "finding", "fidelity": 4, "note": "Night article with navy page, indigo panels and full-strength orange figures, consistent with 03. The bottom bar turns white." },
+    { "id": "blog--page--posts-release-notes-people-read--mobile-dark", "status": "finding", "fidelity": 4, "note": "Compact yolk band on navy (indigo in s3), indigo table of contents and code panels, and the article reads comfortably. The same white bottom bar as the other dark pages." },
+    { "id": "blog--page--about--desktop-light", "status": "finding", "fidelity": 4, "note": "Blue header band with a sag arc, white type and varied clusters (sun and cloud, speech bubble, hexagon and pill), a vignette of message cards, initials-on-disc author cards on cream, and a cream rise-arc footer. The vignette sits on a second saturated panel (pink or yellow) right under the blue band, so two fields share the first screen. In the reference (01), vignettes float on a cream panel and overlap more tightly." },
+    { "id": "blog--page--about--mobile-light", "status": "finding", "fidelity": 4, "note": "Compact blue band with the cluster tucked in the corner and a sensible height, then prose, a vignette panel and stacked cream author cards. This is close to the reference phone. In s3 the footer's email field collapses to a thin sliver." },
+    { "id": "blog--page--about--desktop-dark", "status": "finding", "fidelity": 4, "note": "Blue band and pink or yellow vignette panel on navy, with indigo author cards and message chips: a coherent night palette. As in light mode, two saturated fields share the first view, and the bottom bar turns white." },
+    { "id": "blog--page--about--mobile-dark", "status": "finding", "fidelity": 4, "note": "Compact blue band, indigo cards and a saturated vignette panel on navy. Well proportioned, but the footer's bottom bar is white on all three samples." }
+  ],
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "major",
+      "area": "spacingRhythm",
+      "summary": "On phones, two of three samples still keep the whole text column of the article header band narrow beside the corner cluster, not only the first line. A long title breaks into six one- or two-word lines and the band fills the entire first screen before the cover or body. The reference phone (04) runs its headline across the full width and keeps the band compact. This was named in rc.3 review-1 and is still open; s2 shows the fix works (title in four lines).",
+      "samples": 2,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--posts-shipping-a-design-system--mobile-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--posts-shipping-a-design-system--mobile-light--s3.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--posts-shipping-a-design-system--mobile-light--s2.png",
+        "pipeline/headspace-study/reference/set/04-mobile.png"
+      ],
+      "items": [
+        "blog--page--posts-shipping-a-design-system--mobile-light",
+        "blog--page--posts-shipping-a-design-system--mobile-dark"
+      ],
+      "promptFix": "Say it in words next to the compact-band CSS: below the breakpoint only the first line of the band (breadcrumb or eyebrow) reserves the corner cluster's width. The title, meta and tags span the full inner width, and the title stays within four lines at the phone heading size. Never put a max-width, a column split or end padding on the band's whole text block on phones."
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "In dark mode the footer's bottom bar is a bright white strip under the navy page on every sample, the one element that breaks the night palette. The reference's night band (03) stays dark to the edge. The spec causes this: the footer row asks for a `surface.inverse` bottom bar, and the dark token table sets `color.surface.inverse` to #ffffff.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "specRule": "Footer | Cream band with rise arc, link columns, a signup field + ink pill; `surface.inverse` bottom bar with round icon buttons … (dark) `color.surface.inverse` | `#ffffff`",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/sheets/blog--page--home--desktop-dark.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/sheets/blog--page--about--mobile-dark.png",
+        "pipeline/headspace-study/reference/set/03-desktop.png"
+      ],
+      "items": [
+        "blog--page--home--desktop-dark",
+        "blog--page--home--mobile-dark",
+        "blog--page--posts-shipping-a-design-system--desktop-dark",
+        "blog--page--posts-release-notes-people-read--desktop-dark",
+        "blog--page--posts-release-notes-people-read--mobile-dark",
+        "blog--page--about--desktop-dark",
+        "blog--page--about--mobile-dark"
+      ],
+      "promptFix": "Give the footer bottom bar its own role token that stays the darkest surface in both appearances: ink in light, the night page color or a step darker in dark. Keep `surface.inverse` only for small floating pieces such as toasts, where flipping to white at night is intended."
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "signature",
+      "summary": "All three samples drew the same front-page hero cluster: an orange crescent sun, a white cloud, a tilted pill and two sparkles. The spec names a disc with a cloud as one option, not the default. The reference's hero (02) is a richer layered scene that balances the headline. Here the right half of the band holds a tidy but generic stamp, with empty yolk below the pills.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--home--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--home--desktop-light--s2.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--home--desktop-light--s3.png",
+        "pipeline/headspace-study/reference/set/02-desktop.png"
+      ],
+      "items": ["blog--page--home--desktop-light"],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "spacingRhythm",
+      "summary": "On phones the front-page hero puts its cluster on a row of its own under the stacked pills, so the band fills the whole first screen (taller still in s2) and no content shows. The reference phone hero (04) is centered and compact, with the art tucked against the edge.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--home--mobile-light--s2.png",
+        "pipeline/headspace-study/reference/set/04-mobile.png"
+      ],
+      "items": ["blog--page--home--mobile-light"],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "signature",
+      "summary": "In s1 and s3 both articles carry exactly the same header-band cluster (hexagon and pill; card and disc), so the art is a sticker rather than a picture of the piece. s2 draws each article's subject (blocks, a megaphone), which is the reference's level.",
+      "samples": 2,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--posts-release-notes-people-read--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--posts-shipping-a-design-system--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--posts-release-notes-people-read--desktop-light--s2.png"
+      ],
+      "items": [
+        "blog--page--posts-release-notes-people-read--desktop-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "hierarchy",
+      "summary": "On the about page, the message-card vignette sits on a saturated pink or yellow panel right under the saturated blue header band, so two fields compete in the first view. The cards also step down in a loose column rather than overlapping. The reference (01) floats its vignette on a cream panel in one tight overlapping scene.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--about--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/crops/blog--page--about--desktop-light--s3.png",
+        "pipeline/headspace-study/reference/set/01-desktop.png"
+      ],
+      "items": ["blog--page--about--desktop-light"],
+      "promptFix": ""
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "In s3 on phones, the footer's email field collapses to a thin sliver above the full-width subscribe pill. This is an agent layout slip with no spec rule behind it.",
+      "samples": 1,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-2/sheets/blog--page--about--mobile-light.png"
+      ],
+      "items": ["blog--page--about--mobile-light"],
+      "promptFix": ""
+    }
+  ]
+}
+```

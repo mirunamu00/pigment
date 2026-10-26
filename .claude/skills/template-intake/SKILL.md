@@ -107,6 +107,8 @@ log, and the remaining gaps as a list of known differences from the reference. O
    is the last candidate's design, so it ships on that candidate's passing evaluation and screenshots
    (another run of the same prompt adds a sample, not proof). Publish refuses if any design file differs —
    then generate, evaluate and critic the final version and publish without `--carry-from`.
+   Only when the user explicitly decides to ship a candidate that passed the screen but not the later stages, add
+   `--accept-stage "<their reason>"`; it is recorded in `approval.json`. Never use it on your own judgment.
 3. `pnpm harness showcase <id>@<final>`: an agent applies the published system to the three showcase products
    (`showcase/products/`) and the result is exported to the site. This is what people see of the system — the
    base apps are only the test and are never shown. `pnpm check:content` (CI) fails until the current version

@@ -1,0 +1,162 @@
+```json
+{
+  "items": [
+    { "id": "commerce--state--card-hover--desktop-light", "status": "finding", "fidelity": 3, "note": "In all three samples the hovered product card turns one step darker in warm grey and its title gets an underline. Covers, tags and the ink filter pill with its dot are right. On the first screen, though, the yolk band is about 440px tall and holds only a title, one line and loose discs and sparkles: the front-page vignette is invisible when the screenshot is taken, so the band reads as a stickered empty field. The reference's yellow hero is filled with a headline, a checklist, a pill and a composed scene (02)." },
+    { "id": "commerce--state--card-hover--desktop-dark", "status": "finding", "fidelity": 3, "note": "The night version is right: navy page, indigo cards, and the hovered card lifts to a lighter indigo. The white pill, the indigo filter pills and the yellow band keep their hues. The band has the same empty-field problem as light mode. The page also ends in a bright white bottom bar under the indigo footer, the only light surface on a night page that the reference keeps dark to the edge (03)." },
+    { "id": "commerce--state--card-hover--mobile-light", "status": "ok", "fidelity": 4, "note": "The compact yolk band follows the reference's phone pattern (04) closely: tight bold title, lead, white pill, a small bag cluster tucked in the corner and a sag arc. Below it come the ink and cream filter pills with category dots, and the hovered card darkens to warm grey. The language and the state both read clearly." },
+    { "id": "commerce--state--added-to-cart--desktop-light", "status": "finding", "fidelity": 3, "note": "The confirmation follows the spec. It is an ink pill toast with a yellow sparkle and an underlined 'view cart' link, set under the blue add-to-cart pill, and the cart count in the top bar reads 1. The cream header band with its crescent-shaded price-tag scene is well drawn. But the band is about 440px tall for a breadcrumb, a title and one line, which pushes the buy action and the confirmation below the first screen. In the reference, a band this tall carries a full text block (02)." },
+    { "id": "commerce--state--added-to-cart--desktop-dark", "status": "finding", "fidelity": 3, "note": "At night the cream band turns indigo, the toast becomes a white pill with ink text and a sparkle, and the color choice tiles are indigo with a white selected border, all consistent with the derived night palette (03). The tall band still hides the action and its confirmation below the fold, and the white bottom bar is still there." },
+    { "id": "commerce--state--added-to-cart--mobile-light", "status": "ok", "fidelity": 4, "note": "On the phone, the compact cream band with a corner tag cluster is followed directly by the item cover, as the reference's phone hero does (04). Then come the price, the color pills (an ink pill with a dot, or bordered choice tiles), a full-width blue pill and the ink toast with a sparkle and a 'view cart' link. It reads clearly and stays in the system's language." },
+    { "id": "commerce--state--checkout-errors--desktop-light", "status": "ok", "fidelity": 4, "note": "A blue cart band with a crescent-shaded basket scene, a cloud and sparkles opens the page. The form sits in a cream panel or on white. Each invalid field has a 2px danger border, a filled alert glyph and a short red instruction, and the blue place-order pill stays below. The errors are designed and easy to read, close to the reference's form panel (09)." },
+    { "id": "commerce--state--checkout-errors--desktop-dark", "status": "ok", "fidelity": 4, "note": "The same structure works at night: indigo panels and inputs, salmon danger borders, alert glyphs and messages that stay legible, and the blue band and pill keep their hue. The reference's night panel (03) is matched in tone. The white bottom bar under the footer is still there; it is recorded on the card-hover dark item." },
+    { "id": "commerce--state--checkout-errors--mobile-light", "status": "ok", "fidelity": 4, "note": "A compact blue band with a basket in the corner, then a cream items panel with a plate pictogram and circle steppers, then fields stacked one per row with danger borders and messages, and a full-width blue pill. It is a faithful phone adaptation in the spirit of 04 and 09." },
+    { "id": "commerce--state--keyboard-focus--desktop-light", "status": "finding", "fidelity": 3, "note": "Keyboard focus on the top-bar text link is a thin, square-cornered blue box drawn tight around the word, which looks like the browser default, in all three samples. The reference's focus is a rounded blue ring that follows the pill's shape (11), and the rest of the page (pills, filters) is otherwise in the system's language." },
+    { "id": "commerce--state--keyboard-focus--desktop-dark", "status": "finding", "fidelity": 3, "note": "At night the focused nav link gets the same flush square box in yellow. It is visible, but crude next to the rounded, offset ring the reference draws around its controls (11)." },
+    { "id": "commerce--state--keyboard-focus--mobile-light", "status": "ok", "fidelity": 4, "note": "On the phone, focus lands on the round menu button (or the cart pill) and draws a 2px blue ring with an offset that follows the circle. That is the reference's pill focus (11) applied properly." },
+    { "id": "commerce--drawings--home", "status": "finding", "fidelity": 4, "note": "The catalog covers are flat pictograms on full-strength category fields: tote, backpack, sweater, tee, coat, mug, skillet, towels, key ring and beanie. Each has a darker side shade and a sparkle, each is its own drawing, and most can be named at a glance, close to the spot pictograms in 07. The duffel bag still reads as a toggle switch in all three samples, and several covers fill only about half their box." },
+    { "id": "commerce--drawings--products-canvas-field-tote", "status": "ok", "fidelity": 4, "note": "The detail page has a header-band scene: a large price tag with a round-cap string, a blue disc behind it, a hexagon and sparkles, crescent-shaded and spread across the art box. The cover is a tote, plus a spool plate and the swatch discs. All are flat and on recipe, and each reads as what it stands for." },
+    { "id": "commerce--drawings--products-merino-crew-sweater", "status": "finding", "fidelity": 4, "note": "The band repeats the product-detail tag scene, which is consistent for the area. The sweater covers in samples 2 and 3 are clean pictograms with shading and a sparkle. Sample 1's sweater is a blocky shape with a stepped notch at the hem and reads cruder than the reference's pictograms (07)." },
+    { "id": "commerce--drawings--cart", "status": "finding", "fidelity": 4, "note": "The cart band holds a well-built basket with crescent-shaded discs inside, a cloud and sparkles. The empty state is a single basket, tilted in two samples. Both are on recipe, but the band and the empty state picture the same noun, so the empty composition adds nothing new." },
+    { "id": "commerce--motion", "status": "finding", "fidelity": 3, "note": "The empty-cart basket fades in once and calmly, as the spec's Reveal does. The front-page vignette cards (product chip, pills, the added toast) fade out and back in across the frames instead of building once. Product screens show no breathing glyph to give the slow life the reference has." }
+  ],
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "major",
+      "area": "componentStates",
+      "summary": "Keyboard focus on top-bar text links is a flush, square-cornered box that looks like the browser default (blue by day, yellow at night). The reference's focus is a rounded ring with an offset that follows the control's shape (11). Named in the rc.4 review and still open in every sample.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "specRule": "Text links | underline 1px → 2px | ring around the text … Nav links (top bar) | medium → bold, instant (reserve the bold width) | ring",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/commerce--state--keyboard-focus--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/commerce--state--keyboard-focus--desktop-light--s3.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/commerce--state--keyboard-focus--desktop-dark--s1.png",
+        "pipeline/headspace-study/reference/set/11-desktop.png"
+      ],
+      "items": [
+        "commerce--state--keyboard-focus--desktop-light",
+        "commerce--state--keyboard-focus--desktop-dark"
+      ],
+      "promptFix": "Give text and nav links the same focus ring as pills, never the browser default. On `:focus-visible`, draw a 2px `color.focus.ring` outline (`ringOnField` on blue, green, violet and night fields) with a 2px offset, and round its corners with `radius.full` for nav links and `radius.sm` for inline links. Add `space.1` of inline padding (and the same negative margin) so the ring clears the letters. Write it as one shared rule for every focusable element that is not a pill, input or card."
+    },
+    {
+      "kind": "gap",
+      "severity": "major",
+      "area": "hierarchy",
+      "summary": "On desktop, the item-detail header band is still about 440px tall for a breadcrumb, a title and one line. The buy action and its added-to-cart confirmation end up below the first screen, so the state can only be seen through the cart count. The reference keeps tall bands for heroes that carry a headline, a lead and a pill (02).",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "specRule": ".ms-field--header { --ms-arc: var(--size-arc-sm); padding-block: var(--space-10) var(--space-8); min-height: calc(min(42vw, var(--size-band-art)) * 0.6 + var(--space-12)); }",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/commerce--state--added-to-cart--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/commerce--state--added-to-cart--desktop-light--s2.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/commerce--state--added-to-cart--desktop-dark--s2.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/commerce/20261026-173309-s1/screenshots/state-added-to-cart-desktop-light.png",
+        "pipeline/headspace-study/reference/set/02-desktop.png"
+      ],
+      "items": [
+        "commerce--state--added-to-cart--desktop-light",
+        "commerce--state--added-to-cart--desktop-dark"
+      ],
+      "promptFix": "Size a compact header band by its text, not its art. Remove the art-derived min-height, so the band is its text block plus `space.10` above and `space.8` below and never more than a third of the first desktop screen. Cap the art box at the band's height and use a wide viewBox, so the scene spreads sideways instead of making the band taller. On a screen whose job is an action, the primary action and the feedback it produces (a confirmation, an error summary) must be visible in the first desktop viewport."
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "The front-page vignette's build repeats instead of running once. Its cards fade out and back in across the motion frames, and every desktop capture of the shop front shows the yolk band empty except for loose confetti. This is an agent defect: the spec says the build runs once, on first view.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/commerce--motion.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/commerce--state--card-hover--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/commerce--state--card-hover--desktop-light--s2.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/commerce/20261026-173309-s2/drawings/home-d1.png"
+      ],
+      "items": [
+        "commerce--state--card-hover--desktop-light",
+        "commerce--motion"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "In dark mode, every page ends in a bright white bottom bar under the indigo footer, the only light surface on a night page. The reference's night palette stays dark to the edge (03). Named in rc.3 and rc.4 and still open.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "specRule": "Footer | Cream band with rise arc, link columns, a signup field + ink pill; `surface.inverse` bottom bar with round icon buttons",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/commerce--state--card-hover--desktop-dark.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/commerce--state--checkout-errors--desktop-dark.png",
+        "pipeline/headspace-study/reference/set/03-desktop.png"
+      ],
+      "items": [
+        "commerce--state--card-hover--desktop-dark",
+        "commerce--state--checkout-errors--desktop-dark"
+      ],
+      "promptFix": "Give the footer's bottom bar its own role token, the darkest surface in both appearances: ink by day, and at night a step darker than the navy page, with white text. Keep `surface.inverse` for small floating pieces such as toasts."
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "signature",
+      "summary": "The duffel-bag cover is a pill with a disc and a thin handle, which reads as a toggle switch, and several catalog pictograms fill only about half their cover. Each of the reference's spot pictograms fills its plate and can be named at a glance (07). Named in rc.4 and still open.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/commerce--drawings--home.png",
+        "pipeline/headspace-study/reference/set/07-desktop.png"
+      ],
+      "items": [
+        "commerce--drawings--home"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "signature",
+      "summary": "On the cart, the header band and the empty state both picture a basket. The empty composition repeats the band's noun instead of picturing its own subject, where the reference gives each spot its own drawing (07).",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/commerce--drawings--cart.png"
+      ],
+      "items": [
+        "commerce--drawings--cart"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "In one sample, the sweater cover is a blocky silhouette with a stepped notch at the hem. It reads cruder than the other samples' sweaters and the reference's clean pictograms (07).",
+      "samples": 1,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/commerce/20261026-173309-s2/drawings/products-merino-crew-sweater-d2.png",
+        "pipeline/headspace-study/reference/set/07-desktop.png"
+      ],
+      "items": [
+        "commerce--drawings--products-merino-crew-sweater"
+      ],
+      "promptFix": ""
+    }
+  ]
+}
+```

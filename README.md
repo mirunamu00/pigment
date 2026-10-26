@@ -35,7 +35,7 @@ states and decision rules — so every screen it builds, today or next month, lo
 claude mcp add --transport http pigment https://pigmentui.com/mcp
 ```
 
-**2 · Just ask**
+**2 · Ask your agent**
 
 > Apply the Pigment design system margin-notes to this project.
 
@@ -74,27 +74,39 @@ for offline setups.
 
 ## The gallery
 
-Every screenshot is a real coding agent restyling the same four neutral apps with one system —
-unedited output, cropped to the first screen. Four systems so far:
+Every system is shown on the same three realistic products — a coffee shop, a magazine and a recipe app, each
+with its own design and public-domain photos — restyled by a coding agent from the standard prompt. Unedited
+output; below, the coffee shop's first screen. Six systems so far:
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/assets/margin-notes-dashboard-light.png" alt="Dashboard restyled with Margin Notes" /></td>
-    <td width="50%"><img src="docs/assets/inkleaf-dashboard-light.png" alt="Dashboard restyled with Inkleaf" /></td>
+    <td width="50%"><img src="docs/assets/margin-notes-roastery.jpg" alt="A coffee shop site restyled with Margin Notes" /></td>
+    <td width="50%"><img src="docs/assets/inkleaf-roastery.jpg" alt="A coffee shop site restyled with Inkleaf" /></td>
   </tr>
   <tr>
     <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/margin-notes">Margin Notes</a></b> — warm paper, near-black ink, hairlines; the only color is a watercolor wash kept to the margins.</td>
     <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/inkleaf">Inkleaf</a></b> — warm ink on cream paper, a text serif, hand-drawn ink pictograms and pastel stages that hold product UI.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/assets/night-cartridge-blog-dark.png" alt="Blog restyled with Night Cartridge" /></td>
-    <td width="50%"><img src="docs/assets/graphite-blueprint-commerce-dark.png" alt="Store restyled with Graphite Blueprint" /></td>
+    <td width="50%"><img src="docs/assets/night-cartridge-roastery.jpg" alt="A coffee shop site restyled with Night Cartridge" /></td>
+    <td width="50%"><img src="docs/assets/graphite-blueprint-roastery.jpg" alt="A coffee shop site restyled with Graphite Blueprint" /></td>
   </tr>
   <tr>
     <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/night-cartridge">Night Cartridge</a></b> — a 16-bit console booted as a product: night-blue ground, pixel type, small scenes that move in stepped frames. Dark only.</td>
     <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/graphite-blueprint">Graphite Blueprint</a></b> — a near-black instrument panel: graphite greys, hairlines, one indigo, real UI on spotlit stages.</td>
   </tr>
+  <tr>
+    <td width="50%"><img src="docs/assets/felt-tip-market-roastery.jpg" alt="A coffee shop site restyled with Felt-tip Market" /></td>
+    <td width="50%"><img src="docs/assets/morning-shapes-roastery.jpg" alt="A coffee shop site restyled with Morning Shapes" /></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/felt-tip-market">Felt-tip Market</a></b> — a cheerful storefront in black felt-tip: ink hairlines, flat poster-color bands, chunky sticker objects.</td>
+    <td width="50%" valign="top"><b><a href="https://pigmentui.com/s/morning-shapes">Morning Shapes</a></b> — sunny and toy-like: cream pages, flat color fields with arched edges, crescent-shaded shapes and chunky pills.</td>
+  </tr>
 </table>
+
+On [pigmentui.com](https://pigmentui.com) every system shows every page of all three products, before and after,
+desktop and mobile, light and dark.
 
 ## Why it works
 
@@ -122,13 +134,13 @@ approving the analysis and the final result:
 
 ```
 reference ─▶ capture & measure ─▶ analysis ─▶ design prompt ─▶ validate
-          ─▶ agent applies it to 4 apps ─▶ evaluate ─▶ critic review ─▶ iterate ─▶ publish
+          ─▶ agent applies it to 4 test apps ─▶ evaluate ─▶ review ─▶ iterate ─▶ publish ─▶ showcase
                    screen on one sample, confirm on three plus two holdout apps
 ```
 
-The critic grades what it finds as blocker, major or minor. A candidate passes with no blocker and no major
-the prompt causes; minors are listed, never chased. Revisions are written from a generated brief as general
-principles — the author never reads the demo apps.
+The review scores how close the agents' results come to the reference's design quality (0–5 per area) and lists
+the gaps; broken details count only when the prompt caused them. Revisions are written from a generated brief as
+general principles — the author never reads the test apps, and the showcase products never steer a system.
 
 Systems are **derived design languages, never clones** — no logos, names, copy, imagery or proprietary
 fonts carry over. Details in [`docs/harness/`](docs/harness/README.md).

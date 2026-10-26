@@ -1,0 +1,88 @@
+```json
+{
+  "items": [
+    { "id": "settings--page--settings-profile--desktop-light", "status": "ok", "fidelity": 4, "note": "The page has a yolk header band with a sagging arc, a bold 'Profile' title and a tight cluster on the right: a crescent-shaded blue disc, an overlapping white cloud and a tucked pink sparkle. Below it the form now sits in a cream rounded panel with warm 2px-bordered fields, a crescent-shaded avatar disc and ledged pills, which closes rc.1's ungrouped-form gap. Hierarchy and warmth are close to the reference's cream form panel (09)." },
+    { "id": "settings--page--settings-profile--mobile-light", "status": "finding", "fidelity": 4, "note": "The phone has a compact title row, a cream strip of pills with the active ink pill and its white dot, and a yolk band with a small-arc sag. The cream panel holds stacked full-width fields. The band runs tall because the shape cluster sits in its own row under the lead. The reference phone (04) is just as sunny but tucks its shape against the band's edge." },
+    { "id": "settings--page--settings-profile--desktop-dark", "status": "ok", "fidelity": 4, "note": "Navy page with an indigo sidebar and indigo form panel. The active nav item is a white pill, and the fields are indigo with lilac borders, a convincing take on the reference's night palette (03). The yolk header band and its blue-disc cluster keep full strength against the navy, and everything else matches the light version." },
+    { "id": "settings--page--settings-profile--mobile-dark", "status": "finding", "fidelity": 4, "note": "Night version of the phone profile: navy top bar, indigo tab strip with the white active pill, yolk band, and an indigo panel with the avatar disc and an indigo cream-role pill. It has the same tall band with the cluster stacked under the lead, as in mobile light." },
+    { "id": "settings--page--settings-notifications--desktop-light", "status": "ok", "fidelity": 4, "note": "Blue header band with white text, a white count chip and a different cluster from the profile page: a large crescent-shaded yolk disc, an overlapping pink pill and a white sparkle. The groups are cream panels with white plates holding a flat envelope and bell, warm rules and ink switches. This is the reference's settings recipe, though the pictograms fill only about half of their plates, where the reference (07) fills them more." },
+    { "id": "settings--page--settings-notifications--mobile-light", "status": "finding", "fidelity": 4, "note": "Blue band with the title, a two-line lead, the white chip and then the cluster in its own row. The band takes nearly half the first screen before the first cream group shows. The rows inside the group are well spaced and the switches carry a ledge." },
+    { "id": "settings--page--settings-notifications--desktop-dark", "status": "ok", "fidelity": 4, "note": "Indigo group panels on navy, with white plates for the pictograms. The switches invert well (white track with an ink knob when on, an indigo track when off). The blue band and the yolk-disc cluster read as the same family as the reference's night band, with clear hierarchy and even rhythm." },
+    { "id": "settings--page--settings-notifications--mobile-dark", "status": "finding", "fidelity": 4, "note": "The night phone keeps the white active pill, the blue band, the indigo chip and the indigo group with a white envelope plate. It is well built, but the band again runs tall because the cluster takes its own row under the chip." },
+    { "id": "settings--page--settings-security--desktop-light", "status": "ok", "fidelity": 4, "note": "Green band with white text and a cluster mirrored from the profile page: a yolk disc with a cloud overlapping on its left and a pink sparkle below. The password group sits in a cream panel with a lock plate, reading-width fields and an ink pill on its ledge. Further down, the sessions table sits inside a cream panel with cream 'revoke' pills. The craft is close to the reference's form panel." },
+    { "id": "settings--page--settings-security--mobile-light", "status": "finding", "fidelity": 4, "note": "Green band, a lock plate beside a bold group title, full-width fields and a full-width ink pill. The sessions table scrolls inside its frame. The active tab pill sits flush at the strip's edge, and the band is tall because the cluster takes its own row under the lead." },
+    { "id": "settings--page--settings-security--desktop-dark", "status": "ok", "fidelity": 4, "note": "Indigo panel with indigo fields and lilac borders, and a white submit pill on the dark panel, matching the reference's night white pill (03). The green band and cluster are the same as in light. The type hierarchy and spacing hold up well." },
+    { "id": "settings--page--settings-security--mobile-dark", "status": "finding", "fidelity": 4, "note": "Night version of the phone security page: green band, indigo panel, a white lock plate and lilac-bordered fields. It is legible and on-language, with the same tall band and stacked cluster as the other phone pages." },
+    { "id": "settings--page--settings-billing--desktop-light", "status": "finding", "fidelity": 3, "note": "Orange band with a new cluster (a crescent-shaded violet hexagon, a pink disc and a white sparkle) and cream panels with plates. The selected plan is a violet field, as the spec says, but the other plans are white boxes with grey outlines and small prices. That reads as a generic SaaS pricing grid next to the reference's borderless cream cards and big bold stat numbers (06, 08)." },
+    { "id": "settings--page--settings-billing--mobile-light", "status": "finding", "fidelity": 3, "note": "Orange band, then a Plans panel whose first card is the outlined white Free plan, so the current plan sits below the fold. In the tab strip the active 'Billing' pill is scrolled out of view, so the first screen shows no 'you are here' state. The reference's phone keeps where you are obvious." },
+    { "id": "settings--page--settings-billing--desktop-dark", "status": "finding", "fidelity": 3, "note": "On navy, the unselected plans are indigo boxes with lilac outlines, while the selected plan is the violet field with a check. The outlined cards and small prices stay generic next to the reference's toned, borderless cards. The band, cluster and plates are on-language." },
+    { "id": "settings--page--settings-billing--mobile-dark", "status": "finding", "fidelity": 3, "note": "Night phone billing: orange band and an indigo panel with an outlined indigo Free card first. As in light mode, the active tab is off-screen in the strip, so no pill marks the current page." }
+  ],
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "referenceFidelity",
+      "summary": "Unselected plan cards are still white (indigo at night) boxes with grey or lilac outlines and small prices, a generic pricing grid. The reference separates cards by tone alone (borderless cream 16px cards) and makes key figures big and bold. This rc.1 gap is still open.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.2/review-1/crops/settings--page--settings-billing--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.2/review-1/crops/settings--page--settings-billing--desktop-dark--s1.png",
+        "pipeline/headspace-study/reference/set/06-desktop.png",
+        "pipeline/headspace-study/reference/set/08-desktop.png"
+      ],
+      "items": [
+        "settings--page--settings-billing--desktop-light",
+        "settings--page--settings-billing--desktop-dark"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "hierarchy",
+      "summary": "On phones the header band's shape cluster drops into its own row under the lead, so the band takes 40–45% of the first screen, most of it empty color, before the first group. The reference phone keeps its band compact and tucks its shape against the band's edge beside the text.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.2/review-1/crops/settings--page--settings-notifications--mobile-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.2/review-1/crops/settings--page--settings-profile--mobile-light--s1.png",
+        "pipeline/headspace-study/reference/set/04-mobile.png"
+      ],
+      "items": [
+        "settings--page--settings-profile--mobile-light",
+        "settings--page--settings-profile--mobile-dark",
+        "settings--page--settings-notifications--mobile-light",
+        "settings--page--settings-notifications--mobile-dark",
+        "settings--page--settings-security--mobile-light",
+        "settings--page--settings-security--mobile-dark"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "componentStates",
+      "summary": "On phones the horizontally scrolling area tabs don't bring the active pill into view. On the last area's page the strip shows only inactive items, so nothing marks the current page.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.2/review-1/crops/settings--page--settings-billing--mobile-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.2/review-1/crops/settings--page--settings-billing--mobile-dark--s1.png"
+      ],
+      "items": [
+        "settings--page--settings-billing--mobile-light",
+        "settings--page--settings-billing--mobile-dark"
+      ],
+      "promptFix": ""
+    }
+  ]
+}
+```

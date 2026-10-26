@@ -236,13 +236,14 @@ program
 
 program
   .command("publish")
-  .description("10. freeze a passing, human-approved version and export gallery assets")
+  .description("10. freeze a passing, human-approved version (then: pnpm harness showcase)")
   .argument("<ref>")
   .requiredOption("--approved-by <name>", "the person who approved the evaluation")
   .option("--carry-from <version>", "reuse the evaluation and screenshots of the passing candidate this version was scaffolded from, or of a published version for a name/description change; refused if any design file differs")
+  .option("--accept-stage <reason>", "the person ships a candidate that passed the screen but not the confirm or holdout check; the reason is recorded")
   .action((ref: string, opts) => {
     const { id, version } = parseRef(ref);
-    publish(id, version, opts.approvedBy, opts.carryFrom);
+    publish(id, version, opts.approvedBy, opts.carryFrom, opts.acceptStage);
   });
 
 program

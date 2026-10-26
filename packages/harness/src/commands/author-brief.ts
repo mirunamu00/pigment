@@ -13,7 +13,11 @@ import { judgeCritic, promptInduced, QUALITY_BAR } from "./evaluate.ts";
  * general principle. The demo apps are where problems are seen, never what the package is written for.
  */
 export function authorBrief(id: string, version: string, next: string, direction?: string): string {
-  const report = latestEval(id, version);
+  // A candidate that passed the main apps but failed the holdout check is revised from the holdout evaluation:
+  // publishing needs both, so that failure is the one left to fix.
+  const holdout = latestEval(id, version, undefined, "holdout");
+  const main = latestEval(id, version);
+  const report = main?.verdict === "pass" && holdout?.verdict === "fail" ? holdout : main;
   if (!report) fail("no evaluation yet — run pnpm harness evaluate first");
   if (report.verdict === "pass" && !direction) fail(`${id}@${version} passed — there is nothing to revise; offer it for publishing (or pass --direction with the user's words if they turned its direction down)`);
   if (report.verdict === "pending-review") fail("the critic has not judged this evaluation yet — run critic-brief and the critic first");

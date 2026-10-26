@@ -1,0 +1,159 @@
+```json
+{
+  "items": [
+    {
+      "id": "dashboard--page--home--desktop-light",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "White header area with a breathing yellow crescent glyph beside the greeting and an h2 title, an ink Refresh pill on its ledge, a cream sidebar with category nav dots and an ink selected pill with a white dot. Below are four saturated stat tiles (yolk, blue, green, tangerine) with crescent-shaded pictogram plates, a cream chart panel with yolk bars and a cream activity panel. This is clearly the reference's language. The one weak point is the stat figure: at about 32px it barely stands above its label, where in 08 one big number dominates each field."
+    },
+    {
+      "id": "dashboard--page--home--mobile-light",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "The stat tiles are now a compact 2×2 group with the plates dropped, and the group fits in roughly half the first phone screen. This closes the rc.4 two-screen slab problem. The greeting, glyph and full-width ink pill come before it, and the cream chart panel follows. The figures are still small next to their bold labels, so the tiles read as coloured cards more than as numbers (08)."
+    },
+    {
+      "id": "dashboard--page--home--desktop-dark",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "Navy page with an indigo sidebar and indigo panels. The selected nav item and Refresh are white pills, as in the night palette of 03. Saturated stat tiles and yolk chart bars keep full strength against the navy. It is a convincing derived night appearance. The stat figure is the same modest size as in light mode."
+    },
+    {
+      "id": "dashboard--page--home--mobile-dark",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "Night version of the phone overview: a white full-width Refresh pill, a 2×2 saturated tile group and an indigo chart panel, all well toned against the navy. In the yellow and green tiles the two-line caption wraps beside a trend arrow that hangs alone. That is cruder type setting than the reference's clean caption blocks."
+    },
+    {
+      "id": "dashboard--page--projects--desktop-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "A compact blue header band with an arcSm sag, about 180px tall and sized to its text. This closes the rc.4 art-sized band gap. It carries a well-composed folder, sun disc, cloud and sparkle cluster in the trailing corner. Below sits a cream panel with ink and cream filter pills (dot on the active one), a pill search field and a table with dotted status tags. The shapes stay out of the data, as in the reference."
+    },
+    {
+      "id": "dashboard--page--projects--mobile-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The phone header band is short with a clear arc, and the cluster is tucked in the top corner as 04 keeps its art at the edge. Filter pills scroll sideways, and the table scrolls inside its frame with the name column first. The rhythm and pill weight match the reference's phone screen."
+    },
+    {
+      "id": "dashboard--page--projects--desktop-dark",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The blue band holds its full strength on the navy page. The white active filter pill and the indigo inactive pills and panel follow the night recipe, and the table rows are navy on an indigo frame. It reads as the same team's night palette (03)."
+    },
+    {
+      "id": "dashboard--page--projects--mobile-dark",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The phone night list matches the light layout: a short blue band with a corner cluster, a white selected pill with a dark dot, an indigo search pill and an indigo panel. The tones are well separated, and nothing decorative touches the table."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--desktop-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "A compact blue band with a breadcrumb, an h2 title, a meta line and a white status tag, plus a nicely shaded clipboard, sun disc and sparkle cluster. Ink and cream pill tabs with the dot follow, then a cream panel holding the description and four white fact cards. It is correctly built, but the fact values are about 18px. That makes the lower half quieter and flatter in hierarchy than the reference's bold data treatment."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--mobile-light",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The band and pill tabs are right, but each fact is its own full-width white card stacked one per row. Four tall cards for four short values push the panel two screens down. The reference groups small data compactly (08: tiles in one row or grid) instead of giving each value a slab."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--desktop-dark",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The night detail page has a full-strength blue band, a white selected tab pill and indigo inactive tabs, and an indigo panel with lighter-indigo fact cards. The tone stacking is right for 03. It shares the light version's quiet fact typography."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--mobile-dark",
+      "status": "ok",
+      "fidelity": 3,
+      "note": "Same structure as the light phone version, with good night tones: the blue band, the white tab pill and indigo cards. The fact cards are still stacked one per row, so the page runs long for little data, and it is cruder in density than the reference."
+    },
+    {
+      "id": "dashboard--page--team--desktop-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "A compact green band (the area hue, matching the nav dot) with a faceless two-figure cluster built from discs and half-discs, a cloud and sparkles. Below is a cream panel with a clean table: green initial discs with crescent shade, bold names and ruled rows. The area colour runs through band, dot and avatars as rule 2 intends, close to the reference's flat kit."
+    },
+    {
+      "id": "dashboard--page--team--mobile-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "A short green band with the figure cluster tucked at the corner. The table scrolls in its frame with the name column first, and the shaded avatars and bold names hold the hierarchy. The phone rhythm is as considered as 04."
+    },
+    {
+      "id": "dashboard--page--team--desktop-dark",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The green band keeps its strength on navy. The indigo panel and navy rows with light rules, white names and green avatars make a convincing night version of the people screen in the reference's night language."
+    },
+    {
+      "id": "dashboard--page--team--mobile-dark",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "The phone night people screen has a compact green band with a corner cluster, an indigo frame and navy rows. It is consistent with the other night screens and keeps the shapes off the data."
+    }
+  ],
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "hierarchy",
+      "summary": "Stat-tile figures are still about 32px desktop and about 28px phone. That is close in weight to the bold label above, so each tile reads as a coloured card rather than a number. In the reference (08), one big bold figure about twice that size dominates each saturated field, with the label small above and the caption under it. This was named in rc.4 and has not closed, because the spec sets the number at h3.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "specRule": "Stat tile: … label `font.size.label` bold, number `font.size.h3` bold, caption `font.size.body`",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.5/review-1/crops/dashboard--page--home--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.5/review-1/crops/dashboard--page--home--mobile-light--s1.png",
+        "pipeline/headspace-study/reference/set/08-desktop.png"
+      ],
+      "items": [
+        "dashboard--page--home--desktop-light",
+        "dashboard--page--home--mobile-light"
+      ],
+      "promptFix": "In a stat tile, the number is the tile: set it at `font.size.h2` or larger (about 1.5–2× the section heading's x-height) in bold at tight tracking. Set the label at `font.size.label` medium, not bold, so only the figure is heavy. On phones keep the number at least `font.size.h3`, and shorten the caption rather than shrinking the figure."
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "spacingRhythm",
+      "summary": "On phones the item detail's key facts (four short label + value pairs) become four full-width white cards stacked one per row, each about 170px tall. The overview runs two screens for a handful of values. The reference sets small data as one compact group (08) and never gives a single short value its own slab.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.5/review-1/crops/dashboard--page--projects-apollo-migration--mobile-light--s1.png",
+        "pipeline/headspace-study/reference/set/08-desktop.png"
+      ],
+      "items": [
+        "dashboard--page--projects-apollo-migration--mobile-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "In the phone stat tiles the trend caption wraps to two lines next to its arrow. The arrow is centred against the wrapped block, so it hangs beside the line break instead of leading the first line.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.5/review-1/crops/dashboard--page--home--mobile-dark--s1.png"
+      ],
+      "items": [
+        "dashboard--page--home--mobile-dark"
+      ],
+      "promptFix": ""
+    }
+  ]
+}
+```
