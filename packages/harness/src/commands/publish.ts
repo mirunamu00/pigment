@@ -56,7 +56,7 @@ export function designDifferences(id: string, from: string, to: string): string[
  * final version was scaffolded from. It is refused when anything an agent builds from (tokens, principles,
  * components, instructions) differs: the screenshots must come from the same design the user gets.
  */
-export function publish(id: string, version: string, approvedBy: string, carryFrom?: string): void {
+export function publish(id: string, version: string, approvedBy: string, carryFrom?: string, acceptStage?: string): void {
   if (!approvedBy) fail("publishing needs --approved-by <name>: a person must approve the evaluation first");
   const published = readPublished();
   if (published[`${id}@${version}`]) fail(`${id}@${version} is already published and immutable — publish a new version`);
@@ -81,7 +81,11 @@ export function publish(id: string, version: string, approvedBy: string, carryFr
   // A published version carried over for a metadata-only change keeps the evaluation it was published on.
   if (!(carryFrom && published[`${id}@${carryFrom}`])) {
     const { stage, samples } = candidateStage(id, evaluated);
-    if (stage !== "done") {
+    // A person may ship a candidate that passed the screen but not the later stages; their reason is recorded.
+    if (stage !== "done" && acceptStage) {
+      if (stage === "screen") fail(`${id}@${evaluated} has not passed the screen — --accept-stage needs at least a passing screen`);
+      info(`publishing at the ${stage} stage on ${approvedBy}'s decision: ${acceptStage}`);
+    } else if (stage !== "done") {
       fail(
         stage === "holdout"
           ? `${id}@${evaluated} passed the confirm but not yet the holdout check (generate --holdout, evaluate --holdout, review --holdout)`
@@ -119,6 +123,7 @@ export function publish(id: string, version: string, approvedBy: string, carryFr
     approvedAt: timestamp(),
     evaluation: report.iteration,
     ...(carryFrom ? { carriedFrom: carryFrom } : {}),
+    ...(acceptStage ? { acceptedStage: { stage: candidateStage(id, evaluated).stage, reason: acceptStage } } : {}),
     sha256: sha,
   });
   const mcpVersion = bumpMcpPackage();

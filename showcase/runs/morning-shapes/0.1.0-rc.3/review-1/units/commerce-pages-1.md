@@ -1,0 +1,80 @@
+Ich habe alle Referenz- und Ergebnisbilder geprüft und schreibe jetzt das Urteil. (요약: 모든 화면 확인 완료, 판정 작성 중.)
+
+```json
+{
+  "items": [
+    { "id": "commerce--page--home--desktop-light", "status": "finding", "fidelity": 4, "note": "The yolk header band has a real sag arc, a bold tight 'h2' title and a blob, pill and two-sparkle cluster at about 180px. Below it are ink and cream filter pills with category dots on their ledges, borderless cream cards and flat crescent-shaded covers in category hues. The cluster is now big enough, but it is still two shapes and a sparkle, where the reference (02) builds an overlapping scene with a large four-point star." },
+    { "id": "commerce--page--home--mobile-light", "status": "finding", "fidelity": 4, "note": "The rc.2 gap is closed. The header is one row (logo, ink cart pill, cream menu circle). The band is compact, with the cluster tucked into the top-right corner and the arc at the bottom, close to the reference phone (04). The filter strip, stacked sort control and full-width cream card follow the system. Only the cluster is thinner than the reference's art." },
+    { "id": "commerce--page--home--desktop-dark", "status": "finding", "fidelity": 4, "note": "A navy page and top bar with a white cart pill, an indigo filter pill row and indigo cards, a convincing take on the reference's night palette (03). The yolk band carries over unchanged and the covers keep full-strength hues. The band art is the same small blob-and-pill cluster as in light mode." },
+    { "id": "commerce--page--home--mobile-dark", "status": "finding", "fidelity": 4, "note": "The phone night view keeps the compact one-row header, the corner cluster in the yolk band, indigo filter pills with category dots and a white active pill. Tone layering and type weight match the reference. The cluster is the same thin two-shape stamp." },
+    { "id": "commerce--page--products-canvas-field-tote--desktop-light", "status": "finding", "fidelity": 4, "note": "The rc.2 gap is closed. The header band turns cream with a sag arc so the large green cover is the screen's one field, with white between them. The bold title, category tag, big price and blue add-to-cart pill on its ledge are all close to the reference. The colour choice tiles are thin grey boxes with arbitrary glyphs, which looks more generic than the reference's rows." },
+    { "id": "commerce--page--products-canvas-field-tote--mobile-light", "status": "finding", "fidelity": 4, "note": "The cream compact band holds the breadcrumb, a two-line bold title, the tag and a small corner hexagon-and-pill cluster. Under it, a rounded green cover with a crescent-shaded tote and sparkle, then a big price. The hierarchy is clear and the result is close to the reference phone." },
+    { "id": "commerce--page--products-canvas-field-tote--desktop-dark", "status": "finding", "fidelity": 4, "note": "At night the header band is indigo with a sag arc on navy, and the green cover is the one field. The choice tiles are indigo boxes with lilac borders, and the selected tile gets a white border. The night palette is handled well, and the option tiles again read as generic bordered radio boxes." },
+    { "id": "commerce--page--products-canvas-field-tote--mobile-dark", "status": "finding", "fidelity": 4, "note": "An indigo compact band with white type and a corner cluster, then the green cover and a large white price on navy. It is calm, legible and clearly the reference's night language. The art is the same hexagon-and-pill stamp used on every product." },
+    { "id": "commerce--page--products-merino-crew-sweater--desktop-light", "status": "finding", "fidelity": 4, "note": "The same cream band and cluster sit above an orange cover with a crescent-shaded sweater and a yellow sparkle. The size choices are four grey-bordered tiles, each with an unrelated glyph (zigzag, ring, two dots, spiral) in orange. The reference picks each glyph to mean its label (05), so these marks read as decoration." },
+    { "id": "commerce--page--products-merino-crew-sweater--mobile-light", "status": "finding", "fidelity": 4, "note": "A cream compact band with a wrapped breadcrumb, a two-line bold title, the orange tag and a corner cluster. Then the orange cover and a big price. The rhythm is close to the reference phone. The breadcrumb's wrap to a second line starting with a slash is slightly clumsy." },
+    { "id": "commerce--page--products-merino-crew-sweater--desktop-dark", "status": "finding", "fidelity": 4, "note": "An indigo header band over navy, the orange cover as the one field, and indigo size tiles with lilac borders and arbitrary orange glyphs. Tone and type match the reference's night look. The option tiles are the weak, generic part." },
+    { "id": "commerce--page--products-merino-crew-sweater--mobile-dark", "status": "finding", "fidelity": 4, "note": "The phone night view repeats the light composition faithfully: an indigo arched band with the corner cluster, the orange cover with a crescent-shaded sweater, and a large white price. Hierarchy and spacing are considered." },
+    { "id": "commerce--page--cart--desktop-light", "status": "finding", "fidelity": 4, "note": "The rc.2 fake-cart defect is closed. A blue area band with a sag arc and a sun, cloud and sparkle cluster sits above a cream radius-xl empty-state panel. The panel holds a crescent-shaded basket with sparkles, an 'h4' title, one line and one ink pill, with no invented records. The panel is wide and mostly empty to the right of the text, a little sparse next to the reference's composed panels (09)." },
+    { "id": "commerce--page--cart--mobile-light", "status": "finding", "fidelity": 4, "note": "A compact blue band with a corner sun-and-cloud cluster, then a cream panel with the basket art, a bold title, one line and an ink pill on its ledge. It is clean and on-system. The art sits top-left with empty space beside it, where the reference phone (04) centers its compositions." },
+    { "id": "commerce--page--cart--desktop-dark", "status": "finding", "fidelity": 4, "note": "The blue band stays saturated on navy, the panel is indigo and the 'continue shopping' pill turns white, which follows the reference's night pill (03). The basket's black handle almost disappears against indigo." },
+    { "id": "commerce--page--cart--mobile-dark", "status": "finding", "fidelity": 4, "note": "A blue compact band, an indigo empty-state panel with the basket, white title and white pill, and an indigo footer rising on an arc. A faithful night version. The art is left-aligned and the black handle is low-contrast on indigo." }
+  ],
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "signature",
+      "summary": "The header-band clusters have grown to about 180–200px and now differ between areas: blob and pill on the shop, sun and cloud on the cart, hexagon and pill on product pages. The rc.2 size gap has mostly closed. But each is still one or two primitives plus small sparkles, sitting side by side in an empty corner. The reference's band art (02) is an overlapping scene: a large lead shape, a second shape cutting into it, a big four-point star and a small one, a cloud at the edge. That makes the band feel like a sunny place, not a colored header with a sticker. At night, the solid black stroke on the empty-state basket nearly vanishes on indigo.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-1/crops/commerce--page--home--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-1/crops/commerce--page--cart--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-1/crops/commerce--page--cart--desktop-dark--s1.png",
+        "pipeline/headspace-study/reference/set/02-desktop.png"
+      ],
+      "items": [
+        "commerce--page--home--desktop-light",
+        "commerce--page--home--mobile-light",
+        "commerce--page--home--desktop-dark",
+        "commerce--page--home--mobile-dark",
+        "commerce--page--cart--desktop-light",
+        "commerce--page--cart--mobile-light",
+        "commerce--page--cart--desktop-dark",
+        "commerce--page--cart--mobile-dark"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "referenceFidelity",
+      "summary": "On product detail pages, the variant choices are rectangular tiles with thin grey borders (lilac at night) and a radio circle. Each carries a glyph unrelated to its label: a zigzag, a ring, two dots or a spiral, all in one hue. This is the stock bordered-radio pattern with decoration added. The reference picks each glyph for its label (05), and marks the selected filter or option as an ink pill with a white dot (09).",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-1/crops/commerce--page--products-merino-crew-sweater--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.3/review-1/crops/commerce--page--products-canvas-field-tote--desktop-dark--s1.png",
+        "pipeline/headspace-study/reference/set/05-desktop.png",
+        "pipeline/headspace-study/reference/set/09-desktop.png"
+      ],
+      "items": [
+        "commerce--page--products-canvas-field-tote--desktop-light",
+        "commerce--page--products-canvas-field-tote--mobile-light",
+        "commerce--page--products-canvas-field-tote--desktop-dark",
+        "commerce--page--products-canvas-field-tote--mobile-dark",
+        "commerce--page--products-merino-crew-sweater--desktop-light",
+        "commerce--page--products-merino-crew-sweater--mobile-light",
+        "commerce--page--products-merino-crew-sweater--desktop-dark",
+        "commerce--page--products-merino-crew-sweater--mobile-dark"
+      ],
+      "promptFix": ""
+    }
+  ]
+}
+```

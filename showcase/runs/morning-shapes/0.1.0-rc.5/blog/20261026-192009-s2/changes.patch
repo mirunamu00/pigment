@@ -1,0 +1,2363 @@
+diff --git a/index.html b/index.html
+index 65315b6..b2cce50 100644
+--- a/index.html
++++ b/index.html
+@@ -4,6 +4,13 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <link rel="icon" href="data:," />
++    <meta name="color-scheme" content="light dark" />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Figtree:wght@400;500;700&display=swap"
++    />
+     <title>Field Notes</title>
+   </head>
+   <body>
+diff --git a/src/App.tsx b/src/App.tsx
+index c258f61..997cac1 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -4,7 +4,6 @@ import HomePage from './pages/HomePage';
+ import PostPage from './pages/PostPage';
+ import AboutPage from './pages/AboutPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <Routes>
+diff --git a/src/components/ArticleBody.tsx b/src/components/ArticleBody.tsx
+index e696cf8..e25f495 100644
+--- a/src/components/ArticleBody.tsx
++++ b/src/components/ArticleBody.tsx
+@@ -1,7 +1,14 @@
+ import type { Block } from '../data/posts';
++import type { FieldHue } from './art/catalog';
++import type { Subject } from './art/pictograms';
+ import ImagePlaceholder from './ImagePlaceholder';
+ 
+-function renderBlock(block: Block, index: number) {
++interface FigureArt {
++  hue: FieldHue;
++  subject: Subject;
++}
++
++function renderBlock(block: Block, index: number, figureArt?: FigureArt) {
+   switch (block.type) {
+     case 'heading':
+       return block.level === 2 ? (
+@@ -49,7 +56,7 @@ function renderBlock(block: Block, index: number) {
+     case 'figure':
+       return (
+         <figure key={index} className="body-figure" data-testid="body-figure">
+-          <ImagePlaceholder alt={block.alt} />
++          <ImagePlaceholder alt={block.alt} hue={figureArt?.hue} subject={figureArt?.subject} />
+           <figcaption className="muted small" data-testid="figure-caption">
+             {block.caption}
+           </figcaption>
+@@ -58,10 +65,10 @@ function renderBlock(block: Block, index: number) {
+   }
+ }
+ 
+-export default function ArticleBody({ blocks }: { blocks: Block[] }) {
++export default function ArticleBody({ blocks, figureArt }: { blocks: Block[]; figureArt?: FigureArt }) {
+   return (
+     <div className="article-body" data-testid="article-body">
+-      {blocks.map(renderBlock)}
++      {blocks.map((block, index) => renderBlock(block, index, figureArt))}
+     </div>
+   );
+ }
+diff --git a/src/components/ImagePlaceholder.tsx b/src/components/ImagePlaceholder.tsx
+index d2c3e71..f6b1f89 100644
+--- a/src/components/ImagePlaceholder.tsx
++++ b/src/components/ImagePlaceholder.tsx
+@@ -1,9 +1,25 @@
+-export default function ImagePlaceholder({ alt }: { alt: string }) {
++import type { FieldHue } from './art/catalog';
++import { Sparkle } from './art/kit';
++import { Pictogram, type Subject } from './art/pictograms';
++
++/**
++ * A figure without a real image: a cover in the post's category hue holding one
++ * pictogram of the figure's subject (never a grey box or picture icon).
++ */
++export default function ImagePlaceholder({
++  alt,
++  hue = 'cream',
++  subject = 'board',
++}: {
++  alt: string;
++  hue?: FieldHue;
++  subject?: Subject;
++}) {
+   return (
+     <svg className="image-placeholder" viewBox="0 0 640 320" role="img" aria-label={alt}>
+-      <rect className="image-placeholder-bg" x="0" y="0" width="640" height="320" />
+-      <circle className="image-placeholder-shape" cx="220" cy="120" r="36" />
+-      <path className="image-placeholder-shape" d="M120 260 L260 150 L360 230 L440 170 L540 260 Z" />
++      <rect className="image-placeholder-bg" width="640" height="320" rx="13" style={{ fill: `var(--color-field-${hue})` }} />
++      <Pictogram subject={subject} x={216} y={56} size={208} />
++      <Sparkle cx={440} cy={60} s={14} hue={hue === 'pink' ? 'violet' : 'white'} />
+     </svg>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 968c47e..b5fd1f9 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,14 +1,19 @@
+-import { useEffect } from 'react';
++import { useEffect, useState, type CSSProperties } from 'react';
+ import { Link, NavLink, Outlet, useLocation } from 'react-router';
++import FieldBand from './art/FieldBand';
++import { AREA_HUE } from './art/catalog';
++import { ArrowUpIcon } from './art/icons';
++import { useAmbientMotion } from './art/motion';
+ import NewsletterForm from './NewsletterForm';
+ 
+ const NAV_ITEMS = [
+-  { to: '/', label: 'Home', testId: 'nav-home', end: true },
+-  { to: '/about', label: 'About', testId: 'nav-about', end: false },
++  { to: '/', label: 'Home', testId: 'nav-home', end: true, hue: AREA_HUE.posts },
++  { to: '/about', label: 'About', testId: 'nav-about', end: false, hue: AREA_HUE.about },
+ ];
+ 
+ export default function Layout() {
+   const location = useLocation();
++  const [scrolled, setScrolled] = useState(false);
+ 
+   // When the page changes, jump to the requested heading (if any) or to the top.
+   // In-page hash links (table of contents) scroll natively and are not affected.
+@@ -19,26 +24,41 @@ export default function Layout() {
+     else window.scrollTo(0, 0);
+   }, [location.pathname]);
+ 
++  // The top bar takes its shadow after 8px of scroll.
++  useEffect(() => {
++    const update = () => setScrolled(window.scrollY > 8);
++    update();
++    window.addEventListener('scroll', update, { passive: true });
++    return () => window.removeEventListener('scroll', update);
++  }, []);
++
++  useAmbientMotion(location.pathname);
++
+   return (
+     <div className="site-shell">
+-      <a className="skip-link" href="#main-content">
++      <a className="skip-link ms-pill" href="#main-content">
+         Skip to content
+       </a>
+-      <header className="site-header">
++      <header className={`site-header${scrolled ? ' is-scrolled' : ''}`}>
+         <div className="container site-header-inner">
+           <Link to="/" className="brand" data-testid="brand-link">
+-            <svg className="brand-mark" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+-              <path d="M4 4h12l4 4v12H4z" fill="none" stroke="currentColor" strokeWidth="2" />
+-              <path d="M8 11h8M8 15h6" stroke="currentColor" strokeWidth="2" />
+-            </svg>
+             <span>Field Notes</span>
+           </Link>
+           <nav aria-label="Primary" data-testid="primary-nav">
+             <ul className="nav-list">
+               {NAV_ITEMS.map((item) => (
+                 <li key={item.to}>
+-                  <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
+-                    {item.label}
++                  <NavLink
++                    to={item.to}
++                    end={item.end}
++                    className="nav-link"
++                    data-testid={item.testId}
++                    style={{ '--nav-hue': `var(--color-field-${item.hue})` } as CSSProperties}
++                  >
++                    <span className="nav-dot" aria-hidden="true" />
++                    <span className="nav-label" data-label={item.label}>
++                      {item.label}
++                    </span>
+                   </NavLink>
+                 </li>
+               ))}
+@@ -47,16 +67,40 @@ export default function Layout() {
+         </div>
+       </header>
+ 
+-      <main id="main-content" className="container content" tabIndex={-1}>
++      <main id="main-content" className="content" tabIndex={-1}>
+         <Outlet />
+       </main>
+ 
+       <footer className="site-footer">
+-        <div className="container site-footer-inner">
++        <FieldBand as="div" hue="cream" edge="rise" className="footer-band" innerClassName="footer-grid">
+           <NewsletterForm />
+-          <p className="muted small">
++          <nav className="footer-links" aria-label="Footer">
++            <h2 className="eyebrow">Read</h2>
++            <ul>
++              <li>
++                <Link to="/">All posts</Link>
++              </li>
++              <li>
++                <Link to="/about">About the blog</Link>
++              </li>
++            </ul>
++          </nav>
++          <p className="footer-note muted small">
+             Field Notes is written by a small product team. Opinions are our own and change as we learn.
+           </p>
++        </FieldBand>
++        <div className="footer-bar">
++          <div className="container footer-bar-inner">
++            <span className="footer-bar-name">Field Notes</span>
++            <button
++              type="button"
++              className="ms-pill ms-pill--cream ms-circle"
++              aria-label="Back to top"
++              onClick={() => window.scrollTo(0, 0)}
++            >
++              <ArrowUpIcon />
++            </button>
++          </div>
+         </div>
+       </footer>
+     </div>
+diff --git a/src/components/NewsletterForm.tsx b/src/components/NewsletterForm.tsx
+index ed061f8..162b779 100644
+--- a/src/components/NewsletterForm.tsx
++++ b/src/components/NewsletterForm.tsx
+@@ -1,4 +1,6 @@
+ import { useId, useState, type FormEvent } from 'react';
++import { AlertIcon, TickIcon } from './art/icons';
++import { Glyph } from './art/pieces';
+ 
+ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+ 
+@@ -28,12 +30,16 @@ export default function NewsletterForm() {
+   }
+ 
+   return (
+-    <section className="newsletter" aria-labelledby={headingId} data-testid="newsletter">
+-      <h2 id={headingId}>Subscribe to the newsletter</h2>
++    <section id="newsletter" className="newsletter" aria-labelledby={headingId} data-testid="newsletter">
++      <div className="newsletter-heading">
++        <Glyph kind="bubbles" hue="blue" second="sky" breath="var(--motion-duration-breathe-slow)" />
++        <h2 id={headingId}>Subscribe to the newsletter</h2>
++      </div>
+       <p className="muted">One email when a new post goes up. Never more than twice a month.</p>
+       {subscribedEmail ? (
+         <p className="form-success" role="status" data-testid="newsletter-success">
+-          Thanks for subscribing. New posts will arrive at {subscribedEmail}.
++          <TickIcon />
++          <span>Thanks for subscribing. New posts will arrive at {subscribedEmail}.</span>
+         </p>
+       ) : (
+         <form className="newsletter-form" noValidate onSubmit={handleSubmit} data-testid="newsletter-form">
+@@ -54,13 +60,14 @@ export default function NewsletterForm() {
+               aria-describedby={error ? errorId : undefined}
+               data-testid="newsletter-email"
+             />
+-            <button type="submit" className="button button-primary" data-testid="newsletter-submit">
++            <button type="submit" className="button button-primary ms-pill ms-pill--lg" data-testid="newsletter-submit">
+               Subscribe
+             </button>
+           </div>
+           {error && (
+             <p id={errorId} className="form-error" role="alert" data-testid="newsletter-error">
+-              {error}
++              <AlertIcon />
++              <span>{error}</span>
+             </p>
+           )}
+         </form>
+diff --git a/src/components/PostCard.tsx b/src/components/PostCard.tsx
+index 1a013b4..da9f76c 100644
+--- a/src/components/PostCard.tsx
++++ b/src/components/PostCard.tsx
+@@ -1,5 +1,7 @@
+ import { Link } from 'react-router';
+ import type { Post } from '../data/posts';
++import { postArt, postHue } from './art/catalog';
++import { Cover } from './art/pieces';
+ import PostMeta from './PostMeta';
+ import TagChip from './TagChip';
+ 
+@@ -10,15 +12,17 @@ interface PostCardProps {
+ }
+ 
+ export default function PostCard({ post, testId = 'post-card', linkTestId = 'post-link' }: PostCardProps) {
++  const art = postArt(post.slug);
+   return (
+     <article className="post-card" data-testid={testId}>
++      <Cover hue={postHue(post.tags)} subject={art.subject} sparkle={art.sparkle} className="post-card-cover" />
+       <h3 className="post-card-title">
+-        <Link to={`/posts/${post.slug}`} data-testid={linkTestId}>
++        <Link to={`/posts/${post.slug}`} className="card-link" data-testid={linkTestId}>
+           {post.title}
+         </Link>
+       </h3>
+       <PostMeta post={post} />
+-      <p>{post.excerpt}</p>
++      <p className="post-card-excerpt">{post.excerpt}</p>
+       <ul className="tag-list" aria-label="Tags">
+         {post.tags.map((tag) => (
+           <li key={tag}>
+diff --git a/src/components/TagChip.tsx b/src/components/TagChip.tsx
+index ef5314f..999962c 100644
+--- a/src/components/TagChip.tsx
++++ b/src/components/TagChip.tsx
+@@ -1,8 +1,14 @@
++import type { CSSProperties } from 'react';
++import { TAG_HUE } from './art/catalog';
+ import { TAG_LABELS, type TagId } from '../data/posts';
+ 
++/** Category tag: filled in its category hue; on a colour field it turns white with a hue dot. */
+ export default function TagChip({ tag }: { tag: TagId }) {
++  const hue = TAG_HUE[tag];
++  const style = { '--tag-hue': `var(--color-field-${hue})`, '--tag-on': `var(--color-on-field-${hue})` } as CSSProperties;
+   return (
+-    <span className="tag-chip" data-testid="post-tag">
++    <span className="tag-chip" data-testid="post-tag" style={style}>
++      <span className="tag-dot" aria-hidden="true" />
+       {TAG_LABELS[tag]}
+     </span>
+   );
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..ee5d9f6 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '../design-system/tokens.css';
++import './styles/morning.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/AboutPage.tsx b/src/pages/AboutPage.tsx
+index 173a48c..83d5217 100644
+--- a/src/pages/AboutPage.tsx
++++ b/src/pages/AboutPage.tsx
+@@ -1,51 +1,68 @@
+ import { Link } from 'react-router';
++import FieldBand from '../components/art/FieldBand';
++import { AREA_HUE, AUTHOR_HUE } from '../components/art/catalog';
++import { AvatarDisc, BandCluster, Glyph } from '../components/art/pieces';
+ import { authors } from '../data/authors';
+ import { posts } from '../data/posts';
+ 
+ export default function AboutPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>About Field Notes</h1>
+-        <p className="muted">A small publication about the unglamorous parts of making software.</p>
+-      </div>
++      <FieldBand
++        as="div"
++        hue={AREA_HUE.about}
++        edge="sag"
++        header
++        art={<BandCluster subject="book" back="yellow" star="white" accent="pink" layout={1} />}
++      >
++        <div className="page-header">
++          <h1>About Field Notes</h1>
++          <p className="muted">A small publication about the unglamorous parts of making software.</p>
++        </div>
++      </FieldBand>
+ 
+-      <section className="prose" aria-labelledby="about-why-heading">
+-        <h2 id="about-why-heading">Why we write</h2>
+-        <p>
+-          Field Notes started as an internal wiki page where we collected things we wished someone had told us sooner.
+-          Over time the page grew long enough that colleagues at other companies started asking for the link, so we
+-          turned it into this blog.
+-        </p>
+-        <p>
+-          We publish about twice a month. Posts are written by the people doing the work, edited lightly, and kept
+-          practical. If a post does not change how at least one reader works next week, we have not done our job.
+-        </p>
+-        <p>
+-          So far we have published {posts.length} posts. Start with the <Link to="/">latest writing</Link>, or
+-          subscribe below to get new posts by email.
+-        </p>
+-      </section>
++      <div className="container page-body about-body">
++        <section className="prose" aria-labelledby="about-why-heading">
++          <div className="heading-with-glyph">
++            <Glyph kind="zigzag" hue="orange" breath="calc(var(--motion-duration-breathe) * 0.85)" />
++            <h2 id="about-why-heading">Why we write</h2>
++          </div>
++          <p>
++            Field Notes started as an internal wiki page where we collected things we wished someone had told us sooner.
++            Over time the page grew long enough that colleagues at other companies started asking for the link, so we
++            turned it into this blog.
++          </p>
++          <p>
++            We publish about twice a month. Posts are written by the people doing the work, edited lightly, and kept
++            practical. If a post does not change how at least one reader works next week, we have not done our job.
++          </p>
++          <p>
++            So far we have published {posts.length} posts. Start with the <Link to="/">latest writing</Link>, or
++            subscribe below to get new posts by email.
++          </p>
++        </section>
+ 
+-      <section className="authors" aria-labelledby="about-authors-heading">
+-        <h2 id="about-authors-heading">The authors</h2>
+-        <ul className="author-list">
+-          {authors.map((author) => (
+-            <li key={author.id}>
+-              <article className="author-card" data-testid="author-card">
+-                <span className="avatar" aria-hidden="true">
+-                  {author.initials}
+-                </span>
+-                <div>
+-                  <h3>{author.name}</h3>
+-                  <p className="muted small">{author.role}</p>
+-                  <p>{author.bio}</p>
+-                </div>
+-              </article>
+-            </li>
+-          ))}
+-        </ul>
+-      </section>
++        <section className="authors" aria-labelledby="about-authors-heading">
++          <h2 id="about-authors-heading">The authors</h2>
++          <ul className="author-list">
++            {authors.map((author) => (
++              <li key={author.id}>
++                <article className="author-card" data-testid="author-card">
++                  <span className={`avatar avatar--${AUTHOR_HUE[author.id] ?? 'violet'}`} aria-hidden="true">
++                    <AvatarDisc hue={AUTHOR_HUE[author.id] ?? 'violet'} />
++                    <span className="avatar__initials">{author.initials}</span>
++                  </span>
++                  <div>
++                    <h3>{author.name}</h3>
++                    <p className="muted small">{author.role}</p>
++                    <p>{author.bio}</p>
++                  </div>
++                </article>
++              </li>
++            ))}
++          </ul>
++        </section>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index 4e9f0fb..fbc68d2 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -1,5 +1,11 @@
+ import { useState } from 'react';
+ import { Link } from 'react-router';
++import FieldBand from '../components/art/FieldBand';
++import { AREA_HUE, postArt, postHue } from '../components/art/catalog';
++import { SearchIcon } from '../components/art/icons';
++import { ArtSvg, Disc, Sparkle } from '../components/art/kit';
++import { ConfettiArt, Cover, Glyph, SearchArt } from '../components/art/pieces';
++import Vignette from '../components/art/Vignette';
+ import PostCard from '../components/PostCard';
+ import PostMeta from '../components/PostMeta';
+ import TagChip from '../components/TagChip';
+@@ -9,6 +15,7 @@ type TagFilter = TagId | 'all';
+ 
+ export default function HomePage() {
+   const featured = getFeaturedPost();
++  const featuredArt = postArt(featured.slug);
+   const listPosts = posts.filter((post) => post.slug !== featured.slug);
+   const [activeTag, setActiveTag] = useState<TagFilter>('all');
+   const [query, setQuery] = useState('');
+@@ -29,89 +36,136 @@ export default function HomePage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Field Notes</h1>
+-        <p className="muted">Essays on building software, writing clearly and working well together.</p>
+-      </div>
+-
+-      <section className="featured" aria-labelledby="featured-heading">
+-        <h2 id="featured-heading" className="section-label">
+-          Featured
+-        </h2>
+-        <article className="featured-post" data-testid="featured-post">
+-          <h3 className="featured-title">
+-            <Link to={`/posts/${featured.slug}`} data-testid="featured-post-link">
+-              {featured.title}
++      <FieldBand hue={AREA_HUE.posts} edge="sag" className="hero" innerClassName="hero-inner">
++        <div className="page-header hero-text" data-reveal>
++          <h1 className="hero-title">Field Notes</h1>
++          <p className="hero-lead">Essays on building software, writing clearly and working well together.</p>
++          <div className="pill-row">
++            <Link to={`/posts/${featured.slug}`} className="ms-pill ms-pill--accent ms-pill--lg">
++              Read featured
+             </Link>
+-          </h3>
+-          <PostMeta post={featured} />
+-          <p className="featured-excerpt">{featured.excerpt}</p>
+-          <ul className="tag-list" aria-label="Tags">
+-            {featured.tags.map((tag) => (
+-              <li key={tag}>
+-                <TagChip tag={tag} />
+-              </li>
+-            ))}
+-          </ul>
+-        </article>
+-      </section>
++            <Link to="/about" className="ms-pill ms-pill--on-field ms-pill--lg">
++              Meet the authors
++            </Link>
++          </div>
++        </div>
++        <div className="hero-art">
++          <Vignette />
++        </div>
++        <div className="hero-confetti" aria-hidden="true">
++          <ArtSvg viewBox="0 0 24 24">
++            <Sparkle cx={12} cy={12} s={12} hue="white" />
++          </ArtSvg>
++          <ArtSvg viewBox="0 0 100 100">
++            <Disc cx={50} cy={50} r={48} hue="violet" />
++          </ArtSvg>
++          <ArtSvg viewBox="0 0 100 100">
++            <Disc cx={50} cy={50} r={48} hue="orange" />
++          </ArtSvg>
++        </div>
++      </FieldBand>
+ 
+-      <section className="post-list-section" aria-labelledby="posts-heading">
+-        <h2 id="posts-heading">More posts</h2>
++      <div className="container page-body home-body">
++        <section className="featured" aria-labelledby="featured-heading">
++          <div className="featured-label">
++            <Glyph kind="orbit" hue="orange" second="violet" className="glyph-sm" />
++            <h2 id="featured-heading" className="section-label eyebrow">
++              Featured
++            </h2>
++          </div>
++          <article className="featured-post" data-testid="featured-post">
++            <Cover hue={postHue(featured.tags)} subject={featuredArt.subject} sparkle={featuredArt.sparkle} className="featured-cover" />
++            <div className="featured-body">
++              <h3 className="featured-title">
++                <Link to={`/posts/${featured.slug}`} className="card-link" data-testid="featured-post-link">
++                  {featured.title}
++                </Link>
++              </h3>
++              <PostMeta post={featured} />
++              <p className="featured-excerpt">{featured.excerpt}</p>
++              <ul className="tag-list" aria-label="Tags">
++                {featured.tags.map((tag) => (
++                  <li key={tag}>
++                    <TagChip tag={tag} />
++                  </li>
++                ))}
++              </ul>
++            </div>
++          </article>
++        </section>
+ 
+-        <div className="filter-bar">
+-          <div className="field">
+-            <label htmlFor="post-search" className="field-label">
+-              Search posts
+-            </label>
+-            <input
+-              id="post-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search by title or summary"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="post-search"
+-            />
++        <section className="post-list-section" aria-labelledby="posts-heading">
++          <div className="ms-confetti posts-opener" data-reveal="stagger">
++            <ConfettiArt />
++            <h2 id="posts-heading">More posts</h2>
+           </div>
+-          <div role="group" aria-label="Filter by tag" className="tag-filter" data-testid="tag-filter">
+-            {filterOptions.map((option) => (
+-              <button
+-                key={option.id}
+-                type="button"
+-                className="button tag-filter-button"
+-                aria-pressed={activeTag === option.id}
+-                onClick={() => setActiveTag(option.id)}
+-                data-testid={`tag-filter-${option.id}`}
+-              >
+-                {option.label}
+-              </button>
+-            ))}
++
++          <div className="filter-bar">
++            <div className="field">
++              <label htmlFor="post-search" className="field-label">
++                Search posts
++              </label>
++              <div className="search-pill">
++                <SearchIcon />
++                <input
++                  id="post-search"
++                  type="search"
++                  className="input input-search"
++                  placeholder="Search by title or summary"
++                  value={query}
++                  onChange={(event) => setQuery(event.target.value)}
++                  data-testid="post-search"
++                />
++              </div>
++            </div>
++            <div role="group" aria-label="Filter by tag" className="tag-filter" data-testid="tag-filter">
++              {filterOptions.map((option) => (
++                <button
++                  key={option.id}
++                  type="button"
++                  className="button tag-filter-button ms-pill ms-pill--cream ms-tab"
++                  aria-pressed={activeTag === option.id}
++                  onClick={() => setActiveTag(option.id)}
++                  data-testid={`tag-filter-${option.id}`}
++                >
++                  {option.label}
++                </button>
++              ))}
++            </div>
+           </div>
+-        </div>
+ 
+-        <p className="muted small" aria-live="polite" data-testid="result-count">
+-          Showing {visible.length} of {listPosts.length} posts
+-        </p>
++          <p className="result-count muted small" aria-live="polite" data-testid="result-count">
++            Showing {visible.length} of {listPosts.length} posts
++          </p>
+ 
+-        {visible.length > 0 ? (
+-          <ul className="post-list">
+-            {visible.map((post) => (
+-              <li key={post.slug}>
+-                <PostCard post={post} />
+-              </li>
+-            ))}
+-          </ul>
+-        ) : (
+-          <div className="empty-state" data-testid="posts-empty">
+-            <h3>No posts match these filters</h3>
+-            <p className="muted">Try a different tag or a shorter search.</p>
+-            <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
+-              Clear filters
+-            </button>
+-          </div>
+-        )}
+-      </section>
++          {visible.length > 0 ? (
++            <ul className="post-list post-list-grid">
++              {visible.map((post) => (
++                <li key={post.slug}>
++                  <PostCard post={post} />
++                </li>
++              ))}
++            </ul>
++          ) : (
++            <div className={`empty-state ms-panel ms-hue--${AREA_HUE.posts}`} data-testid="posts-empty">
++              <SearchArt />
++              <h3>No posts match these filters</h3>
++              <p className="muted">Try a different tag or a shorter search.</p>
++              <button type="button" className="button ms-pill" onClick={clearFilters} data-testid="clear-filters">
++                Clear filters
++              </button>
++            </div>
++          )}
++        </section>
++      </div>
++
++      <FieldBand hue="night" edge="wave" className="closing-band" innerClassName="closing-inner" aria-labelledby="closing-heading">
++        <h2 id="closing-heading">Get the next note by email</h2>
++        <p>Two short essays a month, straight from the people doing the work.</p>
++        <a href="#newsletter" className="ms-pill ms-pill--on-field ms-pill--mega">
++          Subscribe
++        </a>
++      </FieldBand>
+     </>
+   );
+ }
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index d0cb7f0..6f49647 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,9 @@
+-import { Link } from 'react-router';
++import ErrorState from '../components/ErrorState';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to the home page</Link>
+-    </section>
++    <ErrorState testId="not-found" title="Page not found" action="Go to the home page">
++      The page you are looking for does not exist or has moved.
++    </ErrorState>
+   );
+ }
+diff --git a/src/pages/PostPage.tsx b/src/pages/PostPage.tsx
+index 2976cb4..d8b755f 100644
+--- a/src/pages/PostPage.tsx
++++ b/src/pages/PostPage.tsx
+@@ -1,10 +1,14 @@
+ import { Link, useParams } from 'react-router';
++import FieldBand from '../components/art/FieldBand';
++import { AREA_HUE, postArt, postHue } from '../components/art/catalog';
++import { BandCluster } from '../components/art/pieces';
+ import ArticleBody from '../components/ArticleBody';
++import ErrorState from '../components/ErrorState';
+ import PostCard from '../components/PostCard';
+ import PostMeta from '../components/PostMeta';
+ import TableOfContents from '../components/TableOfContents';
+ import TagChip from '../components/TagChip';
+-import { findPost, getRelatedPosts } from '../data/posts';
++import { findPost, getRelatedPosts, posts } from '../data/posts';
+ 
+ export default function PostPage() {
+   const { slug } = useParams();
+@@ -12,50 +16,64 @@ export default function PostPage() {
+ 
+   if (!post) {
+     return (
+-      <div className="empty-state" data-testid="post-not-found">
+-        <h1>Post not found</h1>
+-        <p className="muted">There is no post at “{slug}”. It may have been renamed.</p>
+-        <Link to="/">Back to all posts</Link>
+-      </div>
++      <ErrorState testId="post-not-found" title="Post not found" action="Back to all posts">
++        There is no post at “{slug}”. It may have been renamed.
++      </ErrorState>
+     );
+   }
+ 
+   const related = getRelatedPosts(post);
++  const art = postArt(post.slug);
++  const hue = postHue(post.tags);
+ 
+   return (
+     <>
+-      <nav aria-label="Breadcrumb" className="breadcrumb">
+-        <ol>
+-          <li>
+-            <Link to="/">All posts</Link>
+-          </li>
+-          <li aria-current="page">{post.title}</li>
+-        </ol>
+-      </nav>
+-
+-      <div className="article-layout">
+-        <article className="article" data-testid="article">
+-          <header className="article-header">
+-            <h1 data-testid="article-title">{post.title}</h1>
+-            <PostMeta post={post} detailed />
+-            <ul className="tag-list" aria-label="Tags">
+-              {post.tags.map((tag) => (
+-                <li key={tag}>
+-                  <TagChip tag={tag} />
+-                </li>
+-              ))}
+-            </ul>
+-          </header>
+-          <ArticleBody blocks={post.body} />
+-        </article>
++      <article className="article" data-testid="article">
++        <FieldBand
++          as="header"
++          hue={AREA_HUE.posts}
++          edge="sag"
++          header
++          className="article-header"
++          art={
++            <BandCluster
++              subject={art.subject}
++              back={art.back}
++              star={art.star}
++              accent={art.accent}
++              layout={posts.indexOf(post)}
++            />
++          }
++        >
++          <nav aria-label="Breadcrumb" className="breadcrumb">
++            <ol>
++              <li>
++                <Link to="/">All posts</Link>
++              </li>
++              <li aria-current="page">{post.title}</li>
++            </ol>
++          </nav>
++          <h1 data-testid="article-title">{post.title}</h1>
++          <PostMeta post={post} detailed />
++          <ul className="tag-list" aria-label="Tags">
++            {post.tags.map((tag) => (
++              <li key={tag}>
++                <TagChip tag={tag} />
++              </li>
++            ))}
++          </ul>
++        </FieldBand>
+ 
+-        <aside className="article-aside">
+-          <TableOfContents blocks={post.body} />
+-        </aside>
+-      </div>
++        <div className="container article-layout">
++          <ArticleBody blocks={post.body} figureArt={{ hue, subject: art.figure }} />
++          <aside className="article-aside">
++            <TableOfContents blocks={post.body} />
++          </aside>
++        </div>
++      </article>
+ 
+       {related.length > 0 && (
+-        <section className="related" aria-labelledby="related-heading" data-testid="related-posts">
++        <section className="container related" aria-labelledby="related-heading" data-testid="related-posts">
+           <h2 id="related-heading">Related posts</h2>
+           <ul className="post-list post-list-grid">
+             {related.map((item) => (
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 7b07d1b..4d8176b 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,57 +1,60 @@
+ /*
+- * Base styles for the Field Notes blog.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Field Notes on Morning Shapes 0.1.0-rc.5.
++ * Tokens come from design-system/tokens.css; signature pieces live in morning.css.
++ * The original custom properties are kept as aliases of the tokens so older code keeps working.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-header-bg: #ffffff;
+-  --color-footer-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-error: #b00020;
+-  --color-success: #2e7d32;
+-  --color-success-bg: #e8f5e9;
+-  --color-tag-bg: #eeeeee;
+-  --color-tag-text: #444444;
+-  --color-pressed-bg: #dde6f5;
+-  --color-quote-border: #cccccc;
+-  --color-code-bg: #f5f5f5;
+-  --color-code-text: #222222;
+-  --color-placeholder-bg: #eeeeee;
+-  --color-placeholder-shape: #cccccc;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-heading: var(--font-body);
+-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+-  --font-size-base: 16px;
+-  --font-size-small: 13px;
+-  --font-size-code: 14px;
+-  --font-size-h1: 28px;
+-  --font-size-h2: 21px;
+-  --font-size-h3: 17px;
+-  --line-height: 1.6;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --space-12: 48px;
+-  --container-width: 960px;
+-  --measure: 680px;
+-  --toc-width: 220px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-raised);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-header-bg: var(--color-surface-default);
++  --color-footer-bg: var(--color-field-cream);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-link);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-error: var(--color-status-danger);
++  --color-success: var(--color-status-success);
++  --color-success-bg: var(--color-surface-subtle);
++  --color-tag-bg: var(--color-surface-subtle);
++  --color-tag-text: var(--color-text-primary);
++  --color-pressed-bg: var(--color-action-primary);
++  --color-quote-border: var(--color-border-rule);
++  --color-code-bg: var(--color-surface-subtle);
++  --color-code-text: var(--color-text-primary);
++  --color-placeholder-bg: var(--color-surface-subtle);
++  --color-placeholder-shape: var(--color-art-stone);
++
++  --font-body: var(--font-family-sans);
++  --font-heading: var(--font-family-sans);
++  --font-mono: var(--font-family-mono);
++  --font-size-base: var(--font-size-body);
++  --font-size-small: var(--font-size-label);
++  --font-size-code: var(--font-size-label);
++  --font-size-h1: var(--font-size-h2);
++  --line-height: var(--font-line-height-body);
++
++  --radius: var(--radius-md);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hair);
++  --container-width: var(--size-container);
++  --measure: var(--size-prose);
++  --toc-width: var(--size-sidebar);
++
++  color-scheme: light;
++}
++
++[data-theme='dark'] {
++  color-scheme: dark;
++}
++
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) {
++    color-scheme: dark;
++  }
+ }
+ 
+ *,
+@@ -66,47 +69,56 @@ body {
+ }
+ 
+ html {
+-  scroll-padding-top: var(--space-4);
++  scroll-padding-top: calc(var(--size-header) + var(--space-4));
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+-h3 {
+-  font-family: var(--font-heading);
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++h3,
++h4 {
++  font-family: var(--font-family-sans);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
++  text-wrap: balance;
++  margin: 0 0 var(--space-3);
+ }
+ 
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-size: var(--font-size-h2);
+ }
+ 
+ h2 {
+-  font-size: var(--font-size-h2);
++  font-size: var(--font-size-h3);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-h3);
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-3);
++  margin: 0 0 var(--space-4);
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-link);
++  text-decoration-thickness: var(--border-width-hair);
++  text-underline-offset: 3px;
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
+@@ -125,25 +137,38 @@ a {
+ .skip-link {
+   position: absolute;
+   left: -9999px;
++  z-index: 30;
+ }
+ 
+ .skip-link:focus {
+   left: var(--space-2);
+   top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
+ }
+ 
+-/* Layout */
++.eyebrow {
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-eyebrow);
++  text-transform: uppercase;
++  color: var(--color-text-secondary);
++  margin: 0;
++}
++
++.ms-field .eyebrow {
++  color: inherit;
++}
++
++/* ---------- Shell ---------- */
+ .site-shell {
+   display: flex;
+   flex-direction: column;
+@@ -152,148 +177,287 @@ a {
+ 
+ .container {
+   width: 100%;
+-  max-width: var(--container-width);
++  max-width: var(--size-container);
+   margin: 0 auto;
+-  padding: 0 var(--space-4);
++  padding-inline: var(--space-12);
+ }
+ 
+ .site-header {
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  position: sticky;
++  top: 0;
++  z-index: 20;
++  background: var(--color-surface-default);
++  transition: box-shadow var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.site-header.is-scrolled {
++  box-shadow: var(--shadow-header);
+ }
+ 
+ .site-header-inner {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+-  gap: var(--space-4);
+-  padding-top: var(--space-3);
+-  padding-bottom: var(--space-3);
++  gap: var(--space-6);
++  height: var(--size-header);
+ }
+ 
+ .brand {
+   display: inline-flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  font-weight: 700;
+-  color: var(--color-text);
++  min-height: 44px;
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  color: var(--color-text-primary);
+   text-decoration: none;
+ }
+ 
+-.brand-mark {
+-  flex-shrink: 0;
+-}
+-
+ .nav-list {
+   list-style: none;
+   display: flex;
+-  gap: var(--space-4);
++  gap: var(--space-8);
+   margin: 0;
+   padding: 0;
+ }
+ 
+ .nav-link {
+-  color: var(--color-link);
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  min-height: 44px;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-control);
++  text-decoration: none;
++}
++
++/* Reserve the bold width so hover never shifts the row. */
++.nav-label {
++  display: inline-grid;
++}
++
++.nav-label::after {
++  content: attr(data-label);
++  font-weight: var(--font-weight-bold);
++  height: 0;
++  visibility: hidden;
++  overflow: hidden;
++}
++
++.nav-dot {
++  display: none;
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: var(--nav-hue);
+ }
+ 
+ .nav-link.active {
+-  font-weight: 700;
+-  color: var(--color-text);
++  font-weight: var(--font-weight-bold);
++}
++
++.nav-link.active .nav-dot {
++  display: inline-block;
+ }
+ 
+ .content {
+   flex: 1;
+-  padding-top: var(--space-6);
+-  padding-bottom: var(--space-12);
+ }
+ 
+ .content:focus {
+   outline: none;
+ }
+ 
+-.site-footer {
+-  background: var(--color-footer-bg);
+-  border-top: var(--border-width) solid var(--color-border);
++.page-body {
++  padding-top: var(--space-12);
++  padding-bottom: var(--space-16);
+ }
+ 
+-.site-footer-inner {
+-  padding-top: var(--space-6);
+-  padding-bottom: var(--space-6);
++/* ---------- Footer ---------- */
++.footer-band {
++  padding-block: var(--space-16);
+ }
+ 
+-.page-header {
++.footer-grid {
++  display: grid;
++  grid-template-columns: minmax(0, 7fr) minmax(0, 2fr) minmax(0, 3fr);
++  gap: var(--space-12);
++  align-items: start;
++}
++
++.newsletter-heading {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  margin-bottom: var(--space-3);
++}
++
++.newsletter-heading h2 {
++  margin: 0;
++}
++
++.newsletter > .muted {
++  font-size: var(--font-size-body-lg);
+   margin-bottom: var(--space-6);
+ }
+ 
+-/* Controls */
++.footer-links .eyebrow {
++  margin-bottom: var(--space-4);
++}
++
++.footer-links ul {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++}
++
++.footer-links a {
++  display: inline-flex;
++  align-items: center;
++  min-height: 44px;
++  color: inherit;
++  font-size: var(--font-size-fine);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++  text-decoration: none;
++}
++
++.footer-note {
++  font-size: var(--font-size-fine);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++  padding-top: var(--space-8);
++  margin: 0;
++}
++
++.footer-bar {
++  --ms-ring: var(--color-surface-default);
++  background: var(--color-surface-inverse);
++  color: var(--color-text-inverse);
++}
++
++.footer-bar-inner {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  gap: var(--space-4);
++  padding-block: var(--space-4);
++}
++
++.footer-bar-name {
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++/* ---------- Controls ---------- */
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
++  gap: var(--space-2);
+ }
+ 
+ .field-label {
+   display: block;
+-  font-weight: 600;
+-  margin-bottom: var(--space-1);
++  font-weight: var(--font-weight-medium);
++  margin-bottom: var(--space-2);
++}
++
++.field .field-label {
++  margin-bottom: 0;
+ }
+ 
+ .field-row {
+   display: flex;
+   gap: var(--space-2);
+-  max-width: 480px;
++  max-width: 560px;
+ }
+ 
+ .input {
+   font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  height: var(--size-control-lg);
++  padding: 0 var(--space-4);
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+   min-width: 0;
+   flex: 1;
++  transition: border-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.input::placeholder {
++  color: var(--color-text-secondary);
++  opacity: 1;
++}
++
++.input:focus-visible {
++  outline: none;
++  border-color: var(--color-focus-ring);
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-error);
++  border-color: var(--color-status-danger);
+ }
+ 
+-.button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
++.search-pill {
++  position: relative;
++  width: min(420px, 100%);
++}
++
++.search-pill .icon-search {
++  position: absolute;
++  inset-inline-start: var(--space-5);
++  top: 50%;
++  translate: 0 -50%;
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  fill: var(--color-text-icon);
++  pointer-events: none;
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.input-search {
++  width: 100%;
++  border-radius: var(--radius-full);
++  padding-inline: calc(var(--space-5) + var(--size-icon-sm) + var(--space-2)) var(--space-5);
+ }
+ 
+ .form-error {
+-  color: var(--color-error);
+-  font-size: var(--font-size-small);
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++  color: var(--color-status-danger);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-label);
+   margin: var(--space-2) 0 0;
+ }
+ 
++.form-error .icon-alert {
++  flex: none;
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  fill: currentColor;
++}
++
+ .form-success {
+-  background: var(--color-success-bg);
+-  color: var(--color-success);
+-  border-radius: var(--radius);
+-  padding: var(--space-2) var(--space-3);
+-  max-width: 480px;
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++  font-weight: var(--font-weight-medium);
++  max-width: 560px;
++  margin: 0;
+ }
+ 
+-.newsletter {
+-  margin-bottom: var(--space-4);
++.icon-tick {
++  flex: none;
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  fill: var(--color-status-success);
+ }
+ 
+-/* Tags */
++/* ---------- Tags and meta ---------- */
+ .tag-list {
+   list-style: none;
+   display: flex;
+@@ -304,46 +468,209 @@ a {
+ }
+ 
+ .tag-chip {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-1);
++  height: var(--space-6);
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  background: var(--tag-hue);
++  color: var(--tag-on);
++  font-size: var(--font-size-fine);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  line-height: 1;
++  white-space: nowrap;
++}
++
++.tag-dot {
++  display: none;
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: var(--tag-hue);
++}
++
++/* On a colour field a tag turns white with its hue as a dot. */
++.ms-field .tag-chip {
++  background: var(--color-art-white);
++  color: var(--color-text-on-field-action);
++}
++
++.ms-field .tag-dot {
+   display: inline-block;
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-  border-radius: var(--radius-pill);
+-  padding: 0 var(--space-2);
+-  font-size: var(--font-size-small);
+ }
+ 
+-/* Home */
+-.section-label {
+-  font-size: var(--font-size-small);
+-  text-transform: uppercase;
+-  color: var(--color-text-muted);
++/* Inside a white card on a field (the vignette) tags are filled again. */
++.ms-field .ms-vignette .tag-chip {
++  background: var(--tag-hue);
++  color: var(--tag-on);
++}
++
++.ms-field .ms-vignette .tag-dot {
++  display: none;
++}
++
++.post-meta {
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-snug);
++  margin: 0;
++}
++
++/* ---------- Linked cards ---------- */
++.card-link {
++  color: inherit;
++  text-decoration: none;
++}
++
++.card-link::after {
++  content: '';
++  position: absolute;
++  inset: 0;
++  z-index: 1;
++  border-radius: var(--radius-lg);
++}
++
++.card-link:focus-visible {
++  outline: none;
++}
++
++.post-card:has(.card-link:focus-visible),
++.featured-post:has(.card-link:focus-visible) {
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: 2px;
++}
++
++.post-card,
++.featured-post {
++  position: relative;
++  background: var(--color-surface-subtle);
++  border-radius: var(--radius-lg);
++  transition: background-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.post-card:active,
++.featured-post:active {
++  background: var(--color-surface-pressed);
++}
++
++/* ---------- Home ---------- */
++.hero {
++  padding-block: var(--space-16);
++}
++
++.hero-inner {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
++  gap: var(--space-12);
++  align-items: center;
++  max-width: calc(var(--size-split) + 2 * var(--space-12));
++}
++
++.hero-title {
++  font-size: var(--font-size-display);
++  line-height: var(--font-line-height-display);
++  margin-bottom: var(--space-4);
++}
++
++.hero-lead {
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-snug);
++  max-width: 480px;
++  margin-bottom: var(--space-8);
++}
++
++.pill-row {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-3);
++}
++
++.hero-art {
++  justify-self: end;
++  width: 100%;
++  max-width: 520px;
++}
++
++.hero-confetti {
++  display: none;
++}
++
++.vg-cover {
++  aspect-ratio: auto;
++  height: 42%;
++  margin-bottom: var(--space-4);
++}
++
++.vg-title {
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
++  margin: var(--space-3) 0 var(--space-1);
++}
++
++.vg-meta {
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-secondary);
++  margin: 0;
+ }
+ 
+-.featured {
++.home-body .featured {
+   margin-bottom: var(--space-8);
+ }
+ 
++.featured-label {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  margin-bottom: var(--space-4);
++}
++
+ .featured-post {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-6);
+-  background: var(--color-surface);
++  display: grid;
++  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
++  gap: var(--space-8);
++  align-items: center;
++  padding: var(--space-8);
++}
++
++.featured-cover {
++  aspect-ratio: 4 / 3;
+ }
+ 
+ .featured-title {
+-  font-size: var(--font-size-h1);
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-heading);
++  margin-bottom: var(--space-3);
++}
++
++.featured-post .post-meta {
++  color: var(--color-text-secondary);
+ }
+ 
+ .featured-excerpt {
+-  max-width: var(--measure);
++  font-size: var(--font-size-body-lg);
++  letter-spacing: var(--font-tracking-snug);
++  max-width: var(--size-prose);
++  margin: var(--space-4) 0 var(--space-6);
++}
++
++.posts-opener h2 {
++  font-size: var(--font-size-h2);
++  margin: 0;
+ }
+ 
+ .filter-bar {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: flex-end;
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 var(--space-3);
++  gap: var(--space-6);
++  margin-bottom: var(--space-4);
+ }
+ 
+ .tag-filter {
+@@ -352,211 +679,641 @@ a {
+   gap: var(--space-2);
+ }
+ 
+-.tag-filter-button[aria-pressed='true'] {
+-  background: var(--color-pressed-bg);
+-  border-color: var(--color-primary);
+-  font-weight: 600;
++.tag-filter-button {
++  padding: 0 var(--space-5);
++}
++
++.result-count {
++  margin: 0 0 var(--space-6);
+ }
+ 
+ .post-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
++  display: grid;
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: var(--space-6);
+ }
+ 
+-.post-list-grid {
+-  display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
++.post-list > li {
++  display: flex;
+ }
+ 
+ .post-card {
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  padding-bottom: var(--space-4);
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-3);
++  padding: var(--space-8);
++}
++
++.post-card-cover {
++  aspect-ratio: 4 / 3;
++  margin-bottom: var(--space-3);
+ }
+ 
+ .post-card-title {
+-  margin-bottom: var(--space-1);
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-heading);
++  margin: 0;
+ }
+ 
+-.post-meta {
+-  margin-bottom: var(--space-2);
++.post-card .post-meta {
++  color: var(--color-text-secondary);
++}
++
++.post-card-excerpt {
++  margin: 0;
++}
++
++.post-card .tag-list {
++  margin-top: auto;
++  padding-top: var(--space-2);
+ }
+ 
+ .empty-state {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: var(--space-3);
+   text-align: center;
+-  padding: var(--space-8) var(--space-4);
+ }
+ 
+-/* Article */
++.empty-state h3 {
++  font-size: var(--font-size-h4);
++  margin: 0;
++}
++
++.empty-state p {
++  margin: 0 0 var(--space-3);
++}
++
++.empty-art {
++  width: var(--size-art);
++  height: var(--size-art);
++  margin-bottom: var(--space-3);
++}
++
++.closing-band {
++  text-align: center;
++  margin-block-end: calc(-1 * var(--ms-arc));
++  padding-block-end: calc(var(--space-24) + var(--ms-arc));
++}
++
++.closing-inner h2 {
++  font-size: var(--font-size-h2);
++  margin-bottom: var(--space-3);
++}
++
++.closing-inner p {
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
++  margin-bottom: var(--space-10);
++}
++
++/* ---------- Article ---------- */
++.article-header h1 {
++  font-size: var(--font-size-h2);
++  line-height: var(--font-line-height-heading);
++  margin-bottom: var(--space-3);
++}
++
++.article-header .tag-list {
++  margin-top: var(--space-4);
++}
++
+ .breadcrumb ol {
+   list-style: none;
+   display: flex;
+-  flex-wrap: wrap;
+   gap: var(--space-2);
+   margin: 0 0 var(--space-4);
+   padding: 0;
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-label);
++}
++
++.breadcrumb li {
++  flex: none;
++}
++
++.breadcrumb li[aria-current] {
++  flex: 0 1 auto;
++  min-width: 0;
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
+ }
+ 
+ .breadcrumb li + li::before {
+   content: '/';
+   margin-right: var(--space-2);
+-  color: var(--color-text-muted);
++}
++
++.breadcrumb a {
++  color: inherit;
+ }
+ 
+ .article-layout {
+   display: grid;
+-  grid-template-columns: minmax(0, var(--measure)) var(--toc-width);
+-  gap: var(--space-8);
++  grid-template-columns: minmax(0, var(--size-prose)) var(--size-sidebar);
++  gap: var(--space-16);
+   align-items: start;
++  padding-top: var(--space-12);
++  padding-bottom: var(--space-12);
+ }
+ 
+-.article-header {
+-  margin-bottom: var(--space-6);
++.article-body > p,
++.body-list {
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.article-body > p {
++  margin: 0 0 var(--space-6);
++}
++
++.article-body h2 {
++  font-size: var(--font-size-h3);
++  margin: var(--space-12) 0 var(--space-4);
+ }
+ 
+-.article-body h2,
+ .article-body h3 {
+-  margin-top: var(--space-6);
++  font-size: var(--font-size-h4);
++  margin: var(--space-8) 0 var(--space-3);
+ }
+ 
+ .body-quote {
+-  margin: var(--space-4) 0;
++  margin: var(--space-8) 0;
++  padding: var(--space-12);
++  background: var(--color-surface-subtle);
++  border-radius: var(--radius-lg);
+ }
+ 
+ .body-quote blockquote {
+   margin: 0;
+-  padding-left: var(--space-4);
+-  border-left: 3px solid var(--color-quote-border);
+-  font-style: italic;
++}
++
++.body-quote blockquote p {
++  font-size: var(--font-size-h4);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-snug);
++  margin: 0;
++}
++
++.body-quote figcaption {
++  margin-top: var(--space-4);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .code-block {
+-  background: var(--color-code-bg);
+-  color: var(--color-code-text);
+-  font-family: var(--font-mono);
+-  font-size: var(--font-size-code);
+-  border-radius: var(--radius);
+-  padding: var(--space-3) var(--space-4);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-body);
++  border-radius: var(--radius-md);
++  padding: var(--space-5) var(--space-6);
+   overflow-x: auto;
+-  margin: 0 0 var(--space-4);
++  margin: 0 0 var(--space-6);
+ }
+ 
+ .body-list {
+-  margin: 0 0 var(--space-4);
+-  padding-left: var(--space-6);
++  list-style: none;
++  margin: 0 0 var(--space-6);
++  padding: 0;
++  counter-reset: body-item;
++}
++
++.body-list li {
++  position: relative;
++  padding-left: var(--space-12);
+ }
+ 
+ .body-list li + li {
+-  margin-top: var(--space-1);
++  margin-top: var(--space-3);
++}
++
++ol.body-list li::before {
++  counter-increment: body-item;
++  content: counter(body-item);
++  position: absolute;
++  left: 0;
++  top: 0;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  width: var(--size-circle-sm);
++  height: var(--size-circle-sm);
++  border-radius: var(--radius-full);
++  background: var(--color-action-secondary);
++  color: var(--color-text-on-secondary);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++ul.body-list li::before {
++  content: '';
++  position: absolute;
++  left: var(--space-3);
++  top: 0.6em;
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: var(--color-field-yellow);
+ }
+ 
+ .body-figure {
+-  margin: var(--space-4) 0;
++  margin: var(--space-8) 0;
+ }
+ 
+ .image-placeholder {
+   display: block;
+   width: 100%;
+   height: auto;
+-  border-radius: var(--radius);
+-}
+-
+-.image-placeholder-bg {
+-  fill: var(--color-placeholder-bg);
+-}
+-
+-.image-placeholder-shape {
+-  fill: var(--color-placeholder-shape);
+ }
+ 
+ .body-figure figcaption {
+-  margin-top: var(--space-2);
++  margin-top: var(--space-3);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .article-aside {
+   position: sticky;
+-  top: var(--space-4);
++  top: calc(var(--size-header) + var(--space-6));
+ }
+ 
+ .toc {
+-  border-left: var(--border-width) solid var(--color-border);
+-  padding-left: var(--space-4);
++  background: var(--color-surface-subtle);
++  border-radius: var(--radius-lg);
++  padding: var(--space-6);
+ }
+ 
+ .toc-heading {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-eyebrow);
+   text-transform: uppercase;
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
++  margin: 0 0 var(--space-3);
+ }
+ 
+ .toc-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+-  font-size: var(--font-size-small);
+ }
+ 
+-.toc-item + .toc-item {
+-  margin-top: var(--space-1);
++.toc-link {
++  display: inline-flex;
++  align-items: center;
++  min-height: 44px;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-snug);
++  text-decoration: none;
+ }
+ 
+ .toc-item-nested {
+-  padding-left: var(--space-3);
++  padding-left: var(--space-4);
+ }
+ 
+ .related {
+-  margin-top: var(--space-12);
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding-top: var(--space-6);
++  padding-top: var(--space-12);
++  padding-bottom: var(--space-16);
+ }
+ 
+-/* About */
+-.prose {
+-  max-width: var(--measure);
+-  margin-bottom: var(--space-8);
++.related h2 {
++  margin-bottom: var(--space-6);
++}
++
++/* ---------- About ---------- */
++.about-body .prose {
++  max-width: var(--size-prose);
++  margin-bottom: var(--space-16);
++}
++
++.prose p {
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.heading-with-glyph {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
++  margin-bottom: var(--space-4);
++}
++
++.heading-with-glyph h2 {
++  margin: 0;
++}
++
++.authors h2 {
++  margin-bottom: var(--space-6);
+ }
+ 
+ .author-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
+-  max-width: var(--measure);
++  display: grid;
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: var(--space-6);
+ }
+ 
+ .author-card {
++  height: 100%;
+   display: flex;
++  flex-direction: column;
+   gap: var(--space-4);
+-  align-items: flex-start;
++  padding: var(--space-8);
++  background: var(--color-surface-subtle);
++  border-radius: var(--radius-lg);
++}
++
++.author-card h3 {
++  margin: 0 0 var(--space-1);
++}
++
++.author-card .muted {
++  margin-bottom: var(--space-3);
++}
++
++.author-card p:last-child {
++  margin: 0;
+ }
+ 
+ .avatar {
+-  display: inline-flex;
++  position: relative;
++  display: inline-grid;
++  place-items: center;
++  width: var(--size-plate-sm);
++  height: var(--size-plate-sm);
++  flex: none;
++}
++
++.avatar__disc {
++  position: absolute;
++  inset: 0;
++  width: 100%;
++  height: 100%;
++}
++
++.avatar__initials {
++  position: relative;
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++.avatar--violet .avatar__initials {
++  color: var(--color-on-field-violet);
++}
++
++.avatar--green .avatar__initials {
++  color: var(--color-on-field-green);
++}
++
++.avatar--orange .avatar__initials {
++  color: var(--color-on-field-orange);
++}
++
++/* ---------- Error ---------- */
++.error-band {
++  margin-block: calc(var(--space-12) + var(--ms-arc)) var(--space-16);
++}
++
++.error-inner {
++  display: flex;
+   align-items: center;
+   justify-content: center;
+-  flex-shrink: 0;
+-  width: 44px;
+-  height: 44px;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-  font-weight: 700;
+-  font-size: var(--font-size-small);
++  gap: var(--space-12);
++  max-width: var(--size-reading);
++}
++
++.error-art {
++  flex: none;
++  width: var(--size-art);
+ }
+ 
+-@media (max-width: 760px) {
++.error-text h1 {
++  margin-bottom: var(--space-3);
++}
++
++.error-text p {
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
++  margin-bottom: var(--space-8);
++}
++
++/* ---------- Hover (pointer devices only) ---------- */
++@media (hover: hover) {
++  a:hover {
++    text-decoration-thickness: var(--border-width-thick);
++  }
++
++  .nav-link:hover {
++    font-weight: var(--font-weight-bold);
++  }
++
++  .input:hover:not(:focus-visible):not([aria-invalid='true']) {
++    border-color: var(--color-text-secondary);
++  }
++
++  .post-card:hover,
++  .featured-post:hover {
++    background: var(--color-surface-hover);
++  }
++
++  .post-card:hover .card-link,
++  .featured-post:hover .card-link {
++    text-decoration: underline;
++    text-decoration-thickness: var(--border-width-thick);
++  }
++
++  .footer-links a:hover,
++  .toc-link:hover {
++    text-decoration: underline;
++  }
++}
++
++/* ---------- Responsive ---------- */
++@media (max-width: 1023px) {
++  .container {
++    padding-inline: var(--space-6);
++  }
++
++  .post-list,
++  .author-list {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
++
+   .article-layout {
+     grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-8);
+   }
+ 
+   .article-aside {
+     position: static;
+     grid-row: 1;
+   }
++
++  .footer-grid {
++    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
++  }
++
++  .footer-grid .newsletter {
++    grid-column: 1 / -1;
++  }
++
++  .footer-note {
++    padding-top: 0;
++  }
++}
++
++@media (max-width: 767px) {
++  html {
++    scroll-padding-top: calc(var(--space-16) + var(--space-4));
++  }
++
++  h1,
++  .article-header h1,
++  .posts-opener h2,
++  .closing-inner h2 {
++    font-size: var(--font-size-h2mobile);
++  }
++
++  .site-header-inner {
++    height: var(--space-16);
++  }
++
++  .nav-list {
++    gap: var(--space-4);
++  }
++
++  .hero {
++    padding-block: var(--space-16) var(--space-12);
++  }
++
++  .hero-inner {
++    grid-template-columns: minmax(0, 1fr);
++    text-align: center;
++  }
++
++  .hero-title {
++    font-size: var(--font-size-display-mobile);
++  }
++
++  .hero-lead {
++    margin-inline: auto;
++  }
++
++  .pill-row {
++    justify-content: center;
++  }
++
++  .hero-art {
++    display: none;
++  }
++
++  .hero-confetti {
++    display: block;
++  }
++
++  .hero-confetti > svg {
++    position: absolute;
++    z-index: 0;
++  }
++
++  .hero-confetti > :nth-child(1) {
++    top: var(--space-5);
++    left: var(--space-5);
++    width: var(--space-6);
++  }
++
++  .hero-confetti > :nth-child(2) {
++    top: var(--space-4);
++    right: var(--space-5);
++    width: var(--space-8);
++  }
++
++  .hero-confetti > :nth-child(3) {
++    bottom: var(--space-3);
++    left: var(--space-8);
++    width: var(--space-5);
++  }
++
++  .featured-post {
++    grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-6);
++    padding: var(--space-6);
++  }
++
++  .featured-title {
++    font-size: var(--font-size-h4);
++    line-height: var(--font-line-height-title);
++  }
++
++  .post-list,
++  .author-list {
++    grid-template-columns: minmax(0, 1fr);
++  }
++
++  .post-card,
++  .author-card {
++    padding: var(--space-6);
++  }
++
++  .filter-bar .field,
++  .search-pill {
++    width: 100%;
++  }
++
++  .closing-band {
++    padding-block-end: calc(var(--space-16) + var(--ms-arc));
++  }
++
++  .article-body h2 {
++    font-size: var(--font-size-h4);
++  }
++
++  .article-body h3 {
++    font-size: var(--font-size-title);
++  }
++
++  .body-quote {
++    padding: var(--space-6);
++  }
++
++  .body-quote blockquote p {
++    font-size: var(--font-size-title);
++  }
++
++  .error-inner {
++    flex-direction: column;
++    text-align: center;
++    gap: var(--space-6);
++  }
++
++  .error-art {
++    width: 140px;
++  }
++
++  .footer-grid {
++    grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-8);
++  }
++}
++
++@media (max-width: 639px) {
++  .container {
++    padding-inline: var(--space-4);
++  }
+ }

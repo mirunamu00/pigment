@@ -1,0 +1,2092 @@
+diff --git a/package.json b/package.json
+index 0d72e6b..2ac456f 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource/dm-mono": "^5.0.0",
++    "@fontsource/figtree": "^5.0.0",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/components/ConfirmDialog.tsx b/src/components/ConfirmDialog.tsx
+index 0ac9dd1..d09dba5 100644
+--- a/src/components/ConfirmDialog.tsx
++++ b/src/components/ConfirmDialog.tsx
+@@ -48,15 +48,23 @@ export default function ConfirmDialog({
+       }}
+       data-testid={testId}
+     >
+-      <h2 id={`${testId}-title`}>{title}</h2>
+-      <div id={`${testId}-body`} className="dialog-body">
+-        {children}
++      <div className="dialog-main">
++        <h2 id={`${testId}-title`}>{title}</h2>
++        <div id={`${testId}-body`} className="dialog-body">
++          {children}
++        </div>
+       </div>
+       <div className="dialog-actions">
+-        <button ref={cancelRef} type="button" className="button" onClick={onCancel} data-testid={`${testId}-cancel`}>
++        <button
++          ref={cancelRef}
++          type="button"
++          className="ms-pill ms-pill--cream"
++          onClick={onCancel}
++          data-testid={`${testId}-cancel`}
++        >
+           Cancel
+         </button>
+-        <button type="button" className="button button-primary" onClick={onConfirm} data-testid={`${testId}-confirm`}>
++        <button type="button" className="ms-pill" onClick={onConfirm} data-testid={`${testId}-confirm`}>
+           {confirmLabel}
+         </button>
+       </div>
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 8802b51..4b7eccd 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,36 +1,66 @@
+-import { NavLink, Outlet } from 'react-router';
++import { useEffect, useRef, useState, type CSSProperties } from 'react';
++import { NavLink, Outlet, useLocation } from 'react-router';
+ import { currentUser } from '../data/account';
++import { useShapeMotion } from '../design/useShapeMotion';
+ 
++// Area-to-hue map (rule 2): each settings area owns one category hue, in navigation order.
+ const SECTIONS = [
+-  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile' },
+-  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications' },
+-  { to: '/settings/security', label: 'Security', testId: 'nav-security' },
+-  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing' },
++  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile', hue: 'var(--color-category-1)' },
++  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications', hue: 'var(--color-category-2)' },
++  { to: '/settings/security', label: 'Security', testId: 'nav-security', hue: 'var(--color-category-3)' },
++  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing', hue: 'var(--color-category-4)' },
+ ];
+ 
+ export default function Layout() {
++  const { pathname } = useLocation();
++  const mainRef = useRef<HTMLElement>(null);
++  const [scrolled, setScrolled] = useState(false);
++  useShapeMotion(mainRef, pathname);
++
++  // On phones the nav is a scrolling pill row: keep the current area's pill in view.
++  const navListRef = useRef<HTMLUListElement>(null);
++  useEffect(() => {
++    const list = navListRef.current;
++    const active = list?.querySelector<HTMLElement>('[aria-current="page"]');
++    if (!list || !active || list.scrollWidth <= list.clientWidth) return;
++    list.scrollLeft = active.offsetLeft - (list.clientWidth - active.offsetWidth) / 2;
++  }, [pathname]);
++
++  useEffect(() => {
++    const onScroll = () => setScrolled(window.scrollY > 8);
++    onScroll();
++    window.addEventListener('scroll', onScroll, { passive: true });
++    return () => window.removeEventListener('scroll', onScroll);
++  }, []);
++
+   return (
+     <div className="app-shell">
+-      <a className="skip-link" href="#main-content">
++      <a className="skip-link ms-pill" href="#main-content">
+         Skip to content
+       </a>
+-      <header className="topbar">
++      <header className={scrolled ? 'topbar is-scrolled' : 'topbar'}>
+         <div className="brand">Account Settings</div>
+         <div className="person" data-testid="current-user">
+-          <span className="avatar avatar-small" aria-hidden="true">
+-            {currentUser.initials}
++          <span className="avatar avatar-small ms-hue--yellow" aria-hidden="true">
++            <span>{currentUser.initials}</span>
+           </span>
+-          <span>{currentUser.name}</span>
++          <span className="person-name">{currentUser.name}</span>
+         </div>
+       </header>
+ 
+       <div className="settings-layout">
+         <aside className="sidebar">
+           <nav aria-label="Settings sections" data-testid="settings-nav">
+-            <ul className="nav-list">
++            <ul className="nav-list" ref={navListRef}>
+               {SECTIONS.map((section) => (
+                 <li key={section.to}>
+-                  <NavLink to={section.to} className="nav-link" data-testid={section.testId}>
++                  <NavLink
++                    to={section.to}
++                    className="nav-link"
++                    data-testid={section.testId}
++                    style={{ '--nav-hue': section.hue } as CSSProperties}
++                  >
++                    <span className="nav-dot" aria-hidden="true" />
+                     {section.label}
+                   </NavLink>
+                 </li>
+@@ -39,7 +69,7 @@ export default function Layout() {
+           </nav>
+         </aside>
+ 
+-        <main id="main-content" className="content" tabIndex={-1}>
++        <main id="main-content" className="content" tabIndex={-1} ref={mainRef}>
+           <Outlet />
+         </main>
+       </div>
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..71b8239 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,10 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '@fontsource/figtree/400.css';
++import '@fontsource/figtree/500.css';
++import '@fontsource/figtree/700.css';
++import '@fontsource/dm-mono/400.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/BillingPage.tsx b/src/pages/BillingPage.tsx
+index 54b10a4..3c97515 100644
+--- a/src/pages/BillingPage.tsx
++++ b/src/pages/BillingPage.tsx
+@@ -1,6 +1,10 @@
+ import { useState } from 'react';
+ import ConfirmDialog from '../components/ConfirmDialog';
+ import { initialPlanId, invoices, paymentMethod, plans, type Plan, type PlanId } from '../data/billing';
++import { BillingCluster } from '../design/clusters';
++import { HeaderBand } from '../design/fields';
++import { CardPictogram, PodiumPictogram, ReceiptPictogram } from '../design/pictograms';
++import { Plate } from '../design/shapes';
+ 
+ export default function BillingPage() {
+   const [currentPlanId, setCurrentPlanId] = useState<PlanId>(initialPlanId);
+@@ -18,108 +22,131 @@ export default function BillingPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Billing</h1>
++      <HeaderBand title="Billing" art={<BillingCluster />}>
+         <p className="muted">
+           You are on the <strong data-testid="current-plan-name">{currentPlan.name}</strong> plan.
+         </p>
+-      </div>
++      </HeaderBand>
+ 
+-      <section className="panel" aria-labelledby="plans-heading">
+-        <h2 id="plans-heading">Plans</h2>
+-        <ul className="plan-grid">
+-          {plans.map((plan) => {
+-            const isCurrent = plan.id === currentPlanId;
+-            return (
+-              <li
+-                key={plan.id}
+-                className={isCurrent ? 'card plan-card plan-card-current' : 'card plan-card'}
+-                data-testid={`plan-card-${plan.id}`}
+-                data-current={isCurrent ? 'true' : 'false'}
+-                aria-current={isCurrent ? 'true' : undefined}
+-              >
+-                <h3>{plan.name}</h3>
+-                <p className="plan-price">
+-                  <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
+-                </p>
+-                <ul className="feature-list">
+-                  {plan.features.map((feature) => (
+-                    <li key={feature}>
+-                      <svg className="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+-                        <path d="M3 8.5l3 3l7-7" fill="none" stroke="currentColor" strokeWidth="2" />
+-                      </svg>
+-                      <span>{feature}</span>
+-                    </li>
+-                  ))}
+-                </ul>
+-                {isCurrent ? (
+-                  <p className="pill pill-current" data-testid="current-plan-badge">
+-                    Current plan
++      <div className="page-body">
++        <section className="group" aria-labelledby="plans-heading">
++          <div className="group-head">
++            <Plate index={0}>
++              <PodiumPictogram />
++            </Plate>
++            <h2 id="plans-heading">Plans</h2>
++          </div>
++          <ul className="plan-grid">
++            {plans.map((plan) => {
++              const isCurrent = plan.id === currentPlanId;
++              return (
++                <li
++                  key={plan.id}
++                  className={isCurrent ? 'card plan-card plan-card-current ms-hue--orange' : 'card plan-card'}
++                  data-testid={`plan-card-${plan.id}`}
++                  data-current={isCurrent ? 'true' : 'false'}
++                  aria-current={isCurrent ? 'true' : undefined}
++                >
++                  {isCurrent && <span className="check-disc" aria-hidden="true" />}
++                  <h3>{plan.name}</h3>
++                  <p className="plan-price">
++                    <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
+                   </p>
+-                ) : (
+-                  <button
+-                    type="button"
+-                    className="button"
+-                    onClick={() => setPendingPlan(plan)}
+-                    data-testid={`choose-plan-${plan.id}`}
+-                  >
+-                    Switch to {plan.name}
+-                  </button>
+-                )}
+-              </li>
+-            );
+-          })}
+-        </ul>
+-        <p role="status" className="status-message" data-testid="plan-status">
+-          {message}
+-        </p>
+-      </section>
++                  <ul className="feature-list">
++                    {plan.features.map((feature) => (
++                      <li key={feature}>
++                        <svg className="icon tick" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
++                          <path
++                            d="M9.6 17.4a1.5 1.5 0 0 1-2.1 0l-4-4a1.5 1.5 0 1 1 2.1-2.1l2.95 2.95l8.85-8.85a1.5 1.5 0 1 1 2.1 2.1z"
++                            fill="currentColor"
++                          />
++                        </svg>
++                        <span>{feature}</span>
++                      </li>
++                    ))}
++                  </ul>
++                  {isCurrent ? (
++                    <p className="pill pill-current" data-testid="current-plan-badge">
++                      Current plan
++                    </p>
++                  ) : (
++                    <button
++                      type="button"
++                      className="ms-pill ms-pill--sm"
++                      onClick={() => setPendingPlan(plan)}
++                      data-testid={`choose-plan-${plan.id}`}
++                    >
++                      Switch to {plan.name}
++                    </button>
++                  )}
++                </li>
++              );
++            })}
++          </ul>
++          <p role="status" className="status-message" data-testid="plan-status">
++            {message}
++          </p>
++        </section>
+ 
+-      <section className="panel" aria-labelledby="payment-heading">
+-        <h2 id="payment-heading">Payment method</h2>
+-        <div className="payment-method" data-testid="payment-method">
+-          <svg className="card-icon" viewBox="0 0 32 22" width="32" height="22" aria-hidden="true" focusable="false">
+-            <rect x="1" y="1" width="30" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-            <rect x="1" y="6" width="30" height="4" fill="currentColor" />
+-          </svg>
+-          <span>
+-            {paymentMethod.brand} ending in {paymentMethod.last4}
+-          </span>
+-          <span className="muted small">Expires {paymentMethod.expires}</span>
+-        </div>
+-      </section>
++        <section className="panel" aria-labelledby="payment-heading">
++          <div className="group-head">
++            <Plate ground="white" index={1}>
++              <CardPictogram />
++            </Plate>
++            <h2 id="payment-heading">Payment method</h2>
++          </div>
++          <div className="payment-method" data-testid="payment-method">
++            <svg className="card-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
++              <path
++                fillRule="evenodd"
++                d="M2 7a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v1H2zm0 4h20v6a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3zm4 3.5a1 1 0 0 0 0 2h4a1 1 0 0 0 0-2z"
++                fill="currentColor"
++              />
++            </svg>
++            <span>
++              {paymentMethod.brand} ending in {paymentMethod.last4}
++            </span>
++            <span className="muted small">Expires {paymentMethod.expires}</span>
++          </div>
++        </section>
+ 
+-      <section className="panel" aria-labelledby="invoices-heading">
+-        <h2 id="invoices-heading">Invoices</h2>
+-        <div className="table-wrap">
+-          <table className="table" data-testid="invoices-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Invoice</th>
+-                <th scope="col">Date</th>
+-                <th scope="col" className="numeric">
+-                  Amount
+-                </th>
+-                <th scope="col">Status</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {invoices.map((invoice) => (
+-                <tr key={invoice.id} data-testid="invoice-row">
+-                  <td>{invoice.id}</td>
+-                  <td>{invoice.date}</td>
+-                  <td className="numeric">{invoice.amount}</td>
+-                  <td>
+-                    <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
+-                      {invoice.status}
+-                    </span>
+-                  </td>
++        <section className="panel" aria-labelledby="invoices-heading">
++          <div className="group-head">
++            <Plate ground="white" index={2}>
++              <ReceiptPictogram />
++            </Plate>
++            <h2 id="invoices-heading">Invoices</h2>
++          </div>
++          <div className="table-wrap" tabIndex={0} role="region" aria-label="Invoices table">
++            <table className="table" data-testid="invoices-table">
++              <thead>
++                <tr>
++                  <th scope="col">Invoice</th>
++                  <th scope="col">Date</th>
++                  <th scope="col" className="numeric">
++                    Amount
++                  </th>
++                  <th scope="col">Status</th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
+-      </section>
++              </thead>
++              <tbody>
++                {invoices.map((invoice) => (
++                  <tr key={invoice.id} data-testid="invoice-row">
++                    <td className="code">{invoice.id}</td>
++                    <td>{invoice.date}</td>
++                    <td className="numeric">{invoice.amount}</td>
++                    <td>
++                      <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
++                        {invoice.status}
++                      </span>
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++        </section>
++      </div>
+ 
+       <ConfirmDialog
+         open={pendingPlan !== null}
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 9781ca6..478370f 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,19 @@
+ import { Link } from 'react-router';
++import { ErrorComposition } from '../design/clusters';
++import { RiseArch } from '../design/fields';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The settings page you are looking for does not exist or has moved.</p>
+-      <Link to="/settings/profile">Go to profile settings</Link>
++    <section className="empty-state not-found ms-field ms-field--rise ms-hue--cream" data-testid="not-found">
++      <RiseArch />
++      <div className="ms-field__inner not-found-inner">
++        <ErrorComposition />
++        <h1>Page not found</h1>
++        <p className="muted">The settings page you are looking for does not exist or has moved.</p>
++        <Link to="/settings/profile" className="ms-pill">
++          Go to profile settings
++        </Link>
++      </div>
+     </section>
+   );
+ }
+diff --git a/src/pages/NotificationsPage.tsx b/src/pages/NotificationsPage.tsx
+index 040835b..b83416b 100644
+--- a/src/pages/NotificationsPage.tsx
++++ b/src/pages/NotificationsPage.tsx
+@@ -1,5 +1,14 @@
+-import { useState } from 'react';
++import { useState, type ReactNode } from 'react';
+ import { notificationGroups } from '../data/notifications';
++import { NotificationsCluster } from '../design/clusters';
++import { HeaderBand } from '../design/fields';
++import { BubblePictogram, EnvelopePictogram } from '../design/pictograms';
++import { Plate } from '../design/shapes';
++
++const GROUP_PICTOGRAMS: Record<string, ReactNode> = {
++  email: <EnvelopePictogram />,
++  push: <BubblePictogram />,
++};
+ 
+ function initialState(): Record<string, boolean> {
+   const state: Record<string, boolean> = {};
+@@ -21,48 +30,54 @@ export default function NotificationsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Notifications</h1>
++      <HeaderBand title="Notifications" art={<NotificationsCluster />}>
+         <p className="muted">Choose what you hear about and where. Changes apply right away.</p>
+-        <p className="small" data-testid="notifications-count">
++        <p className="small band-badge" data-testid="notifications-count">
+           {onCount} of {total} notifications on
+         </p>
+-      </div>
++      </HeaderBand>
+ 
+-      {notificationGroups.map((group) => (
+-        <fieldset key={group.id} className="panel fieldset" data-testid={`notification-group-${group.id}`}>
+-          <legend className="legend">{group.title}</legend>
+-          <p className="muted small">{group.description}</p>
+-          <ul className="switch-list">
+-            {group.settings.map((setting) => {
+-              const inputId = `switch-${setting.id}`;
+-              const descriptionId = `${inputId}-description`;
+-              return (
+-                <li key={setting.id} className="switch-row">
+-                  <div className="switch-text">
+-                    <label htmlFor={inputId} className="field-label">
+-                      {setting.label}
+-                    </label>
+-                    <p id={descriptionId} className="muted small">
+-                      {setting.description}
+-                    </p>
+-                  </div>
+-                  <input
+-                    id={inputId}
+-                    type="checkbox"
+-                    role="switch"
+-                    className="switch"
+-                    checked={enabled[setting.id] ?? false}
+-                    onChange={() => toggle(setting.id)}
+-                    aria-describedby={descriptionId}
+-                    data-testid={inputId}
+-                  />
+-                </li>
+-              );
+-            })}
+-          </ul>
+-        </fieldset>
+-      ))}
++      <div className="page-body">
++        {notificationGroups.map((group, index) => (
++          <fieldset key={group.id} className="panel fieldset" data-testid={`notification-group-${group.id}`}>
++            <legend className="legend group-head">
++              <Plate ground="white" index={index}>
++                {GROUP_PICTOGRAMS[group.id]}
++              </Plate>
++              <span>{group.title}</span>
++            </legend>
++            <p className="muted small group-description">{group.description}</p>
++            <ul className="switch-list">
++              {group.settings.map((setting) => {
++                const inputId = `switch-${setting.id}`;
++                const descriptionId = `${inputId}-description`;
++                return (
++                  <li key={setting.id} className="switch-row">
++                    <div className="switch-text">
++                      <label htmlFor={inputId} className="field-label">
++                        {setting.label}
++                      </label>
++                      <p id={descriptionId} className="muted small">
++                        {setting.description}
++                      </p>
++                    </div>
++                    <input
++                      id={inputId}
++                      type="checkbox"
++                      role="switch"
++                      className="switch"
++                      checked={enabled[setting.id] ?? false}
++                      onChange={() => toggle(setting.id)}
++                      aria-describedby={descriptionId}
++                      data-testid={inputId}
++                    />
++                  </li>
++                );
++              })}
++            </ul>
++          </fieldset>
++        ))}
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProfilePage.tsx b/src/pages/ProfilePage.tsx
+index 89f0a81..eaad766 100644
+--- a/src/pages/ProfilePage.tsx
++++ b/src/pages/ProfilePage.tsx
+@@ -1,5 +1,7 @@
+ import { useState, type ChangeEvent, type FormEvent } from 'react';
+ import { BIO_MAX_LENGTH, currentUser, initialProfile, timeZones, type Profile } from '../data/account';
++import { ProfileCluster } from '../design/clusters';
++import { HeaderBand } from '../design/fields';
+ 
+ type ProfileErrors = Partial<Record<keyof Profile, string>>;
+ 
+@@ -57,27 +59,25 @@ export default function ProfilePage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Profile</h1>
++      <HeaderBand title="Profile" art={<ProfileCluster />}>
+         <p className="muted">This information is shown to people in your workspace.</p>
+-      </div>
++      </HeaderBand>
+ 
++      <div className="page-body">
+       <form className="panel form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
+         <div className="avatar-row">
+-          <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
++          <span className="avatar avatar-large ms-hue--yellow" data-testid="profile-avatar" aria-hidden="true">
+             {initials}
+           </span>
+           <div>
+             <p className="field-label">Profile photo</p>
+             <p className="muted small">A placeholder with your initials is shown until you upload a photo.</p>
+-            <button type="button" className="button" data-testid="change-photo">
++            <button type="button" className="ms-pill ms-pill--cream ms-pill--sm" data-testid="change-photo">
+               <svg className="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+                 <path
+-                  d="M4 7h3l2-2h6l2 2h3v12H4z M12 10a3 3 0 1 0 0 6a3 3 0 0 0 0-6"
+-                  fill="none"
+-                  stroke="currentColor"
+-                  strokeWidth="2"
+-                  strokeLinejoin="round"
++                  fillRule="evenodd"
++                  d="M9.2 3.5a2 2 0 0 0-1.7 1L6.6 6H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1.6l-.9-1.5a2 2 0 0 0-1.7-1zM12 9a4 4 0 1 0 0 8a4 4 0 0 0 0-8"
++                  fill="currentColor"
+                 />
+               </svg>
+               <span>Change photo</span>
+@@ -149,22 +149,24 @@ export default function ProfilePage() {
+             <label htmlFor="profile-timeZone" className="field-label">
+               Time zone
+             </label>
+-            <select
+-              id="profile-timeZone"
+-              className="input"
+-              value={profile.timeZone}
+-              onChange={update('timeZone')}
+-              aria-invalid={errors.timeZone ? true : undefined}
+-              aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
+-              data-testid="profile-timezone"
+-            >
+-              <option value="">Select a time zone</option>
+-              {timeZones.map((zone) => (
+-                <option key={zone.value} value={zone.value}>
+-                  {zone.label}
+-                </option>
+-              ))}
+-            </select>
++            <span className="select-box">
++              <select
++                id="profile-timeZone"
++                className="input select"
++                value={profile.timeZone}
++                onChange={update('timeZone')}
++                aria-invalid={errors.timeZone ? true : undefined}
++                aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
++                data-testid="profile-timezone"
++              >
++                <option value="">Select a time zone</option>
++                {timeZones.map((zone) => (
++                  <option key={zone.value} value={zone.value}>
++                    {zone.label}
++                  </option>
++                ))}
++              </select>
++            </span>
+             {errors.timeZone && (
+               <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
+                 {errors.timeZone}
+@@ -198,10 +200,10 @@ export default function ProfilePage() {
+         </div>
+ 
+         <div className="form-actions">
+-          <button type="submit" className="button button-primary" data-testid="profile-save">
++          <button type="submit" className="ms-pill" data-testid="profile-save">
+             Save changes
+           </button>
+-          <button type="button" className="button" onClick={handleReset} data-testid="profile-reset">
++          <button type="button" className="ms-pill ms-pill--cream" onClick={handleReset} data-testid="profile-reset">
+             Reset
+           </button>
+           <p role="status" className="status-message" data-testid="profile-status">
+@@ -209,6 +211,7 @@ export default function ProfilePage() {
+           </p>
+         </div>
+       </form>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/SecurityPage.tsx b/src/pages/SecurityPage.tsx
+index 3498f5d..49572a9 100644
+--- a/src/pages/SecurityPage.tsx
++++ b/src/pages/SecurityPage.tsx
+@@ -1,5 +1,10 @@
+ import { useState, type FormEvent } from 'react';
+ import { initialSessions, type Session } from '../data/sessions';
++import { SecurityCluster } from '../design/clusters';
++import { HeaderBand } from '../design/fields';
++import { ScreenGlyph } from '../design/glyphs';
++import { KeyPictogram, ScreenPictogram } from '../design/pictograms';
++import { Plate } from '../design/shapes';
+ 
+ interface PasswordForm {
+   current: string;
+@@ -71,13 +76,18 @@ export default function SecurityPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Security</h1>
++      <HeaderBand title="Security" art={<SecurityCluster />}>
+         <p className="muted">Manage your password and the devices signed in to your account.</p>
+-      </div>
++      </HeaderBand>
+ 
++      <div className="page-body">
+       <section className="panel" aria-labelledby="password-heading">
+-        <h2 id="password-heading">Change password</h2>
++        <div className="group-head">
++          <Plate ground="white" index={0}>
++            <KeyPictogram />
++          </Plate>
++          <h2 id="password-heading">Change password</h2>
++        </div>
+         <form className="form" noValidate onSubmit={handleSubmit} data-testid="password-form">
+           <div className="form-stack">
+             {FIELDS.map((field) => {
+@@ -127,7 +137,7 @@ export default function SecurityPage() {
+             })}
+           </div>
+           <div className="form-actions">
+-            <button type="submit" className="button button-primary" data-testid="password-submit">
++            <button type="submit" className="ms-pill" data-testid="password-submit">
+               Update password
+             </button>
+             <p role="status" className="status-message" data-testid="password-status">
+@@ -138,9 +148,14 @@ export default function SecurityPage() {
+       </section>
+ 
+       <section className="panel" aria-labelledby="sessions-heading">
+-        <h2 id="sessions-heading">Active sessions</h2>
+-        <p className="muted small">Revoke a session to sign that device out immediately.</p>
+-        <div className="table-wrap">
++        <div className="group-head">
++          <Plate ground="white" index={1}>
++            <ScreenPictogram />
++          </Plate>
++          <h2 id="sessions-heading">Active sessions</h2>
++        </div>
++        <p className="muted small group-description">Revoke a session to sign that device out immediately.</p>
++        <div className="table-wrap" tabIndex={0} role="region" aria-label="Active sessions table">
+           <table className="table" data-testid="sessions-table">
+             <thead>
+               <tr>
+@@ -158,7 +173,7 @@ export default function SecurityPage() {
+                   <td>
+                     {session.device}
+                     {session.current && (
+-                      <span className="pill pill-neutral small" data-testid="current-session">
++                      <span className="pill pill-neutral" data-testid="current-session">
+                         This device
+                       </span>
+                     )}
+@@ -169,7 +184,7 @@ export default function SecurityPage() {
+                     {!session.current && (
+                       <button
+                         type="button"
+-                        className="button button-danger"
++                        className="ms-pill ms-pill--cream ms-pill--sm ms-pill--danger"
+                         onClick={() => revoke(session)}
+                         data-testid={`revoke-${session.id}`}
+                       >
+@@ -183,14 +198,18 @@ export default function SecurityPage() {
+           </table>
+         </div>
+         {sessions.length === 1 && (
+-          <p className="muted small" data-testid="sessions-empty">
+-            No other devices are signed in.
+-          </p>
++          <div className="empty-row">
++            <ScreenGlyph />
++            <p className="muted" data-testid="sessions-empty">
++              No other devices are signed in.
++            </p>
++          </div>
+         )}
+         <p role="status" className="status-message" data-testid="sessions-status">
+           {sessionMessage}
+         </p>
+       </section>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index bfb6f76..8e0cfaa 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,58 +1,54 @@
+ /*
+- * Base styles for the Account Settings app.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Base styles for the Account Settings app, on the Morning Shapes design system.
++ * Tokens live in design-system/tokens.css; signature elements in morning-shapes.css.
++ * The app's original custom property names are kept as aliases of the tokens.
+  */
++@import '../../design-system/tokens.css';
++@import './morning-shapes.css';
++
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-danger-bg: #fdecee;
+-  --color-switch-off: #bbbbbb;
+-  --color-switch-on: #0645ad;
+-  --color-switch-thumb: #ffffff;
+-  --color-strength-weak: #b00020;
+-  --color-strength-fair: #7a5a00;
+-  --color-strength-strong: #2e7d32;
+-  --color-pill-neutral-bg: #e8e8e8;
+-  --color-pill-neutral-text: #444444;
+-  --color-pill-current-bg: #e3f2e5;
+-  --color-pill-current-text: #1b5e20;
+-  --color-pill-due-bg: #fff4d6;
+-  --color-pill-due-text: #7a5a00;
+-  --color-backdrop: rgba(0, 0, 0, 0.4);
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
+-  --content-max-width: 880px;
+-  --avatar-size-large: 72px;
+-  --switch-width: 40px;
+-  --switch-height: 22px;
++  color-scheme: light;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-default);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-subtle);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-link);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-status-success);
++  --color-negative: var(--color-status-danger);
++  --color-switch-off: var(--color-surface-hover);
++  --color-switch-on: var(--color-action-primary);
++  --color-switch-thumb: var(--color-art-white);
++  --color-backdrop: var(--color-surface-overlay);
++
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --font-size-small: var(--font-size-label);
++  --font-size-h1: var(--font-size-h2);
++  --line-height: var(--font-line-height-body);
++
++  --radius: var(--radius-md);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hair);
++  --sidebar-width: var(--size-sidebar);
++  --content-max-width: var(--size-reading);
++  --avatar-size-large: calc(var(--size-control) + var(--space-6));
++  --switch-width: var(--size-control);
++  --switch-height: calc(var(--space-6) + var(--space-1));
++  --switch-knob: calc(var(--switch-height) - 6px);
++}
++[data-theme='dark'] {
++  color-scheme: dark;
++}
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) {
++    color-scheme: dark;
++  }
+ }
+ 
+ *,
+@@ -67,42 +63,58 @@ body {
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  text-wrap: balance;
+ }
+ 
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-size: var(--font-size-h2);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ h2 {
+-  font-size: var(--font-size-h2);
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-base);
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-2);
++  margin: 0;
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-link);
++  text-decoration-thickness: 1px;
++  text-underline-offset: 3px;
++}
++
++@media (hover: hover) {
++  a:hover {
++    text-decoration-thickness: 2px;
++    text-underline-offset: 2px;
++  }
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
+@@ -124,19 +136,19 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-4);
++  top: var(--space-4);
++  z-index: 30;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .numeric {
+@@ -146,9 +158,11 @@ a {
+ 
+ .icon {
+   flex-shrink: 0;
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
+ }
+ 
+-/* Layout */
++/* ---------- App shell ---------- */
+ .app-shell {
+   min-height: 100vh;
+   display: flex;
+@@ -156,16 +170,73 @@ a {
+ }
+ 
+ .topbar {
++  position: sticky;
++  top: 0;
++  z-index: 20;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  height: var(--size-header);
++  padding-inline: var(--space-6);
++  background: var(--color-surface-default);
++  transition: box-shadow var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.topbar.is-scrolled {
++  box-shadow: var(--shadow-header);
+ }
+ 
+ .brand {
+-  font-weight: bold;
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
++}
++
++.person {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  font-weight: var(--font-weight-medium);
++}
++
++/* Avatar without a photo: bold initials on a crescent disc in a category hue */
++.avatar {
++  position: relative;
++  isolation: isolate;
++  overflow: hidden;
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  flex-shrink: 0;
++  border-radius: var(--radius-full);
++  background: var(--color-art-yellow-shade);
++  color: var(--ms-on-field);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++.avatar::before {
++  content: '';
++  position: absolute;
++  inset: 0;
++  z-index: -1;
++  border-radius: var(--radius-full);
++  background: var(--ms-field);
++  transform: translate(-8%, -8%);
++}
++
++.avatar-small {
++  width: var(--size-control-sm);
++  height: var(--size-control-sm);
++  font-size: var(--font-size-label);
++}
++
++.avatar-large {
++  width: var(--avatar-size-large);
++  height: var(--avatar-size-large);
++  font-size: var(--font-size-h4);
+ }
+ 
+ .settings-layout {
+@@ -174,112 +245,180 @@ a {
+ }
+ 
+ .sidebar {
+-  width: var(--sidebar-width);
++  width: var(--size-sidebar);
+   flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  background: var(--color-surface-subtle);
++  padding: var(--space-6) var(--space-4);
+ }
+ 
+ .nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: grid;
++  gap: var(--space-1);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border: var(--border-width) solid transparent;
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  height: var(--size-control);
++  padding: 0 var(--space-4);
++  border-radius: var(--radius-full);
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
+   text-decoration: none;
++  white-space: nowrap;
++  transition: background-color var(--motion-duration-snap) var(--motion-easing-snap);
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  font-weight: bold;
++.nav-link:focus-visible {
++  outline-offset: -2px;
++}
++
++.nav-dot {
++  width: var(--size-dot);
++  height: var(--size-dot);
++  flex: none;
++  border-radius: var(--radius-full);
++  background: var(--nav-hue);
++}
++
++@media (hover: hover) {
++  .nav-link:hover {
++    background: var(--color-surface-hover);
++  }
++}
++
++.nav-link.active,
++.nav-link.active:hover {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-weight: var(--font-weight-bold);
++}
++
++.nav-link.active .nav-dot {
++  background: currentColor;
+ }
+ 
+ .content {
+   flex: 1;
+   min-width: 0;
+-  max-width: var(--content-max-width);
+-  padding: var(--space-6);
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-6);
++  container-type: inline-size;
+ }
+ 
+-.person {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++.content:focus-visible {
++  outline-offset: -2px;
+ }
+ 
+-.avatar {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-weight: bold;
+-  flex-shrink: 0;
++/* ---------- Header band content ---------- */
++.page-header .ms-field__inner {
++  display: grid;
++  gap: var(--space-3);
++  justify-items: start;
+ }
+ 
+-.avatar-small {
+-  width: 28px;
+-  height: 28px;
+-  font-size: var(--font-size-small);
++.ms-field .muted {
++  color: inherit;
+ }
+ 
+-.avatar-large {
+-  width: var(--avatar-size-large);
+-  height: var(--avatar-size-large);
+-  font-size: var(--font-size-h2);
++.page-header h1 {
++  text-wrap: balance;
++}
++
++.band-badge {
++  display: inline-flex;
++  align-items: center;
++  min-height: var(--space-6);
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-fine);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  font-variant-numeric: tabular-nums;
++}
++
++/* ---------- Page body ---------- */
++.page-body {
++  width: 100%;
++  max-width: calc(var(--size-reading) + var(--space-12) * 2);
++  padding: var(--space-12) var(--space-12) var(--space-16);
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-8);
+ }
+ 
+-/* Panels */
++/* Settings groups: cream panels, no border, no shadow */
+ .panel,
+ .card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++  border: 0;
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
++  padding: var(--space-8);
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.panel {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-4);
+ }
+ 
+-/* Forms */
+-.form {
++/* On a cream panel the cream secondary pill would vanish: it takes the raised surface instead */
++.panel .ms-pill--cream {
++  background: var(--color-surface-raised);
++}
++
++@media (hover: hover) {
++  .panel .ms-pill--cream:hover {
++    background: var(--color-action-secondary-hover);
++  }
++}
++
++.group {
+   display: flex;
+   flex-direction: column;
+   gap: var(--space-4);
+ }
+ 
++.group-head {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
++}
++
++.group-description {
++  margin-top: calc(var(--space-2) * -1);
++}
++
++/* ---------- Forms ---------- */
++.form {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-8);
++}
++
+ .form-grid {
+   display: grid;
+-  grid-template-columns: repeat(2, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: var(--space-6);
+ }
+ 
+ .form-stack {
+   display: grid;
+-  gap: var(--space-4);
+-  max-width: 400px;
++  gap: var(--space-6);
++  max-width: calc(var(--size-reading) / 2);
+ }
+ 
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
+-}
+-
+-.field p {
+-  margin: 0;
++  gap: var(--space-2);
++  min-width: 0;
+ }
+ 
+ .field-wide {
+@@ -287,33 +426,111 @@ a {
+ }
+ 
+ .field-label {
+-  font-weight: bold;
++  font-weight: var(--font-weight-medium);
+   margin: 0;
+ }
+ 
++.field-label .muted.small {
++  font-weight: var(--font-weight-regular);
++}
++
+ .field-error {
+-  color: var(--color-negative);
+-  font-size: var(--font-size-small);
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-2);
++  color: var(--color-status-danger);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-label);
++}
++
++/* 16px solid alert glyph before the message */
++.field-error::before {
++  content: '';
++  flex: none;
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  margin-top: 1px;
++  background: currentColor;
++  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0m0 3.5a1.25 1.25 0 0 0-1.25 1.25v3.5a1.25 1.25 0 0 0 2.5 0v-3.5A1.25 1.25 0 0 0 8 3.5m0 7.25a1.25 1.25 0 1 0 0 2.5a1.25 1.25 0 0 0 0-2.5'/%3E%3C/svg%3E") center / contain no-repeat;
+ }
+ 
+ .input {
+   font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  width: 100%;
+   min-width: 0;
++  height: var(--size-control-lg);
++  padding: 0 var(--space-4);
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  transition: border-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.input::placeholder {
++  color: var(--color-text-secondary);
++}
++
++@media (hover: hover) {
++  .input:hover {
++    border-color: var(--color-text-secondary);
++  }
++}
++
++.input:focus-visible,
++.input:focus {
++  outline: none;
++  border-color: var(--color-focus-ring);
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-negative);
++  border-color: var(--color-status-danger);
++}
++
++.input:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
++  border-color: var(--color-border-default);
+ }
+ 
+ .textarea {
++  height: auto;
++  min-height: calc(var(--font-size-body) * var(--font-line-height-body) * 4 + var(--space-3) * 2 + 4px);
++  padding: var(--space-3) var(--space-4);
+   resize: vertical;
+ }
+ 
++.select-box {
++  position: relative;
++  display: block;
++}
++
++.select {
++  appearance: none;
++  padding-right: var(--space-12);
++  cursor: pointer;
++}
++
++.select option {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++}
++
++/* 16px solid chevron at the trailing edge */
++.select-box::after {
++  content: '';
++  position: absolute;
++  top: 50%;
++  right: var(--space-4);
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  translate: 0 -50%;
++  pointer-events: none;
++  background: var(--color-text-icon);
++  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.9 5.4a1.3 1.3 0 0 1 1.8 0L8 8.7l3.3-3.3a1.3 1.3 0 1 1 1.8 1.8l-4.2 4.2a1.3 1.3 0 0 1-1.8 0L2.9 7.2a1.3 1.3 0 0 1 0-1.8'/%3E%3C/svg%3E") center / contain no-repeat;
++}
++
+ .form-actions {
+   display: flex;
+   align-items: center;
+@@ -321,59 +538,66 @@ a {
+   gap: var(--space-3);
+ }
+ 
++/* Status text: a solid success tick and a short word, only when there is something to say */
+ .status-message {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
+   margin: 0;
+-  color: var(--color-positive);
++  color: var(--color-status-success);
++  font-weight: var(--font-weight-medium);
++}
++
++.status-message:not(:empty)::before {
++  content: '';
++  flex: none;
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  background: currentColor;
++  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.6 17.4a1.5 1.5 0 0 1-2.1 0l-4-4a1.5 1.5 0 1 1 2.1-2.1l2.95 2.95l8.85-8.85a1.5 1.5 0 1 1 2.1 2.1z'/%3E%3C/svg%3E") center / contain no-repeat;
+ }
+ 
+ .avatar-row {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-4);
+-}
+-
+-.avatar-row p {
+-  margin: 0 0 var(--space-1);
++  gap: var(--space-6);
+ }
+ 
+-/* Buttons */
+-.button {
+-  font: inherit;
+-  display: inline-flex;
+-  align-items: center;
++.avatar-row > div {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
+   gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.avatar-row .ms-pill {
++  margin-top: var(--space-1);
+ }
+ 
+-.button-danger {
+-  color: var(--color-negative);
+-}
+-
+-.button-danger:hover {
+-  background: var(--color-danger-bg);
+-}
+-
+-/* Fieldsets and switches */
++/* ---------- Fieldsets and switches ---------- */
+ .fieldset {
+   margin: 0;
+   min-width: 0;
++  display: block;
+ }
+ 
+ .legend {
+-  font-weight: bold;
+-  font-size: var(--font-size-h2);
+-  padding: 0 var(--space-1);
++  float: left;
++  width: 100%;
++  padding: 0;
++  margin-bottom: var(--space-4);
++  font-weight: var(--font-weight-bold);
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++.legend + * {
++  clear: both;
++}
++
++.fieldset .group-description {
++  margin: 0 0 var(--space-2);
+ }
+ 
+ .switch-list {
+@@ -386,15 +610,19 @@ a {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-top: var(--border-width) solid var(--color-border);
++  gap: var(--space-6);
++  min-height: var(--size-control);
++  padding: var(--space-4) 0;
++  border-top: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+-.switch-text p {
+-  margin: 0;
++.switch-text {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-1);
+ }
+ 
++/* Switch: 48×28 pill track on the ledge, 22px knob, 20px travel */
+ .switch {
+   appearance: none;
+   position: relative;
+@@ -402,9 +630,13 @@ a {
+   height: var(--switch-height);
+   margin: 0;
+   flex-shrink: 0;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-switch-off);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-hover);
++  box-shadow: var(--shadow-ledge);
+   cursor: pointer;
++  transition-property: background-color, box-shadow, transform;
++  transition-duration: var(--motion-duration-snap);
++  transition-timing-function: var(--motion-easing-snap);
+ }
+ 
+ .switch::after {
+@@ -412,90 +644,208 @@ a {
+   position: absolute;
+   top: 3px;
+   left: 3px;
+-  width: calc(var(--switch-height) - 6px);
+-  height: calc(var(--switch-height) - 6px);
+-  border-radius: 50%;
+-  background: var(--color-switch-thumb);
++  width: var(--switch-knob);
++  height: var(--switch-knob);
++  border-radius: var(--radius-full);
++  background: var(--color-art-white);
++  transition: translate var(--motion-duration-snap) var(--motion-easing-snap);
+ }
+ 
+ .switch:checked {
+-  background: var(--color-switch-on);
++  background: var(--color-action-primary);
+ }
+ 
+ .switch:checked::after {
+-  left: calc(var(--switch-width) - var(--switch-height) + 3px);
++  translate: calc(var(--switch-width) - var(--switch-height)) 0;
++  background: var(--color-text-on-action);
++}
++
++@media (hover: hover) {
++  .switch:hover {
++    background: var(--color-surface-pressed);
++  }
++  .switch:checked:hover {
++    background: var(--color-action-primary-hover);
++  }
++}
++
++.switch:active {
++  transform: translateY(2px);
++  box-shadow: var(--shadow-ledge-gone);
++}
++
++.switch:disabled {
++  background: var(--color-surface-subtle);
++  box-shadow: none;
++  cursor: not-allowed;
+ }
+ 
+-/* Password strength */
+-.strength-none {
+-  color: var(--color-text-muted);
++.switch:disabled::after {
++  background: var(--color-border-default);
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .switch,
++  .switch::after {
++    transition: none;
++  }
++}
++
++/* ---------- Password strength ---------- */
++.strength {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  color: var(--color-text-secondary);
++  font-weight: var(--font-weight-medium);
++}
++
++.strength::before {
++  content: '';
++  flex: none;
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: var(--strength-dot, var(--color-border-strong));
+ }
+ 
+ .strength-weak {
+-  color: var(--color-strength-weak);
++  --strength-dot: var(--color-status-danger);
++  color: var(--color-status-danger);
+ }
+ 
+ .strength-fair {
+-  color: var(--color-strength-fair);
++  --strength-dot: var(--color-status-warning);
++  color: var(--color-text-primary);
+ }
+ 
+ .strength-strong {
+-  color: var(--color-strength-strong);
++  --strength-dot: var(--color-status-success);
++  color: var(--color-status-success);
+ }
+ 
+-/* Tables */
++/* ---------- Tables ---------- */
+ .table-wrap {
++  position: relative; /* keeps visually-hidden labels inside the scroll frame */
+   overflow-x: auto;
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-default);
++  border: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.table-wrap:focus-visible {
++  outline-offset: 2px;
+ }
+ 
+ .table {
+   width: 100%;
+   border-collapse: collapse;
++  font-size: var(--font-size-body);
+ }
+ 
+ .table th,
+ .table td {
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  padding: 0 var(--space-4);
+   vertical-align: middle;
++  white-space: nowrap;
+ }
+ 
+ .table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  height: 44px;
++  background: var(--color-surface-subtle);
++  color: var(--color-text-icon);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.table td {
++  height: var(--size-row);
++  border-top: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+ .table .numeric {
+   text-align: right;
+ }
+ 
++.table .code {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-label);
++}
++
+ .cell-actions {
+   text-align: right;
+ }
+ 
++.table th:first-child,
++.table td:first-child {
++  position: sticky;
++  left: 0;
++  z-index: 1;
++}
++
++.table td:first-child {
++  background: var(--color-surface-default);
++}
++
++.empty-row {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
++}
++
++/* ---------- Badges ---------- */
+ .pill {
+-  display: inline-block;
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  height: var(--space-6);
+   margin: 0 0 0 var(--space-2);
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  font-size: var(--font-size-fine);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  line-height: 1;
++  vertical-align: middle;
++  white-space: nowrap;
++}
++
++/* Status badges: cream fill, primary label, leading status dot */
++.pill-neutral,
++.pill-paid,
++.pill-due {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
++}
++
++.pill-neutral::before,
++.pill-paid::before,
++.pill-due::before {
++  content: '';
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: var(--badge-dot);
+ }
+ 
+ .pill-neutral {
+-  background: var(--color-pill-neutral-bg);
+-  color: var(--color-pill-neutral-text);
++  --badge-dot: var(--color-status-info);
+ }
+ 
+-.pill-paid,
+-.pill-current {
+-  background: var(--color-pill-current-bg);
+-  color: var(--color-pill-current-text);
++.pill-paid {
++  --badge-dot: var(--color-status-success);
+ }
+ 
+ .pill-due {
+-  background: var(--color-pill-due-bg);
+-  color: var(--color-pill-due-text);
++  --badge-dot: var(--color-status-warning);
++}
++
++/* Badge on a field: white with an ink label in both appearances */
++.pill-current {
++  background: var(--color-action-on-field);
++  color: var(--color-text-on-field-action);
+ }
+ 
+ .table .pill,
+@@ -503,34 +853,74 @@ a {
+   margin-left: 0;
+ }
+ 
+-/* Billing */
++/* ---------- Billing ---------- */
+ .plan-grid {
+   list-style: none;
+-  margin: 0 0 var(--space-3);
++  margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
++  gap: var(--space-6);
+ }
+ 
++/* Option card: cream card; the current plan is the set's one saturated field */
+ .plan-card {
++  position: relative;
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+-  gap: var(--space-2);
++  gap: var(--space-4);
++}
++
++.plan-card h3 {
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-eyebrow);
++  text-transform: uppercase;
+ }
+ 
+ .plan-card-current {
+-  border-color: var(--color-primary);
++  background: var(--ms-field);
++  color: var(--ms-on-field);
++}
++
++.plan-card-current .muted,
++.plan-card-current .tick {
++  color: inherit;
++}
++
++.check-disc {
++  position: absolute;
++  top: var(--space-6);
++  right: var(--space-6);
++  width: var(--size-control-sm);
++  height: var(--size-control-sm);
++  border-radius: var(--radius-full);
++  background: var(--color-action-primary);
++}
++
++.check-disc::after {
++  content: '';
++  position: absolute;
++  inset: 0;
++  margin: auto;
++  width: var(--size-icon);
++  height: var(--size-icon);
++  background: var(--color-text-on-action);
++  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.6 17.4a1.5 1.5 0 0 1-2.1 0l-4-4a1.5 1.5 0 1 1 2.1-2.1l2.95 2.95l8.85-8.85a1.5 1.5 0 1 1 2.1 2.1z'/%3E%3C/svg%3E") center / contain no-repeat;
+ }
+ 
+ .plan-price {
++  display: flex;
++  flex-direction: column;
+   margin: 0;
+ }
+ 
+ .plan-amount {
+-  font-size: var(--font-size-h1);
+-  font-weight: bold;
++  font-size: var(--font-size-h2);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ .feature-list {
+@@ -538,6 +928,9 @@ a {
+   margin: 0;
+   padding: 0;
+   flex: 1;
++  display: grid;
++  align-content: start;
++  gap: var(--space-2);
+ }
+ 
+ .feature-list li {
+@@ -546,53 +939,197 @@ a {
+   gap: var(--space-2);
+ }
+ 
++.tick {
++  color: var(--color-status-success);
++}
++
+ .payment-method {
+   display: flex;
+   align-items: center;
++  flex-wrap: wrap;
+   gap: var(--space-3);
++  font-weight: var(--font-weight-medium);
++}
++
++.card-icon {
++  width: var(--size-icon);
++  height: var(--size-icon);
++  color: var(--color-text-icon);
+ }
+ 
+-/* Dialog */
++/* ---------- Dialog: white, radius.xl, cream footer, no shadow, no art ---------- */
+ .dialog {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  padding: var(--space-6);
+-  max-width: 440px;
++  border: 0;
++  border-radius: var(--radius-xl);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  padding: 0;
++  max-width: 560px;
+   width: calc(100% - var(--space-8));
++  overflow: hidden;
++}
++
++.dialog[open] {
++  animation: ms-enter var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++@keyframes ms-enter {
++  from {
++    opacity: 0;
++    transform: translateY(8px);
++  }
++  to {
++    opacity: 1;
++    transform: none;
++  }
+ }
+ 
+ .dialog::backdrop {
+-  background: var(--color-backdrop);
++  background: var(--color-surface-overlay);
++}
++
++.dialog-main {
++  display: grid;
++  gap: var(--space-3);
++  padding: var(--space-8);
++}
++
++.dialog h2 {
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ .dialog-actions {
+   display: flex;
+   justify-content: flex-end;
+-  gap: var(--space-2);
++  gap: var(--space-3);
++  padding: var(--space-6) var(--space-8);
++  background: var(--color-surface-subtle);
++}
++
++/* ---------- Not found: cream band with rise arc and the error composition ---------- */
++.not-found {
++  flex: 1;
++  margin-top: calc(var(--size-arc) + var(--space-8));
++  padding-block: var(--space-12) var(--space-24);
++}
++
++.not-found-inner {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: var(--space-4);
++  text-align: center;
++}
++
++.not-found-inner .ms-art {
++  margin-bottom: var(--space-4);
++}
++
++.not-found-inner .ms-pill {
+   margin-top: var(--space-4);
+ }
+ 
+-@media (max-width: 900px) {
++@media (prefers-reduced-motion: reduce) {
++  .dialog[open] {
++    animation: none;
++  }
++  .topbar {
++    transition: none;
++  }
++}
++
++/* ---------- Narrow screens ---------- */
++@media (max-width: 1023px) {
++  .page-body {
++    padding-inline: var(--space-6);
++  }
++}
++
++@media (max-width: 767px) {
++  .topbar {
++    height: var(--space-16);
++    padding-inline: var(--space-4);
++  }
++
+   .settings-layout {
+     flex-direction: column;
+   }
+ 
+   .sidebar {
+     width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    padding: var(--space-2) 0;
+   }
+ 
++  /* The side nav becomes a horizontally scrolling row of pills */
+   .nav-list {
++    position: relative;
+     display: flex;
+-    flex-wrap: wrap;
+-    gap: var(--space-2);
++    gap: var(--space-1);
++    overflow-x: auto;
++    padding: var(--space-1) var(--space-4);
++    scrollbar-width: none;
+   }
+ 
+-  .form-grid,
+-  .plan-grid {
++  .nav-link {
++    padding: 0 var(--space-4);
++  }
++
++  h1 {
++    font-size: var(--font-size-h2mobile);
++  }
++
++  .page-body {
++    padding: var(--space-8) var(--space-4) var(--space-12);
++    gap: var(--space-6);
++  }
++
++  .panel,
++  .card {
++    padding: var(--space-6);
++  }
++
++  .form-grid {
+     grid-template-columns: 1fr;
+   }
++
++  .form-actions .ms-pill {
++    flex: 1 1 auto;
++  }
++
++  .avatar-row {
++    align-items: flex-start;
++    gap: var(--space-4);
++  }
++
++  .not-found {
++    margin-top: calc(var(--size-arc-sm) + var(--space-8));
++  }
++
++  /* Dialog becomes a bottom sheet with full-width stacked pills */
++  .dialog {
++    width: 100%;
++    max-width: none;
++    margin: auto 0 0;
++    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
++  }
++
++  .dialog-main {
++    padding: var(--space-6);
++  }
++
++  .dialog-actions {
++    flex-direction: column-reverse;
++    padding: var(--space-6);
++  }
++
++  .dialog-actions .ms-pill {
++    width: 100%;
++  }
++}
++
++@media (max-width: 479px) {
++  .person-name {
++    display: none;
++  }
+ }

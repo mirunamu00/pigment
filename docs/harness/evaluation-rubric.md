@@ -172,7 +172,8 @@ three stages, and the harness refuses them out of order:
 3. **Holdout check:** only after a passing confirm — `evaluate --holdout`, `review --holdout`. The holdout apps
    (a landing page, a docs site) have structures the main apps don't; they show whether the system carries to
    products it was never tuned on. They run with the confirm but are judged only now, so a candidate that failed
-   on the main apps never learns from them. Publish needs this stage passed.
+   on the main apps never learns from them. Publish needs this stage passed; a candidate that fails it is revised
+   from the holdout evaluation (`author-brief` picks it), as a new candidate that goes through all three stages.
 
 Judging three samples:
 
@@ -186,7 +187,7 @@ Judging three samples:
 
 Cost is never the reason to ship or to skip a fix: do what the template needs. What the harness stops is
 work that cannot converge — another round on a candidate that already passed only draws a new sample with
-new small flaws. Every eval records the spend of the candidate and its family, for the record only.
+new small flaws.
 
 - **Stop when a candidate passes.** Once a candidate passes the confirm, `scaffold` refuses a new candidate
   and `generate` refuses more runs in that family (`--after-pass` only when the user asks). A candidate that

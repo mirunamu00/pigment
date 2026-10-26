@@ -67,11 +67,13 @@ export function buildAgentMd(tpl: LoadedTemplate): string {
       "`color.text.onAction` → `--color-text-on-action`.",
     principles.trim(),
   ];
+  const primitives = resolveTokens(tpl.primitives);
   for (const [mode, tree] of Object.entries(tpl.modes)) {
-    const resolved = resolveTokens(tpl.primitives, tree);
+    // Only the mode's own tokens: raw colors kept under `color` in the primitives are not semantic, and listing
+    // them in every mode's table spent the package's budget twice on values agents must not use.
+    const resolved = new Map([...resolveTokens(tpl.primitives, tree)].filter(([p]) => !primitives.has(p)));
     sections.push(`## Semantic color tokens — ${mode}`, tokenTable(resolved, "color."));
   }
-  const primitives = resolveTokens(tpl.primitives);
   // Every primitive group except raw colors (agents must use semantic colors), in the template's own order.
   const groups = Object.keys(tpl.primitives).filter((g) => !g.startsWith("$") && g !== "color" && g !== "palette");
   sections.push(

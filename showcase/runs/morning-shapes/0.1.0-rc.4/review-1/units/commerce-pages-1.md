@@ -1,0 +1,118 @@
+```json
+{
+  "items": [
+    { "id": "commerce--page--home--desktop-light", "status": "finding", "fidelity": 4, "note": "Yolk band with a sagging arc and a vignette of the product's own UI (white cards, a filter-pill strip, a toast) with a star, a sparkle and crescent discs, above cream cards with saturated category covers and flat crescent-shaded pictograms. Drawing and colour are the reference's, but the hero uses a small h2 title with no pills, so the left half of the band is empty yellow, without the 64px headline and blue pill that anchor reference 02." },
+    { "id": "commerce--page--home--mobile-light", "status": "ok", "fidelity": 4, "note": "A compact yolk band with a sag arc, a bold title and a small corner cluster, then ink and cream filter pills with category dots on their ledges and full-width cream cards with big pictogram covers. Close to the phone reference (04) in density and warmth. The cluster is small but tucked in the corner, as 04 does." },
+    { "id": "commerce--page--home--desktop-dark", "status": "finding", "fidelity": 4, "note": "Same yolk band and vignette, now with indigo cards, over a navy page. The indigo product cards and white active pill follow the night palette (03) well, but the page ends in a bright white bottom bar under the indigo footer." },
+    { "id": "commerce--page--home--mobile-dark", "status": "ok", "fidelity": 4, "note": "A navy top bar with a white cart pill, then the yolk compact band and indigo filter pills with a white active pill and dot, then indigo cards with saturated covers. It carries the reference's night language: one bright field on deep navy." },
+    { "id": "commerce--page--products-canvas-field-tote--desktop-light", "status": "finding", "fidelity": 3, "note": "Cream header band (correct before a large cover) with a well-drawn price-tag scene (crescent-shaded tag, hexagon, blue disc, sparkles). But the band is about 440px tall and holds only a breadcrumb, a 36px title and a tag, so the cover, price and blue add-to-cart pill fall below the first screen. Reference hierarchy puts the action in view." },
+    { "id": "commerce--page--products-canvas-field-tote--mobile-light", "status": "ok", "fidelity": 4, "note": "Compact cream band with the tag cluster tucked in the corner, then a big green cover with a centered tote pictogram, a bold price and body copy. Order and scale follow the phone reference (04) and the cover rule well." },
+    { "id": "commerce--page--products-canvas-field-tote--desktop-dark", "status": "finding", "fidelity": 3, "note": "Indigo header band on navy with the same large tag scene, and indigo-filled variant tiles. The night tones match 03, but the same oversized band pushes the cover and buy action below the fold." },
+    { "id": "commerce--page--products-canvas-field-tote--mobile-dark", "status": "ok", "fidelity": 4, "note": "Indigo compact band with the corner tag cluster, a green cover, and a white bold price on navy. The night palette reads clean and the hierarchy is clear, close to the reference's dark band." },
+    { "id": "commerce--page--products-merino-crew-sweater--desktop-light", "status": "finding", "fidelity": 3, "note": "Same cream band and tag scene. An orange cover holds a crescent-shaded sweater pictogram, and the size tiles are bordered with a dot that grows with each size. The drawing is good, but the tall decorative band again takes half the first screen before the price and size choice." },
+    { "id": "commerce--page--products-merino-crew-sweater--mobile-light", "status": "finding", "fidelity": 4, "note": "Compact cream band, a large orange cover with the sweater pictogram, and a bold price; the language is close to 04. The breadcrumb wraps beside the corner cluster and leaves the separator and current page alone on a second line." },
+    { "id": "commerce--page--products-merino-crew-sweater--desktop-dark", "status": "finding", "fidelity": 3, "note": "Indigo band on navy with the tag scene, an orange cover and indigo size tiles. The night palette is correct, but the band height pushes the purchase controls below the first screen, as on the light pages." },
+    { "id": "commerce--page--products-merino-crew-sweater--mobile-dark", "status": "finding", "fidelity": 4, "note": "Indigo compact band, orange cover and white price on navy; well balanced. The breadcrumb wraps under the corner cluster in the same way as the light page." },
+    { "id": "commerce--page--cart--desktop-light", "status": "finding", "fidelity": 3, "note": "Blue header band with a crescent-shaded basket of discs, a cloud and sparkles, then a cream empty-state panel with a tipped basket and an ink pill. The art is in the reference's spirit, but the about 440px band holds two short lines, and the empty state's own composition sits at the fold." },
+    { "id": "commerce--page--cart--mobile-light", "status": "finding", "fidelity": 4, "note": "Compact blue band with the basket cluster in the corner, then a cream panel with a large tipped-basket composition, an h4 title and an ink pill on its ledge. The craft is close to 07/09, but a basket pictures both the band and the empty state, so the same subject shows twice in one viewport." },
+    { "id": "commerce--page--cart--desktop-dark", "status": "finding", "fidelity": 4, "note": "Blue band on navy with the basket scene and an indigo empty-state panel with a white pill. The night tones match the reference, but the page ends in a bright white bottom bar under the indigo footer." },
+    { "id": "commerce--page--cart--mobile-dark", "status": "ok", "fidelity": 4, "note": "Compact blue band, an indigo empty-state panel with the basket composition and a white pill on a navy page. It reads like the reference's night palette with one bright field." }
+  ],
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "major",
+      "area": "hierarchy",
+      "summary": "On desktop the 'compact' header band on detail and cart screens is about 440px tall but holds only a breadcrumb, an h2 title and a tag or one line. The decorative scene takes half the first screen, and the item cover, price and blue primary action start at or below the fold. The reference's tall bands (02) carry the page's message and its pill. A band that only names the page is not given that height.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "specRule": ".ms-field--header { --ms-arc: var(--size-arc-sm); padding-block: var(--space-10) var(--space-8); min-height: calc(min(42vw, var(--size-band-art)) * 0.6 + var(--space-12)); } … | `size.bandArt` | `640px` |",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-1/crops/commerce--page--products-canvas-field-tote--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-1/crops/commerce--page--products-merino-crew-sweater--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-1/crops/commerce--page--cart--desktop-light--s1.png",
+        "pipeline/headspace-study/reference/set/02-desktop.png"
+      ],
+      "items": [
+        "commerce--page--products-canvas-field-tote--desktop-light",
+        "commerce--page--products-canvas-field-tote--desktop-dark",
+        "commerce--page--products-merino-crew-sweater--desktop-light",
+        "commerce--page--products-merino-crew-sweater--desktop-dark",
+        "commerce--page--cart--desktop-light"
+      ],
+      "promptFix": "Size a compact header band by its content, not by its art. Its height is the text block plus `space.10` above and `space.8` below, about 200–260px on desktop. The art box takes the trailing 40% of the width and is capped at the band's height (`max-height: 100%`, the SVG scales down to fit), and it never sets a min-height on the band. Only a front-page or landing hero, which holds a display headline, a lead and pills, may grow tall around its art. On any screen whose job is an action (a detail page with a buy or book action, a cart, a form), the item's cover or the primary action must start inside the first 600px of a desktop viewport."
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "In dark mode the page still ends in a bright white bottom bar under the indigo footer, the one light element at night. The spec puts the bar on `surface.inverse`, which is white in the dark table. The reference's night band (03) stays dark to the edge. Named in rc.3 and still open.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": true,
+      "specRule": "Footer | … `surface.inverse` bottom bar with round icon buttons … (dark) `color.surface.inverse` | `#ffffff`",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-1/sheets/commerce--page--home--desktop-dark.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-1/sheets/commerce--page--cart--desktop-dark.png",
+        "pipeline/headspace-study/reference/set/03-desktop.png"
+      ],
+      "items": [
+        "commerce--page--home--desktop-dark",
+        "commerce--page--cart--desktop-dark"
+      ],
+      "promptFix": "Give the footer bottom bar its own role token, the darkest surface in both appearances: ink by day, and at night a step darker than the navy page, with white text. Keep `surface.inverse` for small floating pieces such as toasts."
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "hierarchy",
+      "summary": "The front page opens with a product-header band: an h2 title and a lead with no pills, so the left half of the yolk band is empty. The vignette beside it is good. The reference's hero (02) fills that side with a 64px headline, a lead and a blue pill.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-1/crops/commerce--page--home--desktop-light--s1.png",
+        "pipeline/headspace-study/reference/set/02-desktop.png"
+      ],
+      "items": ["commerce--page--home--desktop-light"],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "signature",
+      "summary": "On the empty cart, the header band and the empty-state panel both picture a basket, so the same subject is drawn twice in one viewport. The reference gives each composition its own role and subject (07).",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-1/crops/commerce--page--cart--mobile-light--s1.png"
+      ],
+      "items": ["commerce--page--cart--mobile-light"],
+      "promptFix": ""
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "On phones the breadcrumb in the compact band wraps beside the corner cluster and leaves a separator and the current page alone on a second line. Named in rc.3 and still open.",
+      "samples": 1,
+      "of": 1,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-1/crops/commerce--page--products-merino-crew-sweater--mobile-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-1/crops/commerce--page--products-merino-crew-sweater--mobile-dark--s1.png"
+      ],
+      "items": [
+        "commerce--page--products-merino-crew-sweater--mobile-light",
+        "commerce--page--products-merino-crew-sweater--mobile-dark"
+      ],
+      "promptFix": ""
+    }
+  ]
+}
+```

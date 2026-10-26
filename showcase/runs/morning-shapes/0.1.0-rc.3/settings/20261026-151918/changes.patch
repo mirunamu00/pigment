@@ -1,0 +1,1915 @@
+diff --git a/index.html b/index.html
+index 6285f3e..627f671 100644
+--- a/index.html
++++ b/index.html
+@@ -3,7 +3,14 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <meta name="color-scheme" content="light dark" />
+     <link rel="icon" href="data:," />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Figtree:wght@400;500;700&display=swap"
++    />
+     <title>Account Settings</title>
+   </head>
+   <body>
+diff --git a/src/App.tsx b/src/App.tsx
+index 3f09961..829746a 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -5,7 +5,6 @@ import NotificationsPage from './pages/NotificationsPage';
+ import SecurityPage from './pages/SecurityPage';
+ import BillingPage from './pages/BillingPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <Routes>
+diff --git a/src/components/ConfirmDialog.tsx b/src/components/ConfirmDialog.tsx
+index 0ac9dd1..59182bc 100644
+--- a/src/components/ConfirmDialog.tsx
++++ b/src/components/ConfirmDialog.tsx
+@@ -53,13 +53,25 @@ export default function ConfirmDialog({
+         {children}
+       </div>
+       <div className="dialog-actions">
+-        <button ref={cancelRef} type="button" className="button" onClick={onCancel} data-testid={`${testId}-cancel`}>
++        <button
++          ref={cancelRef}
++          type="button"
++          className="ms-pill ms-pill--cream"
++          onClick={onCancel}
++          data-testid={`${testId}-cancel`}
++        >
+           Cancel
+         </button>
+-        <button type="button" className="button button-primary" onClick={onConfirm} data-testid={`${testId}-confirm`}>
++        <button type="button" className="ms-pill" onClick={onConfirm} data-testid={`${testId}-confirm`}>
+           {confirmLabel}
+         </button>
+       </div>
++      <button
++        type="button"
++        className="ms-pill ms-pill--cream ms-circle ms-circle--sm dialog-close"
++        onClick={onCancel}
++        aria-label="Close"
++      />
+     </dialog>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 8802b51..e1090df 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,23 +1,42 @@
+-import { NavLink, Outlet } from 'react-router';
++import { useEffect, useRef, useState } from 'react';
++import { NavLink, Outlet, useLocation } from 'react-router';
+ import { currentUser } from '../data/account';
++import { AvatarDisc } from './shapes';
++import { useMotionObserver } from './useMotionObserver';
+ 
++// Each area owns one hue, in navigation order (color.category.1–4).
+ const SECTIONS = [
+-  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile' },
+-  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications' },
+-  { to: '/settings/security', label: 'Security', testId: 'nav-security' },
+-  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing' },
++  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile', hue: 1 },
++  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications', hue: 2 },
++  { to: '/settings/security', label: 'Security', testId: 'nav-security', hue: 3 },
++  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing', hue: 4 },
+ ];
+ 
+ export default function Layout() {
++  const mainRef = useRef<HTMLElement>(null);
++  const { pathname } = useLocation();
++  const [scrolled, setScrolled] = useState(false);
++
++  useMotionObserver(mainRef, pathname);
++
++  // The top bar gets its shadow after 8px of scroll.
++  useEffect(() => {
++    const onScroll = () => setScrolled(window.scrollY > 8);
++    onScroll();
++    window.addEventListener('scroll', onScroll, { passive: true });
++    return () => window.removeEventListener('scroll', onScroll);
++  }, []);
++
+   return (
+     <div className="app-shell">
+-      <a className="skip-link" href="#main-content">
++      <a className="skip-link ms-pill" href="#main-content">
+         Skip to content
+       </a>
+-      <header className="topbar">
++      <header className={scrolled ? 'topbar is-scrolled' : 'topbar'}>
+         <div className="brand">Account Settings</div>
+         <div className="person" data-testid="current-user">
+           <span className="avatar avatar-small" aria-hidden="true">
++            <AvatarDisc hue="yellow" />
+             {currentUser.initials}
+           </span>
+           <span>{currentUser.name}</span>
+@@ -31,6 +50,7 @@ export default function Layout() {
+               {SECTIONS.map((section) => (
+                 <li key={section.to}>
+                   <NavLink to={section.to} className="nav-link" data-testid={section.testId}>
++                    <span className={`ms-dot ms-dot--${section.hue}`} aria-hidden="true" />
+                     {section.label}
+                   </NavLink>
+                 </li>
+@@ -39,7 +59,7 @@ export default function Layout() {
+           </nav>
+         </aside>
+ 
+-        <main id="main-content" className="content" tabIndex={-1}>
++        <main id="main-content" className="content" tabIndex={-1} ref={mainRef}>
+           <Outlet />
+         </main>
+       </div>
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..5446e21 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import './styles/tokens.css';
++import './styles/morning-shapes.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/BillingPage.tsx b/src/pages/BillingPage.tsx
+index 54b10a4..bf3491f 100644
+--- a/src/pages/BillingPage.tsx
++++ b/src/pages/BillingPage.tsx
+@@ -1,5 +1,7 @@
+ import { useState } from 'react';
+ import ConfirmDialog from '../components/ConfirmDialog';
++import HeaderBand from '../components/HeaderBand';
++import { Plate } from '../components/shapes';
+ import { initialPlanId, invoices, paymentMethod, plans, type Plan, type PlanId } from '../data/billing';
+ 
+ export default function BillingPage() {
+@@ -18,15 +20,18 @@ export default function BillingPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
++      <HeaderBand area="billing">
+         <h1>Billing</h1>
+-        <p className="muted">
++        <p className="lead">
+           You are on the <strong data-testid="current-plan-name">{currentPlan.name}</strong> plan.
+         </p>
+-      </div>
++      </HeaderBand>
+ 
+       <section className="panel" aria-labelledby="plans-heading">
+-        <h2 id="plans-heading">Plans</h2>
++        <div className="panel-head">
++          <Plate name="tiers" small />
++          <h2 id="plans-heading">Plans</h2>
++        </div>
+         <ul className="plan-grid">
+           {plans.map((plan) => {
+             const isCurrent = plan.id === currentPlanId;
+@@ -38,6 +43,7 @@ export default function BillingPage() {
+                 data-current={isCurrent ? 'true' : 'false'}
+                 aria-current={isCurrent ? 'true' : undefined}
+               >
++                {isCurrent && <span className="check-disc" aria-hidden="true" />}
+                 <h3>{plan.name}</h3>
+                 <p className="plan-price">
+                   <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
+@@ -45,21 +51,21 @@ export default function BillingPage() {
+                 <ul className="feature-list">
+                   {plan.features.map((feature) => (
+                     <li key={feature}>
+-                      <svg className="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+-                        <path d="M3 8.5l3 3l7-7" fill="none" stroke="currentColor" strokeWidth="2" />
++                      <svg className="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
++                        <path d="M6.3 14.2.8 8.7a1.5 1.5 0 0 1 2.1-2.1l3.4 3.4 6.8-8a1.5 1.5 0 1 1 2.3 1.9Z" />
+                       </svg>
+                       <span>{feature}</span>
+                     </li>
+                   ))}
+                 </ul>
+                 {isCurrent ? (
+-                  <p className="pill pill-current" data-testid="current-plan-badge">
++                  <p className="ms-badge ms-badge--on-field" data-testid="current-plan-badge">
+                     Current plan
+                   </p>
+                 ) : (
+                   <button
+                     type="button"
+-                    className="button"
++                    className="ms-pill"
+                     onClick={() => setPendingPlan(plan)}
+                     data-testid={`choose-plan-${plan.id}`}
+                   >
+@@ -76,12 +82,11 @@ export default function BillingPage() {
+       </section>
+ 
+       <section className="panel" aria-labelledby="payment-heading">
+-        <h2 id="payment-heading">Payment method</h2>
++        <div className="panel-head">
++          <Plate name="card" small index={1} />
++          <h2 id="payment-heading">Payment method</h2>
++        </div>
+         <div className="payment-method" data-testid="payment-method">
+-          <svg className="card-icon" viewBox="0 0 32 22" width="32" height="22" aria-hidden="true" focusable="false">
+-            <rect x="1" y="1" width="30" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-            <rect x="1" y="6" width="30" height="4" fill="currentColor" />
+-          </svg>
+           <span>
+             {paymentMethod.brand} ending in {paymentMethod.last4}
+           </span>
+@@ -90,8 +95,11 @@ export default function BillingPage() {
+       </section>
+ 
+       <section className="panel" aria-labelledby="invoices-heading">
+-        <h2 id="invoices-heading">Invoices</h2>
+-        <div className="table-wrap">
++        <div className="panel-head">
++          <Plate name="page" small index={2} />
++          <h2 id="invoices-heading">Invoices</h2>
++        </div>
++        <div className="table-wrap" tabIndex={0} role="region" aria-labelledby="invoices-heading">
+           <table className="table" data-testid="invoices-table">
+             <thead>
+               <tr>
+@@ -110,7 +118,8 @@ export default function BillingPage() {
+                   <td>{invoice.date}</td>
+                   <td className="numeric">{invoice.amount}</td>
+                   <td>
+-                    <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
++                    <span className={invoice.status === 'Paid' ? 'ms-badge ms-badge--success' : 'ms-badge ms-badge--warning'}>
++                      <span className="ms-dot" aria-hidden="true" />
+                       {invoice.status}
+                     </span>
+                   </td>
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 9781ca6..f852d29 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,20 @@
+ import { Link } from 'react-router';
++import { ErrorComposition } from '../components/shapes';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The settings page you are looking for does not exist or has moved.</p>
+-      <Link to="/settings/profile">Go to profile settings</Link>
++    <section className="empty-state error-band ms-field ms-field--rise ms-hue--cream" data-testid="not-found">
++      <svg className="ms-arch" viewBox="0 0 1440 72" preserveAspectRatio="none" aria-hidden="true" focusable="false">
++        <path d="M0 72V60Q720 -60 1440 60V72Z" />
++      </svg>
++      <div className="ms-field__inner">
++        <ErrorComposition className="error-art" />
++        <h1>Page not found</h1>
++        <p className="lead">The settings page you are looking for does not exist or has moved.</p>
++        <Link to="/settings/profile" className="ms-pill">
++          Go to profile settings
++        </Link>
++      </div>
+     </section>
+   );
+ }
+diff --git a/src/pages/NotificationsPage.tsx b/src/pages/NotificationsPage.tsx
+index 040835b..f3ea197 100644
+--- a/src/pages/NotificationsPage.tsx
++++ b/src/pages/NotificationsPage.tsx
+@@ -1,5 +1,10 @@
+ import { useState } from 'react';
+ import { notificationGroups } from '../data/notifications';
++import HeaderBand from '../components/HeaderBand';
++import { Plate, type Pictogram } from '../components/shapes';
++
++// Each settings group gets a spot plate naming its subject.
++const GROUP_PICTOGRAMS: Record<string, Pictogram> = { email: 'envelope', push: 'bubble' };
+ 
+ function initialState(): Record<string, boolean> {
+   const state: Record<string, boolean> = {};
+@@ -21,17 +26,20 @@ export default function NotificationsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
++      <HeaderBand area="notifications">
+         <h1>Notifications</h1>
+-        <p className="muted">Choose what you hear about and where. Changes apply right away.</p>
+-        <p className="small" data-testid="notifications-count">
++        <p className="lead">Choose what you hear about and where. Changes apply right away.</p>
++        <p className="field-chip" data-testid="notifications-count">
+           {onCount} of {total} notifications on
+         </p>
+-      </div>
++      </HeaderBand>
+ 
+-      {notificationGroups.map((group) => (
++      {notificationGroups.map((group, index) => (
+         <fieldset key={group.id} className="panel fieldset" data-testid={`notification-group-${group.id}`}>
+-          <legend className="legend">{group.title}</legend>
++          <legend className="legend">
++            <Plate name={GROUP_PICTOGRAMS[group.id] ?? 'bubble'} small index={index} />
++            {group.title}
++          </legend>
+           <p className="muted small">{group.description}</p>
+           <ul className="switch-list">
+             {group.settings.map((setting) => {
+diff --git a/src/pages/ProfilePage.tsx b/src/pages/ProfilePage.tsx
+index 89f0a81..075881c 100644
+--- a/src/pages/ProfilePage.tsx
++++ b/src/pages/ProfilePage.tsx
+@@ -1,5 +1,7 @@
+ import { useState, type ChangeEvent, type FormEvent } from 'react';
+ import { BIO_MAX_LENGTH, currentUser, initialProfile, timeZones, type Profile } from '../data/account';
++import HeaderBand from '../components/HeaderBand';
++import { AvatarDisc } from '../components/shapes';
+ 
+ type ProfileErrors = Partial<Record<keyof Profile, string>>;
+ 
+@@ -57,27 +59,25 @@ export default function ProfilePage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
++      <HeaderBand area="profile">
+         <h1>Profile</h1>
+-        <p className="muted">This information is shown to people in your workspace.</p>
+-      </div>
++        <p className="lead">This information is shown to people in your workspace.</p>
++      </HeaderBand>
+ 
+       <form className="panel form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
+         <div className="avatar-row">
+           <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
++            <AvatarDisc hue="yellow" />
+             {initials}
+           </span>
+           <div>
+             <p className="field-label">Profile photo</p>
+             <p className="muted small">A placeholder with your initials is shown until you upload a photo.</p>
+-            <button type="button" className="button" data-testid="change-photo">
+-              <svg className="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
++            <button type="button" className="ms-pill ms-pill--cream ms-pill--sm" data-testid="change-photo">
++              <svg className="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                 <path
+-                  d="M4 7h3l2-2h6l2 2h3v12H4z M12 10a3 3 0 1 0 0 6a3 3 0 0 0 0-6"
+-                  fill="none"
+-                  stroke="currentColor"
+-                  strokeWidth="2"
+-                  strokeLinejoin="round"
++                  fillRule="evenodd"
++                  d="M9 3.5 7.6 5H5a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3h-2.6L15 3.5a2 2 0 0 0-1.4-.5h-3.2A2 2 0 0 0 9 3.5ZM12 8.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm0 2.2a2.3 2.3 0 1 0 0 4.6 2.3 2.3 0 0 0 0-4.6Z"
+                 />
+               </svg>
+               <span>Change photo</span>
+@@ -149,22 +149,24 @@ export default function ProfilePage() {
+             <label htmlFor="profile-timeZone" className="field-label">
+               Time zone
+             </label>
+-            <select
+-              id="profile-timeZone"
+-              className="input"
+-              value={profile.timeZone}
+-              onChange={update('timeZone')}
+-              aria-invalid={errors.timeZone ? true : undefined}
+-              aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
+-              data-testid="profile-timezone"
+-            >
+-              <option value="">Select a time zone</option>
+-              {timeZones.map((zone) => (
+-                <option key={zone.value} value={zone.value}>
+-                  {zone.label}
+-                </option>
+-              ))}
+-            </select>
++            <span className="select-wrap">
++              <select
++                id="profile-timeZone"
++                className="input"
++                value={profile.timeZone}
++                onChange={update('timeZone')}
++                aria-invalid={errors.timeZone ? true : undefined}
++                aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
++                data-testid="profile-timezone"
++              >
++                <option value="">Select a time zone</option>
++                {timeZones.map((zone) => (
++                  <option key={zone.value} value={zone.value}>
++                    {zone.label}
++                  </option>
++                ))}
++              </select>
++            </span>
+             {errors.timeZone && (
+               <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
+                 {errors.timeZone}
+@@ -198,10 +200,10 @@ export default function ProfilePage() {
+         </div>
+ 
+         <div className="form-actions">
+-          <button type="submit" className="button button-primary" data-testid="profile-save">
++          <button type="submit" className="ms-pill" data-testid="profile-save">
+             Save changes
+           </button>
+-          <button type="button" className="button" onClick={handleReset} data-testid="profile-reset">
++          <button type="button" className="ms-pill ms-pill--cream" onClick={handleReset} data-testid="profile-reset">
+             Reset
+           </button>
+           <p role="status" className="status-message" data-testid="profile-status">
+diff --git a/src/pages/SecurityPage.tsx b/src/pages/SecurityPage.tsx
+index 3498f5d..786fbae 100644
+--- a/src/pages/SecurityPage.tsx
++++ b/src/pages/SecurityPage.tsx
+@@ -1,5 +1,8 @@
+ import { useState, type FormEvent } from 'react';
+ import { initialSessions, type Session } from '../data/sessions';
++import Glyph from '../components/Glyph';
++import HeaderBand from '../components/HeaderBand';
++import { Plate } from '../components/shapes';
+ 
+ interface PasswordForm {
+   current: string;
+@@ -71,13 +74,16 @@ export default function SecurityPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
++      <HeaderBand area="security">
+         <h1>Security</h1>
+-        <p className="muted">Manage your password and the devices signed in to your account.</p>
+-      </div>
++        <p className="lead">Manage your password and the devices signed in to your account.</p>
++      </HeaderBand>
+ 
+       <section className="panel" aria-labelledby="password-heading">
+-        <h2 id="password-heading">Change password</h2>
++        <div className="panel-head">
++          <Plate name="padlock" small />
++          <h2 id="password-heading">Change password</h2>
++        </div>
+         <form className="form" noValidate onSubmit={handleSubmit} data-testid="password-form">
+           <div className="form-stack">
+             {FIELDS.map((field) => {
+@@ -127,7 +133,7 @@ export default function SecurityPage() {
+             })}
+           </div>
+           <div className="form-actions">
+-            <button type="submit" className="button button-primary" data-testid="password-submit">
++            <button type="submit" className="ms-pill" data-testid="password-submit">
+               Update password
+             </button>
+             <p role="status" className="status-message" data-testid="password-status">
+@@ -138,9 +144,14 @@ export default function SecurityPage() {
+       </section>
+ 
+       <section className="panel" aria-labelledby="sessions-heading">
+-        <h2 id="sessions-heading">Active sessions</h2>
+-        <p className="muted small">Revoke a session to sign that device out immediately.</p>
+-        <div className="table-wrap">
++        <div className="panel-head">
++          <Plate name="device" small index={1} />
++          <div>
++            <h2 id="sessions-heading">Active sessions</h2>
++            <p className="muted small">Revoke a session to sign that device out immediately.</p>
++          </div>
++        </div>
++        <div className="table-wrap" tabIndex={0} role="region" aria-labelledby="sessions-heading">
+           <table className="table" data-testid="sessions-table">
+             <thead>
+               <tr>
+@@ -156,12 +167,15 @@ export default function SecurityPage() {
+               {sessions.map((session) => (
+                 <tr key={session.id} data-testid="session-row">
+                   <td>
+-                    {session.device}
+-                    {session.current && (
+-                      <span className="pill pill-neutral small" data-testid="current-session">
+-                        This device
+-                      </span>
+-                    )}
++                    <span className="cell-device">
++                      {session.device}
++                      {session.current && (
++                        <span className="ms-badge ms-badge--success" data-testid="current-session">
++                          <span className="ms-dot" aria-hidden="true" />
++                          This device
++                        </span>
++                      )}
++                    </span>
+                   </td>
+                   <td>{session.location}</td>
+                   <td>{session.lastActive}</td>
+@@ -169,7 +183,7 @@ export default function SecurityPage() {
+                     {!session.current && (
+                       <button
+                         type="button"
+-                        className="button button-danger"
++                        className="ms-pill ms-pill--cream ms-pill--danger ms-pill--sm"
+                         onClick={() => revoke(session)}
+                         data-testid={`revoke-${session.id}`}
+                       >
+@@ -183,9 +197,12 @@ export default function SecurityPage() {
+           </table>
+         </div>
+         {sessions.length === 1 && (
+-          <p className="muted small" data-testid="sessions-empty">
+-            No other devices are signed in.
+-          </p>
++          <div className="empty-note">
++            <Glyph kind="crescent" color="--color-field-green" />
++            <p className="muted" data-testid="sessions-empty">
++              No other devices are signed in.
++            </p>
++          </div>
+         )}
+         <p role="status" className="status-message" data-testid="sessions-status">
+           {sessionMessage}
+diff --git a/src/styles/base.css b/src/styles/base.css
+index bfb6f76..8290fd4 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,58 +1,44 @@
+ /*
+- * Base styles for the Account Settings app.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Account Settings app styles on Morning Shapes (morning-shapes@0.1.0-rc.3).
++ * Token values come from tokens.css; signature pieces from morning-shapes.css.
++ * The app's earlier variable names are kept as aliases so nothing breaks mid-migration.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-danger-bg: #fdecee;
+-  --color-switch-off: #bbbbbb;
+-  --color-switch-on: #0645ad;
+-  --color-switch-thumb: #ffffff;
+-  --color-strength-weak: #b00020;
+-  --color-strength-fair: #7a5a00;
+-  --color-strength-strong: #2e7d32;
+-  --color-pill-neutral-bg: #e8e8e8;
+-  --color-pill-neutral-text: #444444;
+-  --color-pill-current-bg: #e3f2e5;
+-  --color-pill-current-text: #1b5e20;
+-  --color-pill-due-bg: #fff4d6;
+-  --color-pill-due-text: #7a5a00;
+-  --color-backdrop: rgba(0, 0, 0, 0.4);
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
+-  --content-max-width: 880px;
+-  --avatar-size-large: 72px;
+-  --switch-width: 40px;
+-  --switch-height: 22px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-default);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-default);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-link);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-status-success);
++  --color-negative: var(--color-status-danger);
++  --color-backdrop: var(--color-surface-overlay);
++
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --font-size-small: var(--font-size-label);
++  --font-size-h1: var(--font-size-h2);
++  --line-height: var(--font-line-height-body);
++
++  --radius: var(--radius-md);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-thick);
++  --sidebar-width: var(--size-sidebar);
++  --content-max-width: var(--size-reading);
++  --avatar-size-large: var(--size-plate);
++  --switch-width: 48px;
++  --switch-height: 28px;
++
++  /* Small solid icons, drawn as masks so they take the current text color */
++  --ms-icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm-1.1 3.5h2.2v5.6H6.9Zm0 7h2.2v2.2H6.9Z'/%3E%3C/svg%3E");
++  --ms-icon-tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.3 14.2.8 8.7a1.5 1.5 0 0 1 2.1-2.1l3.4 3.4 6.8-8a1.5 1.5 0 1 1 2.3 1.9Z'/%3E%3C/svg%3E");
++  --ms-icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.6 5.2h10.8a1 1 0 0 1 .8 1.6l-5.4 6a1 1 0 0 1-1.6 0l-5.4-6a1 1 0 0 1 .8-1.6Z'/%3E%3C/svg%3E");
++  --ms-icon-close: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 1.3 8 5.9l4.6-4.6a1.5 1.5 0 0 1 2.1 2.1L10.1 8l4.6 4.6a1.5 1.5 0 0 1-2.1 2.1L8 10.1l-4.6 4.6a1.5 1.5 0 0 1-2.1-2.1L5.9 8 1.3 3.4a1.5 1.5 0 0 1 2.1-2.1Z'/%3E%3C/svg%3E");
+ }
+ 
+ *,
+@@ -67,45 +53,67 @@ body {
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  text-wrap: balance;
+ }
+ 
++/* Product page title */
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-size: var(--font-size-h2);
++  line-height: var(--font-line-height-heading);
+ }
+ 
++/* Panel and dialog titles */
+ h2 {
+-  font-size: var(--font-size-h2);
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
+ }
+ 
++/* Item titles */
+ h3 {
+-  font-size: var(--font-size-base);
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-2);
++  margin: 0;
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-link);
++  text-decoration-thickness: 1px;
++  text-underline-offset: 3px;
++}
++
++@media (hover: hover) {
++  a:hover {
++    text-decoration-thickness: 2px;
++    text-underline-offset: 2px;
++  }
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
++strong {
++  font-weight: var(--font-weight-bold);
++}
++
+ .visually-hidden {
+   position: absolute;
+   width: 1px;
+@@ -124,19 +132,19 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-4);
++  top: var(--space-4);
++  z-index: 30;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .numeric {
+@@ -148,7 +156,7 @@ a {
+   flex-shrink: 0;
+ }
+ 
+-/* Layout */
++/* ---------- App shell ---------- */
+ .app-shell {
+   min-height: 100vh;
+   display: flex;
+@@ -156,16 +164,36 @@ a {
+ }
+ 
+ .topbar {
++  position: sticky;
++  top: 0;
++  z-index: 20;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  height: var(--size-header);
++  padding: 0 var(--space-12);
++  background: var(--color-surface-default);
++  transition: box-shadow var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.topbar.is-scrolled {
++  box-shadow: var(--shadow-header);
+ }
+ 
++/* Wordmark: the product's own name */
+ .brand {
+-  font-weight: bold;
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
++}
++
++.person {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .settings-layout {
+@@ -174,112 +202,247 @@ a {
+ }
+ 
+ .sidebar {
+-  width: var(--sidebar-width);
++  width: var(--size-sidebar);
+   flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  background: var(--color-surface-default);
++  padding: var(--space-6) var(--space-4) var(--space-6) var(--space-12);
++}
++
++.sidebar nav {
++  position: sticky;
++  top: calc(var(--size-header) + var(--space-6));
+ }
+ 
+ .nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-1);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border: var(--border-width) solid transparent;
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  height: var(--size-control);
++  padding: 0 var(--space-4);
++  border-radius: var(--radius-full);
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
+   text-decoration: none;
++  white-space: nowrap;
++  transition: background-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.nav-link:focus-visible {
++  outline-offset: -2px;
+ }
+ 
+ .nav-link.active {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  font-weight: bold;
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++/* Selected item: white dot (the label colour) instead of the area hue */
++.nav-link.active .ms-dot {
++  --ms-dot: currentColor;
++}
++
++@media (hover: hover) {
++  .nav-link:not(.active):hover {
++    background: var(--color-surface-hover);
++  }
+ }
+ 
+ .content {
+   flex: 1;
+   min-width: 0;
+-  max-width: var(--content-max-width);
+-  padding: var(--space-6);
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-6);
++  gap: var(--space-8);
++  padding-bottom: var(--space-16);
+ }
+ 
+-.person {
++.content:focus {
++  outline: none;
++}
++
++/* Body column under the header band: settings and forms sit in size.reading */
++.content > :not(.page-header, dialog) {
++  margin-inline: var(--space-12);
++  max-width: var(--size-reading);
++}
++
++/* ---------- Header band (compact, cream on settings screens) ---------- */
++.content > .page-header {
++  /* the arc, then space.12 to the first panel (the column gap adds space.8) */
++  margin-block-end: calc(var(--ms-arc) + var(--space-12) - var(--space-8));
++}
++
++.page-header .ms-field__inner {
+   display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-3);
++  margin-inline: 0;
++}
++
++.page-header .lead {
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-snug);
++  color: var(--ms-on-field);
++}
++
++/* Fact on a field: white chip, ink label */
++.field-chip {
++  display: inline-flex;
+   align-items: center;
+   gap: var(--space-2);
++  min-height: var(--size-control-sm);
++  padding: 0 var(--space-4);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
++/* ---------- Avatars: bold initials on a crescent disc ---------- */
+ .avatar {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-weight: bold;
++  position: relative;
++  isolation: isolate;
++  display: inline-grid;
++  place-items: center;
++  border-radius: var(--radius-full);
++  color: var(--color-on-field-yellow);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
+   flex-shrink: 0;
+ }
+ 
++.avatar-disc {
++  position: absolute;
++  inset: 0;
++  width: 100%;
++  height: 100%;
++  z-index: -1;
++}
++
+ .avatar-small {
+-  width: 28px;
+-  height: 28px;
+-  font-size: var(--font-size-small);
++  width: var(--size-control-sm);
++  height: var(--size-control-sm);
++  font-size: var(--font-size-label);
+ }
+ 
+ .avatar-large {
+-  width: var(--avatar-size-large);
+-  height: var(--avatar-size-large);
+-  font-size: var(--font-size-h2);
++  width: var(--size-plate);
++  height: var(--size-plate);
++  font-size: var(--font-size-h3);
++}
++
++/* ---------- Panels (settings groups) ---------- */
++.panel {
++  --ms-secondary: var(--color-surface-raised);
++  position: relative;
++  border: 0;
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
++  padding: var(--space-8);
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-6);
++}
++
++.panel-head {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
+ }
+ 
+-/* Panels */
+-.panel,
+-.card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++.panel-head > div {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-1);
++}
++
++.ms-plate__ground {
++  fill: var(--color-art-white);
++}
++
++/* ---------- Empty and error states ---------- */
++.empty-note {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
+ }
+ 
+-.empty-state {
++/* Error page: a cream band rising from the white, running to the bottom of the page */
++.error-band {
++  flex: 1;
++  margin-top: calc(var(--ms-arc) + var(--space-16));
++}
++
++.content:has(> .error-band) {
++  padding-bottom: 0;
++}
++
++.error-band .lead {
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
++  max-width: 480px;
++  margin-bottom: var(--space-4);
++}
++
++.error-band .ms-field__inner {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: var(--space-4);
+   text-align: center;
+-  padding: var(--space-8) var(--space-4);
++  max-width: var(--size-reading);
++}
++
++.error-band .error-art {
++  width: var(--size-art);
++  height: auto;
++  margin-bottom: var(--space-4);
++}
++
++.content > .error-band.ms-field {
++  margin-inline: 0;
++  max-width: none;
+ }
+ 
+-/* Forms */
++/* ---------- Forms ---------- */
+ .form {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-4);
++  gap: var(--space-8);
+ }
+ 
+ .form-grid {
+   display: grid;
+-  grid-template-columns: repeat(2, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: var(--space-6);
+ }
+ 
+ .form-stack {
+   display: grid;
+-  gap: var(--space-4);
+-  max-width: 400px;
++  gap: var(--space-6);
++  max-width: 480px;
+ }
+ 
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
+-}
+-
+-.field p {
+-  margin: 0;
++  gap: var(--space-2);
+ }
+ 
+ .field-wide {
+@@ -287,33 +450,110 @@ a {
+ }
+ 
+ .field-label {
+-  font-weight: bold;
+-  margin: 0;
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.field-label .small {
++  font-weight: var(--font-weight-regular);
+ }
+ 
+ .field-error {
+-  color: var(--color-negative);
+-  font-size: var(--font-size-small);
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-2);
++  color: var(--color-status-danger);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++}
++
++.field-error::before,
++.status-message:not(:empty)::before,
++.strength::before {
++  content: '';
++  flex: none;
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  background: currentColor;
++  mask: var(--ms-icon-alert) center / contain no-repeat;
+ }
+ 
+ .input {
+   font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  height: var(--size-control-lg);
++  padding: 0 var(--space-4);
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+   min-width: 0;
++  width: 100%;
++  transition: border-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.input::placeholder {
++  color: var(--color-text-secondary);
++}
++
++.input:focus-visible,
++.input:focus {
++  outline: none;
++  border-color: var(--color-focus-ring);
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-negative);
++  border-color: var(--color-status-danger);
++}
++
++.input:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
++  border-color: var(--color-border-default);
++}
++
++@media (hover: hover) {
++  .input:hover:not(:focus, [aria-invalid='true'], :disabled) {
++    border-color: var(--color-text-secondary);
++  }
+ }
+ 
+ .textarea {
++  height: auto;
++  min-height: calc(4lh + 2 * var(--space-3) + 4px);
++  padding: var(--space-3) var(--space-4);
+   resize: vertical;
+ }
+ 
++.select-wrap {
++  position: relative;
++  display: block;
++}
++
++.select-wrap select {
++  appearance: none;
++  padding-right: var(--space-12);
++  cursor: pointer;
++}
++
++.select-wrap::after {
++  content: '';
++  position: absolute;
++  right: var(--space-4);
++  top: 50%;
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  translate: 0 -50%;
++  background: var(--color-text-icon);
++  mask: var(--ms-icon-chevron) center / contain no-repeat;
++  pointer-events: none;
++}
++
++.select-wrap option {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++}
++
+ .form-actions {
+   display: flex;
+   align-items: center;
+@@ -321,78 +561,87 @@ a {
+   gap: var(--space-3);
+ }
+ 
++/* Confirmation text: solid green tick + short status text */
+ .status-message {
+-  margin: 0;
+-  color: var(--color-positive);
+-}
+-
+-.avatar-row {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-4);
++  gap: var(--space-2);
++  margin: 0;
++  color: var(--color-status-success);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+-.avatar-row p {
+-  margin: 0 0 var(--space-1);
++.status-message:not(:empty)::before {
++  mask-image: var(--ms-icon-tick);
+ }
+ 
+-/* Buttons */
+-.button {
+-  font: inherit;
+-  display: inline-flex;
++.avatar-row {
++  display: flex;
+   align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
+-}
+-
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++  gap: var(--space-6);
+ }
+ 
+-.button-danger {
+-  color: var(--color-negative);
++.avatar-row > div {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-1);
+ }
+ 
+-.button-danger:hover {
+-  background: var(--color-danger-bg);
++.avatar-row .ms-pill {
++  margin-top: var(--space-3);
+ }
+ 
+-/* Fieldsets and switches */
++/* ---------- Switches ---------- */
+ .fieldset {
+   margin: 0;
+   min-width: 0;
+ }
+ 
+ .legend {
+-  font-weight: bold;
+-  font-size: var(--font-size-h2);
+-  padding: 0 var(--space-1);
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
++  float: left;
++  width: 100%;
++  padding: 0;
++  font-weight: var(--font-weight-bold);
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++/* Group description sits just under its title */
++.legend + p {
++  margin-top: calc(var(--space-4) * -1);
+ }
+ 
+ .switch-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  background: var(--color-surface-raised);
++  border-radius: var(--radius-md);
++  padding-inline: var(--space-5);
+ }
+ 
+ .switch-row {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-top: var(--border-width) solid var(--color-border);
++  gap: var(--space-6);
++  min-height: var(--size-list-row);
++  padding: var(--space-4) 0;
+ }
+ 
+-.switch-text p {
+-  margin: 0;
++.switch-row + .switch-row {
++  border-top: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.switch-text {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-1);
+ }
+ 
+ .switch {
+@@ -402,9 +651,13 @@ a {
+   height: var(--switch-height);
+   margin: 0;
+   flex-shrink: 0;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-switch-off);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-hover);
++  box-shadow: var(--shadow-ledge);
+   cursor: pointer;
++  transition-property: background-color, box-shadow, transform;
++  transition-duration: var(--motion-duration-snap);
++  transition-timing-function: var(--motion-easing-snap);
+ }
+ 
+ .switch::after {
+@@ -412,40 +665,96 @@ a {
+   position: absolute;
+   top: 3px;
+   left: 3px;
+-  width: calc(var(--switch-height) - 6px);
+-  height: calc(var(--switch-height) - 6px);
+-  border-radius: 50%;
+-  background: var(--color-switch-thumb);
++  width: 22px;
++  height: 22px;
++  border-radius: var(--radius-full);
++  background: var(--color-art-white);
++  transition: translate var(--motion-duration-snap) var(--motion-easing-snap);
+ }
+ 
+ .switch:checked {
+-  background: var(--color-switch-on);
++  background: var(--color-action-primary);
+ }
+ 
+ .switch:checked::after {
+-  left: calc(var(--switch-width) - var(--switch-height) + 3px);
++  translate: 20px 0;
++  /* white knob on the ink track; ink knob on the white track at night */
++  background: var(--color-text-on-action);
++}
++
++.switch:active {
++  transform: translateY(2px);
++  box-shadow: var(--shadow-ledge-gone);
++}
++
++.switch:disabled {
++  background: var(--color-surface-subtle);
++  box-shadow: none;
++  cursor: not-allowed;
++}
++
++.switch:disabled::after {
++  background: var(--color-border-default);
++}
++
++@media (hover: hover) {
++  .switch:not(:checked, :disabled):hover {
++    background: var(--color-surface-pressed);
++  }
++
++  .switch:checked:hover {
++    background: var(--color-action-primary-hover);
++  }
++}
++
++/* ---------- Password strength: a status mark + short text ---------- */
++.strength {
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++  font-weight: var(--font-weight-medium);
++}
++
++.strength::before {
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  mask: none;
+ }
+ 
+-/* Password strength */
+ .strength-none {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
++}
++
++.strength-none::before {
++  display: none;
+ }
+ 
+ .strength-weak {
+-  color: var(--color-strength-weak);
++  color: var(--color-status-danger);
+ }
+ 
++/* Warning is never yellow text: ink label, yellow dot */
+ .strength-fair {
+-  color: var(--color-strength-fair);
++  color: var(--color-text-primary);
++}
++
++.strength-fair::before {
++  background: var(--color-status-warning);
+ }
+ 
+ .strength-strong {
+-  color: var(--color-strength-strong);
++  color: var(--color-status-success);
+ }
+ 
+-/* Tables */
++/* ---------- Tables ---------- */
+ .table-wrap {
++  /* contains absolutely positioned visually-hidden labels inside the scroll frame */
++  position: relative;
+   overflow-x: auto;
++  background: var(--color-surface-default);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-lg);
+ }
+ 
+ .table {
+@@ -456,14 +765,23 @@ a {
+ .table th,
+ .table td {
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  padding: 0 var(--space-4);
+   vertical-align: middle;
++  white-space: nowrap;
+ }
+ 
+ .table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  height: 44px;
++  background: var(--color-surface-subtle);
++  color: var(--color-text-icon);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.table td {
++  height: var(--size-row);
++  border-top: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+ .table .numeric {
+@@ -472,65 +790,113 @@ a {
+ 
+ .cell-actions {
+   text-align: right;
++  width: 1%;
+ }
+ 
+-.pill {
+-  display: inline-block;
+-  margin: 0 0 0 var(--space-2);
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.cell-device {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  min-height: var(--size-row);
+ }
+ 
+-.pill-neutral {
+-  background: var(--color-pill-neutral-bg);
+-  color: var(--color-pill-neutral-text);
++/* ---------- Badges ---------- */
++.ms-badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  height: 24px;
++  margin: 0;
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-fine);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  line-height: var(--font-line-height-label);
++  white-space: nowrap;
+ }
+ 
+-.pill-paid,
+-.pill-current {
+-  background: var(--color-pill-current-bg);
+-  color: var(--color-pill-current-text);
++.ms-badge .ms-dot {
++  width: 8px;
++  height: 8px;
+ }
+ 
+-.pill-due {
+-  background: var(--color-pill-due-bg);
+-  color: var(--color-pill-due-text);
+-}
++.ms-badge--success .ms-dot { --ms-dot: var(--color-status-success); }
++.ms-badge--warning .ms-dot { --ms-dot: var(--color-status-warning); }
++.ms-badge--info .ms-dot { --ms-dot: var(--color-status-info); }
+ 
+-.table .pill,
+-.plan-card .pill {
+-  margin-left: 0;
++/* On a field: white chip, ink label */
++.ms-badge--on-field {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+ }
+ 
+-/* Billing */
++/* ---------- Billing ---------- */
+ .plan-grid {
+   list-style: none;
+-  margin: 0 0 var(--space-3);
++  margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
++  grid-template-columns: repeat(3, minmax(0, 1fr));
+   gap: var(--space-4);
+ }
+ 
++/* Plan card: white, radius.md, 2px default border; the current plan is a violet field */
+ .plan-card {
++  position: relative;
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+-  gap: var(--space-2);
++  gap: var(--space-4);
++  padding: var(--space-6);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  border: var(--border-width-thick) solid var(--color-border-default);
+ }
+ 
+ .plan-card-current {
+-  border-color: var(--color-primary);
++  --ms-ring: var(--color-focus-ring-on-field);
++  background: var(--color-field-violet);
++  border-color: var(--color-field-violet);
++  color: var(--color-on-field-violet);
++}
++
++.plan-card-current .muted {
++  color: var(--color-on-field-violet);
++}
++
++.check-disc {
++  position: absolute;
++  top: var(--space-4);
++  right: var(--space-4);
++  display: grid;
++  place-items: center;
++  width: var(--size-circle-sm);
++  height: var(--size-circle-sm);
++  border-radius: var(--radius-full);
++  background: var(--color-art-white);
++}
++
++.check-disc::before {
++  content: '';
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  background: var(--color-ink-700);
++  mask: var(--ms-icon-tick) center / contain no-repeat;
+ }
+ 
+ .plan-price {
+-  margin: 0;
++  display: flex;
++  flex-direction: column;
+ }
+ 
+ .plan-amount {
+-  font-size: var(--font-size-h1);
+-  font-weight: bold;
++  font-size: var(--font-size-h3);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ .feature-list {
+@@ -538,6 +904,9 @@ a {
+   margin: 0;
+   padding: 0;
+   flex: 1;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-2);
+ }
+ 
+ .feature-list li {
+@@ -546,53 +915,254 @@ a {
+   gap: var(--space-2);
+ }
+ 
++.feature-list .icon {
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  fill: var(--color-status-success);
++}
++
++.plan-card-current .feature-list .icon {
++  fill: currentColor;
++}
++
++.plan-card .ms-pill {
++  margin-top: var(--space-2);
++}
++
++.plan-card .ms-badge {
++  margin-top: var(--space-2);
++  height: var(--size-control-sm);
++  padding: 0 var(--space-4);
++  font-size: var(--font-size-label);
++}
++
+ .payment-method {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-3);
++  flex-wrap: wrap;
++  gap: var(--space-2) var(--space-4);
++  min-height: var(--size-list-row);
++  padding: var(--space-4) var(--space-5);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
+ }
+ 
+-/* Dialog */
++.payment-method > span:first-child {
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  font-size: var(--font-size-title);
++}
++
++/* ---------- Dialog: white, radius.xl, cream footer, no shadow, no art ---------- */
+ .dialog {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  padding: var(--space-6);
+-  max-width: 440px;
++  border: 0;
++  border-radius: var(--radius-xl);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  padding: 0;
++  max-width: 560px;
+   width: calc(100% - var(--space-8));
++  overflow: hidden;
++}
++
++.dialog[open] {
++  animation: ms-enter var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++@keyframes ms-enter {
++  from {
++    opacity: 0;
++    transform: translateY(8px);
++  }
++  to {
++    opacity: 1;
++    transform: none;
++  }
+ }
+ 
+ .dialog::backdrop {
+-  background: var(--color-backdrop);
++  background: var(--color-surface-overlay);
++}
++
++.dialog h2 {
++  padding: var(--space-8) var(--space-16) 0 var(--space-8);
++}
++
++.dialog-body {
++  padding: var(--space-3) var(--space-8) var(--space-8);
+ }
+ 
+ .dialog-actions {
+   display: flex;
+   justify-content: flex-end;
+-  gap: var(--space-2);
+-  margin-top: var(--space-4);
++  gap: var(--space-3);
++  padding: var(--space-6) var(--space-8);
++  background: var(--color-surface-subtle);
++}
++
++.dialog-close {
++  position: absolute;
++  top: var(--space-6);
++  right: var(--space-6);
+ }
+ 
+-@media (max-width: 900px) {
++.dialog-close::before {
++  content: '';
++  width: 12px;
++  height: 12px;
++  background: currentColor;
++  mask: var(--ms-icon-close) center / contain no-repeat;
++}
++
++/* ---------- Tablet and phone ---------- */
++@media (max-width: 1023px) {
++  .topbar {
++    padding: 0 var(--space-6);
++  }
++
+   .settings-layout {
+     flex-direction: column;
+   }
+ 
+   .sidebar {
+     width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    padding: var(--space-2) 0 var(--space-4);
++  }
++
++  .sidebar nav {
++    position: static;
++    overflow-x: auto;
++    scrollbar-width: none;
+   }
+ 
+   .nav-list {
+-    display: flex;
+-    flex-wrap: wrap;
++    flex-direction: row;
+     gap: var(--space-2);
++    padding-inline: var(--space-6);
++    width: max-content;
++  }
++
++  .nav-link:not(.active) {
++    background: var(--color-action-secondary);
++    box-shadow: var(--shadow-ledge);
++  }
++
++  .content > :not(.page-header, dialog) {
++    margin-inline: var(--space-6);
+   }
+ 
+-  .form-grid,
+   .plan-grid {
+     grid-template-columns: 1fr;
+   }
+ }
++
++@media (max-width: 767px) {
++  .topbar {
++    height: 64px;
++    padding: 0 var(--space-4);
++  }
++
++  .person > span:last-child {
++    font-size: var(--font-size-label);
++  }
++
++  .nav-list {
++    padding-inline: var(--space-4);
++  }
++
++  h1 {
++    font-size: var(--font-size-h2mobile);
++  }
++
++  .page-header .lead {
++    font-size: var(--font-size-body-lg);
++  }
++
++  /* The chip is short; it keeps its own padding instead of the cluster clearance */
++  .ms-field--header .ms-field__inner > .field-chip {
++    padding-inline: var(--space-4);
++  }
++
++  .content > :not(.page-header, dialog) {
++    margin-inline: var(--space-4);
++  }
++
++  .panel {
++    padding: var(--space-6);
++  }
++
++  .form-grid {
++    grid-template-columns: 1fr;
++  }
++
++  .form-actions .ms-pill {
++    flex: 1 1 100%;
++  }
++
++  .avatar-row {
++    align-items: flex-start;
++  }
++
++  .avatar-large {
++    width: var(--size-plate-sm);
++    height: var(--size-plate-sm);
++    font-size: var(--font-size-title);
++  }
++
++  /* Tables scroll in their frame with a sticky first column */
++  .table th:first-child,
++  .table td:first-child {
++    position: sticky;
++    left: 0;
++    z-index: 1;
++    background: var(--color-surface-default);
++  }
++
++  .table th:first-child {
++    background: var(--color-surface-subtle);
++  }
++
++  /* Dialog as a bottom sheet with full-width stacked pills */
++  .dialog {
++    width: 100%;
++    max-width: none;
++    margin: auto 0 0;
++    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
++  }
++
++  .dialog h2 {
++    padding: var(--space-6) var(--space-16) 0 var(--space-6);
++  }
++
++  .dialog-body {
++    padding: var(--space-3) var(--space-6) var(--space-6);
++  }
++
++  .dialog-actions {
++    flex-direction: column-reverse;
++    padding: var(--space-6);
++  }
++
++  .dialog-close {
++    top: var(--space-5);
++    right: var(--space-5);
++  }
++
++  .error-band .error-art {
++    width: 140px;
++  }
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .dialog[open] {
++    animation: none;
++  }
++
++  .switch,
++  .switch::after,
++  .nav-link,
++  .topbar,
++  .input {
++    transition: none;
++  }
++}

@@ -1,0 +1,2558 @@
+diff --git a/index.html b/index.html
+index 5602a04..1ff674d 100644
+--- a/index.html
++++ b/index.html
+@@ -4,6 +4,12 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <link rel="icon" href="data:," />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Figtree:wght@400;500;700&display=swap"
++    />
+     <title>Northwind Ops</title>
+   </head>
+   <body>
+diff --git a/src/App.tsx b/src/App.tsx
+index bd70616..95a30cc 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -6,7 +6,6 @@ import ProjectDetailPage from './pages/ProjectDetailPage';
+ import TeamPage from './pages/TeamPage';
+ import SettingsPage from './pages/SettingsPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <Routes>
+diff --git a/src/components/BarChart.tsx b/src/components/BarChart.tsx
+index 63f7c3f..c107e9f 100644
+--- a/src/components/BarChart.tsx
++++ b/src/components/BarChart.tsx
+@@ -7,9 +7,17 @@ interface BarChartProps {
+ 
+ const WIDTH = 600;
+ const HEIGHT = 240;
+-const PADDING_TOP = 24;
+-const PADDING_BOTTOM = 28;
++const PADDING_TOP = 28;
++const PADDING_BOTTOM = 32;
+ const PADDING_X = 16;
++/** radius.sm on the top corners of each bar */
++const BAR_RADIUS = 8;
++
++/** A bar with rounded top corners and a flat base. */
++function barPath(x: number, y: number, width: number, height: number) {
++  const r = Math.min(BAR_RADIUS, width / 2, height);
++  return `M${x} ${y + height}V${y + r}Q${x} ${y} ${x + r} ${y}H${x + width - r}Q${x + width} ${y} ${x + width} ${y + r}V${y + height}Z`;
++}
+ 
+ export default function BarChart({ title, data }: BarChartProps) {
+   const max = Math.max(...data.map((point) => point.value), 1);
+@@ -20,7 +28,10 @@ export default function BarChart({ title, data }: BarChartProps) {
+ 
+   return (
+     <figure className="chart" data-testid="bar-chart">
+-      <figcaption className="chart-title">{title}</figcaption>
++      <figcaption className="chart-title">
++        <span className="chart-legend-dot" aria-hidden="true" />
++        {title}
++      </figcaption>
+       <svg
+         className="chart-svg"
+         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+@@ -28,21 +39,14 @@ export default function BarChart({ title, data }: BarChartProps) {
+         aria-label={`${title}. ${summary}`}
+         preserveAspectRatio="xMidYMid meet"
+       >
+-        <line
+-          className="chart-axis"
+-          x1={PADDING_X}
+-          x2={WIDTH - PADDING_X}
+-          y1={HEIGHT - PADDING_BOTTOM}
+-          y2={HEIGHT - PADDING_BOTTOM}
+-        />
+         {data.map((point, index) => {
+           const barHeight = (point.value / max) * plotHeight;
+           const x = PADDING_X + index * slot + (slot - barWidth) / 2;
+           const y = HEIGHT - PADDING_BOTTOM - barHeight;
+           return (
+             <g key={point.month} data-testid="chart-bar">
+-              <rect className="chart-bar" x={x} y={y} width={barWidth} height={barHeight} />
+-              <text className="chart-value" x={x + barWidth / 2} y={y - 6} textAnchor="middle">
++              <path className="chart-bar" d={barPath(x, y, barWidth, barHeight)} />
++              <text className="chart-value" x={x + barWidth / 2} y={y - 8} textAnchor="middle">
+                 {point.value}
+               </text>
+               <text className="chart-label" x={x + barWidth / 2} y={HEIGHT - 8} textAnchor="middle">
+@@ -51,6 +55,13 @@ export default function BarChart({ title, data }: BarChartProps) {
+             </g>
+           );
+         })}
++        <line
++          className="chart-axis"
++          x1={PADDING_X}
++          x2={WIDTH - PADDING_X}
++          y1={HEIGHT - PADDING_BOTTOM + 0.5}
++          y2={HEIGHT - PADDING_BOTTOM + 0.5}
++        />
+       </svg>
+     </figure>
+   );
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 2a82e37..b59d08b 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,12 +1,16 @@
+ import { useEffect, useRef, useState, type FormEvent } from 'react';
+ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+ import { currentUser } from '../data/team';
++import { Avatar } from './ms/Shapes';
++import { SearchIcon } from './ms/Icons';
++import useShapeMotion from './ms/useShapeMotion';
+ 
++// Area-to-hue map (design-system/components.md): navigation order → category 1–3, utility → cream.
+ const NAV_ITEMS = [
+-  { to: '/', label: 'Overview', testId: 'nav-overview', end: true },
+-  { to: '/projects', label: 'Projects', testId: 'nav-projects', end: false },
+-  { to: '/team', label: 'Team', testId: 'nav-team', end: false },
+-  { to: '/settings', label: 'Settings', testId: 'nav-settings', end: false },
++  { to: '/', label: 'Overview', testId: 'nav-overview', end: true, hue: 'yellow' },
++  { to: '/projects', label: 'Projects', testId: 'nav-projects', end: false, hue: 'blue' },
++  { to: '/team', label: 'Team', testId: 'nav-team', end: false, hue: 'green' },
++  { to: '/settings', label: 'Settings', testId: 'nav-settings', end: false, hue: 'cream' },
+ ];
+ 
+ export default function Layout() {
+@@ -14,13 +18,26 @@ export default function Layout() {
+   const location = useLocation();
+   const [query, setQuery] = useState('');
+   const [menuOpen, setMenuOpen] = useState(false);
++  const [scrolled, setScrolled] = useState(false);
+   const menuRef = useRef<HTMLDivElement>(null);
++  const mainRef = useRef<HTMLElement>(null);
++  useShapeMotion(mainRef);
+ 
+   // Close the user menu when the route changes.
+   useEffect(() => {
+     setMenuOpen(false);
+   }, [location.pathname]);
+ 
++  // The top bar gets its shadow after 8px of scroll.
++  useEffect(() => {
++    function onScroll() {
++      setScrolled(window.scrollY > 8);
++    }
++    onScroll();
++    window.addEventListener('scroll', onScroll, { passive: true });
++    return () => window.removeEventListener('scroll', onScroll);
++  }, []);
++
+   useEffect(() => {
+     if (!menuOpen) return;
+     function onKeyDown(event: KeyboardEvent) {
+@@ -45,7 +62,7 @@ export default function Layout() {
+ 
+   return (
+     <div className="app-shell">
+-      <a className="skip-link" href="#main-content">
++      <a className="skip-link ms-pill" href="#main-content">
+         Skip to content
+       </a>
+       <aside className="sidebar">
+@@ -55,6 +72,7 @@ export default function Layout() {
+             {NAV_ITEMS.map((item) => (
+               <li key={item.to}>
+                 <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
++                  <span className={`nav-dot ms-hue--${item.hue}`} aria-hidden="true" />
+                   {item.label}
+                 </NavLink>
+               </li>
+@@ -64,21 +82,24 @@ export default function Layout() {
+       </aside>
+ 
+       <div className="main-column">
+-        <header className="topbar">
++        <header className={scrolled ? 'topbar is-scrolled' : 'topbar'}>
+           <form role="search" className="topbar-search" onSubmit={handleSearch}>
+             <label htmlFor="global-search" className="visually-hidden">
+               Search projects
+             </label>
+-            <input
+-              id="global-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search projects…"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="global-search"
+-            />
+-            <button type="submit" className="button" data-testid="global-search-submit">
++            <span className="search-pill">
++              <SearchIcon />
++              <input
++                id="global-search"
++                type="search"
++                className="input"
++                placeholder="Search projects…"
++                value={query}
++                onChange={(event) => setQuery(event.target.value)}
++                data-testid="global-search"
++              />
++            </span>
++            <button type="submit" className="button ms-pill" data-testid="global-search-submit">
+               Search
+             </button>
+           </form>
+@@ -86,16 +107,14 @@ export default function Layout() {
+           <div className="user-menu" ref={menuRef}>
+             <button
+               type="button"
+-              className="button user-menu-button"
++              className="button ms-pill ms-pill--cream user-menu-button"
+               aria-expanded={menuOpen}
+               aria-controls="user-menu-panel"
+               onClick={() => setMenuOpen((open) => !open)}
+               data-testid="user-menu-button"
+             >
+-              <span className="avatar" aria-hidden="true">
+-                {currentUser.initials}
+-              </span>
+-              <span>{currentUser.name}</span>
++              <Avatar initials={currentUser.initials} hue="green" />
++              <span className="user-menu-name">{currentUser.name}</span>
+             </button>
+             {menuOpen && (
+               <div id="user-menu-panel" className="user-menu-panel" data-testid="user-menu">
+@@ -112,7 +131,7 @@ export default function Layout() {
+                     </Link>
+                   </li>
+                   <li>
+-                    <button type="button" className="link-button" onClick={() => setMenuOpen(false)}>
++                    <button type="button" className="link-button user-menu-link" onClick={() => setMenuOpen(false)}>
+                       Sign out
+                     </button>
+                   </li>
+@@ -122,7 +141,7 @@ export default function Layout() {
+           </div>
+         </header>
+ 
+-        <main id="main-content" className="content" tabIndex={-1}>
++        <main id="main-content" className="content" tabIndex={-1} ref={mainRef}>
+           <Outlet />
+         </main>
+       </div>
+diff --git a/src/components/ProjectsTable.tsx b/src/components/ProjectsTable.tsx
+index 28169e4..8efae9d 100644
+--- a/src/components/ProjectsTable.tsx
++++ b/src/components/ProjectsTable.tsx
+@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
+ import { Link } from 'react-router';
+ import { projects, type Project, type ProjectStatus } from '../data/projects';
+ import StatusPill from './StatusPill';
++import Glyph from './ms/Glyph';
++import { ChevronIcon, SearchIcon } from './ms/Icons';
+ 
+ type StatusFilter = 'all' | ProjectStatus;
+ type SortKey = 'name' | 'owner' | 'status' | 'budget' | 'dueDate';
+@@ -91,7 +93,7 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+             <button
+               key={filter.value}
+               type="button"
+-              className="segmented-button"
++              className="segmented-button ms-pill ms-pill--cream ms-pill--sm ms-tab"
+               aria-pressed={status === filter.value}
+               onClick={() => setStatus(filter.value)}
+               data-testid={`status-filter-${filter.value}`}
+@@ -102,28 +104,32 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+         </div>
+         <div className="field-inline">
+           <label htmlFor="project-filter">Filter projects</label>
+-          <input
+-            id="project-filter"
+-            type="search"
+-            className="input"
+-            placeholder="Name, owner or team"
+-            value={query}
+-            onChange={(event) => setQuery(event.target.value)}
+-            data-testid="project-search"
+-          />
++          <span className="search-pill">
++            <SearchIcon />
++            <input
++              id="project-filter"
++              type="search"
++              className="input"
++              placeholder="Name, owner or team"
++              value={query}
++              onChange={(event) => setQuery(event.target.value)}
++              data-testid="project-search"
++            />
++          </span>
+         </div>
+       </div>
+ 
+       {rows.length === 0 ? (
+-        <div className="empty-state" data-testid="projects-empty">
++        <div className="empty-state table-empty" data-testid="projects-empty">
++          <Glyph name="zigzag" hue="blue" size="lg" />
+           <h3>No projects match your filters</h3>
+           <p className="muted">Try a different search term or status.</p>
+-          <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
++          <button type="button" className="button ms-pill" onClick={clearFilters} data-testid="clear-filters">
+             Clear filters
+           </button>
+         </div>
+       ) : (
+-        <div className="table-wrap">
++        <div className="table-wrap" tabIndex={0} role="region" aria-label={`${heading} table`}>
+           <table className="table" data-testid="projects-table">
+             <thead>
+               <tr>
+@@ -141,9 +147,9 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+                       data-testid={`sort-${column.key}`}
+                     >
+                       {column.label}
+-                      <span className="sort-indicator" aria-hidden="true">
+-                        {sortKey === column.key ? (sortDirection === 'ascending' ? '▲' : '▼') : ''}
+-                      </span>
++                      {sortKey === column.key && (
++                        <ChevronIcon className={`icon sort-indicator sort-indicator-${sortDirection}`} />
++                      )}
+                     </button>
+                   </th>
+                 ))}
+diff --git a/src/components/StatusPill.tsx b/src/components/StatusPill.tsx
+index 5abae07..ca6f06b 100644
+--- a/src/components/StatusPill.tsx
++++ b/src/components/StatusPill.tsx
+@@ -1,8 +1,10 @@
+ import { STATUS_LABELS, type ProjectStatus } from '../data/projects';
+ 
+-export default function StatusPill({ status }: { status: ProjectStatus }) {
++/** Status badge: cream pill, leading status dot, the meaning always in the label. */
++export default function StatusPill({ status, onField = false }: { status: ProjectStatus; onField?: boolean }) {
+   return (
+-    <span className={`pill pill-${status}`} data-testid="status-pill">
++    <span className={`pill pill-${status}${onField ? ' pill-on-field' : ''}`} data-testid="status-pill">
++      <span className="pill-dot" aria-hidden="true" />
+       {STATUS_LABELS[status]}
+     </span>
+   );
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..ee5d9f6 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '../design-system/tokens.css';
++import './styles/morning.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index dde83ce..cefe9a1 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,14 @@
+ import { Link } from 'react-router';
++import ErrorPage from '../components/ErrorPage';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
++    <ErrorPage testId="not-found">
+       <h1>Page not found</h1>
+       <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to overview</Link>
+-    </section>
++      <Link to="/" className="ms-pill">
++        Go to overview
++      </Link>
++    </ErrorPage>
+   );
+ }
+diff --git a/src/pages/OverviewPage.tsx b/src/pages/OverviewPage.tsx
+index c7d849a..362d17d 100644
+--- a/src/pages/OverviewPage.tsx
++++ b/src/pages/OverviewPage.tsx
+@@ -2,12 +2,24 @@ import { useEffect, useRef, useState } from 'react';
+ import { Link } from 'react-router';
+ import BarChart from '../components/BarChart';
+ import ProjectsTable from '../components/ProjectsTable';
++import Glyph, { PopDots } from '../components/ms/Glyph';
++import { Avatar, Plate, type PictogramName } from '../components/ms/Shapes';
++import { hueForPerson, initialsOf } from '../components/people';
+ import { deploymentsByMonth, kpis, recentActivity } from '../data/metrics';
+ import { projects } from '../data/projects';
++import { currentUser } from '../data/team';
+ 
+ /** How long a refresh of the metrics takes (mock data: the delay only shows the loading state). */
+ const REFRESH_MS = 1500;
+ 
++/** Stat tiles in category hues, in order, each with a plate of its own subject. */
++const TILE_STYLE: Record<string, { hue: string; pictogram: PictogramName }> = {
++  deployments: { hue: 'yellow', pictogram: 'rocket' },
++  uptime: { hue: 'blue', pictogram: 'clock' },
++  incidents: { hue: 'green', pictogram: 'storm' },
++  'lead-time': { hue: 'orange', pictogram: 'calendar' },
++};
++
+ export default function OverviewPage() {
+   const [loading, setLoading] = useState(false);
+   const timer = useRef<number | undefined>(undefined);
+@@ -19,14 +31,32 @@ export default function OverviewPage() {
+   }
+ 
+   return (
+-    <>
+-      <div className="page-header page-header-row">
+-        <div>
+-          <h1>Overview</h1>
+-          <p className="muted">Delivery health across all teams for October 2026.</p>
++    <div className="page-body">
++      <div className="page-header page-header-row dashboard-header">
++        <div className="greeting">
++          <Glyph name="sun" hue="yellow" />
++          <div>
++            <p className="greeting-hello">Welcome back, {currentUser.name.split(' ')[0]}</p>
++            <h1>Overview</h1>
++            <p className="muted">Delivery health across all teams for October 2026.</p>
++          </div>
+         </div>
+-        <button type="button" className="button" data-testid="refresh-metrics" onClick={refresh} disabled={loading}>
+-          {loading ? 'Refreshing…' : 'Refresh'}
++        <button
++          type="button"
++          className="button ms-pill refresh-button"
++          data-testid="refresh-metrics"
++          onClick={refresh}
++          disabled={loading}
++          aria-busy={loading}
++        >
++          {loading ? (
++            <>
++              <PopDots />
++              <span className="visually-hidden">Refreshing…</span>
++            </>
++          ) : (
++            'Refresh'
++          )}
+         </button>
+       </div>
+ 
+@@ -34,16 +64,21 @@ export default function OverviewPage() {
+         {loading
+           ? kpis.map((kpi) => (
+               <article key={kpi.id} className="card kpi-card kpi-card-loading" data-testid="kpi-card-loading" aria-hidden="true">
+-                <span className="skeleton skeleton-label" />
+-                <span className="skeleton skeleton-value" />
+-                <span className="skeleton skeleton-change" />
++                <span className="kpi-loading-text">
++                  <PopDots /> Loading
++                </span>
++                <span className="ms-skeleton skeleton skeleton-value" />
++                <span className="ms-skeleton skeleton skeleton-change" />
+               </article>
+             ))
+           : kpis.map((kpi) => (
+-              <article key={kpi.id} className="card kpi-card" data-testid="kpi-card">
+-                <h2 className="kpi-label">{kpi.label}</h2>
+-                <p className="kpi-value">{kpi.value}</p>
+-                <p className={`kpi-change kpi-change-${kpi.trend}`}>{kpi.change}</p>
++              <article key={kpi.id} className={`card kpi-card stat-tile ms-hue--${TILE_STYLE[kpi.id]?.hue ?? 'yellow'}`} data-testid="kpi-card">
++                <div className="stat-tile-text">
++                  <h2 className="kpi-label">{kpi.label}</h2>
++                  <p className="kpi-value">{kpi.value}</p>
++                  <p className={`kpi-change kpi-change-${kpi.trend}`}>{kpi.change}</p>
++                </div>
++                <Plate name={TILE_STYLE[kpi.id]?.pictogram ?? 'rocket'} small />
+               </article>
+             ))}
+       </section>
+@@ -61,11 +96,14 @@ export default function OverviewPage() {
+               const project = projects.find((p) => p.name === item.target);
+               return (
+                 <li key={item.id} className="activity-item" data-testid="activity-item">
+-                  <p>
+-                    <strong>{item.actor}</strong> {item.action}{' '}
+-                    {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
+-                  </p>
+-                  <p className="muted small">{item.time}</p>
++                  <Avatar initials={initialsOf(item.actor)} hue={hueForPerson(item.actor)} />
++                  <div>
++                    <p>
++                      <strong>{item.actor}</strong> {item.action}{' '}
++                      {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
++                    </p>
++                    <p className="muted small">{item.time}</p>
++                  </div>
+                 </li>
+               );
+             })}
+@@ -74,6 +112,6 @@ export default function OverviewPage() {
+       </div>
+ 
+       <ProjectsTable heading="Projects" />
+-    </>
++    </div>
+   );
+ }
+diff --git a/src/pages/ProjectDetailPage.tsx b/src/pages/ProjectDetailPage.tsx
+index 3e13517..f2e2e16 100644
+--- a/src/pages/ProjectDetailPage.tsx
++++ b/src/pages/ProjectDetailPage.tsx
+@@ -1,6 +1,11 @@
+ import { useRef, useState, type KeyboardEvent } from 'react';
+ import { Link, useParams } from 'react-router';
+ import StatusPill from '../components/StatusPill';
++import ErrorPage from '../components/ErrorPage';
++import { HeaderBand } from '../components/ms/Field';
++import { TickIcon } from '../components/ms/Icons';
++import { Cover } from '../components/ms/Shapes';
++import { PROJECT_PICTOGRAM, PROJECTS_HUE } from '../components/projectArt';
+ import { formatDate } from '../components/ProjectsTable';
+ import { findProject, type Project, type Task } from '../data/projects';
+ 
+@@ -20,11 +25,13 @@ export default function ProjectDetailPage() {
+ 
+   if (!project) {
+     return (
+-      <div className="empty-state" data-testid="project-not-found">
++      <ErrorPage testId="project-not-found">
+         <h1>Project not found</h1>
+         <p className="muted">There is no project with the id “{id}”.</p>
+-        <Link to="/projects">Back to all projects</Link>
+-      </div>
++        <Link to="/projects" className="ms-pill">
++          Back to all projects
++        </Link>
++      </ErrorPage>
+     );
+   }
+ 
+@@ -57,122 +64,142 @@ function ProjectDetail({ project }: { project: Project }) {
+ 
+   return (
+     <>
+-      <nav aria-label="Breadcrumb" className="breadcrumb">
+-        <ol>
+-          <li>
+-            <Link to="/projects">Projects</Link>
+-          </li>
+-          <li aria-current="page">{project.name}</li>
+-        </ol>
+-      </nav>
+-
+-      <div className="page-header page-header-row">
+-        <div>
+-          <h1 data-testid="project-title">{project.name}</h1>
+-          <p className="muted">
+-            {project.client} · Owned by {project.owner}
+-          </p>
++      <HeaderBand hue={PROJECTS_HUE} cluster="projects">
++        <nav aria-label="Breadcrumb" className="breadcrumb">
++          <ol>
++            <li>
++              <Link to="/projects">Projects</Link>
++            </li>
++            <li aria-current="page">{project.name}</li>
++          </ol>
++        </nav>
++
++        <div className="page-header page-header-row">
++          <div>
++            <h1 data-testid="project-title">{project.name}</h1>
++            <p className="muted">
++              {project.client} · Owned by {project.owner}
++            </p>
++          </div>
++          <StatusPill status={project.status} onField />
++        </div>
++      </HeaderBand>
++
++      <div className="page-body">
++        <div className="tabs" role="tablist" aria-label="Project sections">
++          {TABS.map((tab, index) => (
++            <button
++              key={tab.id}
++              ref={(element) => {
++                tabRefs.current[tab.id] = element;
++              }}
++              type="button"
++              role="tab"
++              id={`tab-${tab.id}`}
++              className="tab ms-pill ms-pill--cream ms-tab"
++              aria-selected={activeTab === tab.id}
++              aria-controls={`panel-${tab.id}`}
++              tabIndex={activeTab === tab.id ? 0 : -1}
++              onClick={() => setActiveTab(tab.id)}
++              onKeyDown={(event) => onTabKeyDown(event, index)}
++              data-testid={`tab-${tab.id}`}
++            >
++              {tab.label}
++            </button>
++          ))}
+         </div>
+-        <StatusPill status={project.status} />
+-      </div>
+ 
+-      <div className="tabs" role="tablist" aria-label="Project sections">
+-        {TABS.map((tab, index) => (
+-          <button
+-            key={tab.id}
+-            ref={(element) => {
+-              tabRefs.current[tab.id] = element;
+-            }}
+-            type="button"
+-            role="tab"
+-            id={`tab-${tab.id}`}
+-            className="tab"
+-            aria-selected={activeTab === tab.id}
+-            aria-controls={`panel-${tab.id}`}
+-            tabIndex={activeTab === tab.id ? 0 : -1}
+-            onClick={() => setActiveTab(tab.id)}
+-            onKeyDown={(event) => onTabKeyDown(event, index)}
+-            data-testid={`tab-${tab.id}`}
++        {activeTab === 'overview' && (
++          <section
++            id="panel-overview"
++            role="tabpanel"
++            aria-labelledby="tab-overview"
++            className="panel panel-overview"
++            data-testid="panel-overview"
+           >
+-            {tab.label}
+-          </button>
+-        ))}
+-      </div>
+-
+-      {activeTab === 'overview' && (
+-        <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="panel" data-testid="panel-overview">
+-          <p>{project.description}</p>
+-          <dl className="details">
+-            <div>
+-              <dt>Budget</dt>
+-              <dd>{currency.format(project.budget)}</dd>
++            <Cover name={PROJECT_PICTOGRAM[project.id] ?? 'rocket'} hue={PROJECTS_HUE} className="project-cover" />
++            <div className="panel-overview-text">
++              <p className="project-description">{project.description}</p>
++              <dl className="details">
++                <div>
++                  <dt>Budget</dt>
++                  <dd>{currency.format(project.budget)}</dd>
++                </div>
++                <div>
++                  <dt>Due date</dt>
++                  <dd>{formatDate(project.dueDate)}</dd>
++                </div>
++                <div>
++                  <dt>Tasks</dt>
++                  <dd>
++                    {completed} of {tasks.length} complete
++                  </dd>
++                </div>
++                <div>
++                  <dt>Files</dt>
++                  <dd>{project.files.length}</dd>
++                </div>
++              </dl>
+             </div>
+-            <div>
+-              <dt>Due date</dt>
+-              <dd>{formatDate(project.dueDate)}</dd>
++          </section>
++        )}
++
++        {activeTab === 'tasks' && (
++          <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="panel" data-testid="panel-tasks">
++            <div className="progress-row">
++              <p data-testid="task-progress" aria-live="polite">
++                {completed} of {tasks.length} tasks complete
++              </p>
++              <progress className="progress" max={tasks.length} value={completed} aria-label="Task completion" />
+             </div>
+-            <div>
+-              <dt>Tasks</dt>
+-              <dd>
+-                {completed} of {tasks.length} complete
+-              </dd>
+-            </div>
+-            <div>
+-              <dt>Files</dt>
+-              <dd>{project.files.length}</dd>
+-            </div>
+-          </dl>
+-        </section>
+-      )}
+-
+-      {activeTab === 'tasks' && (
+-        <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="panel" data-testid="panel-tasks">
+-          <div className="progress-row">
+-            <p data-testid="task-progress" aria-live="polite">
+-              {completed} of {tasks.length} tasks complete
+-            </p>
+-            <progress className="progress" max={tasks.length} value={completed} aria-label="Task completion" />
+-          </div>
+-          <ul className="task-list">
+-            {tasks.map((task) => (
+-              <li key={task.id} className={task.done ? 'task task-done' : 'task'} data-testid="task-item">
+-                <input
+-                  id={`task-${task.id}`}
+-                  type="checkbox"
+-                  checked={task.done}
+-                  onChange={() => toggleTask(task.id)}
+-                  data-testid={`task-checkbox-${task.id}`}
+-                />
+-                <label htmlFor={`task-${task.id}`}>{task.title}</label>
+-                <span className="muted small">{task.assignee}</span>
+-              </li>
+-            ))}
+-          </ul>
+-        </section>
+-      )}
+-
+-      {activeTab === 'files' && (
+-        <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="panel" data-testid="panel-files">
+-          <table className="table">
+-            <thead>
+-              <tr>
+-                <th scope="col">File name</th>
+-                <th scope="col">Size</th>
+-                <th scope="col">Last updated</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {project.files.map((file) => (
+-                <tr key={file.id} data-testid="file-row">
+-                  <td>{file.name}</td>
+-                  <td>{file.size}</td>
+-                  <td>{formatDate(file.updated)}</td>
+-                </tr>
++            <ul className="task-list">
++              {tasks.map((task) => (
++                <li key={task.id} className={task.done ? 'task task-done' : 'task'} data-testid="task-item">
++                  <span className="check">
++                    <input
++                      id={`task-${task.id}`}
++                      type="checkbox"
++                      checked={task.done}
++                      onChange={() => toggleTask(task.id)}
++                      data-testid={`task-checkbox-${task.id}`}
++                    />
++                    <TickIcon className="check-tick" />
++                  </span>
++                  <label htmlFor={`task-${task.id}`}>{task.title}</label>
++                  <span className="muted small">{task.assignee}</span>
++                </li>
+               ))}
+-            </tbody>
+-          </table>
+-        </section>
+-      )}
++            </ul>
++          </section>
++        )}
++
++        {activeTab === 'files' && (
++          <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="panel" data-testid="panel-files">
++            <div className="table-wrap" tabIndex={0} role="region" aria-label="Project files">
++              <table className="table">
++                <thead>
++                  <tr>
++                    <th scope="col">File name</th>
++                    <th scope="col" className="numeric">
++                      Size
++                    </th>
++                    <th scope="col">Last updated</th>
++                  </tr>
++                </thead>
++                <tbody>
++                  {project.files.map((file) => (
++                    <tr key={file.id} data-testid="file-row">
++                      <td>{file.name}</td>
++                      <td className="numeric">{file.size}</td>
++                      <td>{formatDate(file.updated)}</td>
++                    </tr>
++                  ))}
++                </tbody>
++              </table>
++            </div>
++          </section>
++        )}
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProjectsPage.tsx b/src/pages/ProjectsPage.tsx
+index 9529547..51f1a1a 100644
+--- a/src/pages/ProjectsPage.tsx
++++ b/src/pages/ProjectsPage.tsx
+@@ -1,5 +1,6 @@
+ import { useSearchParams } from 'react-router';
+ import ProjectsTable from '../components/ProjectsTable';
++import { HeaderBand } from '../components/ms/Field';
+ 
+ export default function ProjectsPage() {
+   const [searchParams] = useSearchParams();
+@@ -7,12 +8,16 @@ export default function ProjectsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Projects</h1>
+-        <p className="muted">Every initiative tracked by the operations team.</p>
++      <HeaderBand hue="blue" cluster="projects">
++        <div className="page-header">
++          <h1>Projects</h1>
++          <p className="muted">Every initiative tracked by the operations team.</p>
++        </div>
++      </HeaderBand>
++      <div className="page-body">
++        {/* Re-mount when the global search changes so the table picks up the new query. */}
++        <ProjectsTable key={initialQuery} heading="All projects" initialQuery={initialQuery} />
+       </div>
+-      {/* Re-mount when the global search changes so the table picks up the new query. */}
+-      <ProjectsTable key={initialQuery} heading="All projects" initialQuery={initialQuery} />
+     </>
+   );
+ }
+diff --git a/src/pages/SettingsPage.tsx b/src/pages/SettingsPage.tsx
+index 920db50..15dca63 100644
+--- a/src/pages/SettingsPage.tsx
++++ b/src/pages/SettingsPage.tsx
+@@ -1,19 +1,30 @@
+ import { Link } from 'react-router';
++import { HeaderBand } from '../components/ms/Field';
++import { Composition } from '../components/ms/Shapes';
+ 
+ export default function SettingsPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Settings</h1>
++      <HeaderBand hue="cream" cluster="settings">
++        <div className="page-header">
++          <h1>Settings</h1>
++        </div>
++      </HeaderBand>
++      <div className="page-body">
++        <section className="panel empty-state empty-panel" data-testid="settings-placeholder">
++          <Composition name="sliders" />
++          <div className="empty-panel-text">
++            <h2>Workspace settings are coming soon</h2>
++            <p className="muted">
++              Notification rules, integrations and access control will live here. For now, ask a workspace admin to make
++              changes.
++            </p>
++            <Link to="/" className="ms-pill">
++              Back to overview
++            </Link>
++          </div>
++        </section>
+       </div>
+-      <section className="panel empty-state" data-testid="settings-placeholder">
+-        <h2>Workspace settings are coming soon</h2>
+-        <p className="muted">
+-          Notification rules, integrations and access control will live here. For now, ask a workspace admin to make
+-          changes.
+-        </p>
+-        <Link to="/">Back to overview</Link>
+-      </section>
+     </>
+   );
+ }
+diff --git a/src/pages/TeamPage.tsx b/src/pages/TeamPage.tsx
+index c6c6245..89bb2c5 100644
+--- a/src/pages/TeamPage.tsx
++++ b/src/pages/TeamPage.tsx
+@@ -1,51 +1,60 @@
++import { HeaderBand } from '../components/ms/Field';
++import { Avatar } from '../components/ms/Shapes';
++import { hueForRole, initialsOf } from '../components/people';
+ import { team } from '../data/team';
+ 
+ export default function TeamPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Team</h1>
+-        <p className="muted">{team.length} people across engineering, design and operations.</p>
+-      </div>
+-      <section className="panel" aria-label="Team members">
+-        <div className="table-wrap">
+-          <table className="table" data-testid="team-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Name</th>
+-                <th scope="col">Role</th>
+-                <th scope="col">Location</th>
+-                <th scope="col">Active projects</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {team.map((member) => (
+-                <tr key={member.id} data-testid="team-row">
+-                  <td>
+-                    <div className="person">
+-                      <span className="avatar" aria-hidden="true">
+-                        {member.name
+-                          .split(' ')
+-                          .map((part) => part[0])
+-                          .join('')}
+-                      </span>
+-                      <div>
+-                        <div>{member.name}</div>
+-                        <a href={`mailto:${member.email}`} className="small">
+-                          {member.email}
+-                        </a>
+-                      </div>
+-                    </div>
+-                  </td>
+-                  <td>{member.role}</td>
+-                  <td>{member.location}</td>
+-                  <td className="numeric">{member.activeProjects}</td>
+-                </tr>
+-              ))}
+-            </tbody>
+-          </table>
++      <HeaderBand hue="green" cluster="team">
++        <div className="page-header">
++          <h1>Team</h1>
++          <p className="muted">{team.length} people across engineering, design and operations.</p>
+         </div>
+-      </section>
++      </HeaderBand>
++      <div className="page-body">
++        <section className="panel" aria-label="Team members">
++          <div className="table-wrap" tabIndex={0} role="region" aria-label="Team members table">
++            <table className="table" data-testid="team-table">
++              <thead>
++                <tr>
++                  <th scope="col">Name</th>
++                  <th scope="col">Role</th>
++                  <th scope="col">Location</th>
++                  <th scope="col" className="numeric">
++                    Active projects
++                  </th>
++                </tr>
++              </thead>
++              <tbody>
++                {team.map((member) => (
++                  <tr key={member.id} data-testid="team-row">
++                    <td>
++                      <div className="person">
++                        <Avatar initials={initialsOf(member.name)} hue={hueForRole(member.role)} large />
++                        <div>
++                          <div className="person-name">{member.name}</div>
++                          <a href={`mailto:${member.email}`} className="small">
++                            {member.email}
++                          </a>
++                        </div>
++                      </div>
++                    </td>
++                    <td>
++                      <span className="role">
++                        <span className={`ms-dot ms-hue--${hueForRole(member.role)}`} aria-hidden="true" />
++                        {member.role}
++                      </span>
++                    </td>
++                    <td>{member.location}</td>
++                    <td className="numeric">{member.activeProjects}</td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++        </section>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index cc4cee9..6ca3b9a 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,48 +1,60 @@
+ /*
+- * Base styles for the Northwind Ops dashboard.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Base styles for the Northwind Ops dashboard, on the Morning Shapes design system
++ * (design-system/). Tokens come from design-system/tokens.css; signature pieces live in
++ * morning.css. The original variable names below are kept as aliases of the tokens.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-status-active-bg: #e3f2e5;
+-  --color-status-active-text: #1b5e20;
+-  --color-status-paused-bg: #fff4d6;
+-  --color-status-paused-text: #7a5a00;
+-  --color-status-done-bg: #e8e8e8;
+-  --color-status-done-text: #444444;
+-  --color-chart-bar: #6f8fbf;
+-  --color-chart-axis: #999999;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-default);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-subtle);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-link);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-status-success);
++  --color-negative: var(--color-status-danger);
++  --color-chart-bar: var(--color-category-1);
++  --color-chart-axis: var(--color-border-default);
++
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --font-size-small: var(--font-size-label);
++  --line-height: var(--font-line-height-body);
++
++  --radius: var(--radius-md);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hair);
++  --sidebar-width: var(--size-sidebar);
++
++  /* Side margins by width: desktop, tablet, phone */
++  --page-gutter: var(--space-12);
++  color-scheme: light;
++}
++
++[data-theme='dark'] {
++  color-scheme: dark;
++}
++
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) {
++    color-scheme: dark;
++  }
++}
++
++@media (max-width: 1023px) {
++  :root {
++    --page-gutter: var(--space-6);
++  }
++}
++
++@media (max-width: 639px) {
++  :root {
++    --page-gutter: var(--space-4);
++  }
+ }
+ 
+ *,
+@@ -57,45 +69,67 @@ body {
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
++  text-wrap: balance;
+ }
+ 
++/* Product page title */
+ h1 {
+-  font-size: var(--font-size-h1);
+-}
+-
+-h2 {
+   font-size: var(--font-size-h2);
+ }
+ 
++/* Card, panel and empty-state titles */
++h2,
+ h3 {
+-  font-size: var(--font-size-base);
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-2);
++  margin: 0;
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-link);
++  text-decoration-line: underline;
++  text-decoration-thickness: var(--border-width-hair);
++  text-underline-offset: 3px;
++}
++
++@media (hover: hover) {
++  a:hover {
++    text-decoration-thickness: var(--border-width-thick);
++    text-underline-offset: 2px;
++  }
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
++.icon {
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  flex: none;
++  fill: currentColor;
++}
++
+ .visually-hidden {
+   position: absolute;
+   width: 1px;
+@@ -114,61 +148,117 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-4);
++  top: var(--space-4);
++  z-index: 30;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .numeric {
+   font-variant-numeric: tabular-nums;
+ }
+ 
+-/* Layout */
++/* ---------- App shell: cream sidebar, white top bar, white body ---------- */
+ .app-shell {
+   display: flex;
+   min-height: 100vh;
+ }
+ 
+ .sidebar {
+-  width: var(--sidebar-width);
++  width: var(--size-sidebar);
+   flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  background: var(--color-surface-subtle);
++  padding: 0 var(--space-4) var(--space-6);
++}
++
++/* The sidebar runs the full page height; its brand and links stay in view while scrolling */
++.sidebar > .brand,
++.sidebar > nav {
++  position: sticky;
++}
++
++.sidebar > .brand {
++  top: 0;
++}
++
++.sidebar > nav {
++  top: var(--size-header);
+ }
+ 
+ .brand {
+-  font-weight: bold;
+-  margin-bottom: var(--space-4);
++  display: flex;
++  align-items: center;
++  height: var(--size-header);
++  padding-inline: var(--space-4);
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ .nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: grid;
++  gap: var(--space-1);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  height: var(--size-control);
++  padding: 0 var(--space-4);
++  border-radius: var(--radius-full);
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-control);
++  letter-spacing: var(--font-tracking-tight);
+   text-decoration: none;
++  white-space: nowrap;
++}
++
++.nav-link:focus-visible {
++  outline-offset: calc(var(--border-width-thick) * -1);
++}
++
++@media (hover: hover) {
++  .nav-link:hover {
++    background: var(--color-surface-hover);
++  }
+ }
+ 
+ .nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-weight: var(--font-weight-bold);
++}
++
++.nav-dot {
++  width: var(--size-dot);
++  height: var(--size-dot);
++  flex: none;
++  border-radius: var(--radius-full);
++  background: var(--ms-field);
++}
++
++/* Utility areas take cream, which would vanish on the cream sidebar: draw their dot in stone */
++.nav-dot.ms-hue--cream {
++  background: var(--color-art-stone-shade);
++}
++
++.nav-link.active .nav-dot {
++  background: currentColor;
+ }
+ 
+ .main-column {
+@@ -179,85 +269,150 @@ a {
+ }
+ 
+ .topbar {
++  position: sticky;
++  top: 0;
++  z-index: 20;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  height: var(--size-header);
++  padding: 0 var(--page-gutter);
++  background: var(--color-surface-default);
++  transition: box-shadow var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.topbar.is-scrolled {
++  box-shadow: var(--shadow-header);
+ }
+ 
+ .topbar-search {
+   display: flex;
++  align-items: center;
+   gap: var(--space-2);
+   flex: 1;
+-  max-width: 420px;
++  max-width: 480px;
++  min-width: 0;
++}
++
++.topbar-search .ms-pill {
++  height: var(--size-control-lg);
+ }
+ 
+ .content {
+-  padding: var(--space-6);
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-6);
++  flex: 1;
+ }
+ 
+-.page-header-row {
++.content:focus {
++  outline: none;
++}
++
++.page-body {
+   display: flex;
+-  justify-content: space-between;
+-  align-items: flex-start;
+-  gap: var(--space-4);
++  flex-direction: column;
++  gap: var(--space-8);
++  width: 100%;
++  max-width: var(--size-container);
++  margin-inline: auto;
++  padding: var(--space-12) var(--page-gutter) var(--space-16);
+ }
+ 
+-/* Loading placeholders (the metrics refresh) */
+-.skeleton {
+-  display: block;
+-  background: var(--color-surface-muted);
+-  border-radius: var(--radius);
++/* Header bands line their text up with the page body */
++.page-band .ms-field__inner {
++  padding-inline-start: var(--page-gutter);
+ }
+ 
+-.skeleton-label {
+-  width: 60%;
+-  height: 14px;
++.page-header-row {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  gap: var(--space-4) var(--space-6);
++  flex-wrap: wrap;
+ }
+ 
+-.skeleton-value {
+-  width: 40%;
+-  height: 28px;
+-  margin-top: var(--space-2);
++/* In a header band the status sits under the title, left of the shape cluster */
++.page-band .page-header-row {
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-4);
+ }
+ 
+-.skeleton-change {
+-  width: 50%;
+-  height: 12px;
++.page-header .muted {
+   margin-top: var(--space-2);
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+-.two-column {
+-  display: grid;
+-  grid-template-columns: 3fr 2fr;
+-  gap: var(--space-6);
++/* Secondary text on a field is the on-field color itself, never a grey */
++.ms-field .muted,
++.ms-panel .muted {
++  color: inherit;
+ }
+ 
+-/* Controls */
++/* ---------- Controls ---------- */
+ .input {
+   font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  height: var(--size-control-lg);
++  padding: 0 var(--space-4);
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+   min-width: 0;
+   flex: 1;
++  transition: border-color var(--motion-duration-snap) var(--motion-easing-snap);
+ }
+ 
+-.button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
++.input::placeholder {
++  color: var(--color-text-secondary);
++  opacity: 1;
++}
++
++@media (hover: hover) {
++  .input:hover,
++  .search-pill:hover {
++    border-color: var(--color-text-secondary);
++  }
++}
++
++.input:focus-visible {
++  outline: none;
++  border-color: var(--color-focus-ring);
++}
++
++/* Search variant: a pill with a leading icon; the wrapper is the visible box */
++.search-pill {
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++  flex: 1;
++  min-width: 0;
++  height: var(--size-control-lg);
++  padding-inline: var(--space-5);
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-raised);
++  color: var(--color-text-icon);
++  transition: border-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.search-pill:focus-within {
++  border-color: var(--color-focus-ring);
++}
++
++.search-pill .input,
++.search-pill .input:hover {
++  height: 100%;
++  padding: 0;
++  border: none;
++  border-radius: 0;
++  background: transparent;
++}
++
++.search-pill .input:focus-visible {
++  outline: none;
+ }
+ 
+ .link-button {
+@@ -265,38 +420,61 @@ a {
+   background: none;
+   border: none;
+   padding: 0;
+-  color: var(--color-link);
++  color: var(--color-text-link);
+   text-decoration: underline;
+   cursor: pointer;
+ }
+ 
+ .field-inline {
+-  display: flex;
+-  align-items: center;
++  display: grid;
+   gap: var(--space-2);
++  width: min(100%, 360px);
++}
++
++.field-inline label {
++  font-weight: var(--font-weight-medium);
+ }
+ 
+-/* User menu */
++/* ---------- User menu ---------- */
+ .user-menu {
+   position: relative;
++  flex: none;
+ }
+ 
+ .user-menu-button {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++  padding-inline: var(--space-2) var(--space-5);
+ }
+ 
+ .user-menu-panel {
+   position: absolute;
+   right: 0;
+-  top: calc(100% + var(--space-1));
+-  min-width: 220px;
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-3);
+-  z-index: 5;
++  top: calc(100% + var(--space-2));
++  min-width: 260px;
++  background: var(--color-surface-raised);
++  border-radius: var(--radius-md);
++  box-shadow: var(--shadow-float);
++  padding: var(--space-2);
++  z-index: 25;
++  animation: menu-enter var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++@keyframes menu-enter {
++  from {
++    opacity: 0;
++    transform: translateY(8px);
++  }
++  to {
++    opacity: 1;
++    transform: none;
++  }
++}
++
++.user-menu-email {
++  padding: var(--space-2) var(--space-3) var(--space-3);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  color: var(--color-text-secondary);
++  overflow-wrap: anywhere;
+ }
+ 
+ .user-menu-list {
+@@ -304,161 +482,285 @@ a {
+   margin: 0;
+   padding: 0;
+   display: grid;
+-  gap: var(--space-2);
+ }
+ 
+-.avatar {
+-  display: inline-flex;
++.user-menu-link,
++.user-menu-link.link-button {
++  display: flex;
+   align-items: center;
+-  justify-content: center;
+-  width: 28px;
+-  height: 28px;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
++  width: 100%;
++  height: var(--size-control);
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-sm);
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
++  text-align: left;
++}
++
++@media (hover: hover) {
++  .user-menu-link:hover {
++    background: var(--color-surface-subtle);
++  }
+ }
+ 
+ .person {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-3);
++}
++
++.person-name {
++  font-weight: var(--font-weight-bold);
+ }
+ 
+-/* Cards and panels */
++.role {
++  display: inline-flex;
++  align-items: center;
++}
++
++/* ---------- Cards and panels: cream, no border, no shadow ---------- */
+ .panel,
+ .card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
++  padding: var(--space-8);
++}
++
++.panel > h2 {
++  margin-bottom: var(--space-6);
+ }
+ 
+ .panel-header {
+   display: flex;
+   justify-content: space-between;
+   align-items: baseline;
+-  gap: var(--space-4);
++  flex-wrap: wrap;
++  gap: var(--space-2) var(--space-4);
++}
++
++.panel-header .muted {
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++}
++
++/* ---------- Dashboard ---------- */
++.greeting {
++  display: flex;
++  align-items: center;
++  gap: var(--space-6);
++}
++
++.greeting-hello {
++  font-size: var(--font-size-body-lg);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++  color: var(--color-text-secondary);
++  margin-bottom: var(--space-1);
+ }
+ 
++.refresh-button {
++  min-width: calc(var(--space-24) + var(--space-4));
++}
++
++/* Stat tiles: the dashboard's one saturated field, in category hues */
+ .kpi-grid {
+   display: grid;
+   grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
++  gap: var(--space-6);
++}
++
++.stat-tile {
++  display: grid;
++  grid-template-columns: 1fr auto;
++  align-items: start;
++  gap: var(--space-6);
++  border-radius: var(--radius-sm);
++  padding: var(--space-6);
++  background: var(--ms-field);
++  color: var(--ms-on-field);
++}
++
++.stat-tile-text {
++  display: grid;
++  gap: var(--space-1);
++  min-width: 0;
+ }
+ 
+ .kpi-label {
+-  font-size: var(--font-size-small);
+-  font-weight: normal;
+-  color: var(--color-text-muted);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  text-wrap: pretty;
+ }
+ 
+ .kpi-value {
+-  font-size: 28px;
+-  font-weight: bold;
+-  margin: 0;
++  font-size: var(--font-size-h3);
++  font-weight: var(--font-weight-bold);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-tight);
++  font-variant-numeric: tabular-nums;
++  margin-top: var(--space-2);
+ }
+ 
+ .kpi-change {
+-  font-size: var(--font-size-small);
+-  margin: 0;
++  font-size: var(--font-size-body);
++}
++
++.kpi-card-loading {
++  display: grid;
++  align-content: start;
++  gap: var(--space-3);
++  border-radius: var(--radius-sm);
++  padding: var(--space-6);
+ }
+ 
+-.kpi-change-up {
+-  color: var(--color-positive);
++.kpi-loading-text {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-secondary);
+ }
+ 
+-.kpi-change-down {
+-  color: var(--color-negative);
++.kpi-card-loading .ms-skeleton {
++  background: var(--color-surface-hover);
++  border-radius: var(--radius-sm);
+ }
+ 
+-/* Chart */
++.skeleton-value {
++  width: 50%;
++  height: var(--space-10);
++}
++
++.skeleton-change {
++  width: 70%;
++  height: var(--space-4);
++}
++
++.two-column {
++  display: grid;
++  grid-template-columns: 3fr 2fr;
++  gap: var(--space-8);
++  align-items: start;
++}
++
++/* ---------- Chart ---------- */
+ .chart {
+   margin: 0;
+ }
+ 
+ .chart-title {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
+-  margin-bottom: var(--space-2);
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++  color: var(--color-text-secondary);
++  margin-bottom: var(--space-4);
++}
++
++.chart-legend-dot {
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: var(--color-category-1);
++  flex: none;
+ }
+ 
+ .chart-svg {
+   width: 100%;
+   height: auto;
+   display: block;
++  overflow: visible;
+ }
+ 
+ .chart-bar {
+-  fill: var(--color-chart-bar);
++  fill: var(--color-category-1);
+ }
+ 
+ .chart-axis {
+-  stroke: var(--color-chart-axis);
++  stroke: var(--color-border-default);
++  stroke-width: var(--border-width-hair);
+ }
+ 
+ .chart-value,
+ .chart-label {
+-  font-size: 12px;
+-  fill: var(--color-text);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-medium);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+-/* Activity */
+-.activity-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
++.chart-value {
++  fill: var(--color-text-primary);
++  font-weight: var(--font-weight-bold);
+ }
+ 
+-.activity-item {
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++.chart-label {
++  fill: var(--color-text-secondary);
+ }
+ 
+-.activity-item p {
++/* ---------- Activity ---------- */
++.activity-list {
++  list-style: none;
+   margin: 0;
++  padding: 0;
+ }
+ 
+-/* Toolbar & table */
+-.toolbar {
++.activity-item {
+   display: flex;
+-  flex-wrap: wrap;
+-  justify-content: space-between;
++  align-items: flex-start;
+   gap: var(--space-3);
+-  margin: var(--space-3) 0;
++  padding: var(--space-3) 0;
++  border-bottom: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+-.segmented {
+-  display: flex;
++.activity-item:first-child {
++  padding-top: 0;
+ }
+ 
+-.segmented-button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  cursor: pointer;
+-  margin-left: -1px;
++.activity-item:last-child {
++  border-bottom: none;
++  padding-bottom: 0;
+ }
+ 
+-.segmented-button:first-child {
+-  border-radius: var(--radius) 0 0 var(--radius);
+-  margin-left: 0;
++.activity-item p.small {
++  margin-top: var(--space-1);
+ }
+ 
+-.segmented-button:last-child {
+-  border-radius: 0 var(--radius) var(--radius) 0;
++/* ---------- Toolbar & table ---------- */
++.toolbar {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: space-between;
++  align-items: flex-end;
++  gap: var(--space-4) var(--space-6);
++  margin: var(--space-6) 0;
+ }
+ 
+-.segmented-button[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.segmented {
++  display: flex;
++  gap: var(--space-2);
++  max-width: 100%;
++  overflow-x: auto;
++  padding-block: var(--space-1) var(--space-1);
++  margin-block: calc(var(--space-1) * -1);
++  padding-inline: var(--space-1);
++  margin-inline: calc(var(--space-1) * -1);
+ }
+ 
++/* Table frame: white, radius.lg, 1px outline; scrolls in its frame */
+ .table-wrap {
+   overflow-x: auto;
++  background: var(--color-surface-default);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-lg);
+ }
+ 
+ .table {
+@@ -469,14 +771,56 @@ a {
+ .table th,
+ .table td {
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  vertical-align: top;
++  padding: 0 var(--space-4);
++  vertical-align: middle;
++}
++
++.table thead th {
++  height: 44px;
++  background: var(--color-surface-subtle);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  color: var(--color-text-icon);
++  white-space: nowrap;
++}
++
++.table td {
++  height: var(--size-row);
++  padding-block: var(--space-3);
++  border-top: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.table th.numeric,
++.table td.numeric {
++  text-align: right;
++}
++
++/* Sticky first column, so wide tables scroll under the name */
++.table th:first-child,
++.table td:first-child {
++  position: sticky;
++  left: 0;
++  z-index: 1;
++}
++
++.table td:first-child {
++  background: var(--color-surface-default);
++}
++
++.table td a {
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-bold);
+ }
+ 
+-.table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++.table td a.small {
++  color: var(--color-text-link);
++  font-weight: var(--font-weight-regular);
++}
++
++.table td .muted.small {
++  margin-top: var(--space-1);
+ }
+ 
+ .sort-button {
+@@ -487,158 +831,510 @@ a {
+   padding: 0;
+   cursor: pointer;
+   display: inline-flex;
++  align-items: center;
+   gap: var(--space-1);
++  border-radius: var(--radius-sm);
+ }
+ 
+-.sort-indicator {
+-  font-size: 10px;
++.sort-indicator-ascending {
++  transform: rotate(180deg);
+ }
+ 
++/* Status badge: cream pill, status dot, label carries the meaning */
+ .pill {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  height: var(--size-icon);
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-fine);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  white-space: nowrap;
+ }
+ 
+-.pill-active {
+-  background: var(--color-status-active-bg);
+-  color: var(--color-status-active-text);
++.pill-dot {
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
+ }
+ 
+-.pill-paused {
+-  background: var(--color-status-paused-bg);
+-  color: var(--color-status-paused-text);
++.pill-active .pill-dot {
++  background: var(--color-status-success);
+ }
+ 
+-.pill-done {
+-  background: var(--color-status-done-bg);
+-  color: var(--color-status-done-text);
++.pill-paused .pill-dot {
++  background: var(--color-status-warning);
+ }
+ 
++.pill-done .pill-dot {
++  background: var(--color-status-info);
++}
++
++.pill-on-field {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++}
++
++/* Empty state inside the table frame: glyph, one sentence, one ink pill */
+ .empty-state {
+   text-align: center;
+-  padding: var(--space-8) var(--space-4);
+ }
+ 
+-/* Project detail */
++.table-empty {
++  display: grid;
++  justify-items: center;
++  gap: var(--space-3);
++  padding: var(--space-12) var(--space-6);
++  background: var(--color-surface-default);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-lg);
++}
++
++.table-empty .ms-glyph {
++  margin-bottom: var(--space-3);
++}
++
++.table-empty .ms-pill {
++  margin-top: var(--space-3);
++}
++
++/* Empty-state panel (settings): radius.xl, one composition, title, one line, one ink pill */
++.empty-panel {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++  border-radius: var(--radius-xl);
++  padding: var(--space-12);
++  text-align: left;
++}
++
++.empty-panel-text {
++  display: grid;
++  justify-items: start;
++  gap: var(--space-3);
++  max-width: var(--size-prose);
++}
++
++.empty-panel-text .ms-pill {
++  margin-top: var(--space-3);
++}
++
++/* Error page: cream band rising from the white */
++.error-band {
++  flex: 1;
++  margin-top: calc(var(--space-16) + var(--ms-arc));
++  padding-block: var(--space-12) var(--space-24);
++  text-align: left;
++}
++
++.error-layout {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++  max-width: var(--size-reading);
++}
++
++.error-text {
++  display: grid;
++  justify-items: start;
++  gap: var(--space-3);
++}
++
++.error-text .ms-pill {
++  margin-top: var(--space-3);
++}
++
++/* ---------- Project detail ---------- */
++.breadcrumb {
++  margin-bottom: var(--space-3);
++}
++
+ .breadcrumb ol {
+   list-style: none;
+   display: flex;
++  flex-wrap: wrap;
+   gap: var(--space-2);
+   margin: 0;
+   padding: 0;
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .breadcrumb li + li::before {
+   content: '/';
+   margin-right: var(--space-2);
+-  color: var(--color-text-muted);
++}
++
++.breadcrumb [aria-current='page'] {
++  font-weight: var(--font-weight-bold);
+ }
+ 
+ .tabs {
+   display: flex;
+-  gap: var(--space-1);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-2);
++  overflow-x: auto;
++  padding: var(--space-1);
++  margin: calc(var(--space-1) * -1);
+ }
+ 
+-.tab {
+-  font: inherit;
+-  background: none;
+-  border: var(--border-width) solid transparent;
+-  border-bottom: none;
+-  border-radius: var(--radius) var(--radius) 0 0;
+-  padding: var(--space-2) var(--space-4);
+-  color: var(--color-text);
+-  cursor: pointer;
+-  margin-bottom: -1px;
++.panel-overview {
++  display: grid;
++  grid-template-columns: minmax(180px, 240px) 1fr;
++  gap: var(--space-8);
++  align-items: start;
+ }
+ 
+-.tab[aria-selected='true'] {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  border-bottom: var(--border-width) solid var(--color-surface);
+-  font-weight: bold;
++.project-description {
++  max-width: var(--size-prose);
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .details {
+   display: grid;
+   grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 0;
++  gap: var(--space-6);
++  margin: var(--space-8) 0 0;
+ }
+ 
+ .details dt {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++  color: var(--color-text-secondary);
+ }
+ 
+ .details dd {
+-  margin: 0;
++  margin: var(--space-1) 0 0;
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ .progress-row {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-4);
++  flex-wrap: wrap;
++  gap: var(--space-2) var(--space-6);
+ }
+ 
+ .progress-row p {
+-  margin: 0;
++  font-weight: var(--font-weight-bold);
+ }
+ 
+ .progress {
+   flex: 1;
+-  max-width: 240px;
++  max-width: 320px;
++  height: var(--space-3);
++  appearance: none;
++  border: none;
++  border-radius: var(--radius-full);
++  background: var(--color-surface-hover);
++  overflow: hidden;
++}
++
++.progress::-webkit-progress-bar {
++  background: var(--color-surface-hover);
++  border-radius: var(--radius-full);
++}
++
++.progress::-webkit-progress-value {
++  background: var(--color-field-blue);
++  border-radius: var(--radius-full);
++}
++
++.progress::-moz-progress-bar {
++  background: var(--color-field-blue);
++  border-radius: var(--radius-full);
+ }
+ 
+ .task-list {
+   list-style: none;
+-  margin: var(--space-3) 0 0;
++  margin: var(--space-4) 0 0;
+   padding: 0;
+ }
+ 
+ .task {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  flex-wrap: wrap;
++  gap: var(--space-1) var(--space-3);
++  min-height: var(--size-row);
+   padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  border-bottom: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.task:last-child {
++  border-bottom: none;
+ }
+ 
+ .task label {
+   flex: 1;
++  min-width: 0;
++  cursor: pointer;
+ }
+ 
+ .task-done label {
+   text-decoration: line-through;
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
++}
++
++/* Checkbox: 24px box, radius.check, ink when checked with a solid tick */
++.check {
++  position: relative;
++  display: inline-grid;
++  flex: none;
++  width: var(--size-icon);
++  height: var(--size-icon);
++}
++
++.check input {
++  appearance: none;
++  margin: 0;
++  width: 100%;
++  height: 100%;
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-check);
++  background: var(--color-surface-raised);
++  cursor: pointer;
++  transition-property: background-color, border-color;
++  transition-duration: var(--motion-duration-snap);
++  transition-timing-function: var(--motion-easing-snap);
++}
++
++@media (hover: hover) {
++  .check input:hover {
++    border-color: var(--color-text-secondary);
++  }
++}
++
++.check input:checked {
++  background: var(--color-action-primary);
++  border-color: var(--color-action-primary);
++}
++
++.check-tick {
++  position: absolute;
++  inset: var(--space-1);
++  width: auto;
++  height: auto;
++  fill: var(--color-text-on-action);
++  pointer-events: none;
++  opacity: 0;
++}
++
++.check input:checked + .check-tick {
++  opacity: 1;
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .check input,
++  .topbar,
++  .input,
++  .search-pill {
++    transition: none;
++  }
++
++  .user-menu-panel {
++    animation: none;
++  }
+ }
+ 
+-@media (max-width: 900px) {
++/* ---------- Narrower screens ---------- */
++@media (max-width: 1279px) {
++  .kpi-grid {
++    grid-template-columns: repeat(2, 1fr);
++  }
++}
++
++@media (max-width: 1023px) {
+   .app-shell {
+     flex-direction: column;
+   }
+ 
+   .sidebar {
+     width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    min-width: 0;
++    display: flex;
++    align-items: center;
++    gap: var(--space-4);
++    padding: var(--space-2) var(--page-gutter);
++  }
++
++  .brand {
++    height: var(--size-control);
++    padding-inline: 0;
++    flex: none;
++  }
++
++  .sidebar nav {
++    min-width: 0;
++    flex: 1;
++  }
++
++  .sidebar > .brand,
++  .sidebar > nav {
++    position: static;
+   }
+ 
+   .nav-list {
+     display: flex;
+-    flex-wrap: wrap;
+-    gap: var(--space-2);
++    gap: var(--space-1);
++    overflow-x: auto;
++    padding: var(--space-1);
++    margin: calc(var(--space-1) * -1);
++  }
++
++  .two-column {
++    grid-template-columns: 1fr;
+   }
+ 
+-  .kpi-grid,
+   .details {
+     grid-template-columns: repeat(2, 1fr);
+   }
++}
+ 
+-  .two-column {
++@media (max-width: 767px) {
++  h1 {
++    font-size: var(--font-size-h2mobile);
++  }
++
++  .page-header .muted {
++    font-size: var(--font-size-body);
++  }
++
++  .sidebar {
++    flex-direction: column;
++    align-items: stretch;
++    gap: 0;
++    padding-bottom: var(--space-3);
++  }
++
++  .topbar {
++    height: 64px;
++    gap: var(--space-2);
++  }
++
++  .topbar-search .search-pill,
++  .topbar-search .ms-pill {
++    height: var(--size-control);
++  }
++
++  .topbar-search .ms-pill {
++    padding-inline: var(--space-5);
++  }
++
++  .panel,
++  .card {
++    padding: var(--space-6);
++  }
++
++  .panel-overview {
+     grid-template-columns: 1fr;
++    gap: var(--space-6);
++  }
++
++  .project-cover {
++    max-width: 200px;
++  }
++
++  .project-description {
++    font-size: var(--font-size-body-lg);
++  }
++
++  .empty-panel,
++  .error-layout {
++    flex-direction: column;
++    align-items: flex-start;
++    gap: var(--space-6);
++  }
++
++  .empty-panel {
++    padding: var(--space-8) var(--space-6);
++  }
++
++  .empty-panel .ms-art,
++  .error-layout .ms-art {
++    width: 140px;
++    height: 140px;
++  }
++
++  .error-band {
++    margin-top: calc(var(--space-8) + var(--ms-arc));
++    padding-block: var(--space-8) var(--space-16);
++  }
++
++  .greeting {
++    gap: var(--space-4);
++  }
++
++  .field-inline {
++    width: 100%;
++  }
++
++  /* Tables keep readable columns and scroll in their frame under the sticky first column */
++  .table {
++    min-width: 640px;
++  }
++
++  .table td:first-child {
++    min-width: 200px;
++  }
++
++  .refresh-button {
++    width: 100%;
++  }
++}
++
++@media (max-width: 639px) {
++  .user-menu-name {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    overflow: hidden;
++    clip: rect(0, 0, 0, 0);
++    white-space: nowrap;
++  }
++
++  .user-menu-button {
++    width: var(--size-control);
++    padding: 0;
++  }
++
++  .stat-tile,
++  .kpi-card-loading {
++    grid-template-columns: 1fr;
++    padding: var(--space-4);
++    gap: var(--space-6);
++  }
++
++  .stat-tile .ms-plate {
++    order: -1;
++  }
++
++  .kpi-grid {
++    gap: var(--space-4);
++  }
++
++  .chart-value,
++  .chart-label {
++    font-size: calc(var(--font-size-label) * 2);
++  }
++
++  .details {
++    gap: var(--space-4);
++  }
++
++  .details dd {
++    font-size: var(--font-size-body-lg);
+   }
+ }

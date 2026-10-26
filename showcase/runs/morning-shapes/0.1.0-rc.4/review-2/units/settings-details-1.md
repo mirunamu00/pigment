@@ -1,0 +1,147 @@
+```json
+{
+  "items": [
+    { "id": "settings--state--profile-errors--desktop-light", "status": "finding", "fidelity": 4, "note": "Each invalid field gets a 2px danger border, a solid alert glyph and a plain fix-it message, inside a cream 24px panel under the header band, on ink and cream pills. This is close to the reference's warm form (09) and easy to act on. In one sample the focused invalid field switches to the blue focus border, so it no longer shows the error." },
+    { "id": "settings--state--profile-errors--desktop-dark", "status": "finding", "fidelity": 4, "note": "The night version holds together: an indigo band and panel on navy, a coral danger border with readable messages, and a white pill with an ink label, as the reference's night palette does it (03). The header band again takes about 450px, so the first invalid field starts near y≈700." },
+    { "id": "settings--state--profile-errors--mobile-light", "status": "finding", "fidelity": 4, "note": "On the phone, a compact cream or yellow band with a corner cluster sits over stacked fields with red borders and messages. The spacing is generous and it reads clearly, like the reference's phone (04). The focus-over-error swap shows again in one sample." },
+    { "id": "settings--state--profile-saved--desktop-light", "status": "finding", "fidelity": 4, "note": "Saving shows a green tick and 'Saved' beside the ink save pill, which is the spec's status-text pattern, in clean system styling. The tall header band pushes this confirmation to the bottom of the panel, below the first screen, so the person never sees it without scrolling." },
+    { "id": "settings--state--profile-saved--desktop-dark", "status": "finding", "fidelity": 4, "note": "Same at night: the green tick and label are legible on indigo, and the white save pill and indigo reset pill are correct. The confirmation still sits below the first screen, under an oversized band." },
+    { "id": "settings--state--profile-saved--mobile-light", "status": "ok", "fidelity": 4, "note": "On the phone, the green tick and 'Saved' sit right under full-width or paired ink and cream pills inside the cream panel. It is close to where the eye is, and the styling is consistent with the system's quiet status text." },
+    { "id": "settings--state--plan-dialog--desktop-light", "status": "ok", "fidelity": 4, "note": "The dialog follows the system recipe: white, radius.xl, a cream footer with a cream cancel pill and an ink confirm pill on ledges, a bold title and a plain consequence line, and no art inside. It sits over the saturated current-plan card, and the reference's pill craft (11) carries into it." },
+    { "id": "settings--state--plan-dialog--desktop-dark", "status": "finding", "fidelity": 4, "note": "At night the dialog keeps an indigo footer with a white confirm pill. Its body is the deepest navy on screen, though, nearly the scrim's tone, so it separates weakly from the dimmed page. In the reference, night panels lift as indigo on navy (03)." },
+    { "id": "settings--state--plan-dialog--mobile-light", "status": "ok", "fidelity": 4, "note": "On the phone the dialog becomes a bottom sheet with full-width ink confirm and cream cancel pills, which follows the spec's 'full width in dialogs'. The question and its consequence are clear." },
+    { "id": "settings--state--password-mismatch--desktop-light", "status": "finding", "fidelity": 4, "note": "The mismatch shows as a danger border and message under the confirm field. A green strength dot sits under the new password, and the key and monitor plates sit beside the group titles. The craft is close to the reference's form panel (09). One sample shows a blue focus border instead of the error." },
+    { "id": "settings--state--password-mismatch--desktop-dark", "status": "finding", "fidelity": 4, "note": "At night, a coral error and a green strength dot sit on indigo fields, and a green security band (one sample) carries a lock cluster. It is legible and in the language. One sample shows a yellow focus ring in place of the danger border on the mismatched field." },
+    { "id": "settings--state--password-mismatch--mobile-light", "status": "finding", "fidelity": 4, "note": "Stacked fields with a full-width ink update pill and a clear mismatch message. The sessions table scrolls in its frame. The state reads well. The focused field hides its error in one sample." },
+    { "id": "settings--state--keyboard-focus--desktop-light", "status": "finding", "fidelity": 4, "note": "Focus on a sidebar item is a 2px blue ring following the pill shape (yellow at night), close to the reference's focus ring (11), next to the ink selected pill with its white dot. On the cream group panels, the off switches are a pale warm grey that almost disappears." },
+    { "id": "settings--state--keyboard-focus--desktop-dark", "status": "ok", "fidelity": 4, "note": "At night the focus ring turns yellow around the pill, the selected pill is white with an ink dot, and the switches are white on indigo. The focus is unmistakable and matches the night recipe." },
+    { "id": "settings--state--keyboard-focus--mobile-light", "status": "finding", "fidelity": 4, "note": "The phone tab strip uses the ink selected pill with a dot and a blue ring on the focused tab, which is right in style. In two samples the focused tab is cut off at the screen edge because the strip does not scroll it into view." },
+    { "id": "settings--drawings--settings-profile", "status": "ok", "fidelity": 4, "note": "The header clusters picture the subject: an ID badge or a person built from crescent-shaded primitives, with a second-hue disc cutting in and four-point sparkles. They are flat and outline-free like the reference's shape kit (07). The loose single dots around them are a little sparse next to the reference's tighter compositions." },
+    { "id": "settings--drawings--settings-notifications", "status": "finding", "fidelity": 4, "note": "Bells read immediately and are crescent-shaded, with a sun disc behind and sparkles around. The envelope and chat-bubble plates are crisp. The plate pictograms fill only about half their plate, while the reference's spot pictograms fill their cream circles (07)." },
+    { "id": "settings--drawings--settings-security", "status": "ok", "fidelity": 4, "note": "Each sample draws its own padlock (green, green-grey or orange), with a second-hue disc cutting in, plus key and device plates. The pieces are flat, shaded and recognisable without their titles. The key plates are the strongest small pieces." },
+    { "id": "settings--drawings--settings-billing", "status": "finding", "fidelity": 4, "note": "The wallet with a card and a coin is a clear, well-built lead in every sample. Some plates picture nothing specific, though: a plain hexagon with a sparkle, or a bar chart for plans. The card and receipt plates are small within their circles, and the reference's pictograms are more characterful and fuller (07)." },
+    { "id": "settings--motion", "status": "ok", "fidelity": 4, "note": "Motion is restrained as the spec says: at most one cluster piece drifts slowly on an 8s breathe ease, and the plates fade in once, staggered. The data and fields appear immediately. That matches the reference's calm, slow motion and avoids busy loops." }
+  ],
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "major",
+      "area": "hierarchy",
+      "summary": "On desktop settings screens, the header band is still about 375–450px tall even though it holds only an h2 title and one line. In error and saved states, the first invalid field starts near the middle of the first screen and the 'Saved' confirmation falls below it. The reference keeps a tall band only for a hero with a headline, lead and pill (02); bands that only name the page stay compact (04).",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "specRule": ".ms-field--header { … min-height: calc(min(42vw, var(--size-band-art)) * 0.6 + var(--space-12)); }",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/settings--state--profile-errors--desktop-dark--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/settings/20261026-173309-s2/screenshots/state-profile-saved-desktop-light.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/settings--state--profile-saved--desktop-dark--s2.png",
+        "pipeline/headspace-study/reference/set/04-mobile.png"
+      ],
+      "items": [
+        "settings--state--profile-saved--desktop-light",
+        "settings--state--profile-saved--desktop-dark",
+        "settings--state--profile-errors--desktop-dark"
+      ],
+      "promptFix": "Size a product header band by its text, not its art. Its height is the text block plus space.10 above and space.8 below, never more than a third of the first screen. The art is capped at the band's height and spreads sideways. On a form or settings screen, the first field and any status message tied to the primary action must be visible in the first desktop viewport."
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "componentStates",
+      "summary": "In one sample, a focused invalid field replaces its danger border with the focus color (blue by day, yellow at night). While the person is fixing the field, nothing on the control marks it as invalid. The reference designs every state to read at a glance (11).",
+      "samples": 1,
+      "of": 3,
+      "specCaused": true,
+      "specRule": "Inputs, selects | … | border → 2px `color.focus.ring` (the focus indicator; no outline, no glow) | — | error: 2px `color.status.danger` border",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/settings--state--profile-errors--desktop-light--s3.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/settings--state--profile-errors--mobile-light--s3.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/settings--state--password-mismatch--desktop-dark.png"
+      ],
+      "items": [
+        "settings--state--profile-errors--desktop-light",
+        "settings--state--profile-errors--mobile-light",
+        "settings--state--password-mismatch--desktop-light",
+        "settings--state--password-mismatch--desktop-dark",
+        "settings--state--password-mismatch--mobile-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "signature",
+      "summary": "Settings-group plate pictograms fill only about half their plates. Some picture no noun: a plain hexagon with a sparkle, or a bar chart standing for plans. In the reference, spot pictograms fill their cream circles and can be named at a glance (07).",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/settings--drawings--settings-billing.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/settings--drawings--settings-notifications.png",
+        "pipeline/headspace-study/reference/set/07-desktop.png"
+      ],
+      "items": [
+        "settings--drawings--settings-billing",
+        "settings--drawings--settings-notifications"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "componentStates",
+      "summary": "In light mode, an off switch is a pale warm-grey track one step from the cream group panel, so it nearly disappears beside the ink on-switches. The reference's controls on cream separate clearly from their panel (09). This was named in review-1 and is still open.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "specRule": "default (off) | track `color.surface.hover`, knob `color.art.white`, `shadow.ledge`",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/settings--state--keyboard-focus--desktop-light--s1.png",
+        "pipeline/headspace-study/reference/set/09-desktop.png"
+      ],
+      "items": [
+        "settings--state--keyboard-focus--desktop-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "At night, the dialog body is the deepest navy on the screen, close to the dimmed page behind it, so the dialog's edge is weak. The reference's night layers lift as indigo panels on navy (03).",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/settings--state--plan-dialog--desktop-dark--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/settings--state--plan-dialog--desktop-dark--s3.png",
+        "pipeline/headspace-study/reference/set/03-desktop.png"
+      ],
+      "items": [
+        "settings--state--plan-dialog--desktop-dark"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "On phones, the horizontal settings tab strip does not scroll the focused or selected tab into view, so the focused tab is cut off at the screen edge.",
+      "samples": 2,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/settings--state--keyboard-focus--mobile-light.png"
+      ],
+      "items": [
+        "settings--state--keyboard-focus--mobile-light"
+      ],
+      "promptFix": ""
+    }
+  ]
+}
+```

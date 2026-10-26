@@ -1,0 +1,190 @@
+```json
+{
+  "items": [
+    {
+      "id": "dashboard--page--home--desktop-light",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "A white header with a greeting, a flat glyph, an ink Refresh pill, then a row of four category-hue stat tiles with pictogram plates and cream chart and activity panels. This matches the spec's dashboard recipe and the reference's tone stacking. The weak point is the tiles: the figure is about 32px and doesn't carry the field the way the reference's big bold number does (08)."
+    },
+    {
+      "id": "dashboard--page--home--mobile-light",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The header, pills and plates are right. But the four stat tiles stack full width, each about 350px tall with a small figure and mostly empty color, so the first two phone screens are a wall of saturated slabs. The reference phone (04) gives one compact field per viewport and keeps it busy with content."
+    },
+    {
+      "id": "dashboard--page--home--desktop-dark",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "A convincing night version: navy page, indigo sidebar and panels, white pills and full-strength tiles, close to the reference's night palette (03). It still ends in a bright white bottom bar under the indigo footer (samples 1 and 3)."
+    },
+    {
+      "id": "dashboard--page--home--mobile-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The same stacked full-width tile wall as the light phone version, on navy with indigo panels. The page ends in a white bottom bar that breaks the night palette, which the reference keeps dark to the edge."
+    },
+    {
+      "id": "dashboard--page--projects--desktop-light",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "A blue header band with a sag arc and a well-drawn flat folder scene (disc, cloud, sparkles), then filter pills with the ink dot and a ruled table, all in the system's language. But the band is about 375px tall for one title and one line, so the left two-thirds is empty blue and the table starts below the middle of the first screen. The reference keeps tall bands for full hero text blocks (02)."
+    },
+    {
+      "id": "dashboard--page--projects--mobile-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "A compact blue band with a sag arc, the title and lead on the left and a small folder cluster in the corner, followed by dot filter pills, a pill search and a framed table. This is close to the reference phone's compact band and centered rhythm (04), though the art cluster is tiny."
+    },
+    {
+      "id": "dashboard--page--projects--desktop-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The same over-tall blue band with its folder scene on a navy page, with an indigo table panel and white pills. The night tones are right, but the band wastes half the first screen as in light mode, and the page ends in a white bottom bar."
+    },
+    {
+      "id": "dashboard--page--projects--mobile-dark",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "A compact blue band with its corner cluster on navy, indigo filter and table frames, and a white active pill. Well judged for a phone, except the white footer bottom bar in samples 1 and 3."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--desktop-light",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "A blue band with a breadcrumb, title, status chip and a nicely crescent-shaded clipboard scene, then ink and cream tab pills and one cream summary panel. The craft is in place, but the band again takes about 375px for three short lines, and the actual content sits low and thin beneath it."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--mobile-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "A compact band with the breadcrumb, title, chip and a corner clipboard cluster, followed by pill tabs and a cream facts panel with bold values. The hierarchy is clear and the rhythm matches the reference phone (04)."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--desktop-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "The night version of the detail page: a blue band on navy with an indigo summary panel and white active tab. It shares the light version's over-tall band, and the page ends in a white bottom bar."
+    },
+    {
+      "id": "dashboard--page--projects-apollo-migration--mobile-dark",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "A compact band, indigo panel and white tab pill, with good night tones and a clear order on the phone. Only the white footer bottom bar breaks the dark palette."
+    },
+    {
+      "id": "dashboard--page--team--desktop-light",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "A green team band whose faceless disc-and-blob people with crescent shading, cloud and sparkles are a good use of the shape kit. It is followed by a cream-framed people table with avatar discs. Like the other product pages, the band is about 375px for a title and one line, leaving most of it empty green."
+    },
+    {
+      "id": "dashboard--page--team--mobile-light",
+      "status": "ok",
+      "fidelity": 4,
+      "note": "A compact green band with a small people cluster in the corner, then a framed table with avatar discs that scrolls inside its frame. The phone rhythm is close to the reference (04)."
+    },
+    {
+      "id": "dashboard--page--team--desktop-dark",
+      "status": "finding",
+      "fidelity": 3,
+      "note": "A green band and people scene on navy with an indigo table frame. The night tones hold, but the band is over-tall as in light mode, and the page ends in a white bottom bar."
+    },
+    {
+      "id": "dashboard--page--team--mobile-dark",
+      "status": "finding",
+      "fidelity": 4,
+      "note": "A compact green band on navy and an indigo framed table with avatar discs, well proportioned for a phone. The white footer bottom bar remains in samples 1 and 3."
+    }
+  ],
+  "findings": [
+    {
+      "kind": "gap",
+      "severity": "major",
+      "area": "hierarchy",
+      "summary": "On desktop, the compact header bands of product screens (list, detail, people) are about 375px tall because the art sets their height. Each holds only a title and one line in the top-left corner, so about two-thirds of the band is empty color and the table or detail content starts at or below the middle of the first screen. The reference keeps tall bands for heroes with a full text block of headline, lead, checklist and pill (02), and keeps page-naming bands short (04). This gap was named in rc.4 review 1 and is still open.",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "specRule": ".ms-field--header { --ms-arc: var(--size-arc-sm); padding-block: var(--space-10) var(--space-8); min-height: calc(min(42vw, var(--size-band-art)) * 0.6 + var(--space-12)); }",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/dashboard--page--projects--desktop-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/dashboard--page--projects-apollo-migration--desktop-light--s3.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/dashboard--page--team--desktop-light--s2.png",
+        "pipeline/headspace-study/reference/set/02-desktop.png",
+        "pipeline/headspace-study/reference/set/04-mobile.png"
+      ],
+      "items": [
+        "dashboard--page--projects--desktop-light",
+        "dashboard--page--projects-apollo-migration--desktop-light",
+        "dashboard--page--team--desktop-light"
+      ],
+      "promptFix": "Size a compact header band by its text, not its art. Drop the art-derived min-height: the band is its text block plus `space.10` above and `space.8` below, about 200–260px on desktop and never more than a third of the first screen. The art box takes the trailing 40% of the width and is capped at the band's height, with a wide viewBox and `height: 100%; width: auto`, so the scene spreads sideways instead of making the band taller. Only a front-page hero with a display headline, lead and pills may grow tall around its art."
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "hierarchy",
+      "summary": "The stat tiles are the right saturated fields with pictogram plates, but the figure is about 32px, close in weight to the label and caption, so the tile reads as a colored card rather than a number. In the reference, one big bold figure dominates each field (08).",
+      "samples": 3,
+      "of": 3,
+      "specCaused": false,
+      "specRule": "",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/dashboard--page--home--desktop-light--s1.png",
+        "pipeline/headspace-study/reference/set/08-desktop.png"
+      ],
+      "items": [
+        "dashboard--page--home--desktop-light"
+      ],
+      "promptFix": ""
+    },
+    {
+      "kind": "gap",
+      "severity": "minor",
+      "area": "spacingRhythm",
+      "summary": "On phones, the four stat tiles stack one per row at full width, each about 350px tall with a small figure, so four saturated slabs fill the first two screens and break the one-large-field-per-viewport balance. The reference phone shows one compact field per viewport, filled with content (04).",
+      "samples": 3,
+      "of": 3,
+      "specCaused": true,
+      "specRule": "Below `breakpoint.md`: … card grids to one column (two below `breakpoint.lg`)",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/crops/dashboard--page--home--mobile-light--s1.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/dashboard--page--home--mobile-light.png",
+        "pipeline/headspace-study/reference/set/04-mobile.png"
+      ],
+      "items": [
+        "dashboard--page--home--mobile-light"
+      ],
+      "promptFix": "On phones, a stat-tile row becomes a 2×2 grid of compact tiles (no fixed min-height; eyebrow, figure, caption and a `size.plateSm` plate), not a single column of full-width tiles, so the row stays one saturated field in a viewport."
+    },
+    {
+      "kind": "defect",
+      "severity": "minor",
+      "area": "polish",
+      "summary": "In dark mode, every page ends in a bright white bottom bar under the indigo footer. It is the only light surface on a night page, while the reference's night palette stays dark to the edge (03). This was named in rc.3 and rc.4 review 1 and is still open.",
+      "samples": 2,
+      "of": 3,
+      "specCaused": true,
+      "specRule": "Footer | Cream band with rise arc, link columns, a signup field + ink pill; `surface.inverse` bottom bar with round icon buttons … (dark) `color.surface.inverse` | `#ffffff`",
+      "evidence": [
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/dashboard--page--home--desktop-dark.png",
+        "showcase/runs/morning-shapes/0.1.0-rc.4/review-2/sheets/dashboard--page--team--mobile-dark.png",
+        "pipeline/headspace-study/reference/set/03-desktop.png"
+      ],
+      "items": [
+        "dashboard--page--home--desktop-dark",
+        "dashboard--page--home--mobile-dark",
+        "dashboard--page--projects--desktop-dark",
+        "dashboard--page--projects--mobile-dark",
+        "dashboard--page--projects-apollo-migration--desktop-dark",
+        "dashboard--page--projects-apollo-migration--mobile-dark",
+        "dashboard--page--team--desktop-dark",
+        "dashboard--page--team--mobile-dark"
+      ],
+      "promptFix": ""
+    }
+  ]
+}
+```

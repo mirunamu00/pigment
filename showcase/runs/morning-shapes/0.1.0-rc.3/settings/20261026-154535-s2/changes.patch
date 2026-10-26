@@ -1,0 +1,2347 @@
+diff --git a/package.json b/package.json
+index 0d72e6b..2ac456f 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource/dm-mono": "^5.0.0",
++    "@fontsource/figtree": "^5.0.0",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/App.tsx b/src/App.tsx
+index 3f09961..829746a 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -5,7 +5,6 @@ import NotificationsPage from './pages/NotificationsPage';
+ import SecurityPage from './pages/SecurityPage';
+ import BillingPage from './pages/BillingPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <Routes>
+diff --git a/src/components/ConfirmDialog.tsx b/src/components/ConfirmDialog.tsx
+index 0ac9dd1..d417a53 100644
+--- a/src/components/ConfirmDialog.tsx
++++ b/src/components/ConfirmDialog.tsx
+@@ -1,4 +1,5 @@
+ import { useEffect, useRef, type ReactNode } from 'react';
++import { CloseIcon } from './ms/icons';
+ 
+ interface ConfirmDialogProps {
+   open: boolean;
+@@ -48,15 +49,31 @@ export default function ConfirmDialog({
+       }}
+       data-testid={testId}
+     >
+-      <h2 id={`${testId}-title`}>{title}</h2>
+-      <div id={`${testId}-body`} className="dialog-body">
+-        {children}
++      <div className="dialog-main">
++        <h2 id={`${testId}-title`}>{title}</h2>
++        <div id={`${testId}-body`} className="dialog-body">
++          {children}
++        </div>
++        <button
++          type="button"
++          className="ms-pill ms-pill--cream ms-circle ms-circle--sm dialog-close"
++          onClick={onCancel}
++          aria-label="Close"
++        >
++          <CloseIcon />
++        </button>
+       </div>
+       <div className="dialog-actions">
+-        <button ref={cancelRef} type="button" className="button" onClick={onCancel} data-testid={`${testId}-cancel`}>
++        <button
++          ref={cancelRef}
++          type="button"
++          className="ms-pill ms-pill--cream"
++          onClick={onCancel}
++          data-testid={`${testId}-cancel`}
++        >
+           Cancel
+         </button>
+-        <button type="button" className="button button-primary" onClick={onConfirm} data-testid={`${testId}-confirm`}>
++        <button type="button" className="ms-pill" onClick={onConfirm} data-testid={`${testId}-confirm`}>
+           {confirmLabel}
+         </button>
+       </div>
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 8802b51..59a49f9 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,20 +1,41 @@
+-import { NavLink, Outlet } from 'react-router';
++import { useEffect, useRef, useState } from 'react';
++import { NavLink, Outlet, useLocation } from 'react-router';
+ import { currentUser } from '../data/account';
+ 
++/* Area-to-hue map (rule 2): each settings section owns one category hue, in navigation order. */
+ const SECTIONS = [
+-  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile' },
+-  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications' },
+-  { to: '/settings/security', label: 'Security', testId: 'nav-security' },
+-  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing' },
++  { to: '/settings/profile', label: 'Profile', testId: 'nav-profile', hue: 'yellow' },
++  { to: '/settings/notifications', label: 'Notifications', testId: 'nav-notifications', hue: 'blue' },
++  { to: '/settings/security', label: 'Security', testId: 'nav-security', hue: 'green' },
++  { to: '/settings/billing', label: 'Billing', testId: 'nav-billing', hue: 'orange' },
+ ];
+ 
+ export default function Layout() {
++  const [scrolled, setScrolled] = useState(false);
++  const navListRef = useRef<HTMLUListElement>(null);
++
++  useEffect(() => {
++    const onScroll = () => setScrolled(window.scrollY > 8);
++    onScroll();
++    window.addEventListener('scroll', onScroll, { passive: true });
++    return () => window.removeEventListener('scroll', onScroll);
++  }, []);
++
++  // On narrow screens the nav is a scrolling pill row: keep the current section's pill in view.
++  const { pathname } = useLocation();
++  useEffect(() => {
++    const list = navListRef.current;
++    const active = list?.querySelector<HTMLElement>('.nav-link.active');
++    if (!list || !active || list.scrollWidth <= list.clientWidth) return;
++    list.scrollLeft = active.offsetLeft -(list.clientWidth - active.offsetWidth) / 2;
++  }, [pathname]);
++
+   return (
+     <div className="app-shell">
+-      <a className="skip-link" href="#main-content">
++      <a className="skip-link ms-pill" href="#main-content">
+         Skip to content
+       </a>
+-      <header className="topbar">
++      <header className={scrolled ? 'topbar is-scrolled' : 'topbar'}>
+         <div className="brand">Account Settings</div>
+         <div className="person" data-testid="current-user">
+           <span className="avatar avatar-small" aria-hidden="true">
+@@ -27,10 +48,11 @@ export default function Layout() {
+       <div className="settings-layout">
+         <aside className="sidebar">
+           <nav aria-label="Settings sections" data-testid="settings-nav">
+-            <ul className="nav-list">
++            <ul ref={navListRef} className="nav-list">
+               {SECTIONS.map((section) => (
+-                <li key={section.to}>
++                <li key={section.to} className={`ms-hue--${section.hue}`}>
+                   <NavLink to={section.to} className="nav-link" data-testid={section.testId}>
++                    <span className="nav-dot" aria-hidden="true" />
+                     {section.label}
+                   </NavLink>
+                 </li>
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..14fbe7b 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,12 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '@fontsource/figtree/400.css';
++import '@fontsource/figtree/500.css';
++import '@fontsource/figtree/700.css';
++import '@fontsource/dm-mono/400.css';
++import '../design-system/tokens.css';
++import './styles/morning-shapes.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/BillingPage.tsx b/src/pages/BillingPage.tsx
+index 54b10a4..27b390e 100644
+--- a/src/pages/BillingPage.tsx
++++ b/src/pages/BillingPage.tsx
+@@ -1,5 +1,8 @@
+ import { useState } from 'react';
+ import ConfirmDialog from '../components/ConfirmDialog';
++import { HeaderBand } from '../components/ms/Field';
++import { CardIcon, TickIcon } from '../components/ms/icons';
++import { Plate } from '../components/ms/shapes';
+ import { initialPlanId, invoices, paymentMethod, plans, type Plan, type PlanId } from '../data/billing';
+ 
+ export default function BillingPage() {
+@@ -18,108 +21,119 @@ export default function BillingPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Billing</h1>
+-        <p className="muted">
++      <HeaderBand hue="orange" cluster="billing" title="Billing">
++        <p className="ms-field__lead">
+           You are on the <strong data-testid="current-plan-name">{currentPlan.name}</strong> plan.
+         </p>
+-      </div>
++      </HeaderBand>
+ 
+-      <section className="panel" aria-labelledby="plans-heading">
+-        <h2 id="plans-heading">Plans</h2>
+-        <ul className="plan-grid">
+-          {plans.map((plan) => {
+-            const isCurrent = plan.id === currentPlanId;
+-            return (
+-              <li
+-                key={plan.id}
+-                className={isCurrent ? 'card plan-card plan-card-current' : 'card plan-card'}
+-                data-testid={`plan-card-${plan.id}`}
+-                data-current={isCurrent ? 'true' : 'false'}
+-                aria-current={isCurrent ? 'true' : undefined}
+-              >
+-                <h3>{plan.name}</h3>
+-                <p className="plan-price">
+-                  <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
+-                </p>
+-                <ul className="feature-list">
+-                  {plan.features.map((feature) => (
+-                    <li key={feature}>
+-                      <svg className="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+-                        <path d="M3 8.5l3 3l7-7" fill="none" stroke="currentColor" strokeWidth="2" />
+-                      </svg>
+-                      <span>{feature}</span>
+-                    </li>
+-                  ))}
+-                </ul>
+-                {isCurrent ? (
+-                  <p className="pill pill-current" data-testid="current-plan-badge">
+-                    Current plan
++      <div className="page-body">
++        <section className="panel" aria-labelledby="plans-heading">
++          <div className="panel-head">
++            <Plate kind="steps" small index={0} />
++            <h2 id="plans-heading">Plans</h2>
++          </div>
++          <ul className="plan-grid">
++            {plans.map((plan) => {
++              const isCurrent = plan.id === currentPlanId;
++              return (
++                <li
++                  key={plan.id}
++                  className={isCurrent ? 'plan-card plan-card-current' : 'plan-card'}
++                  data-testid={`plan-card-${plan.id}`}
++                  data-current={isCurrent ? 'true' : 'false'}
++                  aria-current={isCurrent ? 'true' : undefined}
++                >
++                  {isCurrent && (
++                    <span className="check-disc" aria-hidden="true">
++                      <TickIcon />
++                    </span>
++                  )}
++                  <h3>{plan.name}</h3>
++                  <p className="plan-price">
++                    <span className="plan-amount">{plan.price}</span> <span className="muted small">{plan.period}</span>
+                   </p>
+-                ) : (
+-                  <button
+-                    type="button"
+-                    className="button"
+-                    onClick={() => setPendingPlan(plan)}
+-                    data-testid={`choose-plan-${plan.id}`}
+-                  >
+-                    Switch to {plan.name}
+-                  </button>
+-                )}
+-              </li>
+-            );
+-          })}
+-        </ul>
+-        <p role="status" className="status-message" data-testid="plan-status">
+-          {message}
+-        </p>
+-      </section>
++                  <ul className="feature-list">
++                    {plan.features.map((feature) => (
++                      <li key={feature}>
++                        <TickIcon />
++                        <span>{feature}</span>
++                      </li>
++                    ))}
++                  </ul>
++                  {isCurrent ? (
++                    <p className="pill pill-current" data-testid="current-plan-badge">
++                      Current plan
++                    </p>
++                  ) : (
++                    <button
++                      type="button"
++                      className="ms-pill ms-pill--sm"
++                      onClick={() => setPendingPlan(plan)}
++                      data-testid={`choose-plan-${plan.id}`}
++                    >
++                      Switch to {plan.name}
++                    </button>
++                  )}
++                </li>
++              );
++            })}
++          </ul>
++          <p role="status" className="status-message plan-status" data-testid="plan-status">
++            {message && <TickIcon />}
++            {message}
++          </p>
++        </section>
+ 
+-      <section className="panel" aria-labelledby="payment-heading">
+-        <h2 id="payment-heading">Payment method</h2>
+-        <div className="payment-method" data-testid="payment-method">
+-          <svg className="card-icon" viewBox="0 0 32 22" width="32" height="22" aria-hidden="true" focusable="false">
+-            <rect x="1" y="1" width="30" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+-            <rect x="1" y="6" width="30" height="4" fill="currentColor" />
+-          </svg>
+-          <span>
+-            {paymentMethod.brand} ending in {paymentMethod.last4}
+-          </span>
+-          <span className="muted small">Expires {paymentMethod.expires}</span>
+-        </div>
+-      </section>
++        <section className="panel" aria-labelledby="payment-heading">
++          <div className="panel-head">
++            <Plate kind="card" small index={1} />
++            <h2 id="payment-heading">Payment method</h2>
++          </div>
++          <div className="payment-method" data-testid="payment-method">
++            <CardIcon className="ms-icon card-icon" size={24} />
++            <span>
++              {paymentMethod.brand} ending in {paymentMethod.last4}
++            </span>
++            <span className="muted small">Expires {paymentMethod.expires}</span>
++          </div>
++        </section>
+ 
+-      <section className="panel" aria-labelledby="invoices-heading">
+-        <h2 id="invoices-heading">Invoices</h2>
+-        <div className="table-wrap">
+-          <table className="table" data-testid="invoices-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Invoice</th>
+-                <th scope="col">Date</th>
+-                <th scope="col" className="numeric">
+-                  Amount
+-                </th>
+-                <th scope="col">Status</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {invoices.map((invoice) => (
+-                <tr key={invoice.id} data-testid="invoice-row">
+-                  <td>{invoice.id}</td>
+-                  <td>{invoice.date}</td>
+-                  <td className="numeric">{invoice.amount}</td>
+-                  <td>
+-                    <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
+-                      {invoice.status}
+-                    </span>
+-                  </td>
++        <section className="panel" aria-labelledby="invoices-heading">
++          <div className="panel-head">
++            <Plate kind="invoice" small index={2} />
++            <h2 id="invoices-heading">Invoices</h2>
++          </div>
++          <div className="table-wrap" tabIndex={0} role="region" aria-label="Invoices">
++            <table className="table" data-testid="invoices-table">
++              <thead>
++                <tr>
++                  <th scope="col">Invoice</th>
++                  <th scope="col">Date</th>
++                  <th scope="col" className="numeric">
++                    Amount
++                  </th>
++                  <th scope="col">Status</th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
+-      </section>
++              </thead>
++              <tbody>
++                {invoices.map((invoice) => (
++                  <tr key={invoice.id} data-testid="invoice-row">
++                    <td className="code">{invoice.id}</td>
++                    <td>{invoice.date}</td>
++                    <td className="numeric">{invoice.amount}</td>
++                    <td>
++                      <span className={invoice.status === 'Paid' ? 'pill pill-paid' : 'pill pill-due'}>
++                        {invoice.status}
++                      </span>
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++        </section>
++      </div>
+ 
+       <ConfirmDialog
+         open={pendingPlan !== null}
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index 9781ca6..e7e4bf7 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,23 @@
+ import { Link } from 'react-router';
++import { Arch } from '../components/ms/Field';
++import { ErrorComposition } from '../components/ms/shapes';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The settings page you are looking for does not exist or has moved.</p>
+-      <Link to="/settings/profile">Go to profile settings</Link>
+-    </section>
++    <div className="error-page">
++      <section className="ms-field ms-field--rise ms-hue--cream error-band" data-testid="not-found">
++        <Arch edge="rise" />
++        <div className="ms-field__inner">
++          <div className="error-copy">
++            <h1>Page not found</h1>
++            <p>The settings page you are looking for does not exist or has moved.</p>
++            <Link className="ms-pill" to="/settings/profile">
++              Go to profile settings
++            </Link>
++          </div>
++          <ErrorComposition />
++        </div>
++      </section>
++    </div>
+   );
+ }
+diff --git a/src/pages/NotificationsPage.tsx b/src/pages/NotificationsPage.tsx
+index 040835b..11e43bb 100644
+--- a/src/pages/NotificationsPage.tsx
++++ b/src/pages/NotificationsPage.tsx
+@@ -1,6 +1,14 @@
+ import { useState } from 'react';
++import { HeaderBand } from '../components/ms/Field';
++import { Plate, type PictogramKind } from '../components/ms/shapes';
+ import { notificationGroups } from '../data/notifications';
+ 
++/* Spot-plate pictogram for each settings group, named after the group's subject. */
++const GROUP_PICTOGRAMS: Record<string, PictogramKind> = {
++  email: 'envelope',
++  push: 'bell',
++};
++
+ function initialState(): Record<string, boolean> {
+   const state: Record<string, boolean> = {};
+   for (const group of notificationGroups) {
+@@ -21,48 +29,66 @@ export default function NotificationsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Notifications</h1>
+-        <p className="muted">Choose what you hear about and where. Changes apply right away.</p>
+-        <p className="small" data-testid="notifications-count">
++      <HeaderBand hue="blue" cluster="notifications" title="Notifications">
++        <p className="ms-field__lead">Choose what you hear about and where. Changes apply right away.</p>
++        <p className="small band-meta" data-testid="notifications-count">
+           {onCount} of {total} notifications on
+         </p>
+-      </div>
++      </HeaderBand>
+ 
+-      {notificationGroups.map((group) => (
+-        <fieldset key={group.id} className="panel fieldset" data-testid={`notification-group-${group.id}`}>
+-          <legend className="legend">{group.title}</legend>
+-          <p className="muted small">{group.description}</p>
+-          <ul className="switch-list">
+-            {group.settings.map((setting) => {
+-              const inputId = `switch-${setting.id}`;
+-              const descriptionId = `${inputId}-description`;
+-              return (
+-                <li key={setting.id} className="switch-row">
+-                  <div className="switch-text">
+-                    <label htmlFor={inputId} className="field-label">
+-                      {setting.label}
+-                    </label>
+-                    <p id={descriptionId} className="muted small">
+-                      {setting.description}
+-                    </p>
+-                  </div>
+-                  <input
+-                    id={inputId}
+-                    type="checkbox"
+-                    role="switch"
+-                    className="switch"
+-                    checked={enabled[setting.id] ?? false}
+-                    onChange={() => toggle(setting.id)}
+-                    aria-describedby={descriptionId}
+-                    data-testid={inputId}
+-                  />
+-                </li>
+-              );
+-            })}
+-          </ul>
+-        </fieldset>
+-      ))}
++      <div className="page-body">
++        {notificationGroups.map((group, index) => (
++          <fieldset
++            key={group.id}
++            className="panel fieldset"
++            aria-labelledby={`group-${group.id}-title`}
++            aria-describedby={`group-${group.id}-description`}
++            data-testid={`notification-group-${group.id}`}
++          >
++            <legend className="legend">
++              <span className="legend-inner">
++                <Plate kind={GROUP_PICTOGRAMS[group.id] ?? 'envelope'} small index={index} />
++                <span>
++                  <span id={`group-${group.id}-title`} className="legend-title">
++                    {group.title}
++                  </span>
++                  <span id={`group-${group.id}-description`} className="muted small">
++                    {group.description}
++                  </span>
++                </span>
++              </span>
++            </legend>
++            <ul className="switch-list">
++              {group.settings.map((setting) => {
++                const inputId = `switch-${setting.id}`;
++                const descriptionId = `${inputId}-description`;
++                return (
++                  <li key={setting.id} className="switch-row">
++                    <div className="switch-text">
++                      <label htmlFor={inputId} className="field-label">
++                        {setting.label}
++                      </label>
++                      <p id={descriptionId} className="muted small">
++                        {setting.description}
++                      </p>
++                    </div>
++                    <input
++                      id={inputId}
++                      type="checkbox"
++                      role="switch"
++                      className="switch"
++                      checked={enabled[setting.id] ?? false}
++                      onChange={() => toggle(setting.id)}
++                      aria-describedby={descriptionId}
++                      data-testid={inputId}
++                    />
++                  </li>
++                );
++              })}
++            </ul>
++          </fieldset>
++        ))}
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProfilePage.tsx b/src/pages/ProfilePage.tsx
+index 89f0a81..9cce823 100644
+--- a/src/pages/ProfilePage.tsx
++++ b/src/pages/ProfilePage.tsx
+@@ -1,4 +1,6 @@
+ import { useState, type ChangeEvent, type FormEvent } from 'react';
++import { HeaderBand } from '../components/ms/Field';
++import { AlertIcon, CameraIcon, ChevronIcon, TickIcon } from '../components/ms/icons';
+ import { BIO_MAX_LENGTH, currentUser, initialProfile, timeZones, type Profile } from '../data/account';
+ 
+ type ProfileErrors = Partial<Record<keyof Profile, string>>;
+@@ -57,12 +59,11 @@ export default function ProfilePage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Profile</h1>
+-        <p className="muted">This information is shown to people in your workspace.</p>
+-      </div>
++      <HeaderBand hue="yellow" cluster="profile" title="Profile">
++        <p className="ms-field__lead">This information is shown to people in your workspace.</p>
++      </HeaderBand>
+ 
+-      <form className="panel form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
++      <form className="page-body form" noValidate onSubmit={handleSubmit} data-testid="profile-form">
+         <div className="avatar-row">
+           <span className="avatar avatar-large" data-testid="profile-avatar" aria-hidden="true">
+             {initials}
+@@ -70,16 +71,8 @@ export default function ProfilePage() {
+           <div>
+             <p className="field-label">Profile photo</p>
+             <p className="muted small">A placeholder with your initials is shown until you upload a photo.</p>
+-            <button type="button" className="button" data-testid="change-photo">
+-              <svg className="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+-                <path
+-                  d="M4 7h3l2-2h6l2 2h3v12H4z M12 10a3 3 0 1 0 0 6a3 3 0 0 0 0-6"
+-                  fill="none"
+-                  stroke="currentColor"
+-                  strokeWidth="2"
+-                  strokeLinejoin="round"
+-                />
+-              </svg>
++            <button type="button" className="ms-pill ms-pill--cream ms-pill--sm" data-testid="change-photo">
++              <CameraIcon />
+               <span>Change photo</span>
+             </button>
+           </div>
+@@ -103,7 +96,8 @@ export default function ProfilePage() {
+             />
+             {errors.fullName && (
+               <p id="profile-fullName-error" className="field-error" data-testid="error-name">
+-                {errors.fullName}
++                <AlertIcon />
++                <span>{errors.fullName}</span>
+               </p>
+             )}
+           </div>
+@@ -125,7 +119,8 @@ export default function ProfilePage() {
+             />
+             {errors.email && (
+               <p id="profile-email-error" className="field-error" data-testid="error-email">
+-                {errors.email}
++                <AlertIcon />
++                <span>{errors.email}</span>
+               </p>
+             )}
+           </div>
+@@ -149,25 +144,29 @@ export default function ProfilePage() {
+             <label htmlFor="profile-timeZone" className="field-label">
+               Time zone
+             </label>
+-            <select
+-              id="profile-timeZone"
+-              className="input"
+-              value={profile.timeZone}
+-              onChange={update('timeZone')}
+-              aria-invalid={errors.timeZone ? true : undefined}
+-              aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
+-              data-testid="profile-timezone"
+-            >
+-              <option value="">Select a time zone</option>
+-              {timeZones.map((zone) => (
+-                <option key={zone.value} value={zone.value}>
+-                  {zone.label}
+-                </option>
+-              ))}
+-            </select>
++            <span className="select-wrap">
++              <select
++                id="profile-timeZone"
++                className="input"
++                value={profile.timeZone}
++                onChange={update('timeZone')}
++                aria-invalid={errors.timeZone ? true : undefined}
++                aria-describedby={errors.timeZone ? 'profile-timeZone-error' : undefined}
++                data-testid="profile-timezone"
++              >
++                <option value="">Select a time zone</option>
++                {timeZones.map((zone) => (
++                  <option key={zone.value} value={zone.value}>
++                    {zone.label}
++                  </option>
++                ))}
++              </select>
++              <ChevronIcon />
++            </span>
+             {errors.timeZone && (
+               <p id="profile-timeZone-error" className="field-error" data-testid="error-timezone">
+-                {errors.timeZone}
++                <AlertIcon />
++                <span>{errors.timeZone}</span>
+               </p>
+             )}
+           </div>
+@@ -191,20 +190,22 @@ export default function ProfilePage() {
+             </p>
+             {errors.bio && (
+               <p id="profile-bio-error" className="field-error" data-testid="error-bio">
+-                {errors.bio}
++                <AlertIcon />
++                <span>{errors.bio}</span>
+               </p>
+             )}
+           </div>
+         </div>
+ 
+         <div className="form-actions">
+-          <button type="submit" className="button button-primary" data-testid="profile-save">
++          <button type="submit" className="ms-pill" data-testid="profile-save">
+             Save changes
+           </button>
+-          <button type="button" className="button" onClick={handleReset} data-testid="profile-reset">
++          <button type="button" className="ms-pill ms-pill--cream" onClick={handleReset} data-testid="profile-reset">
+             Reset
+           </button>
+           <p role="status" className="status-message" data-testid="profile-status">
++            {saved && <TickIcon />}
+             {saved ? 'Saved' : ''}
+           </p>
+         </div>
+diff --git a/src/pages/SecurityPage.tsx b/src/pages/SecurityPage.tsx
+index 3498f5d..9fa2564 100644
+--- a/src/pages/SecurityPage.tsx
++++ b/src/pages/SecurityPage.tsx
+@@ -1,4 +1,8 @@
+ import { useState, type FormEvent } from 'react';
++import { HeaderBand } from '../components/ms/Field';
++import { Glyph } from '../components/ms/Glyph';
++import { AlertIcon, TickIcon } from '../components/ms/icons';
++import { Plate } from '../components/ms/shapes';
+ import { initialSessions, type Session } from '../data/sessions';
+ 
+ interface PasswordForm {
+@@ -71,126 +75,141 @@ export default function SecurityPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Security</h1>
+-        <p className="muted">Manage your password and the devices signed in to your account.</p>
+-      </div>
++      <HeaderBand hue="green" cluster="security" title="Security">
++        <p className="ms-field__lead">Manage your password and the devices signed in to your account.</p>
++      </HeaderBand>
+ 
+-      <section className="panel" aria-labelledby="password-heading">
+-        <h2 id="password-heading">Change password</h2>
+-        <form className="form" noValidate onSubmit={handleSubmit} data-testid="password-form">
+-          <div className="form-stack">
+-            {FIELDS.map((field) => {
+-              const id = `password-${field.key}`;
+-              const describedBy = [
+-                field.key === 'next' ? 'password-strength' : null,
+-                errors[field.key] ? `${id}-error` : null,
+-              ]
+-                .filter(Boolean)
+-                .join(' ');
+-              return (
+-                <div className="field" key={field.key}>
+-                  <label htmlFor={id} className="field-label">
+-                    {field.label}
+-                  </label>
+-                  <input
+-                    id={id}
+-                    type="password"
+-                    className="input"
+-                    autoComplete={field.autoComplete}
+-                    value={form[field.key]}
+-                    onChange={(event) => {
+-                      setForm((current) => ({ ...current, [field.key]: event.target.value }));
+-                      setUpdated(false);
+-                    }}
+-                    aria-invalid={errors[field.key] ? true : undefined}
+-                    aria-describedby={describedBy || undefined}
+-                    data-testid={field.testId}
+-                  />
+-                  {field.key === 'next' && (
+-                    <p
+-                      id="password-strength"
+-                      className={`strength strength-${strength.level} small`}
+-                      data-testid="password-strength"
+-                      data-level={strength.level}
+-                    >
+-                      {strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}
+-                    </p>
+-                  )}
+-                  {errors[field.key] && (
+-                    <p id={`${id}-error`} className="field-error" data-testid={`error-${field.testId}`}>
+-                      {errors[field.key]}
+-                    </p>
+-                  )}
+-                </div>
+-              );
+-            })}
+-          </div>
+-          <div className="form-actions">
+-            <button type="submit" className="button button-primary" data-testid="password-submit">
+-              Update password
+-            </button>
+-            <p role="status" className="status-message" data-testid="password-status">
+-              {updated ? 'Password updated' : ''}
+-            </p>
++      <div className="page-body">
++        <section className="panel" aria-labelledby="password-heading">
++          <div className="panel-head">
++            <Plate kind="padlock" small index={0} />
++            <h2 id="password-heading">Change password</h2>
+           </div>
+-        </form>
+-      </section>
+-
+-      <section className="panel" aria-labelledby="sessions-heading">
+-        <h2 id="sessions-heading">Active sessions</h2>
+-        <p className="muted small">Revoke a session to sign that device out immediately.</p>
+-        <div className="table-wrap">
+-          <table className="table" data-testid="sessions-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Device</th>
+-                <th scope="col">Location</th>
+-                <th scope="col">Last active</th>
+-                <th scope="col">
+-                  <span className="visually-hidden">Actions</span>
+-                </th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {sessions.map((session) => (
+-                <tr key={session.id} data-testid="session-row">
+-                  <td>
+-                    {session.device}
+-                    {session.current && (
+-                      <span className="pill pill-neutral small" data-testid="current-session">
+-                        This device
+-                      </span>
+-                    )}
+-                  </td>
+-                  <td>{session.location}</td>
+-                  <td>{session.lastActive}</td>
+-                  <td className="cell-actions">
+-                    {!session.current && (
+-                      <button
+-                        type="button"
+-                        className="button button-danger"
+-                        onClick={() => revoke(session)}
+-                        data-testid={`revoke-${session.id}`}
++          <form className="form" noValidate onSubmit={handleSubmit} data-testid="password-form">
++            <div className="form-stack">
++              {FIELDS.map((field) => {
++                const id = `password-${field.key}`;
++                const describedBy = [
++                  field.key === 'next' ? 'password-strength' : null,
++                  errors[field.key] ? `${id}-error` : null,
++                ]
++                  .filter(Boolean)
++                  .join(' ');
++                return (
++                  <div className="field" key={field.key}>
++                    <label htmlFor={id} className="field-label">
++                      {field.label}
++                    </label>
++                    <input
++                      id={id}
++                      type="password"
++                      className="input"
++                      autoComplete={field.autoComplete}
++                      value={form[field.key]}
++                      onChange={(event) => {
++                        setForm((current) => ({ ...current, [field.key]: event.target.value }));
++                        setUpdated(false);
++                      }}
++                      aria-invalid={errors[field.key] ? true : undefined}
++                      aria-describedby={describedBy || undefined}
++                      data-testid={field.testId}
++                    />
++                    {field.key === 'next' && (
++                      <p
++                        id="password-strength"
++                        className={`strength strength-${strength.level} small`}
++                        data-testid="password-strength"
++                        data-level={strength.level}
+                       >
+-                        Revoke<span className="visually-hidden"> {session.device}</span>
+-                      </button>
++                        {strength.level === 'none' ? strength.label : `Strength: ${strength.label}`}
++                      </p>
++                    )}
++                    {errors[field.key] && (
++                      <p id={`${id}-error`} className="field-error" data-testid={`error-${field.testId}`}>
++                        <AlertIcon />
++                        <span>{errors[field.key]}</span>
++                      </p>
+                     )}
+-                  </td>
++                  </div>
++                );
++              })}
++            </div>
++            <div className="form-actions">
++              <button type="submit" className="ms-pill" data-testid="password-submit">
++                Update password
++              </button>
++              <p role="status" className="status-message" data-testid="password-status">
++                {updated && <TickIcon />}
++                {updated ? 'Password updated' : ''}
++              </p>
++            </div>
++          </form>
++        </section>
++
++        <section className="panel" aria-labelledby="sessions-heading">
++          <div className="panel-head">
++            <Plate kind="laptop" small index={1} />
++            <div>
++              <h2 id="sessions-heading">Active sessions</h2>
++              <p className="muted small">Revoke a session to sign that device out immediately.</p>
++            </div>
++          </div>
++          <div className="table-wrap" tabIndex={0} role="region" aria-label="Active sessions">
++            <table className="table" data-testid="sessions-table">
++              <thead>
++                <tr>
++                  <th scope="col">Device</th>
++                  <th scope="col">Location</th>
++                  <th scope="col">Last active</th>
++                  <th scope="col">
++                    <span className="visually-hidden">Actions</span>
++                  </th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
+-        {sessions.length === 1 && (
+-          <p className="muted small" data-testid="sessions-empty">
+-            No other devices are signed in.
++              </thead>
++              <tbody>
++                {sessions.map((session) => (
++                  <tr key={session.id} data-testid="session-row">
++                    <td>
++                      {session.device}
++                      {session.current && (
++                        <span className="pill pill-neutral small" data-testid="current-session">
++                          This device
++                        </span>
++                      )}
++                    </td>
++                    <td>{session.location}</td>
++                    <td className="muted-cell">{session.lastActive}</td>
++                    <td className="cell-actions">
++                      {!session.current && (
++                        <button
++                          type="button"
++                          className="ms-pill ms-pill--cream ms-pill--sm ms-pill--danger"
++                          onClick={() => revoke(session)}
++                          data-testid={`revoke-${session.id}`}
++                        >
++                          Revoke<span className="visually-hidden"> {session.device}</span>
++                        </button>
++                      )}
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++          {sessions.length === 1 && (
++            <div className="table-empty">
++              <Glyph kind="ring" color="var(--color-category-3)" />
++              <p className="muted" data-testid="sessions-empty">
++                No other devices are signed in.
++              </p>
++            </div>
++          )}
++          <p role="status" className="status-message table-footnote" data-testid="sessions-status">
++            {sessionMessage && <TickIcon />}
++            {sessionMessage}
+           </p>
+-        )}
+-        <p role="status" className="status-message" data-testid="sessions-status">
+-          {sessionMessage}
+-        </p>
+-      </section>
++        </section>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index bfb6f76..706320e 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,58 +1,51 @@
+ /*
+- * Base styles for the Account Settings app.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Base styles for the Account Settings app, on the morning-shapes@0.1.0-rc.3 design system.
++ * Tokens come from design-system/tokens.css; signature pieces from morning-shapes.css.
++ * The previous variable names stay available as aliases of the tokens.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-danger-bg: #fdecee;
+-  --color-switch-off: #bbbbbb;
+-  --color-switch-on: #0645ad;
+-  --color-switch-thumb: #ffffff;
+-  --color-strength-weak: #b00020;
+-  --color-strength-fair: #7a5a00;
+-  --color-strength-strong: #2e7d32;
+-  --color-pill-neutral-bg: #e8e8e8;
+-  --color-pill-neutral-text: #444444;
+-  --color-pill-current-bg: #e3f2e5;
+-  --color-pill-current-text: #1b5e20;
+-  --color-pill-due-bg: #fff4d6;
+-  --color-pill-due-text: #7a5a00;
+-  --color-backdrop: rgba(0, 0, 0, 0.4);
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
+-  --content-max-width: 880px;
+-  --avatar-size-large: 72px;
+-  --switch-width: 40px;
+-  --switch-height: 22px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-default);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-subtle);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-link);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-status-success);
++  --color-negative: var(--color-status-danger);
++  --color-danger-bg: var(--color-action-secondary-hover);
++  --color-switch-off: var(--color-surface-hover);
++  --color-switch-on: var(--color-action-primary);
++  --color-switch-thumb: var(--color-art-white);
++  --color-strength-weak: var(--color-status-danger);
++  --color-strength-fair: var(--color-status-warning);
++  --color-strength-strong: var(--color-status-success);
++  --color-pill-neutral-bg: var(--color-surface-subtle);
++  --color-pill-neutral-text: var(--color-text-primary);
++  --color-pill-current-bg: var(--color-surface-raised);
++  --color-pill-current-text: var(--color-text-primary);
++  --color-pill-due-bg: var(--color-surface-subtle);
++  --color-pill-due-text: var(--color-text-primary);
++  --color-backdrop: var(--color-surface-overlay);
++
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --font-size-small: var(--font-size-label);
++  --font-size-h1: var(--font-size-h2);
++  --line-height: var(--font-line-height-body);
++
++  --radius: var(--radius-md);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-thick);
++  --sidebar-width: var(--size-sidebar);
++  --content-max-width: var(--size-reading);
++  --avatar-size-large: var(--size-plate);
++  --switch-width: var(--size-control);
++  --switch-height: 28px;
+ }
+ 
+ *,
+@@ -66,43 +59,71 @@ body {
+   margin: 0;
+ }
+ 
++html {
++  background: var(--color-surface-default);
++  color-scheme: light dark;
++}
++
++:root[data-theme='light'] {
++  color-scheme: light;
++}
++
++:root[data-theme='dark'] {
++  color-scheme: dark;
++}
++
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++  margin: 0;
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
+ }
+ 
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-size: var(--font-size-h2);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ h2 {
+-  font-size: var(--font-size-h2);
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-base);
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-2);
++  margin: 0;
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-link);
++  text-decoration-line: underline;
++  text-decoration-thickness: 1px;
++  text-underline-offset: 3px;
++}
++
++@media (hover: hover) {
++  a:hover {
++    text-decoration-thickness: 2px;
++    text-underline-offset: 2px;
++  }
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
+@@ -124,19 +145,19 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-4);
++  top: var(--space-4);
++  z-index: 40;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .numeric {
+@@ -144,11 +165,17 @@ a {
+   text-align: right;
+ }
+ 
+-.icon {
++.icon,
++.ms-icon {
+   flex-shrink: 0;
+ }
+ 
+-/* Layout */
++.code {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-label);
++}
++
++/* ---------- App shell ---------- */
+ .app-shell {
+   min-height: 100vh;
+   display: flex;
+@@ -156,16 +183,37 @@ a {
+ }
+ 
+ .topbar {
++  position: sticky;
++  top: 0;
++  z-index: 20;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  height: var(--size-header);
++  padding-inline: var(--space-12);
++  background: var(--color-surface-default);
++  transition: box-shadow var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.topbar.is-scrolled {
++  box-shadow: var(--shadow-header);
+ }
+ 
+ .brand {
+-  font-weight: bold;
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
++  white-space: nowrap;
++}
++
++.person {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  font-weight: var(--font-weight-medium);
++  white-space: nowrap;
+ }
+ 
+ .settings-layout {
+@@ -174,78 +222,158 @@ a {
+ }
+ 
+ .sidebar {
+-  width: var(--sidebar-width);
++  width: var(--size-sidebar);
+   flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  background: var(--color-surface-subtle);
++  padding: var(--space-8) var(--space-4);
++}
++
++.nav-group-label {
++  margin: 0 0 var(--space-3);
++  padding-inline: var(--space-4);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-bold);
++  color: var(--color-text-secondary);
+ }
+ 
+ .nav-list {
++  position: relative;
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-1);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border: var(--border-width) solid transparent;
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  height: var(--size-control);
++  padding: 0 var(--space-4);
++  border-radius: var(--radius-full);
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-tight);
+   text-decoration: none;
++  white-space: nowrap;
++}
++
++.nav-link:focus-visible {
++  outline-offset: -2px;
++}
++
++.nav-dot {
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: var(--ms-category);
++  flex: none;
+ }
+ 
+ .nav-link.active {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  font-weight: bold;
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-weight: var(--font-weight-bold);
++}
++
++.nav-link.active .nav-dot {
++  background: currentColor;
++}
++
++@media (hover: hover) {
++  .nav-link:not(.active):hover {
++    background: var(--color-surface-hover);
++  }
+ }
+ 
+ .content {
+   flex: 1;
+   min-width: 0;
+-  max-width: var(--content-max-width);
+-  padding: var(--space-6);
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-6);
+ }
+ 
+-.person {
++.content:focus {
++  outline: none;
++}
++
++.page-body {
++  width: 100%;
++  max-width: calc(var(--size-reading) + var(--space-12) * 2);
++  padding: var(--space-12) var(--space-12) var(--space-16);
+   display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++  flex-direction: column;
++  gap: var(--space-8);
+ }
+ 
++.band-meta {
++  margin-top: var(--space-3);
++  font-weight: var(--font-weight-medium);
++}
++
++/* ---------- Avatars: bold initials on a crescent disc ---------- */
+ .avatar {
++  position: relative;
++  isolation: isolate;
++  overflow: hidden;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-weight: bold;
++  border-radius: var(--radius-full);
++  background: var(--color-art-yellow-shade);
++  color: var(--color-on-field-yellow);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
+   flex-shrink: 0;
+ }
+ 
++.avatar::before {
++  content: '';
++  position: absolute;
++  inset: 0;
++  z-index: -1;
++  border-radius: var(--radius-full);
++  background: var(--color-field-yellow);
++  transform: translate(-8%, -8%);
++}
++
+ .avatar-small {
+-  width: 28px;
+-  height: 28px;
+-  font-size: var(--font-size-small);
++  width: var(--size-control-sm);
++  height: var(--size-control-sm);
++  font-size: var(--font-size-label);
+ }
+ 
+ .avatar-large {
+-  width: var(--avatar-size-large);
+-  height: var(--avatar-size-large);
+-  font-size: var(--font-size-h2);
++  width: var(--size-plate);
++  height: var(--size-plate);
++  font-size: var(--font-size-h3);
+ }
+ 
+-/* Panels */
++/* ---------- Panels and cards (tone only: no border, no shadow) ---------- */
+ .panel,
+ .card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++  border: 0;
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
++  padding: var(--space-8);
++  --ms-plate: var(--color-surface-raised);
++}
++
++.panel-head {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
++  margin-bottom: var(--space-6);
++}
++
++.panel-head > div {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-1);
++  min-width: 0;
+ }
+ 
+ .empty-state {
+@@ -253,33 +381,30 @@ a {
+   padding: var(--space-8) var(--space-4);
+ }
+ 
+-/* Forms */
++/* ---------- Forms ---------- */
+ .form {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-4);
++  gap: var(--space-8);
+ }
+ 
+ .form-grid {
+   display: grid;
+-  grid-template-columns: repeat(2, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: var(--space-6);
+ }
+ 
+ .form-stack {
+   display: grid;
+-  gap: var(--space-4);
+-  max-width: 400px;
++  gap: var(--space-6);
++  max-width: 480px;
+ }
+ 
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
+-}
+-
+-.field p {
+-  margin: 0;
++  gap: var(--space-2);
++  min-width: 0;
+ }
+ 
+ .field-wide {
+@@ -287,33 +412,92 @@ a {
+ }
+ 
+ .field-label {
+-  font-weight: bold;
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-label);
+   margin: 0;
+ }
+ 
+ .field-error {
+-  color: var(--color-negative);
+-  font-size: var(--font-size-small);
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-2);
++  color: var(--color-status-danger);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-label);
++}
++
++.field-error .ms-icon {
++  margin-top: 1px;
+ }
+ 
+ .input {
+   font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  width: 100%;
++  height: var(--size-control-lg);
++  padding: 0 var(--space-4);
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+   min-width: 0;
++  transition: border-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.input::placeholder {
++  color: var(--color-text-secondary);
++}
++
++@media (hover: hover) {
++  .input:hover {
++    border-color: var(--color-text-secondary);
++  }
++}
++
++.input:focus,
++.input:focus-visible {
++  outline: none;
++  border-color: var(--color-focus-ring);
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-negative);
++  border-color: var(--color-status-danger);
++}
++
++.input:disabled {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-secondary);
++  border-color: var(--color-border-default);
+ }
+ 
+ .textarea {
++  height: auto;
++  min-height: calc(var(--font-size-body) * var(--font-line-height-body) * 4 + var(--space-3) * 2 + 4px);
++  padding: var(--space-3) var(--space-4);
+   resize: vertical;
+ }
+ 
++.select-wrap {
++  position: relative;
++  display: block;
++}
++
++.select-wrap .input {
++  appearance: none;
++  padding: 0 var(--space-12) 0 var(--space-4);
++  cursor: pointer;
++}
++
++.select-wrap .ms-icon {
++  position: absolute;
++  top: 50%;
++  right: var(--space-4);
++  transform: translateY(-50%);
++  color: var(--color-text-icon);
++  pointer-events: none;
++}
++
+ .form-actions {
+   display: flex;
+   align-items: center;
+@@ -322,58 +506,69 @@ a {
+ }
+ 
+ .status-message {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
+   margin: 0;
+-  color: var(--color-positive);
++  color: var(--color-status-success);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .avatar-row {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-4);
++  gap: var(--space-6);
+ }
+ 
+-.avatar-row p {
+-  margin: 0 0 var(--space-1);
++.avatar-row > div {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-2);
+ }
+ 
+-/* Buttons */
+-.button {
+-  font: inherit;
+-  display: inline-flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
++.avatar-row .ms-pill {
++  margin-top: var(--space-2);
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++/* ---------- Fieldsets and switches ---------- */
++.fieldset {
++  margin: 0;
++  min-width: 0;
+ }
+ 
+-.button-danger {
+-  color: var(--color-negative);
++.fieldset.panel {
++  padding: var(--space-8);
+ }
+ 
+-.button-danger:hover {
+-  background: var(--color-danger-bg);
++.legend {
++  float: left;
++  width: 100%;
++  padding: 0;
++  margin-bottom: var(--space-6);
+ }
+ 
+-/* Fieldsets and switches */
+-.fieldset {
+-  margin: 0;
+-  min-width: 0;
++.legend + * {
++  clear: both;
+ }
+ 
+-.legend {
+-  font-weight: bold;
+-  font-size: var(--font-size-h2);
+-  padding: 0 var(--space-1);
++.legend-inner {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
++}
++
++.legend-inner > span {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-1);
++}
++
++.legend-title {
++  font-size: var(--font-size-h4);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ .switch-list {
+@@ -386,25 +581,32 @@ a {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: var(--space-4);
+-  padding: var(--space-3) 0;
+-  border-top: var(--border-width) solid var(--color-border);
++  gap: var(--space-6);
++  min-height: var(--size-control);
++  padding: var(--space-4) 0;
++  border-top: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+-.switch-text p {
+-  margin: 0;
++.switch-text {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-1);
+ }
+ 
+ .switch {
+   appearance: none;
+   position: relative;
+-  width: var(--switch-width);
+-  height: var(--switch-height);
++  width: var(--size-control);
++  height: 28px;
+   margin: 0;
+   flex-shrink: 0;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-switch-off);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-hover);
++  box-shadow: var(--shadow-ledge);
+   cursor: pointer;
++  transition-property: background-color, box-shadow, transform;
++  transition-duration: var(--motion-duration-snap);
++  transition-timing-function: var(--motion-easing-snap);
+ }
+ 
+ .switch::after {
+@@ -412,40 +614,106 @@ a {
+   position: absolute;
+   top: 3px;
+   left: 3px;
+-  width: calc(var(--switch-height) - 6px);
+-  height: calc(var(--switch-height) - 6px);
+-  border-radius: 50%;
+-  background: var(--color-switch-thumb);
++  width: 22px;
++  height: 22px;
++  border-radius: var(--radius-full);
++  background: var(--color-art-white);
++  transition: transform var(--motion-duration-snap) var(--motion-easing-snap);
+ }
+ 
+ .switch:checked {
+-  background: var(--color-switch-on);
++  background: var(--color-action-primary);
+ }
+ 
+ .switch:checked::after {
+-  left: calc(var(--switch-width) - var(--switch-height) + 3px);
++  transform: translateX(20px);
++  background: var(--color-text-on-action);
++}
++
++@media (hover: hover) {
++  .switch:hover {
++    background: var(--color-surface-pressed);
++  }
++
++  .switch:checked:hover {
++    background: var(--color-action-primary-hover);
++  }
++}
++
++.switch:active {
++  transform: translateY(2px);
++  box-shadow: var(--shadow-ledge-gone);
++}
++
++.switch:disabled {
++  background: var(--color-surface-subtle);
++  box-shadow: none;
++  cursor: not-allowed;
++}
++
++.switch:disabled::after {
++  background: var(--color-border-default);
++}
++
++/* ---------- Password strength: status dot + short status text ---------- */
++.strength {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  font-weight: var(--font-weight-medium);
++}
++
++.strength::before {
++  content: '';
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  flex: none;
+ }
+ 
+-/* Password strength */
+ .strength-none {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
++}
++
++.strength-none::before {
++  display: none;
+ }
+ 
+ .strength-weak {
+-  color: var(--color-strength-weak);
++  color: var(--color-status-danger);
++}
++
++.strength-weak::before {
++  background: var(--color-status-danger);
+ }
+ 
+ .strength-fair {
+-  color: var(--color-strength-fair);
++  color: var(--color-text-primary);
++}
++
++.strength-fair::before {
++  background: var(--color-status-warning);
+ }
+ 
+ .strength-strong {
+-  color: var(--color-strength-strong);
++  color: var(--color-status-success);
+ }
+ 
+-/* Tables */
++.strength-strong::before {
++  background: var(--color-status-success);
++}
++
++/* ---------- Tables ---------- */
+ .table-wrap {
++  position: relative;
+   overflow-x: auto;
++  background: var(--color-surface-default);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-lg);
++}
++
++.table-wrap:focus-visible {
++  outline-offset: 2px;
+ }
+ 
+ .table {
+@@ -456,81 +724,174 @@ a {
+ .table th,
+ .table td {
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  padding: 0 var(--space-4);
+   vertical-align: middle;
++  white-space: nowrap;
+ }
+ 
+ .table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  height: 44px;
++  background: var(--color-surface-subtle);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-bold);
++  color: var(--color-text-icon);
++}
++
++.table td {
++  height: var(--size-row);
++  border-top: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.table td .pill {
++  margin-left: var(--space-2);
+ }
+ 
+ .table .numeric {
+   text-align: right;
++  font-variant-numeric: tabular-nums;
++}
++
++.table .muted-cell {
++  color: var(--color-text-secondary);
+ }
+ 
+ .cell-actions {
+   text-align: right;
++  width: 1%;
+ }
+ 
++.table-empty {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
++  margin-top: var(--space-4);
++}
++
++.table-footnote {
++  margin-top: var(--space-4);
++}
++
++/* ---------- Badges ---------- */
+ .pill {
+-  display: inline-block;
+-  margin: 0 0 0 var(--space-2);
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  height: 24px;
++  margin: 0;
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  font-size: var(--font-size-fine);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  line-height: var(--font-line-height-label);
++  white-space: nowrap;
++  vertical-align: middle;
++}
++
++.pill::before {
++  content: '';
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  flex: none;
+ }
+ 
+ .pill-neutral {
+-  background: var(--color-pill-neutral-bg);
+-  color: var(--color-pill-neutral-text);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
+ }
+ 
+-.pill-paid,
+-.pill-current {
+-  background: var(--color-pill-current-bg);
+-  color: var(--color-pill-current-text);
++.pill-neutral::before {
++  background: var(--color-status-info);
++}
++
++.pill-paid {
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
++}
++
++.pill-paid::before {
++  background: var(--color-status-success);
+ }
+ 
+ .pill-due {
+-  background: var(--color-pill-due-bg);
+-  color: var(--color-pill-due-text);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
+ }
+ 
+-.table .pill,
+-.plan-card .pill {
+-  margin-left: 0;
++.pill-due::before {
++  background: var(--color-status-warning);
+ }
+ 
+-/* Billing */
++.pill-current {
++  background: var(--color-action-on-field);
++  color: var(--color-text-on-field-action);
++}
++
++.pill-current::before {
++  display: none;
++}
++
++/* ---------- Billing ---------- */
+ .plan-grid {
+   list-style: none;
+-  margin: 0 0 var(--space-3);
++  margin: 0;
+   padding: 0;
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
++  gap: var(--space-6);
+ }
+ 
+ .plan-card {
++  position: relative;
+   display: flex;
+   flex-direction: column;
+   align-items: flex-start;
+-  gap: var(--space-2);
++  gap: var(--space-4);
++  background: var(--color-surface-raised);
++  border: var(--border-width-thick) solid var(--color-border-default);
++  border-radius: var(--radius-md);
++  padding: var(--space-6);
+ }
+ 
+ .plan-card-current {
+-  border-color: var(--color-primary);
++  background: var(--color-field-violet);
++  border-color: var(--color-field-violet);
++  color: var(--color-on-field-violet);
++  --ms-ring: var(--color-focus-ring-on-field);
++}
++
++.plan-card-current .muted {
++  color: var(--color-on-field-violet);
++}
++
++.check-disc {
++  position: absolute;
++  top: var(--space-4);
++  right: var(--space-4);
++  display: grid;
++  place-items: center;
++  width: var(--size-circle-sm);
++  height: var(--size-circle-sm);
++  border-radius: var(--radius-full);
++  background: var(--color-art-white);
++  color: var(--color-field-violet);
+ }
+ 
+ .plan-price {
++  display: flex;
++  align-items: baseline;
++  flex-wrap: wrap;
++  gap: var(--space-2);
+   margin: 0;
+ }
+ 
+ .plan-amount {
+-  font-size: var(--font-size-h1);
+-  font-weight: bold;
++  font-size: var(--font-size-h3);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ .feature-list {
+@@ -538,6 +899,9 @@ a {
+   margin: 0;
+   padding: 0;
+   flex: 1;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-2);
+ }
+ 
+ .feature-list li {
+@@ -546,53 +910,288 @@ a {
+   gap: var(--space-2);
+ }
+ 
++.feature-list .ms-icon {
++  color: var(--color-status-success);
++}
++
++.plan-card-current .feature-list .ms-icon {
++  color: var(--color-on-field-violet);
++}
++
++.plan-status {
++  margin-top: var(--space-6);
++}
++
+ .payment-method {
+   display: flex;
+   align-items: center;
++  flex-wrap: wrap;
+   gap: var(--space-3);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+-/* Dialog */
++.payment-method .ms-icon {
++  color: var(--color-text-icon);
++}
++
++/* ---------- Dialog: white, radius.xl, cream footer, no shadow, no art ---------- */
+ .dialog {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  padding: var(--space-6);
+-  max-width: 440px;
++  border: 0;
++  border-radius: var(--radius-xl);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  padding: 0;
++  max-width: 560px;
+   width: calc(100% - var(--space-8));
++  overflow: hidden;
++}
++
++.dialog[open] {
++  animation: ms-enter var(--motion-duration-snap) var(--motion-easing-snap);
+ }
+ 
+ .dialog::backdrop {
+-  background: var(--color-backdrop);
++  background: var(--color-surface-overlay);
++}
++
++@keyframes ms-enter {
++  from {
++    opacity: 0;
++    transform: translateY(8px);
++  }
++  to {
++    opacity: 1;
++    transform: none;
++  }
++}
++
++.dialog-main {
++  position: relative;
++  padding: var(--space-8);
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-3);
++}
++
++.dialog-main h2 {
++  padding-right: var(--space-10);
++}
++
++.dialog-close {
++  position: absolute;
++  top: var(--space-6);
++  right: var(--space-6);
+ }
+ 
+ .dialog-actions {
+   display: flex;
+   justify-content: flex-end;
+-  gap: var(--space-2);
++  flex-wrap: wrap;
++  gap: var(--space-3);
++  padding: var(--space-6) var(--space-8);
++  background: var(--color-surface-subtle);
++}
++
++/* ---------- Error page ---------- */
++.error-page {
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++  padding-top: var(--space-16);
++}
++
++.error-band {
++  flex: 1;
++  padding-block: var(--space-12) var(--space-24);
++}
++
++.error-band .ms-field__inner {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) auto;
++  align-items: center;
++  gap: var(--space-12);
++}
++
++.error-copy {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-4);
++  max-width: 480px;
++}
++
++.error-copy .ms-pill {
+   margin-top: var(--space-4);
+ }
+ 
+-@media (max-width: 900px) {
++/* ---------- Reduced motion ---------- */
++@media (prefers-reduced-motion: reduce) {
++  .switch,
++  .switch::after,
++  .input,
++  .topbar {
++    transition: none;
++  }
++
++  .dialog[open] {
++    animation: none;
++  }
++}
++
++/* ---------- Layout adaptation ---------- */
++@media (max-width: 1023px) {
+   .settings-layout {
+     flex-direction: column;
+   }
+ 
+   .sidebar {
+     width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    background: var(--color-surface-default);
++    padding: var(--space-2) 0 var(--space-3);
++  }
++
++  .nav-group-label {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    overflow: hidden;
++    clip: rect(0, 0, 0, 0);
++    white-space: nowrap;
+   }
+ 
+   .nav-list {
+-    display: flex;
+-    flex-wrap: wrap;
++    flex-direction: row;
+     gap: var(--space-2);
++    overflow-x: auto;
++    padding: var(--space-1) var(--space-6) var(--space-2);
++    scrollbar-width: none;
+   }
+ 
+-  .form-grid,
+-  .plan-grid {
++  .nav-link {
++    flex: none;
++    padding: 0 var(--space-5);
++    background: var(--color-action-secondary);
++    box-shadow: var(--shadow-ledge);
++    font-weight: var(--font-weight-bold);
++  }
++
++  .nav-link:active {
++    transform: translateY(2px);
++    box-shadow: var(--shadow-ledge-gone);
++  }
++
++  .page-body {
++    padding: var(--space-10) var(--space-6) var(--space-12);
++  }
++
++  .topbar {
++    padding-inline: var(--space-6);
++  }
++}
++
++@media (max-width: 767px) {
++  .topbar {
++    height: 64px;
++    padding-inline: var(--space-4);
++  }
++
++  .nav-list {
++    padding-inline: var(--space-4);
++  }
++
++  .page-body {
++    padding: var(--space-8) var(--space-4) var(--space-12);
++    gap: var(--space-6);
++  }
++
++  .panel,
++  .card,
++  .fieldset.panel {
++    padding: var(--space-6);
++  }
++
++  .form-grid {
++    grid-template-columns: 1fr;
++  }
++
++  .form-actions .ms-pill {
++    width: 100%;
++  }
++
++  .avatar-row {
++    flex-direction: column;
++    align-items: flex-start;
++    gap: var(--space-4);
++  }
++
++  .avatar-large {
++    width: 88px;
++    height: 88px;
++    font-size: var(--font-size-h4);
++  }
++
++  .panel-head .ms-plate--sm {
++    width: 48px;
++    height: 48px;
++  }
++
++  .table {
++    min-width: 560px;
++  }
++
++  .table th:first-child,
++  .table td:first-child {
++    position: sticky;
++    left: 0;
++    z-index: 1;
++    background: var(--color-surface-default);
++  }
++
++  .table th:first-child {
++    background: var(--color-surface-subtle);
++  }
++
++  .dialog {
++    width: 100%;
++    max-width: none;
++    margin: auto 0 0;
++    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
++  }
++
++  .dialog-main {
++    padding: var(--space-6);
++  }
++
++  .dialog-actions {
++    flex-direction: column-reverse;
++    padding: var(--space-6);
++  }
++
++  .dialog-actions .ms-pill {
++    width: 100%;
++  }
++
++  .error-page {
++    padding-top: var(--space-12);
++  }
++
++  .error-band {
++    padding-block: var(--space-8) var(--space-16);
++  }
++
++  .error-band .ms-field__inner {
+     grid-template-columns: 1fr;
++    justify-items: center;
++    text-align: center;
++    gap: var(--space-8);
++  }
++
++  .error-copy {
++    align-items: center;
++  }
++
++  .error-band .ms-art {
++    width: 140px;
++    height: auto;
+   }
+ }

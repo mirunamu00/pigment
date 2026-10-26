@@ -1,0 +1,2587 @@
+diff --git a/package.json b/package.json
+index a042f8e..4339808 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource/dm-mono": "^5.0.0",
++    "@fontsource/figtree": "^5.0.0",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/App.tsx b/src/App.tsx
+index c258f61..4c2be77 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -4,15 +4,13 @@ import HomePage from './pages/HomePage';
+ import PostPage from './pages/PostPage';
+ import AboutPage from './pages/AboutPage';
+ import NotFoundPage from './pages/NotFoundPage';
+-
+ export default function App() {
+   return (
+     <Routes>
+       <Route element={<Layout />}>
+         <Route index element={<HomePage />} />
+         <Route path="posts/:slug" element={<PostPage />} />
+-        <Route path="about" element={<AboutPage />} />
+-        <Route path="*" element={<NotFoundPage />} />
++        <Route path="about" element={<AboutPage />} />        <Route path="*" element={<NotFoundPage />} />
+       </Route>
+     </Routes>
+   );
+diff --git a/src/components/ArticleBody.tsx b/src/components/ArticleBody.tsx
+index e696cf8..f9df338 100644
+--- a/src/components/ArticleBody.tsx
++++ b/src/components/ArticleBody.tsx
+@@ -1,7 +1,8 @@
+ import type { Block } from '../data/posts';
++import type { FieldHue } from '../design/hues';
+ import ImagePlaceholder from './ImagePlaceholder';
+ 
+-function renderBlock(block: Block, index: number) {
++function renderBlock(block: Block, index: number, hue: FieldHue) {
+   switch (block.type) {
+     case 'heading':
+       return block.level === 2 ? (
+@@ -49,7 +50,7 @@ function renderBlock(block: Block, index: number) {
+     case 'figure':
+       return (
+         <figure key={index} className="body-figure" data-testid="body-figure">
+-          <ImagePlaceholder alt={block.alt} />
++          <ImagePlaceholder alt={block.alt} hue={hue} />
+           <figcaption className="muted small" data-testid="figure-caption">
+             {block.caption}
+           </figcaption>
+@@ -58,10 +59,10 @@ function renderBlock(block: Block, index: number) {
+   }
+ }
+ 
+-export default function ArticleBody({ blocks }: { blocks: Block[] }) {
++export default function ArticleBody({ blocks, hue }: { blocks: Block[]; hue: FieldHue }) {
+   return (
+     <div className="article-body" data-testid="article-body">
+-      {blocks.map(renderBlock)}
++      {blocks.map((block, index) => renderBlock(block, index, hue))}
+     </div>
+   );
+ }
+diff --git a/src/components/ImagePlaceholder.tsx b/src/components/ImagePlaceholder.tsx
+index d2c3e71..e3d9835 100644
+--- a/src/components/ImagePlaceholder.tsx
++++ b/src/components/ImagePlaceholder.tsx
+@@ -1,9 +1,109 @@
+-export default function ImagePlaceholder({ alt }: { alt: string }) {
++import type { ReactNode } from 'react';
++import { fill, type ArtHue, type FieldHue } from '../design/hues';
++import { Shaded, Sparkle } from '../design/shapes';
++
++/*
++ * An article figure without an image gets a cover, never a grey box: a field in the post's
++ * category hue holding one flat composition of what the figure shows.
++ */
++type FigureSubject = 'board' | 'two-notes' | 'timeline';
++
++function subjectFor(alt: string): FigureSubject {
++  const text = alt.toLowerCase();
++  if (text.includes('timeline')) return 'timeline';
++  if (text.includes('side by side') || text.includes('two versions')) return 'two-notes';
++  return 'board';
++}
++
++function pick(candidates: ArtHue[], avoid: FieldHue): ArtHue[] {
++  return candidates.filter((hue) => hue !== avoid);
++}
++
++function Board({ hue }: { hue: FieldHue }) {
++  const [a, b, c] = pick(['white', 'yellow', 'pink', 'sky'], hue);
++  // Six clusters of button pills: the inventory after grouping
++  const clusters: { x: number; y: number; hue: ArtHue; widths: number[] }[] = [
++    { x: 136, y: 62, hue: a, widths: [72, 56, 64] },
++    { x: 280, y: 62, hue: b, widths: [60, 76] },
++    { x: 424, y: 62, hue: c, widths: [80, 52, 68] },
++    { x: 136, y: 182, hue: b, widths: [64, 80] },
++    { x: 280, y: 182, hue: c, widths: [56, 72, 60] },
++    { x: 424, y: 182, hue: a, widths: [76, 60] },
++  ];
++  return (
++    <>
++      {clusters.map((cluster) => (
++        <g key={`${cluster.x}-${cluster.y}`} style={{ fill: fill(cluster.hue) }}>
++          {cluster.widths.map((width, index) => (
++            <rect key={index} x={cluster.x} y={cluster.y + index * 26} width={width} height={18} rx={9} />
++          ))}
++        </g>
++      ))}
++      <Sparkle x={520} y={40} size={32} hue={a} rotate={10} />
++    </>
++  );
++}
++
++function Sheet({ x, hue, lines }: { x: number; hue: ArtHue; lines: number[] }) {
++  return (
++    <g>
++      <Shaded hue={hue} d={8}>
++        <rect x={x} y={52} width={150} height={216} rx={16} />
++      </Shaded>
++      <g style={{ fill: 'var(--color-art-stroke)' }}>
++        {lines.map((width, index) => (
++          <rect key={index} x={x + 24} y={86 + index * 26} width={width} height={10} rx={5} />
++        ))}
++      </g>
++    </g>
++  );
++}
++
++function TwoNotes({ hue }: { hue: FieldHue }) {
++  const [before, after, spark] = pick(['stone', 'yellow', 'white', 'pink'], hue);
++  return (
++    <>
++      <Sheet x={150} hue={before} lines={[96, 84, 102, 70, 92, 80, 98]} />
++      <Sheet x={340} hue={after} lines={[90, 60, 76]} />
++      <Sparkle x={474} y={30} size={36} hue={spark} rotate={12} />
++    </>
++  );
++}
++
++function Timeline({ hue }: { hue: FieldHue }) {
++  const [a, b, c] = pick(['yellow', 'white', 'pink', 'sky'], hue);
++  const flags: { x: number; hue: ArtHue }[] = [
++    { x: 150, hue: a },
++    { x: 300, hue: b },
++    { x: 450, hue: c },
++  ];
++  return (
++    <>
++      <path d="M110 250H530" fill="none" strokeWidth={14} strokeLinecap="round" style={{ stroke: 'var(--color-art-stroke)' }} />
++      {flags.map((flag) => (
++        <g key={flag.x}>
++          <rect x={flag.x - 4} y={80} width={8} height={170} rx={4} style={{ fill: 'var(--color-art-stroke)' }} />
++          <Shaded hue={flag.hue} d={5}>
++            <path d={`M${flag.x + 4} 82H${flag.x + 84}Q${flag.x + 68} 108 ${flag.x + 84} 134H${flag.x + 4}Z`} />
++          </Shaded>
++        </g>
++      ))}
++      <Sparkle x={560} y={60} size={30} hue={a} rotate={8} />
++    </>
++  );
++}
++
++export default function ImagePlaceholder({ alt, hue = 'blue' }: { alt: string; hue?: FieldHue }) {
++  const subject = subjectFor(alt);
++  let art: ReactNode;
++  if (subject === 'timeline') art = <Timeline hue={hue} />;
++  else if (subject === 'two-notes') art = <TwoNotes hue={hue} />;
++  else art = <Board hue={hue} />;
++
+   return (
+-    <svg className="image-placeholder" viewBox="0 0 640 320" role="img" aria-label={alt}>
++    <svg className={`image-placeholder ms-hue--${hue}`} viewBox="0 0 640 320" role="img" aria-label={alt}>
+       <rect className="image-placeholder-bg" x="0" y="0" width="640" height="320" />
+-      <circle className="image-placeholder-shape" cx="220" cy="120" r="36" />
+-      <path className="image-placeholder-shape" d="M120 260 L260 150 L360 230 L440 170 L540 260 Z" />
++      {art}
+     </svg>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 968c47e..1c7ef56 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,14 +1,21 @@
+-import { useEffect } from 'react';
++import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+ import { Link, NavLink, Outlet, useLocation } from 'react-router';
++import { Arch } from '../design/Field';
++import { AREA_HUE } from '../design/hues';
++import { ArrowUpIcon, CloseIcon, MenuIcon } from '../design/icons';
+ import NewsletterForm from './NewsletterForm';
+ 
+ const NAV_ITEMS = [
+-  { to: '/', label: 'Home', testId: 'nav-home', end: true },
+-  { to: '/about', label: 'About', testId: 'nav-about', end: false },
++  { to: '/', label: 'Home', testId: 'nav-home', end: true, hue: AREA_HUE.home },
++  { to: '/about', label: 'About', testId: 'nav-about', end: false, hue: AREA_HUE.about },
+ ];
+ 
+ export default function Layout() {
+   const location = useLocation();
++  const [scrolled, setScrolled] = useState(false);
++  const [menuOpen, setMenuOpen] = useState(false);
++  const headerRef = useRef<HTMLElement>(null);
++  const menuButtonRef = useRef<HTMLButtonElement>(null);
+ 
+   // When the page changes, jump to the requested heading (if any) or to the top.
+   // In-page hash links (table of contents) scroll natively and are not affected.
+@@ -17,46 +24,130 @@ export default function Layout() {
+     const target = id ? document.getElementById(id) : null;
+     if (target) target.scrollIntoView();
+     else window.scrollTo(0, 0);
++    setMenuOpen(false);
+   }, [location.pathname]);
+ 
++  // The top bar gets its shadow after 8px of scroll.
++  useEffect(() => {
++    const onScroll = () => setScrolled(window.scrollY > 8);
++    onScroll();
++    window.addEventListener('scroll', onScroll, { passive: true });
++    return () => window.removeEventListener('scroll', onScroll);
++  }, []);
++
++  // The mobile menu closes on a hash jump (e.g. "Subscribe") as well.
++  useEffect(() => setMenuOpen(false), [location.hash]);
++
++  function closeMenu() {
++    setMenuOpen(false);
++    menuButtonRef.current?.focus();
++  }
++
++  // While the mobile menu is open, Escape closes it and Tab stays inside the top bar.
++  function handleHeaderKeyDown(event: KeyboardEvent<HTMLElement>) {
++    if (!menuOpen) return;
++    if (event.key === 'Escape') {
++      closeMenu();
++      return;
++    }
++    if (event.key !== 'Tab' || !headerRef.current) return;
++    const focusable = Array.from(headerRef.current.querySelectorAll<HTMLElement>('a[href], button')).filter(
++      (element) => element.offsetParent !== null,
++    );
++    const first = focusable[0];
++    const last = focusable[focusable.length - 1];
++    if (event.shiftKey && document.activeElement === first) {
++      event.preventDefault();
++      last.focus();
++    } else if (!event.shiftKey && document.activeElement === last) {
++      event.preventDefault();
++      first.focus();
++    }
++  }
++
+   return (
+     <div className="site-shell">
+-      <a className="skip-link" href="#main-content">
++      <a className="skip-link ms-pill" href="#main-content">
+         Skip to content
+       </a>
+-      <header className="site-header">
++      <header
++        ref={headerRef}
++        className={`site-header${scrolled ? ' is-scrolled' : ''}${menuOpen ? ' is-menu-open' : ''}`}
++        onKeyDown={handleHeaderKeyDown}
++      >
+         <div className="container site-header-inner">
+           <Link to="/" className="brand" data-testid="brand-link">
+-            <svg className="brand-mark" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+-              <path d="M4 4h12l4 4v12H4z" fill="none" stroke="currentColor" strokeWidth="2" />
+-              <path d="M8 11h8M8 15h6" stroke="currentColor" strokeWidth="2" />
+-            </svg>
+-            <span>Field Notes</span>
++            Field Notes
+           </Link>
+-          <nav aria-label="Primary" data-testid="primary-nav">
++          <nav aria-label="Primary" data-testid="primary-nav" className="site-nav" id="site-nav">
+             <ul className="nav-list">
+               {NAV_ITEMS.map((item) => (
+                 <li key={item.to}>
+                   <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
+-                    {item.label}
++                    <span className={`nav-dot ms-hue--${item.hue}`} aria-hidden="true" />
++                    <span className="nav-label" data-label={item.label}>
++                      {item.label}
++                    </span>
+                   </NavLink>
+                 </li>
+               ))}
+             </ul>
+           </nav>
++          <div className="site-header-actions">
++            <a href="#newsletter" className="ms-pill header-pill">
++              Subscribe
++            </a>
++            <button
++              ref={menuButtonRef}
++              type="button"
++              className="ms-pill ms-pill--cream ms-circle menu-button"
++              aria-expanded={menuOpen}
++              aria-controls="site-nav"
++              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
++              onClick={() => setMenuOpen((open) => !open)}
++            >
++              {menuOpen ? <CloseIcon /> : <MenuIcon />}
++            </button>
++          </div>
+         </div>
+       </header>
+ 
+-      <main id="main-content" className="container content" tabIndex={-1}>
++      <main id="main-content" className="content" tabIndex={-1}>
+         <Outlet />
+       </main>
+ 
+       <footer className="site-footer">
+-        <div className="container site-footer-inner">
+-          <NewsletterForm />
+-          <p className="muted small">
+-            Field Notes is written by a small product team. Opinions are our own and change as we learn.
+-          </p>
++        <div className="ms-field ms-field--rise ms-hue--cream footer-band">
++          <Arch kind="rise" />
++          <div className="ms-field__inner footer-grid">
++            <NewsletterForm />
++            <nav aria-label="Footer" className="footer-links">
++              <p className="footer-links-title">Read</p>
++              <ul>
++                <li>
++                  <Link to="/">Latest posts</Link>
++                </li>
++                <li>
++                  <Link to="/about">About the authors</Link>
++                </li>
++              </ul>
++            </nav>
++          </div>
++        </div>
++        <div className="footer-bar">
++          <div className="container footer-bar-inner">
++            <p className="footer-note">
++              Field Notes is written by a small product team. Opinions are our own and change as we learn.
++            </p>
++            <button
++              type="button"
++              className="ms-pill ms-pill--cream ms-circle"
++              aria-label="Back to top"
++              onClick={() => window.scrollTo(0, 0)}
++            >
++              <ArrowUpIcon />
++            </button>
++          </div>
+         </div>
+       </footer>
+     </div>
+diff --git a/src/components/NewsletterForm.tsx b/src/components/NewsletterForm.tsx
+index ed061f8..d15a85e 100644
+--- a/src/components/NewsletterForm.tsx
++++ b/src/components/NewsletterForm.tsx
+@@ -1,4 +1,6 @@
+ import { useId, useState, type FormEvent } from 'react';
++import Glyph from '../design/Glyph';
++import { AlertIcon, TickIcon } from '../design/icons';
+ 
+ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+ 
+@@ -28,12 +30,16 @@ export default function NewsletterForm() {
+   }
+ 
+   return (
+-    <section className="newsletter" aria-labelledby={headingId} data-testid="newsletter">
+-      <h2 id={headingId}>Subscribe to the newsletter</h2>
+-      <p className="muted">One email when a new post goes up. Never more than twice a month.</p>
++    <section className="newsletter" id="newsletter" aria-labelledby={headingId} data-testid="newsletter">
++      <div className="newsletter-head">
++        <Glyph kind="bubbles" cycle="slow" />
++        <h2 id={headingId}>Subscribe to the newsletter</h2>
++      </div>
++      <p className="newsletter-lead">One email when a new post goes up. Never more than twice a month.</p>
+       {subscribedEmail ? (
+         <p className="form-success" role="status" data-testid="newsletter-success">
+-          Thanks for subscribing. New posts will arrive at {subscribedEmail}.
++          <TickIcon />
++          <span>Thanks for subscribing. New posts will arrive at {subscribedEmail}.</span>
+         </p>
+       ) : (
+         <form className="newsletter-form" noValidate onSubmit={handleSubmit} data-testid="newsletter-form">
+@@ -54,12 +60,13 @@ export default function NewsletterForm() {
+               aria-describedby={error ? errorId : undefined}
+               data-testid="newsletter-email"
+             />
+-            <button type="submit" className="button button-primary" data-testid="newsletter-submit">
++            <button type="submit" className="ms-pill ms-pill--lg" data-testid="newsletter-submit">
+               Subscribe
+             </button>
+           </div>
+           {error && (
+             <p id={errorId} className="form-error" role="alert" data-testid="newsletter-error">
++              <AlertIcon />
+               {error}
+             </p>
+           )}
+diff --git a/src/components/PostCard.tsx b/src/components/PostCard.tsx
+index 1a013b4..cc1f345 100644
+--- a/src/components/PostCard.tsx
++++ b/src/components/PostCard.tsx
+@@ -1,5 +1,7 @@
+ import { Link } from 'react-router';
+ import type { Post } from '../data/posts';
++import { postHue, postSubject } from '../design/postArt';
++import { Cover } from '../design/shapes';
+ import PostMeta from './PostMeta';
+ import TagChip from './TagChip';
+ 
+@@ -11,21 +13,24 @@ interface PostCardProps {
+ 
+ export default function PostCard({ post, testId = 'post-card', linkTestId = 'post-link' }: PostCardProps) {
+   return (
+-    <article className="post-card" data-testid={testId}>
+-      <h3 className="post-card-title">
+-        <Link to={`/posts/${post.slug}`} data-testid={linkTestId}>
+-          {post.title}
+-        </Link>
+-      </h3>
+-      <PostMeta post={post} />
+-      <p>{post.excerpt}</p>
+-      <ul className="tag-list" aria-label="Tags">
+-        {post.tags.map((tag) => (
+-          <li key={tag}>
+-            <TagChip tag={tag} />
+-          </li>
+-        ))}
+-      </ul>
++    <article className="post-card linked-card" data-testid={testId}>
++      <Cover subject={postSubject(post)} hue={postHue(post)} className="post-card-cover" />
++      <div className="post-card-body">
++        <h3 className="post-card-title">
++          <Link to={`/posts/${post.slug}`} className="card-link" data-testid={linkTestId}>
++            {post.title}
++          </Link>
++        </h3>
++        <PostMeta post={post} />
++        <p className="post-card-excerpt">{post.excerpt}</p>
++        <ul className="tag-list" aria-label="Tags">
++          {post.tags.map((tag) => (
++            <li key={tag}>
++              <TagChip tag={tag} />
++            </li>
++          ))}
++        </ul>
++      </div>
+     </article>
+   );
+ }
+diff --git a/src/components/TagChip.tsx b/src/components/TagChip.tsx
+index ef5314f..c0fb6f7 100644
+--- a/src/components/TagChip.tsx
++++ b/src/components/TagChip.tsx
+@@ -1,8 +1,10 @@
+ import { TAG_LABELS, type TagId } from '../data/posts';
++import { TAG_HUE } from '../design/hues';
+ 
++/** Category tag: filled in the tag's category hue with its on-field text. */
+ export default function TagChip({ tag }: { tag: TagId }) {
+   return (
+-    <span className="tag-chip" data-testid="post-tag">
++    <span className={`tag-chip ms-hue--${TAG_HUE[tag]}`} data-testid="post-tag">
+       {TAG_LABELS[tag]}
+     </span>
+   );
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..19fb11e 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -1,7 +1,13 @@
+ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
++import '@fontsource/figtree/400.css';
++import '@fontsource/figtree/500.css';
++import '@fontsource/figtree/700.css';
++import '@fontsource/dm-mono/400.css';
+ import App from './App';
++import '../design-system/tokens.css';
++import './styles/morning-shapes.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/AboutPage.tsx b/src/pages/AboutPage.tsx
+index 173a48c..fcfb8d5 100644
+--- a/src/pages/AboutPage.tsx
++++ b/src/pages/AboutPage.tsx
+@@ -1,51 +1,71 @@
+ import { Link } from 'react-router';
+ import { authors } from '../data/authors';
+ import { posts } from '../data/posts';
++import { HeaderBand } from '../design/Field';
++import { AREA_HUE } from '../design/hues';
++import { Avatar, Cluster, Plate } from '../design/shapes';
++
++/* Author avatars take category hues apart from the About band's blue. */
++const AVATAR_HUES = ['yellow', 'green', 'pink'] as const;
+ 
+ export default function AboutPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>About Field Notes</h1>
+-        <p className="muted">A small publication about the unglamorous parts of making software.</p>
+-      </div>
++      <HeaderBand
++        hue={AREA_HUE.about}
++        labelledBy="about-title"
++        art={<Cluster subject="book" band={AREA_HUE.about} variant={2} />}
++      >
++        <h1 id="about-title" className="band-title">
++          About Field Notes
++        </h1>
++        <p className="band-lead">A small publication about the unglamorous parts of making software.</p>
++        <div className="pill-row">
++          <Link to="/" className="ms-pill ms-pill--on-field">
++            Read the latest
++          </Link>
++        </div>
++      </HeaderBand>
+ 
+-      <section className="prose" aria-labelledby="about-why-heading">
+-        <h2 id="about-why-heading">Why we write</h2>
+-        <p>
+-          Field Notes started as an internal wiki page where we collected things we wished someone had told us sooner.
+-          Over time the page grew long enough that colleagues at other companies started asking for the link, so we
+-          turned it into this blog.
+-        </p>
+-        <p>
+-          We publish about twice a month. Posts are written by the people doing the work, edited lightly, and kept
+-          practical. If a post does not change how at least one reader works next week, we have not done our job.
+-        </p>
+-        <p>
+-          So far we have published {posts.length} posts. Start with the <Link to="/">latest writing</Link>, or
+-          subscribe below to get new posts by email.
+-        </p>
+-      </section>
++      <div className="container page-body">
++        <section className="about-why" aria-labelledby="about-why-heading">
++          <Plate subject="pencil" className="about-plate" />
++          <div className="prose">
++            <h2 id="about-why-heading">Why we write</h2>
++            <p>
++              Field Notes started as an internal wiki page where we collected things we wished someone had told us
++              sooner. Over time the page grew long enough that colleagues at other companies started asking for the
++              link, so we turned it into this blog.
++            </p>
++            <p>
++              We publish about twice a month. Posts are written by the people doing the work, edited lightly, and kept
++              practical. If a post does not change how at least one reader works next week, we have not done our job.
++            </p>
++            <p>
++              So far we have published {posts.length} posts. Start with the <Link to="/">latest writing</Link>, or
++              subscribe below to get new posts by email.
++            </p>
++          </div>
++        </section>
+ 
+-      <section className="authors" aria-labelledby="about-authors-heading">
+-        <h2 id="about-authors-heading">The authors</h2>
+-        <ul className="author-list">
+-          {authors.map((author) => (
+-            <li key={author.id}>
+-              <article className="author-card" data-testid="author-card">
+-                <span className="avatar" aria-hidden="true">
+-                  {author.initials}
+-                </span>
+-                <div>
+-                  <h3>{author.name}</h3>
+-                  <p className="muted small">{author.role}</p>
+-                  <p>{author.bio}</p>
+-                </div>
+-              </article>
+-            </li>
+-          ))}
+-        </ul>
+-      </section>
++        <section className="authors" aria-labelledby="about-authors-heading">
++          <h2 id="about-authors-heading">The authors</h2>
++          <ul className="author-list">
++            {authors.map((author, index) => (
++              <li key={author.id}>
++                <article className="author-card" data-testid="author-card">
++                  <Avatar initials={author.initials} hue={AVATAR_HUES[index % AVATAR_HUES.length]} />
++                  <div>
++                    <h3>{author.name}</h3>
++                    <p className="author-role">{author.role}</p>
++                    <p>{author.bio}</p>
++                  </div>
++                </article>
++              </li>
++            ))}
++          </ul>
++        </section>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index 4e9f0fb..5cd4c60 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -1,9 +1,17 @@
+-import { useState } from 'react';
++import { useState, type CSSProperties } from 'react';
+ import { Link } from 'react-router';
+ import PostCard from '../components/PostCard';
+ import PostMeta from '../components/PostMeta';
+ import TagChip from '../components/TagChip';
+ import { getFeaturedPost, posts, TAGS, type TagId } from '../data/posts';
++import { Arch } from '../design/Field';
++import Glyph from '../design/Glyph';
++import { AREA_HUE, TAG_HUE } from '../design/hues';
++import { SearchIcon } from '../design/icons';
++import { useReveal } from '../design/motion';
++import { postHue, postSubject } from '../design/postArt';
++import { ConfettiPieces, Cover, EmptyArt, Sparkle } from '../design/shapes';
++import HeroVignette from '../design/Vignette';
+ 
+ type TagFilter = TagId | 'all';
+ 
+@@ -12,6 +20,8 @@ export default function HomePage() {
+   const listPosts = posts.filter((post) => post.slug !== featured.slug);
+   const [activeTag, setActiveTag] = useState<TagFilter>('all');
+   const [query, setQuery] = useState('');
++  const heroConfettiRef = useReveal<HTMLDivElement>();
++  const openerConfettiRef = useReveal<HTMLDivElement>();
+ 
+   const term = query.trim().toLowerCase();
+   const visible = listPosts.filter(
+@@ -29,89 +39,139 @@ export default function HomePage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Field Notes</h1>
+-        <p className="muted">Essays on building software, writing clearly and working well together.</p>
+-      </div>
+-
+-      <section className="featured" aria-labelledby="featured-heading">
+-        <h2 id="featured-heading" className="section-label">
+-          Featured
+-        </h2>
+-        <article className="featured-post" data-testid="featured-post">
+-          <h3 className="featured-title">
+-            <Link to={`/posts/${featured.slug}`} data-testid="featured-post-link">
+-              {featured.title}
+-            </Link>
+-          </h3>
+-          <PostMeta post={featured} />
+-          <p className="featured-excerpt">{featured.excerpt}</p>
+-          <ul className="tag-list" aria-label="Tags">
+-            {featured.tags.map((tag) => (
+-              <li key={tag}>
+-                <TagChip tag={tag} />
+-              </li>
+-            ))}
+-          </ul>
+-        </article>
++      <section className={`ms-field ms-field--sag ms-hue--${AREA_HUE.home} hero`} aria-labelledby="home-title">
++        <div ref={heroConfettiRef} className="hero-confetti" aria-hidden="true">
++          {(
++            [
++              ['0 0 24 24', <Sparkle key="s" x={0} y={0} size={24} hue="white" rotate={12} />],
++              ['0 0 24 24', <circle key="c" cx="12" cy="12" r="12" style={{ fill: 'var(--color-field-blue)' }} />],
++              ['0 0 24 24', <Sparkle key="p" x={0} y={0} size={24} hue="pink" />],
++            ] as const
++          ).map(([box, shape], index) => (
++            <svg key={index} viewBox={box} style={{ '--ms-i': index } as CSSProperties} focusable="false">
++              {shape}
++            </svg>
++          ))}
++        </div>
++        <div className="ms-field__inner hero-inner">
++          <div className="hero-copy">
++            <h1 id="home-title" className="hero-title">
++              Field Notes
++            </h1>
++            <p className="hero-lead">Essays on building software, writing clearly and working well together.</p>
++            <div className="pill-row">
++              <Link to={`/posts/${featured.slug}`} className="ms-pill ms-pill--lg ms-pill--accent">
++                Start reading
++              </Link>
++              <a href="#more-posts" className="ms-pill ms-pill--lg ms-pill--on-field">
++                Browse posts
++              </a>
++            </div>
++          </div>
++          <HeroVignette />
++        </div>
++        <Arch kind="sag" />
+       </section>
+ 
+-      <section className="post-list-section" aria-labelledby="posts-heading">
+-        <h2 id="posts-heading">More posts</h2>
++      <div className="container home-body">
++        <section className="featured" aria-labelledby="featured-heading">
++          <div className="section-head">
++            <Glyph kind="orbit" size="sm" />
++            <h2 id="featured-heading" className="eyebrow">
++              Featured
++            </h2>
++          </div>
++          <article className="featured-post linked-card" data-testid="featured-post">
++            <Cover subject={postSubject(featured)} hue={postHue(featured)} className="featured-cover" />
++            <div className="featured-body">
++              <h3 className="featured-title">
++                <Link to={`/posts/${featured.slug}`} className="card-link" data-testid="featured-post-link">
++                  {featured.title}
++                </Link>
++              </h3>
++              <PostMeta post={featured} />
++              <p className="featured-excerpt">{featured.excerpt}</p>
++              <ul className="tag-list" aria-label="Tags">
++                {featured.tags.map((tag) => (
++                  <li key={tag}>
++                    <TagChip tag={tag} />
++                  </li>
++                ))}
++              </ul>
++            </div>
++          </article>
++        </section>
+ 
+-        <div className="filter-bar">
+-          <div className="field">
+-            <label htmlFor="post-search" className="field-label">
+-              Search posts
+-            </label>
+-            <input
+-              id="post-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search by title or summary"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="post-search"
+-            />
++        <section className="post-list-section" id="more-posts" aria-labelledby="posts-heading">
++          <div className="ms-confetti posts-opener">
++            <div ref={openerConfettiRef} className="ms-confetti__art" aria-hidden="true">
++              <ConfettiPieces hues={['orange', 'pink', 'blue', 'yellow', 'violet', 'green']} />
++            </div>
++            <h2 id="posts-heading">More posts</h2>
++            <p className="opener-lead">Browse by topic, or search titles and summaries.</p>
+           </div>
+-          <div role="group" aria-label="Filter by tag" className="tag-filter" data-testid="tag-filter">
+-            {filterOptions.map((option) => (
+-              <button
+-                key={option.id}
+-                type="button"
+-                className="button tag-filter-button"
+-                aria-pressed={activeTag === option.id}
+-                onClick={() => setActiveTag(option.id)}
+-                data-testid={`tag-filter-${option.id}`}
+-              >
+-                {option.label}
+-              </button>
+-            ))}
++
++          <div className="filter-bar">
++            <div className="field search-field">
++              <label htmlFor="post-search" className="field-label">
++                Search posts
++              </label>
++              <div className="search-box">
++                <SearchIcon />
++                <input
++                  id="post-search"
++                  type="search"
++                  className="input input--search"
++                  placeholder="Search by title or summary"
++                  value={query}
++                  onChange={(event) => setQuery(event.target.value)}
++                  data-testid="post-search"
++                />
++              </div>
++            </div>
++            <div role="group" aria-label="Filter by tag" className="tag-filter" data-testid="tag-filter">
++              {filterOptions.map((option) => (
++                <button
++                  key={option.id}
++                  type="button"
++                  className="ms-pill ms-pill--cream ms-tab tag-filter-button"
++                  aria-pressed={activeTag === option.id}
++                  onClick={() => setActiveTag(option.id)}
++                  data-testid={`tag-filter-${option.id}`}
++                >
++                  {option.id !== 'all' && (
++                    <span className={`ms-dot filter-dot ms-hue--${TAG_HUE[option.id]}`} aria-hidden="true" />
++                  )}
++                  {option.label}
++                </button>
++              ))}
++            </div>
+           </div>
+-        </div>
+ 
+-        <p className="muted small" aria-live="polite" data-testid="result-count">
+-          Showing {visible.length} of {listPosts.length} posts
+-        </p>
++          <p className="result-count" aria-live="polite" data-testid="result-count">
++            Showing {visible.length} of {listPosts.length} posts
++          </p>
+ 
+-        {visible.length > 0 ? (
+-          <ul className="post-list">
+-            {visible.map((post) => (
+-              <li key={post.slug}>
+-                <PostCard post={post} />
+-              </li>
+-            ))}
+-          </ul>
+-        ) : (
+-          <div className="empty-state" data-testid="posts-empty">
+-            <h3>No posts match these filters</h3>
+-            <p className="muted">Try a different tag or a shorter search.</p>
+-            <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
+-              Clear filters
+-            </button>
+-          </div>
+-        )}
+-      </section>
++          {visible.length > 0 ? (
++            <ul className="post-list post-grid">
++              {visible.map((post) => (
++                <li key={post.slug}>
++                  <PostCard post={post} />
++                </li>
++              ))}
++            </ul>
++          ) : (
++            <div className="ms-panel ms-hue--cream empty-state" data-testid="posts-empty">
++              <EmptyArt subject="magnifier" />
++              <h3 className="empty-title">No posts match these filters</h3>
++              <p>Try a different tag or a shorter search.</p>
++              <button type="button" className="ms-pill" onClick={clearFilters} data-testid="clear-filters">
++                Clear filters
++              </button>
++            </div>
++          )}
++        </section>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index d0cb7f0..036ef7f 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,9 @@
+-import { Link } from 'react-router';
++import ErrorScreen from './ErrorScreen';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to the home page</Link>
+-    </section>
++    <ErrorScreen testId="not-found" title="Page not found" linkLabel="Go to the home page">
++      The page you are looking for does not exist or has moved.
++    </ErrorScreen>
+   );
+ }
+diff --git a/src/pages/PostPage.tsx b/src/pages/PostPage.tsx
+index 2976cb4..8c1cc2b 100644
+--- a/src/pages/PostPage.tsx
++++ b/src/pages/PostPage.tsx
+@@ -4,7 +4,11 @@ import PostCard from '../components/PostCard';
+ import PostMeta from '../components/PostMeta';
+ import TableOfContents from '../components/TableOfContents';
+ import TagChip from '../components/TagChip';
+-import { findPost, getRelatedPosts } from '../data/posts';
++import { findPost, getRelatedPosts, posts } from '../data/posts';
++import { HeaderBand } from '../design/Field';
++import { postHue, postSubject } from '../design/postArt';
++import { Cluster } from '../design/shapes';
++import ErrorScreen from './ErrorScreen';
+ 
+ export default function PostPage() {
+   const { slug } = useParams();
+@@ -12,31 +16,36 @@ export default function PostPage() {
+ 
+   if (!post) {
+     return (
+-      <div className="empty-state" data-testid="post-not-found">
+-        <h1>Post not found</h1>
+-        <p className="muted">There is no post at “{slug}”. It may have been renamed.</p>
+-        <Link to="/">Back to all posts</Link>
+-      </div>
++      <ErrorScreen testId="post-not-found" title="Post not found" linkLabel="Back to all posts">
++        There is no post at “{slug}”. It may have been renamed.
++      </ErrorScreen>
+     );
+   }
+ 
+   const related = getRelatedPosts(post);
++  const hue = postHue(post);
+ 
+   return (
+     <>
+-      <nav aria-label="Breadcrumb" className="breadcrumb">
+-        <ol>
+-          <li>
+-            <Link to="/">All posts</Link>
+-          </li>
+-          <li aria-current="page">{post.title}</li>
+-        </ol>
+-      </nav>
+-
+-      <div className="article-layout">
+-        <article className="article" data-testid="article">
+-          <header className="article-header">
+-            <h1 data-testid="article-title">{post.title}</h1>
++      <article className="article" data-testid="article">
++        <HeaderBand
++          as="header"
++          hue={hue}
++          className="article-band"
++          art={<Cluster subject={postSubject(post)} band={hue} variant={posts.indexOf(post)} />}
++        >
++          <nav aria-label="Breadcrumb" className="breadcrumb">
++            <ol>
++              <li>
++                <Link to="/">All posts</Link>
++              </li>
++              <li aria-current="page">{post.title}</li>
++            </ol>
++          </nav>
++          <h1 className="band-title" data-testid="article-title">
++            {post.title}
++          </h1>
++          <div className="band-meta">
+             <PostMeta post={post} detailed />
+             <ul className="tag-list" aria-label="Tags">
+               {post.tags.map((tag) => (
+@@ -45,19 +54,21 @@ export default function PostPage() {
+                 </li>
+               ))}
+             </ul>
+-          </header>
+-          <ArticleBody blocks={post.body} />
+-        </article>
++          </div>
++        </HeaderBand>
+ 
+-        <aside className="article-aside">
+-          <TableOfContents blocks={post.body} />
+-        </aside>
+-      </div>
++        <div className="container article-layout">
++          <ArticleBody blocks={post.body} hue={hue} />
++          <aside className="article-aside">
++            <TableOfContents blocks={post.body} />
++          </aside>
++        </div>
++      </article>
+ 
+       {related.length > 0 && (
+-        <section className="related" aria-labelledby="related-heading" data-testid="related-posts">
++        <section className="container related" aria-labelledby="related-heading" data-testid="related-posts">
+           <h2 id="related-heading">Related posts</h2>
+-          <ul className="post-list post-list-grid">
++          <ul className="post-list post-grid">
+             {related.map((item) => (
+               <li key={item.slug}>
+                 <PostCard post={item} testId="related-post" linkTestId="related-post-link" />
+diff --git a/src/styles/base.css b/src/styles/base.css
+index 7b07d1b..2fa5635 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,57 +1,50 @@
+ /*
+- * Base styles for the Field Notes blog.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Field Notes, styled with Morning Shapes 0.1.0-rc.5.
++ * Tokens live in design-system/tokens.css; signature pieces in ./morning-shapes.css.
++ * The original variable names stay as aliases of the system tokens so nothing that
++ * still reads them breaks.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-header-bg: #ffffff;
+-  --color-footer-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-error: #b00020;
+-  --color-success: #2e7d32;
+-  --color-success-bg: #e8f5e9;
+-  --color-tag-bg: #eeeeee;
+-  --color-tag-text: #444444;
+-  --color-pressed-bg: #dde6f5;
+-  --color-quote-border: #cccccc;
+-  --color-code-bg: #f5f5f5;
+-  --color-code-text: #222222;
+-  --color-placeholder-bg: #eeeeee;
+-  --color-placeholder-shape: #cccccc;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-heading: var(--font-body);
+-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+-  --font-size-base: 16px;
+-  --font-size-small: 13px;
+-  --font-size-code: 14px;
+-  --font-size-h1: 28px;
+-  --font-size-h2: 21px;
+-  --font-size-h3: 17px;
+-  --line-height: 1.6;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --space-12: 48px;
+-  --container-width: 960px;
+-  --measure: 680px;
+-  --toc-width: 220px;
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-default);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-header-bg: var(--color-surface-default);
++  --color-footer-bg: var(--color-field-cream);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-link);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-error: var(--color-status-danger);
++  --color-success: var(--color-status-success);
++  --color-tag-bg: var(--color-surface-subtle);
++  --color-tag-text: var(--color-text-primary);
++  --color-code-bg: var(--color-surface-subtle);
++  --color-code-text: var(--color-text-primary);
++
++  --font-body: var(--font-family-sans);
++  --font-heading: var(--font-family-sans);
++  --font-mono: var(--font-family-mono);
++  --font-size-base: var(--font-size-body);
++  --font-size-small: var(--font-size-label);
++  --font-size-code: var(--font-size-label);
++  --line-height: var(--font-line-height-body);
++
++  --radius: var(--radius-md);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hair);
++  --container-width: var(--size-container);
++  --measure: var(--size-prose);
++  --toc-width: var(--size-sidebar);
++
++  --site-header-height: var(--size-header);
++  color-scheme: light;
++}
++[data-theme='dark'] { color-scheme: dark; }
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) { color-scheme: dark; }
+ }
+ 
+ *,
+@@ -66,47 +59,64 @@ body {
+ }
+ 
+ html {
+-  scroll-padding-top: var(--space-4);
++  scroll-padding-top: calc(var(--site-header-height) + var(--space-6));
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  font-weight: var(--font-weight-regular);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+-h3 {
+-  font-family: var(--font-heading);
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
++h3,
++h4 {
++  font-family: var(--font-family-sans);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
++  margin: 0 0 var(--space-4);
++  text-wrap: balance;
+ }
+ 
++/* Product screens top out at h2: page titles h2, sections h3, cards h4. */
+ h1 {
+-  font-size: var(--font-size-h1);
++  font-size: var(--font-size-h2);
+ }
+ 
+ h2 {
+-  font-size: var(--font-size-h2);
++  font-size: var(--font-size-h3);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-h3);
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-3);
++  margin: 0 0 var(--space-4);
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-link);
++  text-decoration-thickness: var(--border-width-hair);
++  text-underline-offset: 3px;
++}
++
++@media (hover: hover) {
++  a:hover {
++    text-decoration-thickness: var(--border-width-thick);
++    text-underline-offset: 2px;
++  }
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
+@@ -125,25 +135,61 @@ a {
+ .skip-link {
+   position: absolute;
+   left: -9999px;
++  top: var(--space-4);
++  z-index: 40;
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-4);
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.eyebrow {
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-eyebrow);
++  text-transform: uppercase;
++  color: var(--color-text-secondary);
++  margin: 0;
+ }
+ 
+-/* Layout */
++.ms-icon {
++  width: var(--size-icon);
++  height: var(--size-icon);
++  flex: none;
++  fill: currentColor;
++}
++
++.ms-icon--sm {
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++}
++
++.ms-icon--success {
++  fill: var(--color-status-success);
++}
++
++.ms-icon--danger {
++  fill: var(--color-status-danger);
++}
++
++.pill-row {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-3);
++}
++
++/* ------------------------------------------------------------------ layout */
+ .site-shell {
+   display: flex;
+   flex-direction: column;
+@@ -152,148 +198,295 @@ a {
+ 
+ .container {
+   width: 100%;
+-  max-width: var(--container-width);
++  max-width: var(--size-container);
+   margin: 0 auto;
+-  padding: 0 var(--space-4);
++  padding: 0 var(--space-12);
+ }
+ 
++.content {
++  flex: 1;
++}
++
++.content:focus {
++  outline: none;
++}
++
++.page-body {
++  padding-top: var(--space-12);
++}
++
++/* Top bar */
+ .site-header {
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  position: sticky;
++  top: 0;
++  z-index: 20;
++  background: var(--color-surface-default);
++  transition: box-shadow var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.site-header.is-scrolled {
++  box-shadow: var(--shadow-header);
+ }
+ 
+ .site-header-inner {
+   display: flex;
+-  justify-content: space-between;
+   align-items: center;
+-  gap: var(--space-4);
+-  padding-top: var(--space-3);
+-  padding-bottom: var(--space-3);
++  gap: var(--space-8);
++  height: var(--site-header-height);
+ }
+ 
+ .brand {
+-  display: inline-flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-  font-weight: 700;
+-  color: var(--color-text);
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-control);
++  color: var(--color-text-primary);
+   text-decoration: none;
++  white-space: nowrap;
+ }
+ 
+-.brand-mark {
+-  flex-shrink: 0;
++.site-nav {
++  margin-inline-start: auto;
+ }
+ 
+ .nav-list {
+   list-style: none;
+   display: flex;
+-  gap: var(--space-4);
++  gap: var(--space-8);
+   margin: 0;
+   padding: 0;
+ }
+ 
+ .nav-link {
+-  color: var(--color-link);
++  display: inline-flex;
++  align-items: center;
++  min-height: 44px;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
++}
++
++/* Reserve the bold width so hover never shifts the row */
++.nav-label {
++  display: inline-flex;
++  flex-direction: column;
++}
++
++.nav-label::after {
++  content: attr(data-label);
++  height: 0;
++  overflow: hidden;
++  visibility: hidden;
++  font-weight: var(--font-weight-bold);
++}
++
++.nav-dot {
++  display: none;
++  width: var(--size-dot);
++  height: var(--size-dot);
++  margin-inline-end: var(--space-2);
++  border-radius: var(--radius-full);
++  background: var(--ms-field);
+ }
+ 
+ .nav-link.active {
+-  font-weight: 700;
+-  color: var(--color-text);
++  font-weight: var(--font-weight-bold);
+ }
+ 
+-.content {
+-  flex: 1;
+-  padding-top: var(--space-6);
+-  padding-bottom: var(--space-12);
++.nav-link.active .nav-dot {
++  display: inline-block;
+ }
+ 
+-.content:focus {
+-  outline: none;
++@media (hover: hover) {
++  .nav-link:hover {
++    font-weight: var(--font-weight-bold);
++  }
++}
++
++.site-header-actions {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++}
++
++.menu-button {
++  display: none;
+ }
+ 
++/* Footer: cream band with a rise arc, then the inverse bottom bar */
+ .site-footer {
+-  background: var(--color-footer-bg);
+-  border-top: var(--border-width) solid var(--color-border);
++  padding-top: var(--space-16);
+ }
+ 
+-.site-footer-inner {
+-  padding-top: var(--space-6);
+-  padding-bottom: var(--space-6);
++.footer-band {
++  padding-block: var(--space-16);
+ }
+ 
+-.page-header {
+-  margin-bottom: var(--space-6);
++.footer-grid {
++  display: grid;
++  grid-template-columns: minmax(0, var(--size-reading)) auto;
++  justify-content: space-between;
++  gap: var(--space-12);
++  align-items: start;
+ }
+ 
+-/* Controls */
++.footer-links-title {
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-eyebrow);
++  text-transform: uppercase;
++  margin: 0 0 var(--space-4);
++}
++
++.footer-links ul {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++  display: grid;
++  gap: var(--space-3);
++}
++
++.footer-links a {
++  color: var(--ms-on-field);
++  font-weight: var(--font-weight-medium);
++}
++
++.footer-bar {
++  background: var(--color-surface-inverse);
++  color: var(--color-text-inverse);
++}
++
++.footer-bar-inner {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--space-6);
++  padding-block: var(--space-4);
++}
++
++.footer-note {
++  margin: 0;
++  font-size: var(--font-size-fine);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.footer-bar .ms-pill:focus-visible {
++  outline-color: var(--color-text-inverse);
++}
++
++/* ------------------------------------------------------------------ forms */
+ .field {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-1);
+ }
+ 
+ .field-label {
+   display: block;
+-  font-weight: 600;
+-  margin-bottom: var(--space-1);
++  font-weight: var(--font-weight-medium);
++  margin-bottom: var(--space-2);
+ }
+ 
+ .field-row {
+   display: flex;
+   gap: var(--space-2);
+-  max-width: 480px;
++  max-width: 560px;
+ }
+ 
+ .input {
+   font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
++  font-size: var(--font-size-body);
++  height: var(--size-control-lg);
++  padding: 0 var(--space-4);
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+   min-width: 0;
+   flex: 1;
++  transition: border-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.input::placeholder {
++  color: var(--color-text-secondary);
++  opacity: 1;
++}
++
++@media (hover: hover) {
++  .input:hover {
++    border-color: var(--color-text-secondary);
++  }
++}
++
++.input:focus-visible,
++.ms-field .input:focus-visible {
++  outline: none;
++  border-color: var(--color-focus-ring);
+ }
+ 
+ .input[aria-invalid='true'] {
+-  border-color: var(--color-error);
++  border-color: var(--color-status-danger);
+ }
+ 
+-.button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
++.search-box {
++  position: relative;
++  display: flex;
++}
++
++.search-box .ms-icon {
++  position: absolute;
++  inset-inline-start: var(--space-5);
++  top: 50%;
++  translate: 0 -50%;
++  fill: var(--color-text-icon);
++  pointer-events: none;
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.input--search {
++  border-radius: var(--radius-full);
++  padding-inline: calc(var(--space-5) + var(--size-icon-sm) + var(--space-3)) var(--space-5);
+ }
+ 
+ .form-error {
+-  color: var(--color-error);
+-  font-size: var(--font-size-small);
++  display: flex;
++  align-items: center;
++  gap: var(--space-2);
++  color: var(--color-status-danger);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
+   margin: var(--space-2) 0 0;
+ }
+ 
+ .form-success {
+-  background: var(--color-success-bg);
+-  color: var(--color-success);
+-  border-radius: var(--radius);
+-  padding: var(--space-2) var(--space-3);
+-  max-width: 480px;
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  font-weight: var(--font-weight-medium);
++  max-width: 560px;
++  margin: 0;
+ }
+ 
+-.newsletter {
+-  margin-bottom: var(--space-4);
++/* Newsletter */
++.newsletter-head {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
++  margin-bottom: var(--space-3);
++}
++
++.newsletter-head h2 {
++  margin: 0;
++}
++
++.newsletter-lead {
++  font-size: var(--font-size-body-lg);
++  margin-bottom: var(--space-6);
+ }
+ 
+-/* Tags */
++/* ------------------------------------------------------------------ tags */
+ .tag-list {
+   list-style: none;
+   display: flex;
+@@ -304,259 +497,877 @@ a {
+ }
+ 
+ .tag-chip {
+-  display: inline-block;
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-  border-radius: var(--radius-pill);
+-  padding: 0 var(--space-2);
+-  font-size: var(--font-size-small);
++  display: inline-flex;
++  align-items: center;
++  height: 24px;
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  background: var(--ms-field);
++  color: var(--ms-on-field);
++  font-size: var(--font-size-fine);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  white-space: nowrap;
+ }
+ 
+-/* Home */
+-.section-label {
+-  font-size: var(--font-size-small);
+-  text-transform: uppercase;
+-  color: var(--color-text-muted);
++/* On a field, tags turn white with ink text */
++.ms-field .tag-chip {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++}
++
++/* ------------------------------------------------------------------ cards */
++.post-meta {
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++  color: var(--color-text-secondary);
++  margin: 0;
++}
++
++.linked-card {
++  position: relative;
++  background: var(--color-surface-subtle);
++  border-radius: var(--radius-lg);
++  transition: background-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.card-link {
++  color: inherit;
++  text-decoration: none;
++}
++
++.card-link::after {
++  content: '';
++  position: absolute;
++  inset: 0;
++  z-index: 1;
++  border-radius: var(--radius-lg);
++}
++
++.card-link:focus-visible {
++  outline: none;
++}
++
++.linked-card:has(.card-link:focus-visible) {
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
++  outline-offset: 2px;
++}
++
++@media (hover: hover) {
++  .linked-card:hover {
++    background: var(--color-surface-hover);
++  }
++
++  .linked-card:hover .card-link {
++    text-decoration: underline;
++    text-decoration-thickness: var(--border-width-thick);
++    text-underline-offset: 3px;
++  }
++}
++
++.linked-card:active {
++  background: var(--color-surface-pressed);
++}
++
++.post-list {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++}
++
++.post-grid {
++  display: grid;
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: var(--space-6);
++}
++
++.post-grid > li {
++  display: flex;
++}
++
++.post-card {
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++  padding: var(--space-4) var(--space-4) var(--space-8);
++}
++
++.post-card-body {
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-3);
++  padding: var(--space-6) var(--space-4) 0;
+ }
+ 
+-.featured {
++.post-card-title {
++  font-size: var(--font-size-h4);
++  margin: 0;
++}
++
++.post-card-excerpt {
++  margin: 0;
++}
++
++.post-card .tag-list {
++  margin-top: auto;
++  padding-top: var(--space-2);
++}
++
++/* ------------------------------------------------------------------ home */
++.hero {
++  padding-block: var(--space-20);
++}
++
++.hero-inner {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
++  align-items: center;
++  gap: var(--space-12);
++  max-width: var(--size-split);
++}
++
++.hero-title {
++  font-size: var(--font-size-display);
++  line-height: var(--font-line-height-display);
++  margin-bottom: var(--space-6);
++}
++
++.hero-lead {
++  max-width: 480px;
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
+   margin-bottom: var(--space-8);
+ }
+ 
++.hero-vignette {
++  --ms-edge: var(--color-field-blue);
++  max-width: 540px;
++  justify-self: end;
++}
++
++.vignette-cover {
++  aspect-ratio: 5 / 2;
++  border-radius: var(--radius-md);
++  margin-bottom: var(--space-4);
++}
++
++.vignette-kicker {
++  display: flex;
++  align-items: center;
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  margin: 0 0 var(--space-2);
++}
++
++.vignette-title {
++  font-size: var(--font-size-body-lg);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
++  margin: 0 0 var(--space-2);
++}
++
++.vignette-meta {
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  color: var(--color-text-secondary);
++  margin: 0;
++}
++
++.hero-confetti {
++  position: absolute;
++  inset: 0;
++  z-index: 0;
++  pointer-events: none;
++}
++
++.hero-confetti > svg {
++  position: absolute;
++  display: block;
++}
++
++.hero-confetti > :nth-child(1) {
++  inset: var(--space-6) auto auto var(--space-6);
++  width: 28px;
++}
++
++.hero-confetti > :nth-child(2) {
++  inset: auto auto var(--space-8) 46%;
++  width: 20px;
++}
++
++.hero-confetti > :nth-child(3) {
++  inset: var(--space-8) 36% auto auto;
++  width: 22px;
++}
++
++.home-body {
++  padding-top: var(--space-12);
++}
++
++.section-head {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  margin-bottom: var(--space-4);
++}
++
+ .featured-post {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-6);
+-  background: var(--color-surface);
++  display: grid;
++  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
++  gap: var(--space-8);
++  align-items: center;
++  padding: var(--space-4) var(--space-8) var(--space-4) var(--space-4);
++}
++
++.featured-cover {
++  aspect-ratio: 4 / 3;
++}
++
++.featured-body {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-4);
++  padding-block: var(--space-4);
+ }
+ 
+ .featured-title {
+-  font-size: var(--font-size-h1);
++  font-size: var(--font-size-h3);
++  line-height: var(--font-line-height-heading);
++  margin: 0;
+ }
+ 
+ .featured-excerpt {
+-  max-width: var(--measure);
++  max-width: var(--size-prose);
++  font-size: var(--font-size-body-lg);
++  margin: 0;
++}
++
++.post-list-section {
++  margin-top: var(--space-12);
++}
++
++.posts-opener h2 {
++  font-size: var(--font-size-h2);
++  margin-bottom: var(--space-3);
++}
++
++.opener-lead {
++  font-size: var(--font-size-body-lg);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++  color: var(--color-text-secondary);
++  margin: 0;
+ }
+ 
+ .filter-bar {
+   display: flex;
+   flex-wrap: wrap;
+   align-items: flex-end;
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 var(--space-3);
++  justify-content: space-between;
++  gap: var(--space-6);
++  margin-bottom: var(--space-4);
++}
++
++.search-field {
++  width: min(100%, 360px);
+ }
+ 
+ .tag-filter {
+   display: flex;
+   flex-wrap: wrap;
+   gap: var(--space-2);
++  padding-bottom: 2px;
+ }
+ 
+-.tag-filter-button[aria-pressed='true'] {
+-  background: var(--color-pressed-bg);
+-  border-color: var(--color-primary);
+-  font-weight: 600;
++.tag-filter-button {
++  padding: 0 var(--space-5);
+ }
+ 
+-.post-list {
+-  list-style: none;
++.tag-filter-button .filter-dot {
+   margin: 0;
+-  padding: 0;
++}
++
++.tag-filter-button[aria-pressed='true'] .filter-dot {
++  display: none;
++}
++
++.result-count {
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-secondary);
++  margin: 0 0 var(--space-6);
++}
++
++.empty-state {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-4);
++  align-items: center;
++  text-align: center;
++  gap: var(--space-2);
+ }
+ 
+-.post-list-grid {
+-  display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
++.empty-state .ms-art {
++  margin-bottom: var(--space-4);
+ }
+ 
+-.post-card {
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  padding-bottom: var(--space-4);
++.empty-title {
++  margin: 0;
+ }
+ 
+-.post-card-title {
+-  margin-bottom: var(--space-1);
++.empty-state p {
++  margin-bottom: var(--space-4);
+ }
+ 
+-.post-meta {
+-  margin-bottom: var(--space-2);
++/* ------------------------------------------------------------------ article */
++.band-title {
++  font-size: var(--font-size-h2);
++  line-height: var(--font-line-height-heading);
++  margin: 0;
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.ms-field__inner > * + * {
++  margin-top: var(--space-3);
++}
++
++.band-lead {
++  font-size: var(--font-size-body-lg);
++  margin-bottom: 0;
++}
++
++.ms-field__inner > .pill-row {
++  margin-top: var(--space-6);
++}
++
++.ms-field .post-meta,
++.ms-field .muted {
++  color: var(--ms-on-field);
++}
++
++.band-meta {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: var(--space-3) var(--space-6);
+ }
+ 
+-/* Article */
+ .breadcrumb ol {
+   list-style: none;
+   display: flex;
+-  flex-wrap: wrap;
+   gap: var(--space-2);
+-  margin: 0 0 var(--space-4);
++  margin: 0;
+   padding: 0;
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  min-width: 0;
++}
++
++.breadcrumb li {
++  white-space: nowrap;
++}
++
++.breadcrumb li + li {
++  min-width: 0;
++  overflow: hidden;
++  text-overflow: ellipsis;
+ }
+ 
+ .breadcrumb li + li::before {
+   content: '/';
+   margin-right: var(--space-2);
+-  color: var(--color-text-muted);
++}
++
++.breadcrumb a {
++  color: var(--ms-on-field, var(--color-text-link));
+ }
+ 
+ .article-layout {
+   display: grid;
+-  grid-template-columns: minmax(0, var(--measure)) var(--toc-width);
+-  gap: var(--space-8);
++  grid-template-columns: minmax(0, var(--size-prose)) var(--size-sidebar);
++  gap: var(--space-16);
+   align-items: start;
++  padding-top: var(--space-12);
++}
++
++.article-body {
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+-.article-header {
++.article-body p {
+   margin-bottom: var(--space-6);
+ }
+ 
+-.article-body h2,
++.article-body h2 {
++  font-size: var(--font-size-h3);
++  margin: var(--space-12) 0 var(--space-4);
++}
++
+ .article-body h3 {
+-  margin-top: var(--space-6);
++  font-size: var(--font-size-h4);
++  margin: var(--space-8) 0 var(--space-3);
+ }
+ 
+ .body-quote {
+-  margin: var(--space-4) 0;
++  margin: var(--space-8) 0;
+ }
+ 
+ .body-quote blockquote {
+   margin: 0;
+-  padding-left: var(--space-4);
+-  border-left: 3px solid var(--color-quote-border);
+-  font-style: italic;
++  padding: var(--space-8);
++  background: var(--color-surface-subtle);
++  border-radius: var(--radius-lg);
++}
++
++.body-quote blockquote p {
++  margin: 0;
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++.body-quote figcaption,
++.body-figure figcaption {
++  margin-top: var(--space-3);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-secondary);
+ }
+ 
+ .code-block {
+-  background: var(--color-code-bg);
+-  color: var(--color-code-text);
+-  font-family: var(--font-mono);
+-  font-size: var(--font-size-code);
+-  border-radius: var(--radius);
+-  padding: var(--space-3) var(--space-4);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-normal);
++  border-radius: var(--radius-lg);
++  padding: var(--space-6);
+   overflow-x: auto;
+-  margin: 0 0 var(--space-4);
++  margin: 0 0 var(--space-6);
+ }
+ 
+ .body-list {
+-  margin: 0 0 var(--space-4);
+-  padding-left: var(--space-6);
++  margin: 0 0 var(--space-6);
++  padding-left: var(--space-8);
+ }
+ 
+ .body-list li + li {
+-  margin-top: var(--space-1);
++  margin-top: var(--space-2);
++}
++
++.body-list li::marker {
++  font-weight: var(--font-weight-bold);
+ }
+ 
+ .body-figure {
+-  margin: var(--space-4) 0;
++  margin: var(--space-8) 0;
+ }
+ 
+ .image-placeholder {
+   display: block;
+   width: 100%;
+   height: auto;
+-  border-radius: var(--radius);
++  border-radius: var(--radius-lg);
+ }
+ 
+ .image-placeholder-bg {
+-  fill: var(--color-placeholder-bg);
+-}
+-
+-.image-placeholder-shape {
+-  fill: var(--color-placeholder-shape);
+-}
+-
+-.body-figure figcaption {
+-  margin-top: var(--space-2);
++  fill: var(--ms-field);
+ }
+ 
+ .article-aside {
+   position: sticky;
+-  top: var(--space-4);
++  top: calc(var(--site-header-height) + var(--space-6));
+ }
+ 
+ .toc {
+-  border-left: var(--border-width) solid var(--color-border);
+-  padding-left: var(--space-4);
++  background: var(--color-surface-subtle);
++  border-radius: var(--radius-lg);
++  padding: var(--space-6);
+ }
+ 
+ .toc-heading {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-eyebrow);
+   text-transform: uppercase;
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
++  margin-bottom: var(--space-3);
+ }
+ 
+ .toc-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-title);
++}
++
++.toc-link {
++  display: block;
++  padding-block: var(--space-2);
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  text-decoration: none;
+ }
+ 
+-.toc-item + .toc-item {
+-  margin-top: var(--space-1);
++@media (hover: hover) {
++  .toc-link:hover {
++    text-decoration: underline;
++    text-decoration-thickness: var(--border-width-thick);
++  }
+ }
+ 
+ .toc-item-nested {
+-  padding-left: var(--space-3);
++  padding-left: var(--space-4);
+ }
+ 
+ .related {
+-  margin-top: var(--space-12);
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding-top: var(--space-6);
++  padding-top: var(--space-16);
++}
++
++/* ------------------------------------------------------------------ about */
++.about-why {
++  display: grid;
++  grid-template-columns: var(--size-plate) minmax(0, var(--size-prose));
++  gap: var(--space-8);
++  align-items: start;
++  margin-bottom: var(--space-16);
+ }
+ 
+-/* About */
+ .prose {
+-  max-width: var(--measure);
+-  margin-bottom: var(--space-8);
++  max-width: var(--size-prose);
++  font-size: var(--font-size-body-lg);
++}
++
++.authors h2 {
++  margin-bottom: var(--space-6);
+ }
+ 
+ .author-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: grid;
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: var(--space-6);
++}
++
++.author-list > li {
+   display: flex;
+-  flex-direction: column;
+-  gap: var(--space-4);
+-  max-width: var(--measure);
+ }
+ 
+ .author-card {
++  flex: 1;
+   display: flex;
++  flex-direction: column;
+   gap: var(--space-4);
+-  align-items: flex-start;
++  padding: var(--space-8);
++  background: var(--color-surface-subtle);
++  border-radius: var(--radius-lg);
+ }
+ 
+-.avatar {
+-  display: inline-flex;
++.author-card h3 {
++  margin: 0 0 var(--space-1);
++}
++
++.author-role {
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-secondary);
++  margin-bottom: var(--space-3);
++}
++
++.author-card p:last-child {
++  margin: 0;
++}
++
++/* ------------------------------------------------------------------ error page */
++.error-band {
++  margin-top: calc(var(--size-arc) + var(--space-8));
++}
++
++.error-inner {
++  display: flex;
+   align-items: center;
+-  justify-content: center;
+-  flex-shrink: 0;
+-  width: 44px;
+-  height: 44px;
+-  border-radius: var(--radius-pill);
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-  font-weight: 700;
+-  font-size: var(--font-size-small);
+-}
+-
+-@media (max-width: 760px) {
++  gap: var(--space-12);
++  max-width: var(--size-split);
++}
++
++.error-copy p {
++  font-size: var(--font-size-body-lg);
++  margin-bottom: var(--space-8);
++}
++
++/* ------------------------------------------------------------------ responsive */
++@media (max-width: 1023px) {
++  .container {
++    padding: 0 var(--space-6);
++  }
++
++  .post-grid,
++  .author-list {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
++
+   .article-layout {
++    grid-template-columns: minmax(0, 1fr) 220px;
++    gap: var(--space-10);
++  }
++}
++
++@media (max-width: 767px) {
++  :root {
++    --site-header-height: 64px;
++  }
++
++  h1,
++  .band-title {
++    font-size: var(--font-size-h2mobile);
++  }
++
++  .site-header-inner {
++    gap: var(--space-3);
++  }
++
++  .site-header-actions {
++    margin-inline-start: auto;
++  }
++
++  .header-pill {
++    height: var(--size-control-sm);
++    padding: 0 var(--space-5);
++  }
++
++  .menu-button {
++    display: inline-flex;
++  }
++
++  .site-nav {
++    display: none;
++  }
++
++  .is-menu-open .site-nav {
++    display: block;
++    position: fixed;
++    inset: var(--site-header-height) 0 0 0;
++    background: var(--color-surface-default);
++    padding: var(--space-2) var(--space-6) var(--space-8);
++    overflow-y: auto;
++  }
++
++  .is-menu-open .nav-list {
++    flex-direction: column;
++    gap: 0;
++  }
++
++  .is-menu-open .nav-list li {
++    border-bottom: var(--border-width-hair) solid var(--color-border-rule);
++  }
++
++  .is-menu-open .nav-link {
++    width: 100%;
++    min-height: var(--size-list-row);
++    font-size: var(--font-size-h4);
++    font-weight: var(--font-weight-bold);
++    letter-spacing: var(--font-tracking-tight);
++  }
++
++  .hero {
++    padding-block: var(--space-16);
++    text-align: center;
++  }
++
++  .hero-inner {
++    grid-template-columns: minmax(0, 1fr);
++  }
++
++  .hero-title {
++    font-size: var(--font-size-display-mobile);
++  }
++
++  .hero-lead {
++    margin-inline: auto;
++    font-size: var(--font-size-body-lg);
++  }
++
++  .hero .pill-row {
++    justify-content: center;
++  }
++
++  .hero-vignette {
++    display: none;
++  }
++
++  .hero-confetti > :nth-child(1) {
++    inset: var(--space-4) auto auto var(--space-4);
++    width: 24px;
++  }
++
++  .hero-confetti > :nth-child(2) {
++    inset: auto auto var(--space-5) 20%;
++    width: 18px;
++  }
++
++  .hero-confetti > :nth-child(3) {
++    inset: var(--space-5) var(--space-6) auto auto;
++    width: 20px;
++  }
++
++  .ms-field--header .ms-field__inner > * + * {
++    margin-top: var(--space-4);
++  }
++
++  .featured-post {
+     grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-2);
++    padding: var(--space-3) var(--space-3) var(--space-6);
++  }
++
++  .featured-cover {
++    aspect-ratio: 16 / 9;
++  }
++
++  .featured-body {
++    padding: var(--space-4) var(--space-3) 0;
++  }
++
++  .featured-title {
++    font-size: var(--font-size-h4);
++    line-height: var(--font-line-height-title);
++  }
++
++  .posts-opener h2 {
++    font-size: var(--font-size-h2mobile);
++  }
++
++  .search-field {
++    width: 100%;
++  }
++
++  .tag-filter {
++    flex-wrap: nowrap;
++    overflow-x: auto;
++    scrollbar-width: none;
++    margin-inline: calc(-1 * var(--space-4));
++    padding: 2px var(--space-4) var(--space-1);
++    width: calc(100% + 2 * var(--space-4));
++  }
++
++  .post-grid,
++  .author-list {
++    grid-template-columns: minmax(0, 1fr);
++  }
++
++  .post-card {
++    padding: var(--space-3) var(--space-3) var(--space-6);
++  }
++
++  .post-card-body {
++    padding: var(--space-5) var(--space-3) 0;
++  }
++
++  .author-card {
++    padding: var(--space-6);
++  }
++
++  .article-layout {
++    grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-8);
++    padding-top: var(--space-8);
+   }
+ 
+   .article-aside {
+     position: static;
+     grid-row: 1;
+   }
++
++  .article-body {
++    font-size: var(--font-size-body-lg);
++  }
++
++  .article-body h2 {
++    font-size: var(--font-size-h4);
++    margin-top: var(--space-10);
++  }
++
++  .article-body h3 {
++    font-size: var(--font-size-title);
++  }
++
++  .body-quote blockquote {
++    padding: var(--space-6);
++  }
++
++  .body-quote blockquote p {
++    font-size: var(--font-size-title);
++  }
++
++  .code-block {
++    font-size: var(--font-size-label);
++    padding: var(--space-4);
++  }
++
++  .about-why {
++    grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-4);
++  }
++
++  .about-plate {
++    width: var(--size-plate-sm);
++    height: var(--size-plate-sm);
++  }
++
++  .footer-band {
++    padding-block: var(--space-12);
++  }
++
++  .footer-grid {
++    grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-10);
++  }
++
++  .field-row {
++    flex-direction: column;
++  }
++
++  .field-row .input {
++    flex: none;
++    width: 100%;
++  }
++
++  .field-row .ms-pill {
++    width: 100%;
++  }
++
++  .error-band {
++    margin-top: calc(var(--size-arc-sm) + var(--space-8));
++  }
++
++  .error-inner {
++    flex-direction: column;
++    text-align: center;
++    gap: var(--space-6);
++  }
++
++  .error-inner .ms-art {
++    width: 140px;
++    height: 140px;
++  }
++}
++
++@media (max-width: 639px) {
++  .container {
++    padding: 0 var(--space-4);
++  }
+ }

@@ -1,0 +1,3887 @@
+diff --git a/index.html b/index.html
+index 769b295..f91112b 100644
+--- a/index.html
++++ b/index.html
+@@ -4,6 +4,13 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <link rel="icon" href="data:," />
++    <meta name="color-scheme" content="light dark" />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link
++      rel="stylesheet"
++      href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Figtree:wght@400;500;700&display=swap"
++    />
+     <title>Hourglade</title>
+   </head>
+   <body>
+diff --git a/src/components/BillingToggle.tsx b/src/components/BillingToggle.tsx
+index c6cc618..9c70eb7 100644
+--- a/src/components/BillingToggle.tsx
++++ b/src/components/BillingToggle.tsx
+@@ -11,15 +11,16 @@ interface Props {
+   onChange: (period: BillingPeriod) => void;
+ }
+ 
++/** Segmented control: pills inside a cream track; the selected one is ink with a white dot. */
+ export default function BillingToggle({ value, onChange }: Props) {
+   return (
+     <div className="billing-toggle-wrap">
+-      <div role="group" aria-label="Billing period" className="billing-toggle" data-testid="billing-toggle">
++      <div role="group" aria-label="Billing period" className="ms-segmented billing-toggle" data-testid="billing-toggle">
+         {OPTIONS.map((option) => (
+           <button
+             key={option.id}
+             type="button"
+-            className="button billing-option"
++            className="ms-pill ms-pill--cream ms-tab billing-option"
+             aria-pressed={value === option.id}
+             onClick={() => onChange(option.id)}
+             data-testid={`billing-${option.id}`}
+diff --git a/src/components/CaseStudyCard.tsx b/src/components/CaseStudyCard.tsx
+index e27e8e5..257d313 100644
+--- a/src/components/CaseStudyCard.tsx
++++ b/src/components/CaseStudyCard.tsx
+@@ -1,16 +1,34 @@
++import { Cover, type PictogramName } from './ms/Shapes';
++import { INDUSTRY_HUES } from '../data/areas';
+ import { INDUSTRY_LABELS, type CaseStudy } from '../data/customers';
+ 
++/** Each story's cover names its own subject, so neighbours in one industry never share a drawing. */
++const COVER_SUBJECTS: Record<string, PictogramName> = {
++  'brightmoor-clinics': 'cross',
++  'westfold-dental': 'tooth',
++  'copperfield-schools': 'apple',
++  'kestrel-freight': 'parcel',
++  'vantor-labs': 'flask',
++  'oakline-studio': 'tree',
++  'saltmarsh-coffee': 'cup',
++  'ridgeway-learning': 'book',
++};
++
+ export default function CaseStudyCard({ study }: { study: CaseStudy }) {
++  const hue = INDUSTRY_HUES[study.industry];
+   return (
+     <article className="case-study-card" data-testid="case-study-card">
+-      <span className="tag-chip" data-testid="case-study-industry">
+-        {INDUSTRY_LABELS[study.industry]}
+-      </span>
+-      <h3 className="case-study-company">{study.company}</h3>
+-      <p className="case-study-metric" data-testid="case-study-metric">
+-        {study.metric}
+-      </p>
+-      <p className="muted">{study.summary}</p>
++      <Cover name={COVER_SUBJECTS[study.id] ?? 'calendar'} hue={hue} />
++      <div className="case-study-body">
++        <span className={`tag-chip ms-hue--${hue}`} data-testid="case-study-industry">
++          {INDUSTRY_LABELS[study.industry]}
++        </span>
++        <h3 className="case-study-company">{study.company}</h3>
++        <p className="case-study-metric" data-testid="case-study-metric">
++          {study.metric}
++        </p>
++        <p className="muted">{study.summary}</p>
++      </div>
+     </article>
+   );
+ }
+diff --git a/src/components/ComparisonTable.tsx b/src/components/ComparisonTable.tsx
+index d5968b3..a6e473a 100644
+--- a/src/components/ComparisonTable.tsx
++++ b/src/components/ComparisonTable.tsx
+@@ -1,8 +1,9 @@
++import Icon from './ms/Icon';
+ import { COMPARISON_ROWS, PLANS } from '../data/pricing';
+ 
+ export default function ComparisonTable() {
+   return (
+-    <div className="table-scroll">
++    <div className="table-scroll" role="region" aria-label="Plan comparison" tabIndex={0}>
+       <table className="comparison-table" data-testid="comparison-table">
+         <caption className="visually-hidden">Features included in each plan</caption>
+         <thead>
+@@ -28,7 +29,10 @@ export default function ComparisonTable() {
+                     data-testid="comparison-cell"
+                     data-included={included}
+                   >
+-                    <span aria-hidden="true">{included ? '✓' : '—'}</span>
++                    <Icon name={included ? 'tick' : 'dash'} className="cell-icon" />
++                    <span aria-hidden="true" className="cell-char">
++                      {included ? '✓' : '—'}
++                    </span>
+                     <span className="visually-hidden">{included ? 'Included' : 'Not included'}</span>
+                   </td>
+                 );
+diff --git a/src/components/CtaBand.tsx b/src/components/CtaBand.tsx
+index 9f43a80..3e6fc25 100644
+--- a/src/components/CtaBand.tsx
++++ b/src/components/CtaBand.tsx
+@@ -1,18 +1,42 @@
+ import { Link } from 'react-router';
++import { Arch, type Under } from './ms/Field';
++import { Disc, Spark, TwoToneDisc } from './ms/Shapes';
++import { cloud } from './ms/geometry';
+ 
+-export default function CtaBand() {
++/** Closing band: pink, rising arc, one mega pill. `under` is the section above, shown behind the arc. */
++export default function CtaBand({ under = 'white' }: { under?: Under }) {
+   return (
+-    <section className="cta-band" aria-labelledby="cta-band-heading" data-testid="cta-band">
+-      <div className="container cta-band-inner">
++    <section
++      className={`cta-band ms-field ms-field--rise ms-hue--pink ms-under--${under}`}
++      aria-labelledby="cta-band-heading"
++      data-testid="cta-band"
++    >
++      <Arch edge="rise" />
++      <div className="cta-art" aria-hidden="true">
++        <svg viewBox="0 0 100 100" focusable="false">
++          <Disc cx={50} cy={50} r={48} hue="yellow" />
++        </svg>
++        <svg viewBox="0 0 24 24" focusable="false">
++          <Spark cx={12} cy={12} s={12} hue="blue" />
++        </svg>
++        <svg viewBox="0 0 100 64" focusable="false">
++          <path d={cloud(2, 2, 96, 60)} className="fill-white" />
++        </svg>
++        <TwoToneDisc a="violet" b="blue" />
++        <svg viewBox="0 0 24 24" focusable="false">
++          <Spark cx={12} cy={12} s={12} hue="white" />
++        </svg>
++      </div>
++      <div className="ms-field__inner cta-band-inner" data-reveal>
+         <div>
+           <h2 id="cta-band-heading">Give your team its time back</h2>
+           <p className="muted">Start a 14-day trial. No card needed, and you can invite the whole team.</p>
+         </div>
+         <div className="cta-actions">
+-          <Link to="/signup" className="button button-primary button-large" data-testid="cta-band-signup">
++          <Link to="/signup" className="ms-pill ms-pill--accent ms-pill--mega" data-testid="cta-band-signup">
+             Start free trial
+           </Link>
+-          <Link to="/pricing" className="button button-large" data-testid="cta-band-pricing">
++          <Link to="/pricing" className="ms-pill ms-pill--on-field ms-pill--lg" data-testid="cta-band-pricing">
+             Compare plans
+           </Link>
+         </div>
+diff --git a/src/components/FaqList.tsx b/src/components/FaqList.tsx
+index 3d4e28e..2a4aca4 100644
+--- a/src/components/FaqList.tsx
++++ b/src/components/FaqList.tsx
+@@ -1,4 +1,5 @@
+ import { useId, useState } from 'react';
++import Icon from './ms/Icon';
+ import type { FaqItem } from '../data/faq';
+ 
+ export default function FaqList({ items }: { items: FaqItem[] }) {
+@@ -29,7 +30,7 @@ export default function FaqList({ items }: { items: FaqItem[] }) {
+               >
+                 <span>{item.question}</span>
+                 <span className="faq-indicator" aria-hidden="true">
+-                  {open ? '−' : '+'}
++                  <Icon name="plus" />
+                 </span>
+               </button>
+             </h3>
+diff --git a/src/components/IconPlaceholder.tsx b/src/components/IconPlaceholder.tsx
+deleted file mode 100644
+index e4a6c2c..0000000
+--- a/src/components/IconPlaceholder.tsx
++++ /dev/null
+@@ -1,8 +0,0 @@
+-export default function IconPlaceholder() {
+-  return (
+-    <svg className="icon-placeholder" viewBox="0 0 24 24" width="32" height="32" aria-hidden="true" focusable="false">
+-      <rect className="icon-placeholder-bg" x="0" y="0" width="24" height="24" />
+-      <circle className="icon-placeholder-shape" cx="12" cy="12" r="5" />
+-    </svg>
+-  );
+-}
+diff --git a/src/components/ImagePlaceholder.tsx b/src/components/ImagePlaceholder.tsx
+deleted file mode 100644
+index c93af09..0000000
+--- a/src/components/ImagePlaceholder.tsx
++++ /dev/null
+@@ -1,12 +0,0 @@
+-export default function ImagePlaceholder({ alt }: { alt: string }) {
+-  return (
+-    <svg className="image-placeholder" viewBox="0 0 640 420" role="img" aria-label={alt}>
+-      <rect className="image-placeholder-bg" x="0" y="0" width="640" height="420" />
+-      <rect className="image-placeholder-shape" x="60" y="60" width="520" height="40" />
+-      <rect className="image-placeholder-shape" x="60" y="130" width="150" height="230" />
+-      <rect className="image-placeholder-shape" x="245" y="130" width="150" height="110" />
+-      <rect className="image-placeholder-shape" x="430" y="130" width="150" height="230" />
+-      <rect className="image-placeholder-shape" x="245" y="270" width="150" height="90" />
+-    </svg>
+-  );
+-}
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index b5bdb62..fd0ef6b 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,6 +1,10 @@
+ import { useEffect, useState } from 'react';
+ import { Link, Outlet, useLocation } from 'react-router';
+ import SiteFooter from './SiteFooter';
++import Glyph from './ms/Glyph';
++import Icon from './ms/Icon';
++import useMotion from './ms/useMotion';
++import { AREAS } from '../data/areas';
+ import { BRAND, NAV_ITEMS } from '../data/site';
+ 
+ function isActive(to: string, pathname: string) {
+@@ -10,6 +14,8 @@ function isActive(to: string, pathname: string) {
+ export default function Layout() {
+   const location = useLocation();
+   const [menuOpen, setMenuOpen] = useState(false);
++  const [scrolled, setScrolled] = useState(false);
++  useMotion(location.pathname);
+ 
+   // On navigation: close the mobile menu, then jump to the requested section (if any) or to the top.
+   // Section links (/#features) are router links, so the browser does not scroll to them by itself.
+@@ -30,17 +36,24 @@ export default function Layout() {
+     return () => document.removeEventListener('keydown', onKeyDown);
+   }, [menuOpen]);
+ 
++  // The top bar takes its shadow after 8px of scroll.
++  useEffect(() => {
++    function onScroll() {
++      setScrolled(window.scrollY > 8);
++    }
++    onScroll();
++    window.addEventListener('scroll', onScroll, { passive: true });
++    return () => window.removeEventListener('scroll', onScroll);
++  }, []);
++
+   return (
+     <div className="site-shell">
+-      <a className="skip-link" href="#main-content">
++      <a className="skip-link ms-pill" href="#main-content">
+         Skip to content
+       </a>
+-      <header className="site-header" data-testid="site-header">
++      <header className={scrolled || menuOpen ? 'site-header is-scrolled' : 'site-header'} data-testid="site-header">
+         <div className="container site-header-inner">
+           <Link to="/" className="brand" data-testid="brand-link">
+-            <svg className="brand-mark" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+-              <path d="M6 3h12M6 21h12M7 3c0 5 10 7 10 12v6M17 3c0 5-10 7-10 12v6" fill="none" stroke="currentColor" strokeWidth="2" />
+-            </svg>
+             <span>{BRAND}</span>
+           </Link>
+ 
+@@ -50,11 +63,13 @@ export default function Layout() {
+                 <li key={item.id}>
+                   <Link
+                     to={item.to}
+-                    className={isActive(item.to, location.pathname) ? 'nav-link active' : 'nav-link'}
++                    className={`${isActive(item.to, location.pathname) ? 'nav-link active' : 'nav-link'} ms-cat--${AREAS[item.id]?.hue}`}
+                     aria-current={isActive(item.to, location.pathname) ? 'page' : undefined}
+                     data-testid={`nav-${item.id}`}
+                   >
+-                    {item.label}
++                    <span className="nav-label" data-label={item.label}>
++                      {item.label}
++                    </span>
+                   </Link>
+                 </li>
+               ))}
+@@ -62,18 +77,19 @@ export default function Layout() {
+           </nav>
+ 
+           <div className="header-actions">
+-            <Link to="/signup" className="button button-primary" data-testid="header-signup">
++            <Link to="/signup" className="ms-pill ms-pill--accent header-signup" data-testid="header-signup">
+               Sign up
+             </Link>
+             <button
+               type="button"
+-              className="button menu-toggle"
++              className="ms-pill ms-pill--cream ms-circle menu-toggle"
+               aria-expanded={menuOpen}
+               aria-controls="mobile-nav"
+               onClick={() => setMenuOpen((open) => !open)}
+               data-testid="menu-toggle"
+             >
+-              {menuOpen ? 'Close' : 'Menu'}
++              <Icon name={menuOpen ? 'close' : 'menu'} />
++              <span className="visually-hidden">{menuOpen ? 'Close' : 'Menu'}</span>
+             </button>
+           </div>
+         </div>
+@@ -81,16 +97,24 @@ export default function Layout() {
+         {menuOpen && (
+           <nav id="mobile-nav" aria-label="Mobile" className="mobile-nav" data-testid="mobile-nav">
+             <ul className="mobile-nav-list container">
+-              {NAV_ITEMS.map((item) => (
++              {NAV_ITEMS.map((item, index) => (
+                 <li key={item.id}>
+                   <Link
+                     to={item.to}
+-                    className={isActive(item.to, location.pathname) ? 'mobile-nav-link active' : 'mobile-nav-link'}
++                    className={`${isActive(item.to, location.pathname) ? 'mobile-nav-link active' : 'mobile-nav-link'} ms-cat--${AREAS[item.id]?.hue}`}
+                     aria-current={isActive(item.to, location.pathname) ? 'page' : undefined}
+                     onClick={() => setMenuOpen(false)}
+                     data-testid={`mobile-nav-${item.id}`}
+                   >
+-                    {item.label}
++                    {AREAS[item.id] && (
++                      <Glyph
++                        kind={AREAS[item.id].glyph}
++                        hue={AREAS[item.id].hue}
++                        size="sm"
++                        cycle={((index % 4) + 1) as 1 | 2 | 3 | 4}
++                      />
++                    )}
++                    <span>{item.label}</span>
+                   </Link>
+                 </li>
+               ))}
+diff --git a/src/components/NewsletterForm.tsx b/src/components/NewsletterForm.tsx
+index 84e8d7a..355430e 100644
+--- a/src/components/NewsletterForm.tsx
++++ b/src/components/NewsletterForm.tsx
+@@ -1,4 +1,5 @@
+ import { useId, useState, type FormEvent } from 'react';
++import Icon from './ms/Icon';
+ import { EMAIL_PATTERN } from '../data/signup';
+ 
+ export default function NewsletterForm() {
+@@ -33,11 +34,12 @@ export default function NewsletterForm() {
+       </h2>
+       {subscribedEmail ? (
+         <p className="form-success" role="status" data-testid="newsletter-success">
+-          Thanks. Monthly product updates will go to {subscribedEmail}.
++          <Icon name="tick" className="form-success-tick" />
++          <span>Thanks. Monthly product updates will go to {subscribedEmail}.</span>
+         </p>
+       ) : (
+         <form className="newsletter-form" noValidate onSubmit={handleSubmit} data-testid="newsletter-form">
+-          <label htmlFor={inputId} className="field-label small">
++          <label htmlFor={inputId} className="field-label">
+             Email for updates
+           </label>
+           <div className="field-row">
+@@ -54,12 +56,13 @@ export default function NewsletterForm() {
+               aria-describedby={error ? errorId : undefined}
+               data-testid="newsletter-email"
+             />
+-            <button type="submit" className="button" data-testid="newsletter-submit">
++            <button type="submit" className="ms-pill ms-pill--lg" data-testid="newsletter-submit">
+               Subscribe
+             </button>
+           </div>
+           {error && (
+             <p id={errorId} className="form-error" role="alert" data-testid="newsletter-error">
++              <Icon name="alert" className="form-error-icon" />
+               {error}
+             </p>
+           )}
+diff --git a/src/components/PlanCard.tsx b/src/components/PlanCard.tsx
+index 0f4e0e6..30faf8d 100644
+--- a/src/components/PlanCard.tsx
++++ b/src/components/PlanCard.tsx
+@@ -1,4 +1,5 @@
+ import { Link } from 'react-router';
++import Icon from './ms/Icon';
+ import type { BillingPeriod, Plan } from '../data/pricing';
+ 
+ interface Props {
+@@ -6,18 +7,19 @@ interface Props {
+   period: BillingPeriod;
+ }
+ 
++/** Option card: cream by default; the most popular plan is the set's one saturated field. */
+ export default function PlanCard({ plan, period }: Props) {
+   const price = plan.price[period];
+   const headingId = `plan-${plan.id}-heading`;
+   return (
+     <article
+-      className={plan.popular ? 'plan-card plan-card-popular' : 'plan-card'}
++      className={plan.popular ? 'plan-card plan-card-popular ms-hue--yellow' : 'plan-card'}
+       aria-labelledby={headingId}
+       data-testid="plan-card"
+       data-plan={plan.id}
+     >
+       <div className="plan-card-header">
+-        <h2 id={headingId} className="plan-name" data-testid="plan-name">
++        <h2 id={headingId} className="plan-name eyebrow" data-testid="plan-name">
+           {plan.name}
+         </h2>
+         {plan.popular && (
+@@ -26,7 +28,6 @@ export default function PlanCard({ plan, period }: Props) {
+           </span>
+         )}
+       </div>
+-      <p className="muted">{plan.description}</p>
+       <p className="plan-price-line">
+         <span className="plan-price" data-testid="plan-price">
+           ${price}
+@@ -36,16 +37,18 @@ export default function PlanCard({ plan, period }: Props) {
+       <p className="muted small plan-billed" data-testid="plan-billed">
+         {period === 'yearly' ? `$${price * 12} per user, billed yearly` : 'Billed monthly, cancel any time'}
+       </p>
+-      <ul className="plan-features">
++      <p className="muted plan-description">{plan.description}</p>
++      <ul className="plan-features tick-list">
+         {plan.features.map((feature) => (
+           <li key={feature} data-testid="plan-feature">
++            <Icon name="tick" className="tick" />
+             {feature}
+           </li>
+         ))}
+       </ul>
+       <Link
+         to="/signup"
+-        className={plan.popular ? 'button button-primary plan-cta' : 'button plan-cta'}
++        className={plan.popular ? 'ms-pill ms-pill--accent ms-pill--lg plan-cta' : 'ms-pill ms-pill--lg plan-cta'}
+         data-testid="plan-cta"
+       >
+         {plan.cta}
+diff --git a/src/components/SiteFooter.tsx b/src/components/SiteFooter.tsx
+index 5b5d870..31d5b30 100644
+--- a/src/components/SiteFooter.tsx
++++ b/src/components/SiteFooter.tsx
+@@ -1,11 +1,14 @@
+ import { Link } from 'react-router';
+ import NewsletterForm from './NewsletterForm';
++import { Arch } from './ms/Field';
++import Icon from './ms/Icon';
+ import { BRAND, FOOTER_COLUMNS } from '../data/site';
+ 
+ export default function SiteFooter() {
+   return (
+-    <footer className="site-footer" data-testid="site-footer">
+-      <div className="container site-footer-inner">
++    <footer className="site-footer ms-field ms-field--rise ms-hue--cream" data-testid="site-footer">
++      <Arch edge="rise" />
++      <div className="ms-field__inner site-footer-inner">
+         <div className="footer-brand">
+           <p className="footer-brand-name">{BRAND}</p>
+           <p className="muted small">Scheduling for teams that would rather be in the meeting than arranging it.</p>
+@@ -26,10 +29,16 @@ export default function SiteFooter() {
+         ))}
+         <NewsletterForm />
+       </div>
+-      <div className="container footer-bottom">
+-        <p className="muted small">
+-          {BRAND} is a fictional product made for testing. No meetings were harmed.
+-        </p>
++      <div className="footer-bottom">
++        <div className="container footer-bottom-inner">
++          <p className="small">
++            {BRAND} is a fictional product made for testing. No meetings were harmed.
++          </p>
++          <a href="#main-content" className="ms-pill ms-pill--cream ms-circle footer-top">
++            <Icon name="up" />
++            <span className="visually-hidden">Back to top</span>
++          </a>
++        </div>
+       </div>
+     </footer>
+   );
+diff --git a/src/pages/CustomersPage.tsx b/src/pages/CustomersPage.tsx
+index f513953..8316ed8 100644
+--- a/src/pages/CustomersPage.tsx
++++ b/src/pages/CustomersPage.tsx
+@@ -1,6 +1,10 @@
+ import { useState } from 'react';
+ import CaseStudyCard from '../components/CaseStudyCard';
+ import CtaBand from '../components/CtaBand';
++import { CustomersArt } from '../components/ms/BandArt';
++import { HeaderBand } from '../components/ms/Field';
++import { Avatar, Confetti } from '../components/ms/Shapes';
++import { INDUSTRY_HUES } from '../data/areas';
+ import { CASE_STUDIES, FEATURED_QUOTE, INDUSTRIES, type IndustryId } from '../data/customers';
+ 
+ type IndustryFilter = IndustryId | 'all';
+@@ -12,35 +16,45 @@ export default function CustomersPage() {
+ 
+   return (
+     <>
+-      <section className="section page-hero" aria-labelledby="customers-title">
+-        <div className="container">
+-          <div className="section-header">
+-            <p className="eyebrow">Customers</p>
+-            <h1 id="customers-title">Teams that run on Hourglade</h1>
+-            <p className="muted">Clinics, schools, warehouses and studios use Hourglade to keep their days in order.</p>
+-          </div>
++      <HeaderBand
++        hue="orange"
++        labelledBy="customers-title"
++        eyebrow="Customers"
++        titleId="customers-title"
++        title="Teams that run on Hourglade"
++        lead="Clinics, schools, warehouses and studios use Hourglade to keep their days in order."
++        art={<CustomersArt />}
++      />
+ 
+-          <figure className="featured-quote" data-testid="featured-quote">
++      <section className="section featured-section" aria-label="Featured customer">
++        <div className="container">
++          <figure className="featured-quote" data-testid="featured-quote" data-reveal>
+             <blockquote>
+               <p>{FEATURED_QUOTE.quote}</p>
+             </blockquote>
+             <figcaption>
+-              <span className="testimonial-name">{FEATURED_QUOTE.name}</span>
+-              <span className="muted small">{FEATURED_QUOTE.role}</span>
++              <Avatar name={FEATURED_QUOTE.name} hue="blue" />
++              <span className="testimonial-person">
++                <span className="testimonial-name">{FEATURED_QUOTE.name}</span>
++                <span className="muted small">{FEATURED_QUOTE.role}</span>
++              </span>
+             </figcaption>
+           </figure>
+         </div>
+       </section>
+ 
+-      <section className="section" aria-labelledby="stories-heading" data-testid="case-studies">
++      <section className="section section-muted" aria-labelledby="stories-heading" data-testid="case-studies">
+         <div className="container">
+-          <h2 id="stories-heading">Customer stories</h2>
++          <div className="section-header ms-confetti" data-reveal>
++            <Confetti set="sun" />
++            <h2 id="stories-heading">Customer stories</h2>
++          </div>
+           <div role="group" aria-label="Filter by industry" className="filter-group" data-testid="industry-filter">
+             {filterOptions.map((option) => (
+               <button
+                 key={option.id}
+                 type="button"
+-                className="button filter-button"
++                className={`ms-pill ms-pill--cream ms-tab filter-button${option.id === 'all' ? '' : ` ms-cat--${INDUSTRY_HUES[option.id]}`}`}
+                 aria-pressed={industry === option.id}
+                 onClick={() => setIndustry(option.id)}
+                 data-testid={`industry-filter-${option.id}`}
+@@ -49,7 +63,7 @@ export default function CustomersPage() {
+               </button>
+             ))}
+           </div>
+-          <p className="muted small" aria-live="polite" data-testid="customer-count">
++          <p className="muted small customer-count" aria-live="polite" data-testid="customer-count">
+             Showing {visible.length} of {CASE_STUDIES.length} customers
+           </p>
+           <ul className="case-study-grid">
+@@ -62,7 +76,7 @@ export default function CustomersPage() {
+         </div>
+       </section>
+ 
+-      <CtaBand />
++      <CtaBand under="cream" />
+     </>
+   );
+ }
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index db3f027..8451f16 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -1,17 +1,31 @@
+ import { Link } from 'react-router';
+ import CtaBand from '../components/CtaBand';
+ import FaqList from '../components/FaqList';
+-import IconPlaceholder from '../components/IconPlaceholder';
+-import ImagePlaceholder from '../components/ImagePlaceholder';
++import HeroVignette from '../components/HeroVignette';
++import { Arch } from '../components/ms/Field';
++import Glyph from '../components/ms/Glyph';
++import { Avatar, Confetti, Plate, type Hue, type PictogramName } from '../components/ms/Shapes';
+ import { FAQ_ITEMS } from '../data/faq';
+ import { FEATURES, LOGO_NAMES, STATS, STEPS, TESTIMONIALS } from '../data/site';
+ 
++/** One pictogram per feature, each of its own subject. */
++const FEATURE_PICTOGRAMS: Record<string, PictogramName> = {
++  'booking-pages': 'calendar',
++  'team-availability': 'clock',
++  'round-robin': 'roundTable',
++  reminders: 'bell',
++  buffers: 'hourglass',
++  integrations: 'cloudSync',
++};
++
++const AVATAR_HUES: Hue[] = ['blue', 'green', 'violet'];
++
+ export default function HomePage() {
+   return (
+     <>
+-      <section className="hero" aria-labelledby="hero-title" data-testid="hero">
+-        <div className="container hero-inner">
+-          <div className="hero-copy">
++      <section className="hero ms-field ms-field--sag ms-hue--yellow" aria-labelledby="hero-title" data-testid="hero">
++        <div className="ms-field__inner hero-inner">
++          <div className="hero-copy" data-reveal="load">
+             <p className="eyebrow">Scheduling for teams</p>
+             <h1 id="hero-title" className="hero-title" data-testid="hero-title">
+               Meetings that book themselves
+@@ -21,24 +35,25 @@ export default function HomePage() {
+               calendar in sync. Your team gets back to the work the meeting was about.
+             </p>
+             <div className="cta-actions">
+-              <Link to="/signup" className="button button-primary button-large" data-testid="hero-primary-cta">
++              <Link to="/signup" className="ms-pill ms-pill--accent ms-pill--lg" data-testid="hero-primary-cta">
+                 Start free trial
+               </Link>
+-              <Link to="/#how-it-works" className="button button-large" data-testid="hero-secondary-cta">
++              <Link to="/#how-it-works" className="ms-pill ms-pill--on-field ms-pill--lg" data-testid="hero-secondary-cta">
+                 See how it works
+               </Link>
+             </div>
+             <p className="muted small">Free for 14 days. No card needed.</p>
+           </div>
+           <div className="hero-media" data-testid="hero-image">
+-            <ImagePlaceholder alt="A week view of a shared team calendar with open booking slots" />
++            <HeroVignette alt="A week view of a shared team calendar with open booking slots" />
+           </div>
+         </div>
++        <Arch edge="sag" />
+       </section>
+ 
+       <section className="logo-strip" aria-labelledby="logo-strip-heading" data-testid="logo-strip">
+         <div className="container">
+-          <h2 id="logo-strip-heading" className="section-label">
++          <h2 id="logo-strip-heading" className="eyebrow section-label">
+             Trusted by teams at
+           </h2>
+           <ul className="logo-list">
+@@ -53,15 +68,16 @@ export default function HomePage() {
+ 
+       <section id="features" className="section" aria-labelledby="features-heading" data-testid="features">
+         <div className="container">
+-          <div className="section-header">
++          <div className="section-header ms-confetti" data-reveal>
++            <Confetti set="sun" />
+             <p className="eyebrow">Features</p>
+             <h2 id="features-heading">Everything scheduling needs, nothing it doesn't</h2>
+             <p className="muted">Start with a booking page. Add team routing, reminders and limits when you need them.</p>
+           </div>
+-          <ul className="feature-grid">
++          <ul className="feature-grid" data-reveal="group">
+             {FEATURES.map((feature) => (
+               <li key={feature.id} className="feature-card" data-testid="feature-card">
+-                <IconPlaceholder />
++                <Plate name={FEATURE_PICTOGRAMS[feature.id] ?? 'calendar'} />
+                 <h3 className="feature-title">{feature.title}</h3>
+                 <p className="muted">{feature.text}</p>
+               </li>
+@@ -78,16 +94,17 @@ export default function HomePage() {
+       >
+         <div className="container how-inner">
+           <div className="how-intro">
++            <Glyph kind="spiral" hue="blue" size="lg" className="how-glyph" />
+             <p className="eyebrow">How it works</p>
+             <h2 id="how-heading">Set up in an afternoon</h2>
+             <p className="muted">
+               There is nothing to install. Connect a calendar, decide when you can be booked, and share the link.
+             </p>
+-            <Link to="/signup" className="button" data-testid="how-signup">
++            <Link to="/signup" className="ms-pill ms-pill--accent" data-testid="how-signup">
+               Create your link
+             </Link>
+           </div>
+-          <ol className="step-list">
++          <ol className="step-list" data-reveal="group">
+             {STEPS.map((step, index) => (
+               <li key={step.title} className="step-item" data-testid="step-item">
+                 <span className="step-number" aria-hidden="true">
+@@ -103,8 +120,9 @@ export default function HomePage() {
+         </div>
+       </section>
+ 
+-      <section className="stats-band" aria-labelledby="stats-heading" data-testid="stats">
+-        <div className="container">
++      <section className="stats-band ms-field ms-field--wave ms-hue--night" aria-labelledby="stats-heading" data-testid="stats">
++        <Arch edge="wave-top" />
++        <div className="ms-field__inner">
+           <h2 id="stats-heading" className="visually-hidden">
+             Hourglade in numbers
+           </h2>
+@@ -119,32 +137,37 @@ export default function HomePage() {
+             ))}
+           </dl>
+         </div>
++        <Arch edge="wave-bottom" />
+       </section>
+ 
+       <section id="testimonials" className="section" aria-labelledby="testimonials-heading" data-testid="testimonials">
+         <div className="container">
+-          <div className="section-header">
++          <div className="section-header ms-confetti" data-reveal>
++            <Confetti set="sky" />
+             <p className="eyebrow">Customers</p>
+             <h2 id="testimonials-heading">Teams that stopped chasing calendars</h2>
+           </div>
+-          <ul className="testimonial-grid">
+-            {TESTIMONIALS.map((item) => (
++          <ul className="testimonial-grid" data-reveal="group">
++            {TESTIMONIALS.map((item, index) => (
+               <li key={item.name} className="testimonial" data-testid="testimonial">
+                 <figure>
+                   <blockquote>
+                     <p>{item.quote}</p>
+                   </blockquote>
+                   <figcaption>
+-                    <span className="testimonial-name" data-testid="testimonial-name">
+-                      {item.name}
++                    <Avatar name={item.name} hue={AVATAR_HUES[index % AVATAR_HUES.length]} />
++                    <span className="testimonial-person">
++                      <span className="testimonial-name" data-testid="testimonial-name">
++                        {item.name}
++                      </span>
++                      <span className="muted small">{item.role}</span>
+                     </span>
+-                    <span className="muted small">{item.role}</span>
+                   </figcaption>
+                 </figure>
+               </li>
+             ))}
+           </ul>
+-          <p>
++          <p className="testimonials-more">
+             <Link to="/customers" data-testid="testimonials-more">
+               Read customer stories
+             </Link>
+@@ -154,7 +177,8 @@ export default function HomePage() {
+ 
+       <section id="faq" className="section section-muted" aria-labelledby="faq-heading" data-testid="faq">
+         <div className="container container-narrow">
+-          <div className="section-header">
++          <div className="section-header ms-confetti" data-reveal>
++            <Confetti set="meadow" />
+             <p className="eyebrow">FAQ</p>
+             <h2 id="faq-heading">Common questions</h2>
+           </div>
+@@ -162,7 +186,7 @@ export default function HomePage() {
+         </div>
+       </section>
+ 
+-      <CtaBand />
++      <CtaBand under="cream" />
+     </>
+   );
+ }
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index f5f5db1..22b3b88 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,13 +1,20 @@
+ import { Link } from 'react-router';
++import { ErrorArt } from '../components/ms/BandArt';
++import { Arch } from '../components/ms/Field';
+ 
++/** Error page: a cream band with a rising arc that runs on into the cream footer. */
+ export default function NotFoundPage() {
+   return (
+-    <section className="container empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/" data-testid="not-found-home">
+-        Go to the home page
+-      </Link>
++    <section className="error-band ms-field ms-field--rise ms-hue--cream" aria-labelledby="not-found-title" data-testid="not-found">
++      <Arch edge="rise" />
++      <div className="ms-field__inner empty-state">
++        <ErrorArt />
++        <h1 id="not-found-title">Page not found</h1>
++        <p className="muted">The page you are looking for does not exist or has moved.</p>
++        <Link to="/" className="ms-pill ms-pill--lg" data-testid="not-found-home">
++          Go to the home page
++        </Link>
++      </div>
+     </section>
+   );
+ }
+diff --git a/src/pages/PricingPage.tsx b/src/pages/PricingPage.tsx
+index 7ee66a6..8185ba4 100644
+--- a/src/pages/PricingPage.tsx
++++ b/src/pages/PricingPage.tsx
+@@ -4,6 +4,9 @@ import ComparisonTable from '../components/ComparisonTable';
+ import CtaBand from '../components/CtaBand';
+ import FaqList from '../components/FaqList';
+ import PlanCard from '../components/PlanCard';
++import { PricingArt } from '../components/ms/BandArt';
++import { HeaderBand } from '../components/ms/Field';
++import { Confetti } from '../components/ms/Shapes';
+ import { PRICING_FAQ_ITEMS } from '../data/faq';
+ import { PLANS, type BillingPeriod } from '../data/pricing';
+ 
+@@ -12,13 +15,18 @@ export default function PricingPage() {
+ 
+   return (
+     <>
+-      <section className="section page-hero" aria-labelledby="pricing-title">
++      <HeaderBand
++        hue="green"
++        labelledBy="pricing-title"
++        eyebrow="Pricing"
++        titleId="pricing-title"
++        title="Simple pricing for every team"
++        lead="Every plan includes a 14-day trial. Pay per person who can be booked."
++        art={<PricingArt />}
++      />
++
++      <section className="section plans-section" aria-label="Plans">
+         <div className="container">
+-          <div className="section-header section-header-center">
+-            <p className="eyebrow">Pricing</p>
+-            <h1 id="pricing-title">Simple pricing for every team</h1>
+-            <p className="muted">Every plan includes a 14-day trial. Pay per person who can be booked.</p>
+-          </div>
+           <BillingToggle value={period} onChange={setPeriod} />
+           <div className="plan-grid" data-testid="plan-grid">
+             {PLANS.map((plan) => (
+@@ -28,21 +36,24 @@ export default function PricingPage() {
+         </div>
+       </section>
+ 
+-      <section className="section" aria-labelledby="compare-heading" data-testid="compare">
++      <section className="section section-muted" aria-labelledby="compare-heading" data-testid="compare">
+         <div className="container">
+           <h2 id="compare-heading">Compare plans</h2>
+           <ComparisonTable />
+         </div>
+       </section>
+ 
+-      <section className="section section-muted" aria-labelledby="pricing-faq-heading" data-testid="pricing-faq">
++      <section className="section" aria-labelledby="pricing-faq-heading" data-testid="pricing-faq">
+         <div className="container container-narrow">
+-          <h2 id="pricing-faq-heading">Billing questions</h2>
++          <div className="section-header ms-confetti" data-reveal>
++            <Confetti set="dusk" />
++            <h2 id="pricing-faq-heading">Billing questions</h2>
++          </div>
+           <FaqList items={PRICING_FAQ_ITEMS} />
+         </div>
+       </section>
+ 
+-      <CtaBand />
++      <CtaBand under="white" />
+     </>
+   );
+ }
+diff --git a/src/pages/SignupPage.tsx b/src/pages/SignupPage.tsx
+index 606d807..cbe8bb3 100644
+--- a/src/pages/SignupPage.tsx
++++ b/src/pages/SignupPage.tsx
+@@ -1,5 +1,10 @@
+ import { useRef, useState, type FormEvent } from 'react';
+ import { Link } from 'react-router';
++import { SignupArt } from '../components/ms/BandArt';
++import { HeaderBand } from '../components/ms/Field';
++import Glyph from '../components/ms/Glyph';
++import Icon from '../components/ms/Icon';
++import { Pictogram, Plate } from '../components/ms/Shapes';
+ import { COMPANY_SIZES, EMAIL_PATTERN, PASSWORD_MIN_LENGTH } from '../data/signup';
+ 
+ interface Values {
+@@ -70,34 +75,40 @@ export default function SignupPage() {
+     if (!errors[field]) return null;
+     return (
+       <p id={`signup-${field}-error`} className="form-error" data-testid={`signup-${field}-error`}>
++        <Icon name="alert" className="form-error-icon" />
+         {errors[field]}
+       </p>
+     );
+   }
+ 
+   return (
+-    <section className="section signup-section" aria-labelledby="signup-title">
++    <>
++      <HeaderBand
++        hue="cream"
++        labelledBy="signup-title"
++        eyebrow="Free for 14 days"
++        titleId="signup-title"
++        title="Create your Hourglade account"
++        lead="Set up your first booking page in a few minutes. No card needed."
++        art={<SignupArt />}
++      />
++    <section className="section signup-section" aria-label="Sign up">
+       <div className="container signup-inner">
+-        <div className="signup-intro">
+-          <p className="eyebrow">Free for 14 days</p>
+-          <h1 id="signup-title">Create your Hourglade account</h1>
+-          <p className="muted">Set up your first booking page in a few minutes. No card needed.</p>
+-          <ul className="check-list">
+-            <li>Unlimited booking pages during the trial</li>
+-            <li>Invite your whole team</li>
+-            <li>Cancel any time</li>
+-          </ul>
+-        </div>
+-
+         <div className="signup-card">
+           {doneEmail ? (
+-            <div className="signup-success" role="status" data-testid="signup-success">
++            <div className="signup-success ms-panel ms-hue--cream" role="status" data-testid="signup-success">
++              <div className="success-art" aria-hidden="true">
++                <svg viewBox="0 0 100 100" focusable="false">
++                  <Pictogram name="envelope" />
++                </svg>
++                <Glyph kind="moon" hue="yellow" size="md" className="success-glyph" />
++              </div>
+               <h2>Check your inbox</h2>
+               <p>
+                 We sent a confirmation link to <strong data-testid="signup-success-email">{doneEmail}</strong>. Open it
+                 to finish setting up your account.
+               </p>
+-              <Link to="/" className="button" data-testid="signup-success-home">
++              <Link to="/" className="ms-pill" data-testid="signup-success-home">
+                 Back to the home page
+               </Link>
+             </div>
+@@ -150,6 +161,7 @@ export default function SignupPage() {
+                 <label htmlFor="signup-size" className="field-label">
+                   Company size
+                 </label>
++                <div className="select-wrap">
+                 <select
+                   id="signup-size"
+                   ref={(el) => {
+@@ -169,6 +181,8 @@ export default function SignupPage() {
+                     </option>
+                   ))}
+                 </select>
++                <Icon name="chevron" className="select-chevron" />
++                </div>
+                 {fieldError('size')}
+               </div>
+ 
+@@ -194,7 +208,7 @@ export default function SignupPage() {
+                   />
+                   <button
+                     type="button"
+-                    className="button"
++                    className="ms-pill ms-pill--cream ms-pill--lg password-toggle"
+                     aria-pressed={showPassword}
+                     aria-controls="signup-password"
+                     onClick={() => setShowPassword((shown) => !shown)}
+@@ -225,12 +239,13 @@ export default function SignupPage() {
+                     {...errorProps('terms')}
+                     data-testid="signup-terms"
+                   />
++                  <Icon name="tick" className="checkbox-tick" />
+                   <label htmlFor="signup-terms">I agree to the terms of service and the privacy policy.</label>
+                 </div>
+                 {fieldError('terms')}
+               </div>
+ 
+-              <button type="submit" className="button button-primary button-large" data-testid="signup-submit">
++              <button type="submit" className="ms-pill ms-pill--accent ms-pill--lg signup-submit" data-testid="signup-submit">
+                 Create account
+               </button>
+               <p className="muted small">
+@@ -241,7 +256,27 @@ export default function SignupPage() {
+             </form>
+           )}
+         </div>
++
++        <aside className="signup-intro" aria-label="What the trial includes">
++          <Plate name="checklist" />
++          <h2 className="signup-intro-title">Your trial includes</h2>
++          <ul className="check-list tick-list">
++            <li>
++              <Icon name="tick" className="tick" />
++              Unlimited booking pages during the trial
++            </li>
++            <li>
++              <Icon name="tick" className="tick" />
++              Invite your whole team
++            </li>
++            <li>
++              <Icon name="tick" className="tick" />
++              Cancel any time
++            </li>
++          </ul>
++        </aside>
+       </div>
+     </section>
++    </>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index bd29687..2d4adff 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,72 +1,56 @@
+ /*
+- * Base styles for the Hourglade landing site.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Hourglade styles on the Morning Shapes design system (morning-shapes@0.1.0-rc.4).
++ * Token values come straight from the package's tokens.css (light, dark and the
++ * prefers-color-scheme switch); nothing below introduces a raw color, size or radius.
++ * Order: tokens → legacy aliases → base → signature elements → components → screens.
+  */
++@import '../../design-system/tokens.css';
++
++/* Legacy variable names, aliased so anything still reading them gets the system's values. */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-section-muted-bg: #f7f7f7;
+-  --color-header-bg: #ffffff;
+-  --color-footer-bg: #f5f5f5;
+-  --color-band-bg: #eeeeee;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-error: #b00020;
+-  --color-success: #2e7d32;
+-  --color-success-bg: #e8f5e9;
+-  --color-tag-bg: #eeeeee;
+-  --color-tag-text: #444444;
+-  --color-badge-bg: #dde6f5;
+-  --color-badge-text: #0645ad;
+-  --color-pressed-bg: #dde6f5;
+-  --color-quote-border: #cccccc;
+-  --color-included: #2e7d32;
+-  --color-excluded: #999999;
+-  --color-placeholder-bg: #eeeeee;
+-  --color-placeholder-shape: #cccccc;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-heading: var(--font-body);
+-  --font-size-base: 16px;
+-  --font-size-small: 13px;
+-  --font-size-large: 18px;
+-  --font-size-hero: 40px;
+-  --font-size-hero-mobile: 30px;
+-  --font-size-h1: 32px;
+-  --font-size-h2: 24px;
+-  --font-size-h3: 17px;
+-  --font-size-stat: 36px;
+-  --font-size-price: 36px;
+-  --line-height: 1.6;
+-  --line-height-tight: 1.2;
+-  --font-weight-bold: 700;
+-  --font-weight-semibold: 600;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --border-width-strong: 2px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --space-12: 48px;
+-  --space-16: 64px;
+-  --container-width: 1080px;
+-  --container-narrow-width: 760px;
+-  --measure: 640px;
+-  --step-number-size: 32px;
+-  --icon-size: 32px;
+-}
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-raised);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-section-muted-bg: var(--color-surface-subtle);
++  --color-header-bg: var(--color-surface-default);
++  --color-footer-bg: var(--color-field-cream);
++  --color-band-bg: var(--color-field-pink);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-error: var(--color-status-danger);
++  --color-success: var(--color-status-success);
++  --color-included: var(--color-status-success);
++  --color-excluded: var(--color-text-secondary);
++  --font-body: var(--font-family-sans);
++  --font-heading: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --font-size-small: var(--font-size-label);
++  --font-size-large: var(--font-size-body-lg);
++  --radius: var(--radius-md);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hair);
++  --border-width-strong: var(--border-width-thick);
++  --container-width: var(--size-container);
++  --container-narrow-width: var(--size-reading);
++  --measure: var(--size-prose);
++
++  color-scheme: light dark;
++  interpolate-size: allow-keywords;
++}
++
++[data-theme='light'] {
++  color-scheme: light;
++}
++
++[data-theme='dark'] {
++  color-scheme: dark;
++}
++
++/* ───────────────────────── Base ───────────────────────── */
+ 
+ *,
+ *::before,
+@@ -80,47 +64,59 @@ body {
+ }
+ 
+ html {
+-  scroll-padding-top: var(--space-4);
++  scroll-padding-top: var(--size-header);
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
++  overflow-x: clip;
+ }
+ 
+ h1,
+ h2,
+ h3 {
+-  font-family: var(--font-heading);
+-  margin: 0 0 var(--space-2);
+-  line-height: var(--line-height-tight);
+-}
+-
+-h1 {
+-  font-size: var(--font-size-h1);
++  margin: 0 0 var(--space-4);
++  font-family: var(--font-family-sans);
++  font-weight: var(--font-weight-bold);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-tight);
++  text-wrap: balance;
+ }
+ 
++h1,
+ h2 {
+   font-size: var(--font-size-h2);
+ }
+ 
+ h3 {
+-  font-size: var(--font-size-h3);
++  font-size: var(--font-size-title);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-3);
++  margin: 0 0 var(--space-4);
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-link);
++  text-decoration-line: underline;
++  text-decoration-thickness: var(--border-width-hair);
++  text-underline-offset: 3px;
++}
++
++@media (hover: hover) {
++  a:hover {
++    text-decoration-thickness: var(--border-width-thick);
++    text-underline-offset: 2px;
++  }
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-thick) solid var(--ms-ring, var(--color-focus-ring));
+   outline-offset: 2px;
+ }
+ 
+@@ -142,27 +138,28 @@ a {
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-4);
++  top: var(--space-4);
++  z-index: 40;
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+-.eyebrow,
+-.section-label {
+-  font-size: var(--font-size-small);
++.eyebrow {
++  margin: 0 0 var(--space-3);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-eyebrow);
+   text-transform: uppercase;
+-  color: var(--color-text-muted);
+-  margin: 0 0 var(--space-2);
+ }
+ 
+ /* Layout */
+@@ -174,551 +171,1695 @@ a {
+ 
+ .container {
+   width: 100%;
+-  max-width: var(--container-width);
++  max-width: calc(var(--size-container) + 2 * var(--space-12));
+   margin: 0 auto;
+-  padding: 0 var(--space-4);
++  padding-inline: var(--space-12);
+ }
+ 
+ .container-narrow {
+-  max-width: var(--container-narrow-width);
++  max-width: calc(var(--size-reading) + 2 * var(--space-12));
+ }
+ 
+-.site-header {
+-  background: var(--color-header-bg);
+-  border-bottom: var(--border-width) solid var(--color-border);
++.content {
++  flex: 1;
+ }
+ 
+-.site-header-inner {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: center;
+-  gap: var(--space-4);
+-  padding-top: var(--space-3);
+-  padding-bottom: var(--space-3);
++.content:focus {
++  outline: none;
+ }
+ 
+-.brand {
+-  display: inline-flex;
+-  align-items: center;
+-  gap: var(--space-2);
+-  font-weight: var(--font-weight-bold);
+-  color: var(--color-text);
+-  text-decoration: none;
++.section {
++  padding-block: var(--space-24);
+ }
+ 
+-.brand-mark {
+-  flex-shrink: 0;
++.section-muted {
++  background: var(--color-surface-subtle);
+ }
+ 
+-.primary-nav {
+-  flex: 1;
++.section-header {
++  max-width: var(--size-prose);
++  margin-bottom: var(--space-12);
+ }
+ 
+-.nav-list {
+-  list-style: none;
+-  display: flex;
+-  gap: var(--space-4);
+-  margin: 0;
+-  padding: 0;
++.section-header > .muted {
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+-.nav-link {
+-  color: var(--color-link);
+-}
++/* ───────────────────── Signature: color fields ───────────────────── */
+ 
+-.nav-link.active {
+-  font-weight: var(--font-weight-bold);
+-  color: var(--color-text);
++.ms-hue--yellow { --ms-field: var(--color-field-yellow); --ms-on-field: var(--color-on-field-yellow); }
++.ms-hue--orange { --ms-field: var(--color-field-orange); --ms-on-field: var(--color-on-field-orange); }
++.ms-hue--pink { --ms-field: var(--color-field-pink); --ms-on-field: var(--color-on-field-pink); }
++.ms-hue--cream { --ms-field: var(--color-field-cream); --ms-on-field: var(--color-on-field-cream); }
++.ms-hue--blue { --ms-field: var(--color-field-blue); --ms-on-field: var(--color-on-field-blue); }
++.ms-hue--green { --ms-field: var(--color-field-green); --ms-on-field: var(--color-on-field-green); }
++.ms-hue--violet { --ms-field: var(--color-field-violet); --ms-on-field: var(--color-on-field-violet); }
++.ms-hue--night { --ms-field: var(--color-field-night); --ms-on-field: var(--color-on-field-night); }
++.ms-hue--blue,
++.ms-hue--green,
++.ms-hue--violet,
++.ms-hue--night {
++  --ms-ring: var(--color-focus-ring-on-field);
+ }
+ 
+-.header-actions {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++/* The night ring is yellow, which vanishes on the light fields: there the ring follows the ink text. */
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) :is(.ms-hue--yellow, .ms-hue--orange, .ms-hue--pink) {
++    --ms-ring: var(--color-on-field-yellow);
++  }
++}
++[data-theme='dark'] :is(.ms-hue--yellow, .ms-hue--orange, .ms-hue--pink) {
++  --ms-ring: var(--color-on-field-yellow);
+ }
+ 
+-.header-actions .menu-toggle {
+-  display: none;
++/* Category dots: one per area or category, in its hue. */
++.ms-cat--yellow { --ms-dot: var(--color-category-1); }
++.ms-cat--blue { --ms-dot: var(--color-category-2); }
++.ms-cat--green { --ms-dot: var(--color-category-3); }
++.ms-cat--orange { --ms-dot: var(--color-category-4); }
++.ms-cat--violet { --ms-dot: var(--color-category-5); }
++.ms-cat--pink { --ms-dot: var(--color-category-6); }
++
++/* What shows behind a rising arc: the section above the band. */
++.ms-under--white { --ms-arch-under: var(--color-surface-default); }
++.ms-under--cream { --ms-arch-under: var(--color-surface-subtle); }
++.ms-under--pink { --ms-arch-under: var(--color-field-pink); }
++
++.ms-field {
++  --ms-arc: var(--size-arc);
++  position: relative;
++  isolation: isolate;
++  background: var(--ms-field);
++  color: var(--ms-on-field);
++  padding-block: var(--space-24);
+ }
+ 
+-.mobile-nav {
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding: var(--space-2) 0 var(--space-3);
++.ms-field__inner {
++  position: relative;
++  z-index: 1;
++  max-width: calc(var(--size-container) + 2 * var(--space-12));
++  margin-inline: auto;
++  padding-inline: var(--space-12);
+ }
+ 
+-.mobile-nav-list {
+-  list-style: none;
+-  margin: 0;
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
++.ms-field .muted {
++  color: var(--ms-on-field);
+ }
+ 
+-.mobile-nav-link {
++.ms-arch {
++  position: absolute;
++  inset-inline: 0;
+   display: block;
+-  padding: var(--space-2) 0;
+-  color: var(--color-link);
++  width: 100%;
++  height: var(--ms-arc);
++  fill: var(--ms-field);
++  background: var(--ms-arch-under, transparent);
+ }
+ 
+-.mobile-nav-link.active {
+-  font-weight: var(--font-weight-bold);
+-  color: var(--color-text);
++.ms-field--sag {
++  margin-block-end: var(--ms-arc);
+ }
+ 
+-.content {
+-  flex: 1;
++.ms-field--sag > .ms-arch {
++  top: 100%;
+ }
+ 
+-.content:focus {
+-  outline: none;
++.ms-field--rise {
++  margin-block-start: var(--ms-arc);
+ }
+ 
+-.section {
+-  padding: var(--space-12) 0;
++.ms-field--rise > .ms-arch {
++  bottom: 100%;
+ }
+ 
+-.section-muted {
+-  background: var(--color-section-muted-bg);
+-  border-top: var(--border-width) solid var(--color-border);
+-  border-bottom: var(--border-width) solid var(--color-border);
++/* Night band: a soft wave above and below */
++.ms-field--wave {
++  margin-block: var(--ms-arc);
+ }
+ 
+-.section-header {
+-  max-width: var(--measure);
+-  margin-bottom: var(--space-8);
++.ms-field--wave > .ms-arch--wave-top {
++  bottom: 100%;
++  scale: 1 -1;
+ }
+ 
+-.section-header-center {
+-  margin-left: auto;
+-  margin-right: auto;
+-  text-align: center;
++.ms-field--wave > .ms-arch--wave-bottom {
++  top: 100%;
+ }
+ 
+-/* Footer */
+-.site-footer {
+-  background: var(--color-footer-bg);
+-  border-top: var(--border-width) solid var(--color-border);
++.ms-field--header {
++  --ms-arc: var(--size-arc-sm);
++  display: flex;
++  flex-direction: column;
++  justify-content: center;
++  padding-block: var(--space-10) var(--space-8);
++  min-height: calc(min(42vw, var(--size-band-art)) * 0.6 + var(--space-12));
+ }
+ 
+-.site-footer-inner {
+-  display: grid;
+-  grid-template-columns: 1.4fr repeat(3, 1fr) 1.8fr;
+-  gap: var(--space-6);
+-  padding-top: var(--space-8);
+-  padding-bottom: var(--space-6);
++.ms-field--header .ms-field__inner {
++  width: 100%;
++  padding-inline-end: 46%;
+ }
+ 
+-.footer-brand-name {
+-  font-weight: var(--font-weight-bold);
+-  margin-bottom: var(--space-1);
++.ms-field__art {
++  position: absolute;
++  inset-block-start: var(--space-6);
++  inset-inline-end: var(--space-6);
++  width: min(42%, var(--size-band-art));
++  pointer-events: none;
+ }
+ 
+-.footer-heading {
+-  font-size: var(--font-size-small);
+-  text-transform: uppercase;
+-  color: var(--color-text-muted);
+-  margin-bottom: var(--space-2);
++.ms-field__art > svg {
++  display: block;
++  width: 100%;
++  height: auto;
+ }
+ 
+-.footer-links {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
++.band-head .eyebrow {
++  margin-bottom: var(--space-3);
+ }
+ 
+-.footer-bottom {
+-  border-top: var(--border-width) solid var(--color-border);
+-  padding-top: var(--space-3);
+-  padding-bottom: var(--space-3);
++.band-title {
++  margin-bottom: var(--space-4);
+ }
+ 
+-.footer-bottom p {
++.band-lead {
++  max-width: 480px;
+   margin: 0;
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.ms-panel {
++  position: relative;
++  overflow: clip;
++  padding: var(--space-12);
++  border-radius: var(--radius-xl);
++  background: var(--ms-field);
++  color: var(--ms-on-field);
++}
++
++/* ───────────────────── Signature: shape kit ───────────────────── */
++
++.fill-yellow { fill: var(--color-field-yellow); }
++.fill-yellow-shade { fill: var(--color-art-yellow-shade); }
++.fill-blue { fill: var(--color-field-blue); }
++.fill-blue-shade { fill: var(--color-art-blue-shade); }
++.fill-orange { fill: var(--color-field-orange); }
++.fill-orange-shade { fill: var(--color-art-orange-shade); }
++.fill-green { fill: var(--color-field-green); }
++.fill-green-shade { fill: var(--color-art-green-shade); }
++.fill-pink { fill: var(--color-field-pink); }
++.fill-pink-shade { fill: var(--color-art-pink-shade); }
++.fill-violet { fill: var(--color-field-violet); }
++.fill-violet-shade { fill: var(--color-art-violet-shade); }
++.fill-sky { fill: var(--color-art-sky); }
++.fill-sky-shade { fill: var(--color-art-sky-shade); }
++.fill-lavender { fill: var(--color-art-lavender); }
++.fill-lavender-shade { fill: var(--color-art-lavender-shade); }
++.fill-stone { fill: var(--color-art-stone); }
++.fill-stone-shade { fill: var(--color-art-stone-shade); }
++.fill-white { fill: var(--color-art-white); }
++.fill-white-shade { fill: var(--color-art-stone); }
++.fill-cream { fill: var(--color-art-cream); }
++.fill-cream-shade { fill: var(--color-art-stone); }
++.fill-band { fill: var(--ms-field); }
++.fill-plate { fill: var(--color-surface-raised); }
++
++.stroke-ink { stroke: var(--color-art-stroke); }
++.stroke-white { stroke: var(--color-art-white); }
++.stroke-yellow { stroke: var(--color-field-yellow); }
++.stroke-blue { stroke: var(--color-field-blue); }
++.stroke-orange { stroke: var(--color-field-orange); }
++.stroke-green { stroke: var(--color-field-green); }
++.stroke-pink { stroke: var(--color-field-pink); }
++.stroke-violet { stroke: var(--color-field-violet); }
++.stroke-sky { stroke: var(--color-art-sky); }
++
++.ms-plate {
++  display: block;
++  flex: none;
++  width: var(--size-plate);
++  height: var(--size-plate);
+ }
+ 
+-/* Controls */
+-.field {
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-1);
++.ms-plate--sm {
++  width: var(--size-plate-sm);
++  height: var(--size-plate-sm);
+ }
+ 
+-.field-label {
++.ms-cover {
+   display: block;
+-  font-weight: var(--font-weight-semibold);
++  aspect-ratio: 16 / 10;
++  background: var(--ms-field);
+ }
+ 
+-.field-row {
+-  display: flex;
+-  gap: var(--space-2);
++.ms-cover > svg {
++  display: block;
++  width: 100%;
++  height: 100%;
+ }
+ 
+-.field-hint {
+-  margin: 0;
++.ms-avatar {
++  position: relative;
++  display: inline-grid;
++  place-items: center;
++  flex: none;
++  width: var(--size-control);
++  height: var(--size-control);
++  color: var(--color-art-white);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
+ }
+ 
+-.input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
+-  flex: 1;
++.ms-avatar > svg {
++  position: absolute;
++  inset: 0;
++  width: 100%;
++  height: 100%;
+ }
+ 
+-.input[aria-invalid='true'] {
+-  border-color: var(--color-error);
++.ms-avatar > span {
++  position: relative;
+ }
+ 
+-.checkbox-row {
+-  display: flex;
+-  align-items: flex-start;
+-  gap: var(--space-2);
++/* Confetti around a section opener: five shapes in the gutters and corners, never across the text */
++.ms-confetti {
++  position: relative;
++  padding-block: var(--space-16);
++  padding-inline: clamp(var(--space-6), 10vw, var(--space-32));
++  text-align: center;
+ }
+ 
+-.checkbox {
+-  margin-top: var(--space-1);
++.ms-confetti__art {
++  position: absolute;
++  inset: 0;
++  z-index: 0;
++  pointer-events: none;
+ }
+ 
+-.checkbox[aria-invalid='true'] {
+-  outline: var(--border-width) solid var(--color-error);
++.ms-confetti__art > svg {
++  position: absolute;
++  display: block;
++  height: auto;
+ }
+ 
+-.button {
+-  display: inline-block;
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  text-decoration: none;
+-  text-align: center;
+-  cursor: pointer;
++.ms-confetti > :not(.ms-confetti__art) {
++  position: relative;
++  z-index: 1;
+ }
+ 
+-.button-primary {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
+-}
++.ms-confetti__art > :nth-child(1) { inset: 8% auto auto 2%; width: 96px; }
++.ms-confetti__art > :nth-child(2) { inset: 4% 6% auto auto; width: 28px; rotate: 12deg; }
++.ms-confetti__art > :nth-child(3) { inset: auto auto 6% 10%; width: 24px; }
++.ms-confetti__art > :nth-child(4) { inset: auto 2% 10% auto; width: 112px; }
++.ms-confetti__art > :nth-child(5) { inset: 46% auto auto 14%; width: 16px; }
+ 
+-.button-large {
+-  padding: var(--space-2) var(--space-4);
++.section-header.ms-confetti {
++  max-width: none;
++  margin-bottom: var(--space-8);
+ }
+ 
+-.form-error {
+-  color: var(--color-error);
+-  font-size: var(--font-size-small);
+-  margin: var(--space-1) 0 0;
++.section-header.ms-confetti > .muted {
++  max-width: var(--size-prose);
++  margin-inline: auto;
+ }
+ 
+-.form-success {
+-  background: var(--color-success-bg);
+-  color: var(--color-success);
+-  border-radius: var(--radius);
+-  padding: var(--space-2) var(--space-3);
++.section-header.ms-confetti > :last-child:not(.ms-confetti__art) {
++  margin-bottom: 0;
+ }
+ 
+-.tag-chip {
+-  display: inline-block;
+-  background: var(--color-tag-bg);
+-  color: var(--color-tag-text);
+-  border-radius: var(--radius-pill);
+-  padding: 0 var(--space-2);
+-  font-size: var(--font-size-small);
+-}
++/* ───────────────────── Signature: breathing glyphs ───────────────────── */
+ 
+-.badge {
+-  display: inline-block;
+-  background: var(--color-badge-bg);
+-  color: var(--color-badge-text);
+-  border-radius: var(--radius-pill);
+-  padding: 0 var(--space-2);
+-  font-size: var(--font-size-small);
+-  font-weight: var(--font-weight-semibold);
++.ms-glyph {
++  display: block;
++  flex: none;
++  width: var(--size-glyph);
++  height: var(--size-glyph);
++  overflow: visible;
+ }
+ 
+-.cta-actions {
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: var(--space-3);
+-  margin-bottom: var(--space-3);
+-}
++.ms-glyph--sm { width: var(--size-glyph-sm); height: var(--size-glyph-sm); }
++.ms-glyph--lg { width: var(--size-glyph-lg); height: var(--size-glyph-lg); }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-12) var(--space-4);
++.ms-glyph__part {
++  transform-box: fill-box;
++  transform-origin: center;
++  animation: ms-breathe var(--ms-breath, var(--motion-duration-breathe)) var(--motion-easing-breathe) infinite;
+ }
+ 
+-/* Home: hero */
+-.hero {
+-  padding: var(--space-12) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++@keyframes ms-breathe {
++  0%, 50%, 100% { transform: scale(1) rotate(0deg); }
++  25% { transform: scale(0.87) rotate(15deg); }
++  75% { transform: scale(0.87) rotate(-35deg); }
+ }
+ 
+-.hero-inner {
+-  display: grid;
+-  grid-template-columns: 1fr 1fr;
+-  gap: var(--space-8);
+-  align-items: center;
++@keyframes ms-pulse {
++  0%, 100% { transform: scale(1); }
++  50% { transform: scale(1.48); }
+ }
+ 
+-.hero-title {
+-  font-size: var(--font-size-hero);
+-  margin-bottom: var(--space-4);
++@keyframes ms-orbit {
++  0% { transform: rotate(0deg); }
++  60%, 100% { transform: rotate(360deg); }
+ }
+ 
+-.hero-subcopy {
+-  font-size: var(--font-size-large);
+-  color: var(--color-text-muted);
+-  margin-bottom: var(--space-6);
++@keyframes ms-pop {
++  0%, 100% { transform: scale(0); }
++  50% { transform: scale(1); }
+ }
+ 
+-.image-placeholder {
+-  display: block;
+-  width: 100%;
+-  height: auto;
+-  border-radius: var(--radius);
++.ms-glyph--orbit .ms-glyph__part {
++  animation: ms-orbit calc(var(--motion-duration-orbit) * 3) var(--motion-easing-breathe) infinite;
++  transform-origin: 28px 28px;
++  transform-box: view-box;
+ }
+ 
+-.image-placeholder-bg,
+-.icon-placeholder-bg {
+-  fill: var(--color-placeholder-bg);
++.ms-glyph--pulse .ms-glyph__part {
++  animation-name: ms-pulse;
++  --ms-breath: var(--motion-duration-breathe-slow);
+ }
+ 
+-.image-placeholder-shape,
+-.icon-placeholder-shape {
+-  fill: var(--color-placeholder-shape);
++/* A different cycle for each glyph on a screen */
++.ms-glyph--c2 { --ms-breath: var(--motion-duration-breathe-slow); }
++.ms-glyph--c3 { --ms-breath: calc(var(--motion-duration-breathe) * 0.85); }
++.ms-glyph--c4 { --ms-breath: calc(var(--motion-duration-breathe) * 1.22); }
++.ms-glyph--pulse.ms-glyph--c4 { --ms-breath: calc(var(--motion-duration-breathe-slow) * 1.1); }
++
++.ms-glyph.is-offscreen .ms-glyph__part {
++  animation-play-state: paused;
+ }
+ 
+-/* Home: logo strip */
+-.logo-strip {
+-  padding: var(--space-6) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  text-align: center;
++.ms-glyph--still .ms-glyph__part {
++  animation: none;
+ }
+ 
+-.logo-list {
+-  list-style: none;
++/* Choice row or option tile: bordered, glyph still until hovered, focused or selected */
++.ms-choice {
+   display: flex;
+-  flex-wrap: wrap;
+-  justify-content: center;
+-  gap: var(--space-3) var(--space-8);
+-  margin: 0;
+-  padding: 0;
++  align-items: center;
++  gap: var(--space-4);
++  min-height: var(--size-list-row);
++  padding: 0 var(--space-5);
++  background: var(--color-surface-raised);
++  border-radius: var(--radius-sm);
++  border: var(--border-width-thick) solid var(--color-border-default);
++  font-weight: var(--font-weight-bold);
++  transition: border-color var(--motion-duration-ease) var(--motion-easing-snap);
+ }
+ 
+-.logo-item {
+-  font-weight: var(--font-weight-bold);
+-  color: var(--color-text-muted);
++.ms-choice:hover { border-color: var(--color-border-strong); }
++.ms-choice[aria-checked='true'],
++.ms-choice[aria-selected='true'] { border-color: var(--color-action-primary); }
++.ms-choice .ms-glyph { width: var(--size-glyph-sm); height: var(--size-glyph-sm); }
++.ms-choice:not(:hover, :focus-visible, [aria-checked='true'], [aria-selected='true']) .ms-glyph__part {
++  animation-play-state: paused;
+ }
+ 
+-/* Home: features */
+-.feature-grid {
+-  list-style: none;
+-  display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: var(--space-6);
+-  margin: 0;
+-  padding: 0;
++/* Pop-dots loader: three dots, staggered */
++.ms-pop-dots {
++  display: inline-flex;
++  gap: var(--space-1);
+ }
+ 
+-.feature-card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-6);
+-  background: var(--color-surface);
++.ms-pop-dots > span {
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: currentColor;
++  animation: ms-pop var(--motion-duration-pop) var(--motion-easing-breathe) infinite;
+ }
+ 
+-.icon-placeholder {
+-  display: block;
+-  width: var(--icon-size);
+-  height: var(--icon-size);
+-  margin-bottom: var(--space-3);
++.ms-pop-dots > span:nth-child(2) { animation-delay: var(--motion-duration-pop-stagger); }
++.ms-pop-dots > span:nth-child(3) { animation-delay: calc(var(--motion-duration-pop-stagger) * 2); }
++
++/* ───────────────────── Signature: pills on a ledge ───────────────────── */
++
++.ms-pill {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-2);
++  height: var(--size-control);
++  padding: 0 var(--space-6);
++  border-radius: var(--radius-full);
++  border: var(--border-width-thick) solid transparent;
++  font: var(--font-weight-bold) var(--font-size-body) / var(--font-line-height-control) var(--font-family-sans);
++  letter-spacing: var(--font-tracking-tight);
++  white-space: nowrap;
++  text-decoration: none;
++  cursor: pointer;
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  box-shadow: var(--shadow-ledge);
++  transition-property: background-color, color, border-color, box-shadow, transform;
++  transition-duration: var(--motion-duration-snap);
++  transition-timing-function: var(--motion-easing-snap);
+ }
+ 
+-.feature-title {
+-  margin-bottom: var(--space-1);
++.ms-pill:active {
++  transform: translateY(2px);
++  box-shadow: var(--shadow-ledge-gone);
+ }
+ 
+-.feature-card p {
+-  margin: 0;
++.ms-pill:focus-visible {
++  outline: var(--border-width-thick) solid var(--ms-ring, var(--color-focus-ring));
++  outline-offset: 2px;
+ }
+ 
+-/* Home: how it works */
+-.how-inner {
+-  display: grid;
+-  grid-template-columns: 1fr 1fr;
+-  gap: var(--space-8);
+-  align-items: start;
++.ms-pill--accent {
++  background: var(--color-action-accent);
++  color: var(--color-text-on-accent);
+ }
+ 
+-.step-list {
+-  list-style: none;
+-  margin: 0;
+-  padding: 0;
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-6);
++.ms-pill--cream {
++  background: var(--color-action-secondary);
++  color: var(--color-text-on-secondary);
+ }
+ 
+-.step-item {
+-  display: flex;
+-  gap: var(--space-4);
++.ms-pill--cream:active {
++  background: var(--color-action-secondary-pressed);
+ }
+ 
+-.step-number {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  flex-shrink: 0;
+-  width: var(--step-number-size);
+-  height: var(--step-number-size);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius-pill);
+-  background: var(--color-surface);
+-  font-weight: var(--font-weight-bold);
++.ms-pill--outline {
++  background: transparent;
++  color: currentColor;
++  border-color: currentColor;
++  box-shadow: none;
+ }
+ 
+-.step-title {
+-  margin-bottom: var(--space-1);
++.ms-field .ms-pill,
++.ms-panel .ms-pill,
++.plan-card-popular .ms-pill {
++  box-shadow: var(--shadow-ledge-on-field);
+ }
+ 
+-.step-item p {
+-  margin: 0;
++.ms-field .ms-pill:active,
++.ms-panel .ms-pill:active,
++.plan-card-popular .ms-pill:active {
++  box-shadow: var(--shadow-ledge-gone);
+ }
+ 
+-/* Home: stats */
+-.stats-band {
+-  background: var(--color-band-bg);
+-  padding: var(--space-8) 0;
++.ms-pill--on-field {
++  background: var(--color-action-on-field);
++  color: var(--color-text-on-field-action);
+ }
+ 
+-.stat-list {
+-  display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: var(--space-6);
+-  margin: 0;
+-  text-align: center;
++@media (hover: hover) {
++  .ms-pill:hover { background: var(--color-action-primary-hover); text-decoration: none; }
++  .ms-pill--accent:hover { background: var(--color-action-accent-hover); }
++  .ms-pill--cream:hover { background: var(--color-action-secondary-hover); }
++  .ms-pill--outline:hover { background: var(--color-surface-hover); }
++  .ms-pill--on-field:hover { background: var(--color-action-on-field-hover); }
+ }
+ 
+-.stat-item {
+-  display: flex;
+-  flex-direction: column-reverse;
++.ms-pill--sm { height: var(--size-control-sm); padding: 0 var(--space-5); }
++.ms-pill--lg { height: var(--size-control-lg); padding: 0 var(--space-8); font-size: var(--font-size-body-lg); }
++
++.ms-pill--mega {
++  height: auto;
++  padding: var(--space-4) var(--space-12);
++  font-size: var(--font-size-mega);
++  line-height: var(--font-line-height-mega);
+ }
+ 
+-.stat-value {
+-  margin: 0;
+-  font-size: var(--font-size-stat);
+-  font-weight: var(--font-weight-bold);
+-  line-height: var(--line-height-tight);
++.ms-circle { width: var(--size-control); padding: 0; }
++.ms-circle--sm { width: var(--size-circle-sm); height: var(--size-circle-sm); }
++
++.ms-pill:disabled,
++.ms-pill[aria-disabled='true'] {
++  background: var(--color-surface-hover);
++  color: var(--color-text-secondary);
++  box-shadow: none;
++  transform: none;
++  cursor: not-allowed;
+ }
+ 
+-.stat-label {
+-  color: var(--color-text-muted);
++/* Tab or filter pill: selected is ink with a white dot before the label */
++.ms-tab[aria-selected='true'],
++.ms-tab[aria-pressed='true'] {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
+ }
+ 
+-/* Home: testimonials */
+-.testimonial-grid {
++@media (hover: hover) {
++  .ms-tab[aria-selected='true']:hover,
++  .ms-tab[aria-pressed='true']:hover {
++    background: var(--color-action-primary-hover);
++  }
++}
++
++.ms-tab[aria-selected='true']::before,
++.ms-tab[aria-pressed='true']::before,
++.ms-tab[class*='ms-cat--']::before {
++  content: '';
++  flex: none;
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: var(--ms-dot, currentColor);
++}
++
++.ms-tab[aria-selected='true']::before,
++.ms-tab[aria-pressed='true']::before {
++  background: currentColor;
++}
++
++/* Segmented control: pills inside a cream track, no ledge on the inner pills */
++.ms-segmented {
++  display: inline-flex;
++  gap: var(--space-1);
++  padding: var(--space-1);
++  border-radius: var(--radius-full);
++  background: var(--color-action-secondary);
++}
++
++.ms-segmented > .ms-pill {
++  box-shadow: none;
++}
++
++.ms-segmented > .ms-pill:not([aria-pressed='true']) {
++  background: transparent;
++}
++
++@media (hover: hover) {
++  .ms-segmented > .ms-pill:not([aria-pressed='true']):hover {
++    background: var(--color-action-secondary-hover);
++  }
++}
++
++.ms-icon {
++  display: block;
++  flex: none;
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
++  fill: currentColor;
++}
++
++.ms-circle .ms-icon {
++  width: var(--size-icon);
++  height: var(--size-icon);
++}
++
++.ms-dot {
++  display: inline-block;
++  flex: none;
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  margin-inline-end: var(--space-2);
++}
++
++.ms-dot--person { background: var(--color-field-blue); }
++.ms-dot--system { background: var(--color-field-orange); }
++
++/* ───────────────────── Signature: product vignette ───────────────────── */
++
++.ms-vignette {
++  position: relative;
++  z-index: 1;
++  display: grid;
++  gap: var(--space-4);
++  align-content: center;
++  min-height: 360px;
++  margin: 0;
++}
++
++.ms-vignette__card {
++  max-width: 78%;
++  padding: var(--space-4) var(--space-5);
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-body);
++  box-shadow: var(--shadow-float);
++}
++
++.ms-vignette__card:nth-child(even) {
++  justify-self: end;
++  margin-block-start: calc(var(--space-4) * -1);
++}
++
++.ms-vignette__card b {
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-bold);
++}
++
++@keyframes ms-build {
++  0% { opacity: 0; transform: translateY(8px); }
++  40% { opacity: 0.4; }
++  100% { opacity: 1; transform: none; }
++}
++
++.ms-js .ms-vignette:not(.is-in) .ms-vignette__card {
++  opacity: 0;
++}
++
++.ms-vignette.is-in .ms-vignette__card {
++  animation: ms-build var(--motion-duration-vignette) var(--motion-easing-vignette) both;
++}
++
++.ms-vignette.is-in .ms-vignette__card:nth-child(2) { animation-delay: var(--motion-duration-reveal); }
++.ms-vignette.is-in .ms-vignette__card:nth-child(3) { animation-delay: calc(var(--motion-duration-reveal) * 2); }
++
++/* ───────────────────── Reveal ───────────────────── */
++
++@keyframes ms-reveal {
++  from { opacity: 0; }
++  to { opacity: 1; }
++}
++
++/*
++ * Reveal is tied to the element's own entry into the viewport (a view timeline): until it starts to
++ * enter it is untouched and fully visible, so nothing is ever left hidden for a reader who has not
++ * scrolled; as it enters it fades in, staggered in reading order. Content in view at load fades in once.
++ */
++@media (prefers-reduced-motion: no-preference) {
++  [data-reveal='load'] {
++    animation: ms-reveal var(--motion-duration-reveal) var(--motion-easing-reveal) both;
++  }
++
++  @supports (animation-timeline: view()) {
++    [data-reveal='true'],
++    [data-reveal='group'] > * {
++      animation: ms-reveal var(--motion-easing-reveal) forwards;
++      animation-timeline: view();
++      animation-range: entry 0% entry 90%;
++    }
++
++    [data-reveal='group'] > :nth-child(3n + 2) { animation-range: entry 10% entry 100%; }
++    [data-reveal='group'] > :nth-child(3n + 3) { animation-range: entry 20% cover 30%; }
++  }
++}
++
++@keyframes ms-disclose {
++  from { height: 0; opacity: 0; }
++}
++
++@keyframes ms-enter {
++  from { opacity: 0; transform: translateY(8px); }
++}
++
++/* ───────────────────── Components ───────────────────── */
++
++/* Top bar */
++.site-header {
++  position: sticky;
++  top: 0;
++  z-index: 30;
++  background: var(--color-surface-default);
++  transition: box-shadow var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.site-header.is-scrolled {
++  box-shadow: var(--shadow-header);
++}
++
++.site-header-inner {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
++  height: var(--size-header);
++}
++
++.brand {
++  display: inline-flex;
++  align-items: center;
++  min-height: 44px;
++  color: var(--color-text-primary);
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  text-decoration: none;
++}
++
++.primary-nav {
++  flex: 1;
++  display: flex;
++  justify-content: center;
++}
++
++.nav-list {
++  list-style: none;
++  display: flex;
++  gap: var(--space-8);
++  margin: 0;
++  padding: 0;
++}
++
++.nav-link {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  min-height: 44px;
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-control);
++  text-decoration: none;
++}
++
++/* Bold on hover without shifting: the bold width is reserved by a hidden copy of the label */
++.nav-label {
++  display: inline-grid;
++}
++
++.nav-label::after {
++  content: attr(data-label);
++  height: 0;
++  overflow: hidden;
++  visibility: hidden;
++  font-weight: var(--font-weight-bold);
++}
++
++.nav-link[aria-current='page'] {
++  font-weight: var(--font-weight-bold);
++}
++
++.nav-link[aria-current='page']::before {
++  content: '';
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: var(--ms-dot, currentColor);
++}
++
++@media (hover: hover) {
++  .nav-link:hover {
++    font-weight: var(--font-weight-bold);
++  }
++}
++
++.header-actions {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  margin-left: auto;
++}
++
++.header-actions .menu-toggle {
++  display: none;
++}
++
++.mobile-nav {
++  position: fixed;
++  inset: 64px 0 0;
++  z-index: 29;
++  overflow-y: auto;
++  background: var(--color-surface-default);
++  animation: ms-enter var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.mobile-nav-list {
++  list-style: none;
++  margin: 0 auto;
++  padding-block: var(--space-2);
++}
++
++.mobile-nav-list > li {
++  border-bottom: var(--border-width-hair) solid var(--color-border-rule);
++}
++
++.mobile-nav-link {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
++  min-height: var(--size-list-row);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-h4);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  text-decoration: none;
++}
++
++.mobile-nav-link[aria-current='page']::after {
++  content: '';
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: var(--ms-dot, currentColor);
++}
++
++/* Footer: cream band with a rising arc, then the inverse bottom bar */
++.site-footer.ms-field {
++  padding-block: var(--space-16) 0;
++}
++
++.site-shell:has(.cta-band) .site-footer {
++  --ms-arch-under: var(--color-field-pink);
++}
++
++/* After the cream error band the footer simply continues it */
++.site-shell:has(.error-band) .site-footer {
++  margin-block-start: 0;
++  padding-block-start: var(--space-8);
++}
++
++.site-shell:has(.error-band) .site-footer > .ms-arch {
++  display: none;
++}
++
++.site-footer-inner {
++  display: grid;
++  grid-template-columns: 1.4fr repeat(3, 1fr) 1.8fr;
++  gap: var(--space-8) var(--space-6);
++  padding-bottom: var(--space-16);
++}
++
++.footer-brand-name {
++  margin-bottom: var(--space-2);
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++.footer-heading {
++  margin-bottom: var(--space-3);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.footer-links {
++  list-style: none;
++  margin: 0;
++  padding: 0;
++  display: flex;
++  flex-direction: column;
++}
++
++.footer-link {
++  display: inline-flex;
++  align-items: center;
++  min-height: 32px;
++  color: inherit;
++  font-size: var(--font-size-fine);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-snug);
++  text-decoration: none;
++}
++
++@media (hover: hover) {
++  .footer-link:hover {
++    text-decoration: underline;
++  }
++}
++
++.footer-bottom {
++  background: var(--color-surface-inverse);
++  color: var(--color-text-inverse);
++}
++
++.footer-bottom-inner {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--space-4);
++  min-height: 80px;
++}
++
++.footer-bottom p {
++  margin: 0;
++  font-size: var(--font-size-fine);
++  font-weight: var(--font-weight-medium);
++}
++
++.footer-bottom .ms-pill {
++  --ms-ring: var(--color-focus-ring-on-field);
++  box-shadow: none;
++}
++
++/* Form controls */
++.field {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-2);
++}
++
++.field-label {
++  display: block;
++  font-weight: var(--font-weight-medium);
++}
++
++.field-row {
++  display: flex;
++  gap: var(--space-2);
++}
++
++.field-hint {
++  margin: 0;
++}
++
++.input {
++  flex: 1;
++  min-width: 0;
++  width: 100%;
++  height: var(--size-control-lg);
++  padding: 0 var(--space-4);
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-md);
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
++  font: inherit;
++  font-size: var(--font-size-body);
++  transition: border-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.field > .input {
++  flex: none;
++}
++
++.input::placeholder {
++  color: var(--color-text-secondary);
++  opacity: 1;
++}
++
++@media (hover: hover) {
++  .input:hover {
++    border-color: var(--color-text-secondary);
++  }
++}
++
++.input:focus-visible,
++.input:focus {
++  outline: none;
++  border-color: var(--color-focus-ring);
++}
++
++.input[aria-invalid='true'] {
++  border-color: var(--color-status-danger);
++}
++
++.input[aria-invalid='true']:focus {
++  border-color: var(--color-focus-ring);
++}
++
++.select-wrap {
++  position: relative;
++  display: flex;
++}
++
++.select {
++  appearance: none;
++  padding-right: var(--space-12);
++  cursor: pointer;
++}
++
++.select-chevron {
++  position: absolute;
++  top: 50%;
++  right: var(--space-4);
++  translate: 0 -50%;
++  color: var(--color-text-icon);
++  pointer-events: none;
++}
++
++.checkbox-row {
++  position: relative;
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-3);
++  min-height: 44px;
++}
++
++.checkbox {
++  appearance: none;
++  flex: none;
++  width: var(--size-icon);
++  height: var(--size-icon);
++  margin: 0;
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-check);
++  background: var(--color-surface-raised);
++  cursor: pointer;
++  transition: background-color var(--motion-duration-snap) var(--motion-easing-snap),
++    border-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++@media (hover: hover) {
++  .checkbox:hover {
++    border-color: var(--color-text-secondary);
++  }
++}
++
++.checkbox:checked {
++  background: var(--color-action-primary);
++  border-color: var(--color-action-primary);
++}
++
++.checkbox[aria-invalid='true'] {
++  border-color: var(--color-status-danger);
++}
++
++.checkbox-tick {
++  position: absolute;
++  top: var(--space-1);
++  left: var(--space-1);
++  color: var(--color-text-on-action);
++  pointer-events: none;
++  opacity: 0;
++}
++
++.checkbox:checked + .checkbox-tick {
++  opacity: 1;
++}
++
++.form-error {
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-2);
++  margin: 0;
++  color: var(--color-status-danger);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++  line-height: var(--font-line-height-label);
++}
++
++.form-error-icon {
++  margin-top: 1px;
++}
++
++.form-success {
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-2);
++  margin: 0;
++  font-weight: var(--font-weight-medium);
++}
++
++.form-success-tick,
++.tick {
++  width: var(--size-icon);
++  height: var(--size-icon);
++  color: var(--color-status-success);
++}
++
++.ms-field .form-success-tick {
++  color: var(--color-field-green);
++}
++
++.tick-list {
++  list-style: none;
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-3);
++  margin: 0;
++  padding: 0;
++}
++
++.tick-list > li {
++  display: flex;
++  align-items: flex-start;
++  gap: var(--space-3);
++}
++
++/* Badges and tags */
++.tag-chip,
++.badge {
++  display: inline-flex;
++  align-items: center;
++  align-self: flex-start;
++  height: 24px;
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  font-size: var(--font-size-fine);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  white-space: nowrap;
++}
++
++.tag-chip {
++  background: var(--ms-field);
++  color: var(--ms-on-field);
++}
++
++/* Badge on a field: white fill, ink label */
++.badge {
++  background: var(--color-art-white);
++  color: var(--color-text-on-field-action);
++}
++
++.cta-actions {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: var(--space-3);
++  margin-bottom: var(--space-4);
++}
++
++/* FAQ disclosure rows */
++.faq-list {
++  --faq-plate: var(--color-surface-subtle);
++  list-style: none;
++  max-width: var(--size-reading);
++  margin: 0 auto;
++  padding: 0;
++  border-top: var(--border-width-hair) solid var(--color-border-rule);
++}
++
++.section-muted .faq-list {
++  --faq-plate: var(--color-surface-raised);
++}
++
++.faq-item {
++  border-bottom: var(--border-width-hair) solid var(--color-border-rule);
++}
++
++.faq-question {
++  margin: 0;
++  font-size: inherit;
++}
++
++.faq-toggle {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  gap: var(--space-6);
++  width: 100%;
++  min-height: var(--size-list-row);
++  padding: var(--space-5) 0;
++  border: 0;
++  background: none;
++  color: var(--color-text-primary);
++  font: var(--font-weight-bold) var(--font-size-title) / var(--font-line-height-heading) var(--font-family-sans);
++  letter-spacing: var(--font-tracking-tight);
++  text-align: left;
++  cursor: pointer;
++}
++
++.faq-indicator {
++  display: grid;
++  place-items: center;
++  flex: none;
++  width: var(--size-circle-sm);
++  height: var(--size-circle-sm);
++  border-radius: var(--radius-full);
++  background: var(--faq-plate);
++  color: var(--color-text-primary);
++}
++
++.faq-indicator .ms-icon {
++  transition: rotate var(--motion-duration-ease) var(--motion-easing-snap);
++}
++
++.faq-toggle[aria-expanded='true'] .faq-indicator .ms-icon {
++  rotate: 45deg;
++}
++
++.faq-panel {
++  overflow: hidden;
++  padding-right: var(--space-12);
++  font-size: var(--font-size-body-lg);
++}
++
++.faq-panel:not([hidden]) {
++  animation: ms-disclose var(--motion-duration-ease) var(--motion-easing-snap);
++}
++
++.faq-panel p {
++  margin: 0;
++  padding-bottom: var(--space-6);
++}
++
++/* Closing band: pink, rising arc, one mega pill */
++.cta-band-inner {
++  text-align: center;
++}
++
++.cta-band-inner > div:first-child {
++  max-width: var(--size-prose);
++  margin: 0 auto var(--space-10);
++}
++
++.cta-band-inner p {
++  margin: 0;
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.cta-band .cta-actions {
++  justify-content: center;
++  gap: var(--space-4);
++  margin: 0;
++}
++
++.cta-art {
++  position: absolute;
++  inset: 0;
++  z-index: 0;
++  overflow: hidden;
++  pointer-events: none;
++}
++
++.cta-art > svg {
++  position: absolute;
++  display: block;
++  height: auto;
++}
++
++.cta-art > :nth-child(1) { inset: 18% auto auto 6%; width: 120px; }
++.cta-art > :nth-child(2) { inset: 16% 12% auto auto; width: 44px; rotate: 10deg; }
++.cta-art > :nth-child(3) { inset: auto auto 12% 13%; width: 140px; }
++.cta-art > :nth-child(4) { inset: auto 6% 16% auto; width: 96px; }
++.cta-art > :nth-child(5) { inset: 12% auto auto 24%; width: 20px; }
++
++/* Table */
++.table-scroll {
++  position: relative;
++  overflow-x: auto;
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-default);
++}
++
++.table-scroll:focus-visible {
++  outline-offset: 2px;
++}
++
++.comparison-table {
++  width: 100%;
++  min-width: 560px;
++  border-collapse: separate;
++  border-spacing: 0;
++}
++
++.comparison-table th,
++.comparison-table td {
++  padding: 0 var(--space-4);
++  text-align: center;
++}
++
++.comparison-table thead th {
++  height: 44px;
++  background: var(--color-surface-subtle);
++  color: var(--color-text-icon);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.comparison-table tbody th,
++.comparison-table tbody td {
++  height: var(--size-row);
++  border-top: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.comparison-table tbody th {
++  font-weight: var(--font-weight-regular);
++}
++
++.comparison-table th:first-child {
++  position: sticky;
++  left: 0;
++  z-index: 1;
++  text-align: left;
++}
++
++.comparison-table tbody th:first-child {
++  background: var(--color-surface-default);
++}
++
++.cell-icon {
++  display: inline-block;
++  vertical-align: middle;
++  width: var(--size-icon);
++  height: var(--size-icon);
++}
++
++.cell-included .cell-icon {
++  color: var(--color-status-success);
++}
++
++.cell-excluded .cell-icon {
++  color: var(--color-text-secondary);
++}
++
++.cell-char {
++  position: absolute;
++  width: 1px;
++  height: 1px;
++  overflow: hidden;
++  clip: rect(0, 0, 0, 0);
++  white-space: nowrap;
++}
++
++/* Empty and error states */
++.empty-state {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  text-align: center;
++}
++
++.empty-state .error-art {
++  width: var(--size-art);
++  height: var(--size-art);
++  margin-bottom: var(--space-8);
++}
++
++.empty-state p {
++  max-width: var(--size-prose);
++  margin-bottom: var(--space-8);
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.error-band {
++  padding-block-end: var(--space-12);
++}
++
++/* ───────────────────── Screens ───────────────────── */
++
++/* Home: hero */
++.hero.ms-field {
++  padding-block: var(--space-16) var(--space-20);
++}
++
++.hero-inner {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
++  gap: var(--space-12);
++  align-items: center;
++  max-width: calc(var(--size-split) + 2 * var(--space-12));
++}
++
++.hero-title {
++  margin-bottom: var(--space-6);
++  font-size: var(--font-size-display);
++  line-height: var(--font-line-height-display);
++}
++
++.hero-subcopy {
++  max-width: 480px;
++  margin-bottom: var(--space-8);
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.hero-copy .small {
++  margin: 0;
++}
++
++.hero-vignette {
++  position: relative;
++  padding: var(--space-8) var(--space-6);
++}
++
++.hero-confetti {
++  position: absolute;
++  inset: 0;
++  pointer-events: none;
++}
++
++.hero-confetti > svg {
++  position: absolute;
++  display: block;
++  height: auto;
++}
++
++.hero-confetti > :nth-child(1) { inset: -2% 2% auto auto; width: 128px; }
++.hero-confetti > :nth-child(2) { inset: 2% auto auto 0; width: 44px; rotate: 12deg; }
++.hero-confetti > :nth-child(3) { inset: auto auto -4% -2%; width: 132px; }
++.hero-confetti > :nth-child(4) { inset: auto 0 6% auto; width: 56px; }
++.hero-confetti > :nth-child(5) { inset: 48% auto auto -3%; width: 20px; }
++
++.vignette-slots {
++  display: grid;
++  gap: var(--space-1);
++}
++
++.vignette-meta {
++  display: block;
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++}
++
++.vignette-slot-row {
++  display: flex;
++  flex-wrap: wrap;
++  gap: var(--space-2);
++  margin-top: var(--space-3);
++}
++
++.vignette-slot {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  height: var(--size-circle-sm);
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  background: var(--color-action-secondary);
++  color: var(--color-text-on-secondary);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-bold);
++}
++
++.vignette-slot.is-picked {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++}
++
++.vignette-slot.is-picked::before {
++  content: '';
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: currentColor;
++}
++
++.vignette-booked,
++.vignette-reminder {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++}
++
++.vignette-reminder {
++  gap: 0;
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++}
++
++.vignette-tick {
++  width: var(--size-icon);
++  height: var(--size-icon);
++  color: var(--color-status-success);
++}
++
++/* Home: logo strip */
++.logo-strip {
++  padding-block: var(--space-12);
++  text-align: center;
++}
++
++.section-label {
++  color: var(--color-text-secondary);
++  margin-bottom: var(--space-6);
++}
++
++.logo-list {
++  list-style: none;
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: center;
++  gap: var(--space-4) var(--space-12);
++  margin: 0;
++  padding: 0;
++}
++
++.logo-item {
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++/* Home: features */
++.feature-grid {
+   list-style: none;
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
++  grid-template-columns: repeat(3, minmax(0, 1fr));
+   gap: var(--space-6);
+-  margin: 0 0 var(--space-6);
++  margin: 0;
+   padding: 0;
+ }
+ 
+-.testimonial figure,
+-.featured-quote {
++.feature-card {
++  padding: var(--space-8);
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
++}
++
++.feature-card .ms-plate {
++  margin-bottom: var(--space-6);
++}
++
++.feature-title {
++  margin-bottom: var(--space-2);
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
++}
++
++.feature-card p {
+   margin: 0;
++  font-size: var(--font-size-body-lg);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+-.testimonial blockquote,
+-.featured-quote blockquote {
+-  margin: 0 0 var(--space-3);
+-  padding-left: var(--space-4);
+-  border-left: 3px solid var(--color-quote-border);
++/* Home: how it works */
++.how-inner {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
++  gap: var(--space-12);
++  align-items: start;
++  max-width: calc(var(--size-split) + 2 * var(--space-12));
+ }
+ 
+-.testimonial figcaption,
+-.featured-quote figcaption {
++.how-glyph {
++  margin-bottom: var(--space-6);
++}
++
++.how-intro p {
++  margin-bottom: var(--space-8);
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++.step-list {
++  list-style: none;
+   display: flex;
+   flex-direction: column;
++  gap: var(--space-4);
++  margin: 0;
++  padding: 0;
+ }
+ 
+-.testimonial-name {
+-  font-weight: var(--font-weight-semibold);
++.step-item {
++  display: flex;
++  gap: var(--space-5);
++  padding: var(--space-6);
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-raised);
++}
++
++.step-number {
++  display: inline-grid;
++  place-items: center;
++  flex: none;
++  width: var(--size-control);
++  height: var(--size-control);
++  border-radius: var(--radius-full);
++  background: var(--color-field-blue);
++  color: var(--color-on-field-blue);
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++}
++
++.step-title {
++  margin-bottom: var(--space-1);
++}
++
++.step-item p {
++  margin: 0;
++}
++
++/* Home: stats on the night band */
++.stats-band.ms-field {
++  padding-block: var(--space-12);
++}
++
++.stats-band > .ms-arch--wave-top {
++  background: var(--color-surface-subtle);
++}
++
++.stat-list {
++  display: grid;
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: var(--space-6);
++  margin: 0;
++  text-align: center;
++}
++
++.stat-item {
++  display: flex;
++  flex-direction: column-reverse;
++  gap: var(--space-2);
+ }
+ 
+-/* FAQ */
+-.faq-list {
+-  list-style: none;
++.stat-value {
+   margin: 0;
+-  padding: 0;
+-  border-top: var(--border-width) solid var(--color-border);
++  font-size: var(--font-size-display);
++  font-weight: var(--font-weight-bold);
++  line-height: var(--font-line-height-display);
++  letter-spacing: var(--font-tracking-tight);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+-.faq-item {
+-  border-bottom: var(--border-width) solid var(--color-border);
++.stat-label {
++  font-size: var(--font-size-body-lg);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+-.faq-question {
++/* Home: testimonials */
++.testimonial-grid {
++  list-style: none;
++  display: grid;
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: var(--space-6);
+   margin: 0;
+-  font-size: var(--font-size-base);
++  padding: 0;
+ }
+ 
+-.faq-toggle {
++.testimonial {
+   display: flex;
+-  justify-content: space-between;
+-  align-items: center;
+-  gap: var(--space-4);
+-  width: 100%;
+-  font: inherit;
+-  font-weight: var(--font-weight-semibold);
+-  text-align: left;
+-  padding: var(--space-3) 0;
+-  border: 0;
+-  background: none;
+-  color: var(--color-text);
+-  cursor: pointer;
+ }
+ 
+-.faq-indicator {
+-  flex-shrink: 0;
+-  color: var(--color-text-muted);
++.testimonial figure {
++  display: flex;
++  flex-direction: column;
++  width: 100%;
++  margin: 0;
++  padding: var(--space-12);
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
+ }
+ 
+-.faq-panel {
+-  padding-bottom: var(--space-3);
+-  color: var(--color-text-muted);
++.testimonial blockquote,
++.featured-quote blockquote {
++  margin: 0 0 var(--space-8);
+ }
+ 
+-.faq-panel p {
++.testimonial blockquote p {
+   margin: 0;
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+-/* CTA band */
+-.cta-band {
+-  background: var(--color-band-bg);
+-  padding: var(--space-12) 0;
++.testimonial figcaption,
++.featured-quote figcaption {
++  display: flex;
++  align-items: center;
++  gap: var(--space-4);
++  margin-top: auto;
+ }
+ 
+-.cta-band-inner {
++.testimonial-person {
+   display: flex;
+-  flex-wrap: wrap;
+-  justify-content: space-between;
+-  align-items: center;
+-  gap: var(--space-6);
++  flex-direction: column;
+ }
+ 
+-.cta-band .cta-actions {
+-  margin: 0;
++.testimonial-name {
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++.testimonials-more {
++  margin: var(--space-8) 0 0;
++  text-align: center;
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ /* Pricing */
+@@ -726,40 +1867,43 @@ a {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+-  gap: var(--space-2);
+-  margin-bottom: var(--space-8);
+-}
+-
+-.billing-toggle {
+-  display: inline-flex;
+-  gap: var(--space-1);
++  gap: var(--space-3);
++  margin-bottom: var(--space-12);
+ }
+ 
+-.billing-option[aria-pressed='true'],
+-.filter-button[aria-pressed='true'] {
+-  background: var(--color-pressed-bg);
+-  border-color: var(--color-primary);
+-  font-weight: var(--font-weight-semibold);
++.billing-toggle-wrap p {
++  margin: 0;
+ }
+ 
+ .plan-grid {
+   display: grid;
+-  grid-template-columns: repeat(3, 1fr);
++  grid-template-columns: repeat(3, minmax(0, 1fr));
+   gap: var(--space-6);
+   align-items: stretch;
++  max-width: var(--size-split);
++  margin-inline: auto;
+ }
+ 
+ .plan-card {
+   display: flex;
+   flex-direction: column;
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-6);
+-  background: var(--color-surface);
++  padding: var(--space-8);
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
+ }
+ 
+ .plan-card-popular {
+-  border: var(--border-width-strong) solid var(--color-primary);
++  background: var(--ms-field);
++  color: var(--ms-on-field);
++}
++
++.plan-card-popular .muted {
++  color: var(--ms-on-field);
++}
++
++.plan-card-popular .tick {
++  color: var(--color-field-green);
+ }
+ 
+ .plan-card-header {
+@@ -767,6 +1911,8 @@ a {
+   justify-content: space-between;
+   align-items: center;
+   gap: var(--space-2);
++  min-height: 24px;
++  margin-bottom: var(--space-6);
+ }
+ 
+ .plan-name {
+@@ -774,178 +1920,381 @@ a {
+ }
+ 
+ .plan-price-line {
+-  margin: var(--space-2) 0 0;
++  margin: 0 0 var(--space-1);
+ }
+ 
+ .plan-price {
+-  font-size: var(--font-size-price);
++  font-size: var(--font-size-h2);
+   font-weight: var(--font-weight-bold);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-tight);
+ }
+ 
+-.plan-features {
+-  flex: 1;
+-  margin: var(--space-2) 0 var(--space-6);
+-  padding-left: var(--space-6);
++.plan-billed {
++  margin-bottom: var(--space-6);
+ }
+ 
+-.plan-cta {
+-  width: 100%;
++.plan-description {
++  margin-bottom: var(--space-6);
+ }
+ 
+-.table-scroll {
+-  overflow-x: auto;
++.plan-features {
++  flex: 1;
++  margin-bottom: var(--space-8);
+ }
+ 
+-.comparison-table {
++.plan-cta {
+   width: 100%;
+-  border-collapse: collapse;
+ }
+ 
+-.comparison-table th,
+-.comparison-table td {
+-  padding: var(--space-2) var(--space-3);
+-  border-bottom: var(--border-width) solid var(--color-border);
++.plan-card .ms-pill {
++  white-space: normal;
+   text-align: center;
+ }
+ 
+-.comparison-table th:first-child {
+-  text-align: left;
+-}
+-
+-.comparison-table thead th {
+-  border-bottom-width: var(--border-width-strong);
+-}
+-
+-.comparison-table tbody th {
+-  font-weight: normal;
+-}
+-
+-.cell-included {
+-  color: var(--color-included);
++/* Customers */
++.featured-section {
++  padding-bottom: var(--space-16);
+ }
+ 
+-.cell-excluded {
+-  color: var(--color-excluded);
++.featured-quote {
++  max-width: var(--size-reading);
++  margin: 0 auto;
++  padding: var(--space-12);
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
+ }
+ 
+-/* Customers */
+-.featured-quote {
+-  max-width: var(--measure);
+-  font-size: var(--font-size-large);
++.featured-quote blockquote p {
++  margin: 0;
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .filter-group {
+   display: flex;
+   flex-wrap: wrap;
++  justify-content: center;
+   gap: var(--space-2);
+-  margin: var(--space-4) 0 var(--space-3);
++  margin: 0 0 var(--space-4);
++}
++
++.customer-count {
++  margin-bottom: var(--space-8);
++  text-align: center;
+ }
+ 
+ .case-study-grid {
+   list-style: none;
+   display: grid;
+-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
++  grid-template-columns: repeat(4, minmax(0, 1fr));
+   gap: var(--space-6);
+   margin: 0;
+   padding: 0;
+ }
+ 
+ .case-study-card {
++  display: flex;
++  flex-direction: column;
+   height: 100%;
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
++  overflow: hidden;
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-raised);
++}
++
++.case-study-body {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-3);
+   padding: var(--space-6);
+-  background: var(--color-surface);
+ }
+ 
+-.case-study-company {
+-  margin-top: var(--space-3);
++.case-study-company,
++.case-study-body p {
++  margin: 0;
+ }
+ 
+ .case-study-metric {
++  font-size: var(--font-size-h4);
+   font-weight: var(--font-weight-bold);
++  line-height: var(--font-line-height-title);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++/* Sign up */
++.signup-section {
++  padding-top: var(--space-12);
+ }
+ 
+-/* Signup */
+ .signup-inner {
+   display: grid;
+-  grid-template-columns: 1fr 1fr;
+-  gap: var(--space-12);
++  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
++  gap: var(--space-16);
+   align-items: start;
++  max-width: calc(var(--size-split) + 2 * var(--space-12));
++}
++
++.signup-form {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-6);
+ }
+ 
+-.check-list {
++.signup-form p {
+   margin: 0;
+-  padding-left: var(--space-6);
+ }
+ 
+-.signup-card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-6);
+-  background: var(--color-surface);
++.signup-submit {
++  align-self: flex-start;
+ }
+ 
+-.signup-form {
++.password-toggle {
++  flex: none;
++}
++
++.signup-intro {
++  padding: var(--space-8);
++  border-radius: var(--radius-lg);
++  background: var(--color-surface-subtle);
++}
++
++.signup-intro .ms-plate {
++  margin-bottom: var(--space-6);
++}
++
++.signup-intro-title {
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
++}
++
++.signup-success {
+   display: flex;
+   flex-direction: column;
+-  gap: var(--space-4);
++  align-items: flex-start;
++  animation: ms-enter var(--motion-duration-snap) var(--motion-easing-snap);
+ }
+ 
+-.signup-form p {
+-  margin: 0;
++.signup-success h2 {
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
+ }
+ 
+-.select {
+-  padding-top: var(--space-1);
+-  padding-bottom: var(--space-1);
++.signup-success p {
++  margin-bottom: var(--space-8);
++  font-size: var(--font-size-body-lg);
+ }
+ 
+-.signup-success {
+-  background: var(--color-success-bg);
+-  border-radius: var(--radius);
+-  padding: var(--space-6);
++.success-art {
++  position: relative;
++  width: 160px;
++  margin-bottom: var(--space-6);
++}
++
++.success-art > svg:first-child {
++  display: block;
++  width: 100%;
++  height: auto;
+ }
+ 
+-@media (max-width: 900px) {
++.success-glyph {
++  position: absolute;
++  top: -12px;
++  right: -36px;
++}
++
++/* ───────────────────── Responsive ───────────────────── */
++
++@media (max-width: 1023px) {
++  .container,
++  .ms-field__inner {
++    padding-inline: var(--space-6);
++  }
++
++  .nav-list {
++    gap: var(--space-6);
++  }
++
++  .site-header-inner {
++    gap: var(--space-6);
++  }
++
+   .feature-grid,
+   .testimonial-grid,
++  .case-study-grid {
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
++
+   .plan-grid {
+-    grid-template-columns: 1fr;
++    grid-template-columns: minmax(0, 1fr);
++    max-width: var(--size-reading);
+   }
+ 
+   .site-footer-inner {
+-    grid-template-columns: repeat(3, 1fr);
++    grid-template-columns: repeat(3, minmax(0, 1fr));
+   }
+ 
+   .footer-brand,
+   .newsletter {
+     grid-column: 1 / -1;
+   }
++
++  .testimonial figure {
++    padding: var(--space-8);
++  }
+ }
+ 
+-@media (max-width: 719px) {
+-  .primary-nav {
++@media (max-width: 767px) {
++  h1,
++  h2 {
++    font-size: var(--font-size-h2mobile);
++  }
++
++  .section {
++    padding-block: var(--space-16);
++  }
++
++  .ms-field {
++    --ms-arc: var(--size-arc-sm);
++    padding-block: var(--space-16);
++  }
++
++  .ms-field__inner,
++  .ms-field--header .ms-field__inner {
++    padding-inline: var(--space-6);
++  }
++
++  .ms-field--header {
++    min-height: 0;
++    padding-block: var(--space-8);
++  }
++
++  /* Compact band: cluster tucked in the top corner, never its own row; the title wraps clear of it */
++  .ms-field--header .ms-field__art {
++    inset: var(--space-4) var(--space-4) auto auto;
++    width: 88px;
++  }
++
++  .ms-field--header .ms-field__inner > :first-child {
++    padding-inline-end: calc(88px + var(--space-6));
++  }
++
++  .band-lead {
++    font-size: var(--font-size-body-lg);
++  }
++
++  .ms-panel {
++    padding: var(--space-8) var(--space-6);
++  }
++
++  .ms-confetti__art > :nth-child(n + 4) {
+     display: none;
+   }
+ 
+-  .header-actions .menu-toggle {
+-    display: inline-block;
++  .ms-confetti__art > :nth-child(1) {
++    width: 56px;
+   }
+ 
+-  .hero-title {
+-    font-size: var(--font-size-hero-mobile);
++  .ms-plate {
++    width: var(--size-plate-sm);
++    height: var(--size-plate-sm);
++  }
++
++  .hero.ms-field {
++    padding-block: var(--space-12) var(--space-12);
+   }
+ 
+   .hero-inner,
+   .how-inner,
+   .signup-inner,
++  .stat-list,
++  .feature-grid,
++  .testimonial-grid,
++  .case-study-grid {
++    grid-template-columns: minmax(0, 1fr);
++  }
++
++  .hero-copy {
++    text-align: center;
++  }
++
++  .hero-title {
++    font-size: var(--font-size-display-mobile);
++  }
++
++  .hero-subcopy {
++    margin-inline: auto;
++    font-size: var(--font-size-body-lg);
++  }
++
++  .hero-copy .cta-actions {
++    justify-content: center;
++  }
++
++  .hero-vignette {
++    padding-inline: 0;
++  }
++
++  .ms-vignette {
++    min-height: 0;
++  }
++
++  .ms-vignette__card {
++    max-width: 92%;
++  }
++
++  .hero-confetti > :nth-child(1) { width: 88px; }
++  .hero-confetti > :nth-child(3) { width: 96px; }
++  .hero-confetti > :nth-child(5) { display: none; }
++
++  .cta-art > :nth-child(n + 3) {
++    display: none;
++  }
++
++  .cta-art > :nth-child(1) { inset: 6% auto auto 4%; width: 56px; }
++  .cta-art > :nth-child(2) { inset: 8% 6% auto auto; width: 28px; }
++
+   .stat-list {
+-    grid-template-columns: 1fr;
++    gap: var(--space-10);
++  }
++
++  .feature-card,
++  .testimonial figure,
++  .featured-quote,
++  .signup-intro {
++    padding: var(--space-6);
++  }
++
++  .step-item {
++    padding: var(--space-5);
+   }
+ 
+   .site-footer-inner {
+-    grid-template-columns: 1fr 1fr;
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++  }
++
++  .faq-panel {
++    padding-right: 0;
++  }
++}
++
++@media (max-width: 719px) {
++  .site-header-inner {
++    height: 64px;
++    gap: var(--space-3);
++  }
++
++  .primary-nav {
++    display: none;
++  }
++
++  .header-actions .menu-toggle {
++    display: inline-flex;
++  }
++
++  .header-signup {
++    height: var(--size-control-sm);
++    padding: 0 var(--space-5);
+   }
+ }
+ 
+@@ -954,3 +2303,61 @@ a {
+     display: none;
+   }
+ }
++
++@media (max-width: 639px) {
++  .container {
++    padding-inline: var(--space-4);
++  }
++
++  .ms-pill--mega {
++    max-width: 100%;
++    padding: var(--space-4) var(--space-8);
++    font-size: var(--font-size-mega-mobile);
++    white-space: normal;
++    text-align: center;
++  }
++
++  .signup-submit {
++    align-self: stretch;
++  }
++
++  .newsletter .field-row {
++    flex-wrap: wrap;
++  }
++
++  .newsletter .field-row .ms-pill {
++    flex: 1 0 100%;
++  }
++
++  .footer-bottom-inner {
++    min-height: 72px;
++  }
++}
++
++/* ───────────────────── Reduced motion ───────────────────── */
++
++@media (prefers-reduced-motion: reduce) {
++  .ms-glyph__part,
++  .ms-pop-dots > span {
++    animation: none;
++  }
++
++  .ms-pill,
++  .input,
++  .checkbox,
++  .site-header,
++  .faq-indicator .ms-icon {
++    transition: none;
++  }
++
++  .ms-js .ms-vignette:not(.is-in) .ms-vignette__card {
++    opacity: 1;
++  }
++
++  .ms-vignette.is-in .ms-vignette__card,
++  .faq-panel:not([hidden]),
++  .mobile-nav,
++  .signup-success {
++    animation: none;
++  }
++}

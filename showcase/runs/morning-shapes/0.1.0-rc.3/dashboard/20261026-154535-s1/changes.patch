@@ -1,0 +1,2827 @@
+diff --git a/package.json b/package.json
+index 6a7bf99..178d33f 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,8 @@
+     "typecheck": "tsc --noEmit -p tsconfig.json"
+   },
+   "dependencies": {
++    "@fontsource/dm-mono": "^5.0.0",
++    "@fontsource/figtree": "^5.0.0",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+     "react-router": "^7.0.0"
+diff --git a/src/components/BarChart.tsx b/src/components/BarChart.tsx
+index 63f7c3f..a3bf04c 100644
+--- a/src/components/BarChart.tsx
++++ b/src/components/BarChart.tsx
+@@ -1,57 +1,91 @@
++import { useEffect, useRef, useState } from 'react';
+ import type { MonthlyValue } from '../data/metrics';
+ 
+ interface BarChartProps {
+   title: string;
+   data: MonthlyValue[];
++  /** Legend label for the single series. */
++  seriesLabel?: string;
+ }
+ 
+-const WIDTH = 600;
+ const HEIGHT = 240;
+-const PADDING_TOP = 24;
+-const PADDING_BOTTOM = 28;
+-const PADDING_X = 16;
++const PADDING_TOP = 28;
++const PADDING_BOTTOM = 32;
++const PADDING_X = 8;
++/** radius.sm on the top corners of each bar. */
++const BAR_RADIUS = 8;
++
++/** A bar with rounded top corners and a flat base. */
++function barPath(x: number, y: number, width: number, height: number) {
++  const r = Math.min(BAR_RADIUS, width / 2, height);
++  return `M${x} ${y + height}V${y + r}Q${x} ${y} ${x + r} ${y}H${x + width - r}Q${x + width} ${y} ${x + width} ${y + r}V${y + height}Z`;
++}
++
++export default function BarChart({ title, data, seriesLabel = 'Deployments' }: BarChartProps) {
++  const frameRef = useRef<HTMLDivElement>(null);
++  // Drawn at the measured width so labels stay at their real type size on every screen.
++  const [width, setWidth] = useState(600);
++
++  useEffect(() => {
++    const frame = frameRef.current;
++    if (!frame || typeof ResizeObserver === 'undefined') return;
++    const observer = new ResizeObserver(([entry]) => {
++      const next = Math.round(entry.contentRect.width);
++      if (next > 0) setWidth(next);
++    });
++    observer.observe(frame);
++    return () => observer.disconnect();
++  }, []);
+ 
+-export default function BarChart({ title, data }: BarChartProps) {
+   const max = Math.max(...data.map((point) => point.value), 1);
+   const plotHeight = HEIGHT - PADDING_TOP - PADDING_BOTTOM;
+-  const slot = (WIDTH - PADDING_X * 2) / data.length;
+-  const barWidth = slot * 0.6;
++  const slot = (width - PADDING_X * 2) / data.length;
++  const barWidth = Math.min(slot * 0.6, 56);
+   const summary = data.map((point) => `${point.month}: ${point.value}`).join(', ');
+ 
+   return (
+     <figure className="chart" data-testid="bar-chart">
+-      <figcaption className="chart-title">{title}</figcaption>
+-      <svg
+-        className="chart-svg"
+-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+-        role="img"
+-        aria-label={`${title}. ${summary}`}
+-        preserveAspectRatio="xMidYMid meet"
+-      >
+-        <line
+-          className="chart-axis"
+-          x1={PADDING_X}
+-          x2={WIDTH - PADDING_X}
+-          y1={HEIGHT - PADDING_BOTTOM}
+-          y2={HEIGHT - PADDING_BOTTOM}
+-        />
+-        {data.map((point, index) => {
+-          const barHeight = (point.value / max) * plotHeight;
+-          const x = PADDING_X + index * slot + (slot - barWidth) / 2;
+-          const y = HEIGHT - PADDING_BOTTOM - barHeight;
+-          return (
+-            <g key={point.month} data-testid="chart-bar">
+-              <rect className="chart-bar" x={x} y={y} width={barWidth} height={barHeight} />
+-              <text className="chart-value" x={x + barWidth / 2} y={y - 6} textAnchor="middle">
+-                {point.value}
+-              </text>
+-              <text className="chart-label" x={x + barWidth / 2} y={HEIGHT - 8} textAnchor="middle">
+-                {point.month}
+-              </text>
+-            </g>
+-          );
+-        })}
+-      </svg>
++      <figcaption className="chart-head">
++        <span className="chart-title">{title}</span>
++        <span className="chart-legend" aria-hidden="true">
++          <span className="ms-dot chart-legend__dot" />
++          {seriesLabel}
++        </span>
++      </figcaption>
++      <div className="chart-frame" ref={frameRef}>
++        <svg
++          className="chart-svg"
++          viewBox={`0 0 ${width} ${HEIGHT}`}
++          width={width}
++          height={HEIGHT}
++          role="img"
++          aria-label={`${title}. ${summary}`}
++        >
++          <line
++            className="chart-axis"
++            x1={PADDING_X}
++            x2={width - PADDING_X}
++            y1={HEIGHT - PADDING_BOTTOM + 0.5}
++            y2={HEIGHT - PADDING_BOTTOM + 0.5}
++          />
++          {data.map((point, index) => {
++            const barHeight = (point.value / max) * plotHeight;
++            const x = PADDING_X + index * slot + (slot - barWidth) / 2;
++            const y = HEIGHT - PADDING_BOTTOM - barHeight;
++            return (
++              <g key={point.month} data-testid="chart-bar">
++                <path className="chart-bar" d={barPath(x, y, barWidth, barHeight)} />
++                <text className="chart-value" x={x + barWidth / 2} y={y - 8} textAnchor="middle">
++                  {point.value}
++                </text>
++                <text className="chart-label" x={x + barWidth / 2} y={HEIGHT - 8} textAnchor="middle">
++                  {point.month}
++                </text>
++              </g>
++            );
++          })}
++        </svg>
++      </div>
+     </figure>
+   );
+ }
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 2a82e37..c1defd5 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,12 +1,15 @@
+-import { useEffect, useRef, useState, type FormEvent } from 'react';
++import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+ import { currentUser } from '../data/team';
++import { Avatar } from './ms/shapes';
++import { Icon } from './ms/Icon';
+ 
++/* Area-to-hue map (rule 2): areas in navigation order take category 1–3; Settings is a utility area (cream). */
+ const NAV_ITEMS = [
+-  { to: '/', label: 'Overview', testId: 'nav-overview', end: true },
+-  { to: '/projects', label: 'Projects', testId: 'nav-projects', end: false },
+-  { to: '/team', label: 'Team', testId: 'nav-team', end: false },
+-  { to: '/settings', label: 'Settings', testId: 'nav-settings', end: false },
++  { to: '/', label: 'Overview', testId: 'nav-overview', end: true, hue: 'yellow' },
++  { to: '/projects', label: 'Projects', testId: 'nav-projects', end: false, hue: 'blue' },
++  { to: '/team', label: 'Team', testId: 'nav-team', end: false, hue: 'green' },
++  { to: '/settings', label: 'Settings', testId: 'nav-settings', end: false, hue: 'cream' },
+ ];
+ 
+ export default function Layout() {
+@@ -14,13 +17,28 @@ export default function Layout() {
+   const location = useLocation();
+   const [query, setQuery] = useState('');
+   const [menuOpen, setMenuOpen] = useState(false);
++  const [navOpen, setNavOpen] = useState(false);
++  const [scrolled, setScrolled] = useState(false);
+   const menuRef = useRef<HTMLDivElement>(null);
++  const navRef = useRef<HTMLElement>(null);
++  const navToggleRef = useRef<HTMLButtonElement>(null);
+ 
+-  // Close the user menu when the route changes.
++  // Close the user menu and the mobile navigation when the route changes.
+   useEffect(() => {
+     setMenuOpen(false);
++    setNavOpen(false);
+   }, [location.pathname]);
+ 
++  // The top bar gets its shadow after 8px of scroll.
++  useEffect(() => {
++    function onScroll() {
++      setScrolled(window.scrollY > 8);
++    }
++    onScroll();
++    window.addEventListener('scroll', onScroll, { passive: true });
++    return () => window.removeEventListener('scroll', onScroll);
++  }, []);
++
+   useEffect(() => {
+     if (!menuOpen) return;
+     function onKeyDown(event: KeyboardEvent) {
+@@ -37,6 +55,37 @@ export default function Layout() {
+     };
+   }, [menuOpen]);
+ 
++  // Mobile navigation: focus the first link on open, close on Escape and return focus to the toggle.
++  useEffect(() => {
++    if (!navOpen) return;
++    navRef.current?.querySelector<HTMLElement>('a')?.focus();
++    function onKeyDown(event: KeyboardEvent) {
++      if (event.key === 'Escape') {
++        setNavOpen(false);
++        navToggleRef.current?.focus();
++      }
++    }
++    document.addEventListener('keydown', onKeyDown);
++    return () => document.removeEventListener('keydown', onKeyDown);
++  }, [navOpen]);
++
++  // Keep Tab inside the open mobile navigation (its links plus the toggle).
++  function trapNavFocus(event: ReactKeyboardEvent<HTMLElement>) {
++    if (!navOpen || event.key !== 'Tab') return;
++    const focusables = [navToggleRef.current, ...Array.from(navRef.current?.querySelectorAll<HTMLElement>('a') ?? [])].filter(
++      (element): element is HTMLElement => element !== null,
++    );
++    const first = focusables[0];
++    const last = focusables[focusables.length - 1];
++    if (event.shiftKey && document.activeElement === first) {
++      event.preventDefault();
++      last.focus();
++    } else if (!event.shiftKey && document.activeElement === last) {
++      event.preventDefault();
++      first.focus();
++    }
++  }
++
+   function handleSearch(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+     const term = query.trim();
+@@ -45,40 +94,59 @@ export default function Layout() {
+ 
+   return (
+     <div className="app-shell">
+-      <a className="skip-link" href="#main-content">
++      <a className="skip-link ms-pill" href="#main-content">
+         Skip to content
+       </a>
+-      <aside className="sidebar">
+-        <div className="brand">Northwind Ops</div>
+-        <nav aria-label="Primary" data-testid="sidebar-nav">
++      <aside className={navOpen ? 'sidebar is-open' : 'sidebar'} onKeyDown={trapNavFocus}>
++        <div className="sidebar-inner">
++        <div className="sidebar-top">
++          <div className="brand">Northwind Ops</div>
++          <button
++            ref={navToggleRef}
++            type="button"
++            className="ms-pill ms-pill--cream ms-circle nav-toggle"
++            aria-expanded={navOpen}
++            aria-controls="primary-nav"
++            aria-label={navOpen ? 'Close menu' : 'Open menu'}
++            onClick={() => setNavOpen((open) => !open)}
++          >
++            <Icon name={navOpen ? 'close' : 'menu'} />
++          </button>
++        </div>
++        <nav id="primary-nav" ref={navRef} aria-label="Primary" data-testid="sidebar-nav" className="primary-nav">
+           <ul className="nav-list">
+             {NAV_ITEMS.map((item) => (
+               <li key={item.to}>
+                 <NavLink to={item.to} end={item.end} className="nav-link" data-testid={item.testId}>
++                  <span className={`ms-dot nav-dot nav-dot--${item.hue}`} aria-hidden="true" />
+                   {item.label}
+                 </NavLink>
+               </li>
+             ))}
+           </ul>
+         </nav>
++        </div>
+       </aside>
+ 
+       <div className="main-column">
+-        <header className="topbar">
++        <header className={scrolled ? 'topbar is-scrolled' : 'topbar'}>
+           <form role="search" className="topbar-search" onSubmit={handleSearch}>
+             <label htmlFor="global-search" className="visually-hidden">
+               Search projects
+             </label>
+-            <input
+-              id="global-search"
+-              type="search"
+-              className="input"
+-              placeholder="Search projects…"
+-              value={query}
+-              onChange={(event) => setQuery(event.target.value)}
+-              data-testid="global-search"
+-            />
+-            <button type="submit" className="button" data-testid="global-search-submit">
++            <div className="search-field">
++              <Icon name="search" small className="search-field__icon" />
++              <input
++                id="global-search"
++                type="search"
++                className="input input--search"
++                placeholder="Search projects…"
++                value={query}
++                onChange={(event) => setQuery(event.target.value)}
++                data-testid="global-search"
++              />
++            </div>
++            <button type="submit" className="ms-pill topbar-search__submit" data-testid="global-search-submit">
+               Search
+             </button>
+           </form>
+@@ -86,16 +154,15 @@ export default function Layout() {
+           <div className="user-menu" ref={menuRef}>
+             <button
+               type="button"
+-              className="button user-menu-button"
++              className="ms-pill ms-pill--cream user-menu-button"
+               aria-expanded={menuOpen}
+               aria-controls="user-menu-panel"
+               onClick={() => setMenuOpen((open) => !open)}
+               data-testid="user-menu-button"
+             >
+-              <span className="avatar" aria-hidden="true">
+-                {currentUser.initials}
+-              </span>
+-              <span>{currentUser.name}</span>
++              <Avatar initials={currentUser.initials} />
++              <span className="user-menu-name">{currentUser.name}</span>
++              <Icon name="chevronDown" small className="user-menu-chevron" />
+             </button>
+             {menuOpen && (
+               <div id="user-menu-panel" className="user-menu-panel" data-testid="user-menu">
+@@ -112,7 +179,7 @@ export default function Layout() {
+                     </Link>
+                   </li>
+                   <li>
+-                    <button type="button" className="link-button" onClick={() => setMenuOpen(false)}>
++                    <button type="button" className="user-menu-link" onClick={() => setMenuOpen(false)}>
+                       Sign out
+                     </button>
+                   </li>
+diff --git a/src/components/ProjectsTable.tsx b/src/components/ProjectsTable.tsx
+index 28169e4..2d3179e 100644
+--- a/src/components/ProjectsTable.tsx
++++ b/src/components/ProjectsTable.tsx
+@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
+ import { Link } from 'react-router';
+ import { projects, type Project, type ProjectStatus } from '../data/projects';
+ import StatusPill from './StatusPill';
++import { Composition } from './ms/shapes';
++import { Icon } from './ms/Icon';
+ 
+ type StatusFilter = 'all' | ProjectStatus;
+ type SortKey = 'name' | 'owner' | 'status' | 'budget' | 'dueDate';
+@@ -14,11 +16,11 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
+   { value: 'done', label: 'Done' },
+ ];
+ 
+-const COLUMNS: { key: SortKey; label: string }[] = [
++const COLUMNS: { key: SortKey; label: string; numeric?: boolean }[] = [
+   { key: 'name', label: 'Project' },
+   { key: 'owner', label: 'Owner' },
+   { key: 'status', label: 'Status' },
+-  { key: 'budget', label: 'Budget' },
++  { key: 'budget', label: 'Budget', numeric: true },
+   { key: 'dueDate', label: 'Due date' },
+ ];
+ 
+@@ -39,9 +41,13 @@ function compare(a: Project, b: Project, key: SortKey): number {
+ interface ProjectsTableProps {
+   heading: string;
+   initialQuery?: string;
++  /** 'panel' sits in a cream dashboard panel; 'plain' sits directly on the page below a header band. */
++  variant?: 'panel' | 'plain';
++  /** Empty-state panel hue: the Projects area hue, or cream when another field is in view. */
++  emptyHue?: 'blue' | 'cream';
+ }
+ 
+-export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTableProps) {
++export default function ProjectsTable({ heading, initialQuery = '', variant = 'panel', emptyHue = 'blue' }: ProjectsTableProps) {
+   const [status, setStatus] = useState<StatusFilter>('all');
+   const [query, setQuery] = useState(initialQuery);
+   const [sortKey, setSortKey] = useState<SortKey>('dueDate');
+@@ -77,21 +83,23 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+   }
+ 
+   return (
+-    <section className="panel" aria-labelledby="projects-table-heading">
++    <section className={variant === 'panel' ? 'panel' : 'table-section'} aria-labelledby="projects-table-heading">
+       <div className="panel-header">
+-        <h2 id="projects-table-heading">{heading}</h2>
++        <h2 id="projects-table-heading" className="panel-title">
++          {heading}
++        </h2>
+         <p className="muted" data-testid="result-count" aria-live="polite">
+           Showing {rows.length} of {projects.length} projects
+         </p>
+       </div>
+ 
+       <div className="toolbar">
+-        <div className="segmented" role="group" aria-label="Filter by status">
++        <div className="filter-row" role="group" aria-label="Filter by status">
+           {FILTERS.map((filter) => (
+             <button
+               key={filter.value}
+               type="button"
+-              className="segmented-button"
++              className="ms-pill ms-pill--cream ms-pill--sm ms-tab"
+               aria-pressed={status === filter.value}
+               onClick={() => setStatus(filter.value)}
+               data-testid={`status-filter-${filter.value}`}
+@@ -100,30 +108,38 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+             </button>
+           ))}
+         </div>
+-        <div className="field-inline">
+-          <label htmlFor="project-filter">Filter projects</label>
+-          <input
+-            id="project-filter"
+-            type="search"
+-            className="input"
+-            placeholder="Name, owner or team"
+-            value={query}
+-            onChange={(event) => setQuery(event.target.value)}
+-            data-testid="project-search"
+-          />
++        <div className="field field--toolbar">
++          <label htmlFor="project-filter" className="field-label">
++            Filter projects
++          </label>
++          <div className="search-field">
++            <Icon name="search" small className="search-field__icon" />
++            <input
++              id="project-filter"
++              type="search"
++              className="input input--search"
++              placeholder="Name, owner or team"
++              value={query}
++              onChange={(event) => setQuery(event.target.value)}
++              data-testid="project-search"
++            />
++          </div>
+         </div>
+       </div>
+ 
+       {rows.length === 0 ? (
+-        <div className="empty-state" data-testid="projects-empty">
+-          <h3>No projects match your filters</h3>
+-          <p className="muted">Try a different search term or status.</p>
+-          <button type="button" className="button" onClick={clearFilters} data-testid="clear-filters">
+-            Clear filters
+-          </button>
++        <div className={`empty-panel ms-panel ms-hue--${emptyHue}`} data-testid="projects-empty">
++          <Composition name="search" />
++          <div className="empty-panel__text">
++            <h3 className="empty-panel__title">No projects match your filters</h3>
++            <p>Try a different search term or status.</p>
++            <button type="button" className="ms-pill" onClick={clearFilters} data-testid="clear-filters">
++              Clear filters
++            </button>
++          </div>
+         </div>
+       ) : (
+-        <div className="table-wrap">
++        <div className="table-frame" tabIndex={0} role="region" aria-label={`${heading} table`}>
+           <table className="table" data-testid="projects-table">
+             <thead>
+               <tr>
+@@ -131,6 +147,7 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+                   <th
+                     key={column.key}
+                     scope="col"
++                    className={column.numeric ? 'numeric' : undefined}
+                     aria-sort={sortKey === column.key ? sortDirection : 'none'}
+                     data-testid={`column-${column.key}`}
+                   >
+@@ -141,19 +158,25 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+                       data-testid={`sort-${column.key}`}
+                     >
+                       {column.label}
+-                      <span className="sort-indicator" aria-hidden="true">
+-                        {sortKey === column.key ? (sortDirection === 'ascending' ? '▲' : '▼') : ''}
++                      <span
++                        className={`sort-indicator${sortKey === column.key ? ` is-${sortDirection}` : ''}`}
++                        aria-hidden="true"
++                      >
++                        {sortKey === column.key && <Icon name="chevronDown" small />}
+                       </span>
+                     </button>
+                   </th>
+                 ))}
++                <th scope="col" className="table-actions-head">
++                  <span className="visually-hidden">Actions</span>
++                </th>
+               </tr>
+             </thead>
+             <tbody>
+               {rows.map((project) => (
+                 <tr key={project.id} data-testid="project-row">
+                   <td>
+-                    <Link to={`/projects/${project.id}`} data-testid="project-link">
++                    <Link to={`/projects/${project.id}`} className="cell-title" data-testid="project-link">
+                       {project.name}
+                     </Link>
+                     <div className="muted small">{project.client}</div>
+@@ -163,7 +186,16 @@ export default function ProjectsTable({ heading, initialQuery = '' }: ProjectsTa
+                     <StatusPill status={project.status} />
+                   </td>
+                   <td className="numeric">{currency.format(project.budget)}</td>
+-                  <td>{formatDate(project.dueDate)}</td>
++                  <td className="nowrap">{formatDate(project.dueDate)}</td>
++                  <td className="table-actions">
++                    <Link
++                      to={`/projects/${project.id}`}
++                      className="ms-pill ms-pill--cream ms-circle ms-circle--sm"
++                      aria-label={`Open ${project.name}`}
++                    >
++                      <Icon name="chevronRight" small />
++                    </Link>
++                  </td>
+                 </tr>
+               ))}
+             </tbody>
+diff --git a/src/components/StatusPill.tsx b/src/components/StatusPill.tsx
+index 5abae07..ace3e47 100644
+--- a/src/components/StatusPill.tsx
++++ b/src/components/StatusPill.tsx
+@@ -1,8 +1,9 @@
+ import { STATUS_LABELS, type ProjectStatus } from '../data/projects';
+ 
+-export default function StatusPill({ status }: { status: ProjectStatus }) {
++/** Status badge: subtle pill with a leading status dot; the meaning is in the label. */
++export default function StatusPill({ status, onField = false }: { status: ProjectStatus; onField?: boolean }) {
+   return (
+-    <span className={`pill pill-${status}`} data-testid="status-pill">
++    <span className={`badge badge--status badge--${status}${onField ? ' badge--on-field' : ''}`} data-testid="status-pill">
+       {STATUS_LABELS[status]}
+     </span>
+   );
+diff --git a/src/main.tsx b/src/main.tsx
+index 79dc2f9..14fbe7b 100644
+--- a/src/main.tsx
++++ b/src/main.tsx
+@@ -2,6 +2,12 @@ import { StrictMode } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { BrowserRouter } from 'react-router';
+ import App from './App';
++import '@fontsource/figtree/400.css';
++import '@fontsource/figtree/500.css';
++import '@fontsource/figtree/700.css';
++import '@fontsource/dm-mono/400.css';
++import '../design-system/tokens.css';
++import './styles/morning-shapes.css';
+ import './styles/base.css';
+ 
+ const rootElement = document.getElementById('root');
+diff --git a/src/pages/NotFoundPage.tsx b/src/pages/NotFoundPage.tsx
+index dde83ce..f5f7c35 100644
+--- a/src/pages/NotFoundPage.tsx
++++ b/src/pages/NotFoundPage.tsx
+@@ -1,11 +1,20 @@
+ import { Link } from 'react-router';
++import { RiseBand } from '../components/ms/Field';
++import { Cluster } from '../components/ms/shapes';
+ 
+ export default function NotFoundPage() {
+   return (
+-    <section className="empty-state" data-testid="not-found">
+-      <h1>Page not found</h1>
+-      <p className="muted">The page you are looking for does not exist or has moved.</p>
+-      <Link to="/">Go to overview</Link>
+-    </section>
++    <RiseBand hue="cream" className="error-band" testId="not-found">
++      <div className="error-band__art">
++        <Cluster name="error" />
++      </div>
++      <div className="error-band__text">
++        <h1 className="page-title">Page not found</h1>
++        <p>The page you are looking for does not exist or has moved.</p>
++        <Link to="/" className="ms-pill">
++          Go to overview
++        </Link>
++      </div>
++    </RiseBand>
+   );
+ }
+diff --git a/src/pages/OverviewPage.tsx b/src/pages/OverviewPage.tsx
+index c7d849a..40768c0 100644
+--- a/src/pages/OverviewPage.tsx
++++ b/src/pages/OverviewPage.tsx
+@@ -2,12 +2,24 @@ import { useEffect, useRef, useState } from 'react';
+ import { Link } from 'react-router';
+ import BarChart from '../components/BarChart';
+ import ProjectsTable from '../components/ProjectsTable';
++import { Glyph, PopDots } from '../components/ms/Glyph';
++import { Icon } from '../components/ms/Icon';
++import { Plate, type PictogramName } from '../components/ms/shapes';
+ import { deploymentsByMonth, kpis, recentActivity } from '../data/metrics';
+ import { projects } from '../data/projects';
++import { currentUser } from '../data/team';
+ 
+ /** How long a refresh of the metrics takes (mock data: the delay only shows the loading state). */
+ const REFRESH_MS = 1500;
+ 
++/* Stat tiles take the category hues in order; each gets a plate whose pictogram names its metric. */
++const TILE_ART: Record<string, { hue: string; pictogram: PictogramName }> = {
++  deployments: { hue: 'yellow', pictogram: 'rocket' },
++  uptime: { hue: 'blue', pictogram: 'sun' },
++  incidents: { hue: 'green', pictogram: 'bell' },
++  'lead-time': { hue: 'orange', pictogram: 'clock' },
++};
++
+ export default function OverviewPage() {
+   const [loading, setLoading] = useState(false);
+   const timer = useRef<number | undefined>(undefined);
+@@ -18,54 +30,91 @@ export default function OverviewPage() {
+     timer.current = window.setTimeout(() => setLoading(false), REFRESH_MS);
+   }
+ 
++  const firstName = currentUser.name.split(' ')[0];
++
+   return (
+-    <>
+-      <div className="page-header page-header-row">
+-        <div>
+-          <h1>Overview</h1>
+-          <p className="muted">Delivery health across all teams for October 2026.</p>
++    <div className="page-body">
++      <div className="dash-header">
++        <Glyph kind="moon" hue="yellow" />
++        <div className="dash-header__text">
++          <p className="dash-greeting">Hello, {firstName}</p>
++          <h1 className="page-title">Overview</h1>
++          <p className="page-lead">Delivery health across all teams for October 2026.</p>
++        </div>
++        <div className="dash-header__actions">
++          {loading && (
++            <p className="loading-note" role="status">
++              <PopDots />
++              Loading metrics
++            </p>
++          )}
++          <button
++            type="button"
++            className={loading ? 'ms-pill ms-pill--loading refresh-button' : 'ms-pill refresh-button'}
++            data-testid="refresh-metrics"
++            onClick={refresh}
++            disabled={loading}
++            aria-busy={loading || undefined}
++          >
++            <span className="ms-pill__label">{loading ? 'Refreshing…' : 'Refresh'}</span>
++            {loading && (
++              <span className="ms-pill__loading">
++                <PopDots />
++              </span>
++            )}
++          </button>
+         </div>
+-        <button type="button" className="button" data-testid="refresh-metrics" onClick={refresh} disabled={loading}>
+-          {loading ? 'Refreshing…' : 'Refresh'}
+-        </button>
+       </div>
+ 
+       <section aria-label="Key metrics" aria-busy={loading} className="kpi-grid" data-testid="kpi-grid">
+         {loading
+           ? kpis.map((kpi) => (
+-              <article key={kpi.id} className="card kpi-card kpi-card-loading" data-testid="kpi-card-loading" aria-hidden="true">
+-                <span className="skeleton skeleton-label" />
+-                <span className="skeleton skeleton-value" />
+-                <span className="skeleton skeleton-change" />
++              <article key={kpi.id} className="kpi-tile kpi-tile--loading" data-testid="kpi-card-loading" aria-hidden="true">
++                <span className="ms-skeleton skeleton-label" />
++                <span className="ms-skeleton skeleton-value" />
++                <span className="ms-skeleton skeleton-change" />
+               </article>
+             ))
+-          : kpis.map((kpi) => (
+-              <article key={kpi.id} className="card kpi-card" data-testid="kpi-card">
+-                <h2 className="kpi-label">{kpi.label}</h2>
+-                <p className="kpi-value">{kpi.value}</p>
+-                <p className={`kpi-change kpi-change-${kpi.trend}`}>{kpi.change}</p>
++          : kpis.map((kpi, index) => (
++              <article key={kpi.id} className={`kpi-tile ms-hue--${TILE_ART[kpi.id]?.hue ?? 'yellow'}`} data-testid="kpi-card">
++                <div className="kpi-tile__text">
++                  <h2 className="kpi-label">{kpi.label}</h2>
++                  <p className="kpi-value">{kpi.value}</p>
++                  <p className="kpi-change">
++                    <Icon name={kpi.trend === 'up' ? 'trendUp' : 'trendDown'} small />
++                    {kpi.change}
++                  </p>
++                </div>
++                {TILE_ART[kpi.id] && <Plate name={TILE_ART[kpi.id].pictogram} small index={index} />}
+               </article>
+             ))}
+       </section>
+ 
+       <div className="two-column">
+         <section className="panel" aria-labelledby="throughput-heading">
+-          <h2 id="throughput-heading">Deployment throughput</h2>
++          <h2 id="throughput-heading" className="panel-title">
++            Deployment throughput
++          </h2>
+           <BarChart title="Production deployments per month" data={deploymentsByMonth} />
+         </section>
+ 
+         <section className="panel" aria-labelledby="activity-heading">
+-          <h2 id="activity-heading">Recent activity</h2>
++          <h2 id="activity-heading" className="panel-title">
++            Recent activity
++          </h2>
+           <ul className="activity-list" data-testid="activity-list">
+             {recentActivity.map((item) => {
+               const project = projects.find((p) => p.name === item.target);
+               return (
+                 <li key={item.id} className="activity-item" data-testid="activity-item">
+-                  <p>
+-                    <strong>{item.actor}</strong> {item.action}{' '}
+-                    {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
+-                  </p>
+-                  <p className="muted small">{item.time}</p>
++                  <span className="ms-dot activity-dot" aria-hidden="true" />
++                  <div>
++                    <p>
++                      <strong>{item.actor}</strong> {item.action}{' '}
++                      {project ? <Link to={`/projects/${project.id}`}>{item.target}</Link> : item.target}
++                    </p>
++                    <p className="muted small">{item.time}</p>
++                  </div>
+                 </li>
+               );
+             })}
+@@ -74,6 +123,6 @@ export default function OverviewPage() {
+       </div>
+ 
+       <ProjectsTable heading="Projects" />
+-    </>
++    </div>
+   );
+ }
+diff --git a/src/pages/ProjectDetailPage.tsx b/src/pages/ProjectDetailPage.tsx
+index 3e13517..0860b16 100644
+--- a/src/pages/ProjectDetailPage.tsx
++++ b/src/pages/ProjectDetailPage.tsx
+@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router';
+ import StatusPill from '../components/StatusPill';
+ import { formatDate } from '../components/ProjectsTable';
+ import { findProject, type Project, type Task } from '../data/projects';
++import { HeaderBand, RiseBand } from '../components/ms/Field';
++import { CLIENT_PICTOGRAMS, Cluster, Plate } from '../components/ms/shapes';
+ 
+ type TabId = 'overview' | 'tasks' | 'files';
+ 
+@@ -20,11 +22,18 @@ export default function ProjectDetailPage() {
+ 
+   if (!project) {
+     return (
+-      <div className="empty-state" data-testid="project-not-found">
+-        <h1>Project not found</h1>
+-        <p className="muted">There is no project with the id “{id}”.</p>
+-        <Link to="/projects">Back to all projects</Link>
+-      </div>
++      <RiseBand hue="cream" className="error-band" testId="project-not-found">
++        <div className="error-band__art">
++          <Cluster name="error" />
++        </div>
++        <div className="error-band__text">
++          <h1 className="page-title">Project not found</h1>
++          <p>There is no project with the id “{id}”.</p>
++          <Link to="/projects" className="ms-pill">
++            Back to all projects
++          </Link>
++        </div>
++      </RiseBand>
+     );
+   }
+ 
+@@ -37,6 +46,7 @@ function ProjectDetail({ project }: { project: Project }) {
+   const tabRefs = useRef<Record<TabId, HTMLButtonElement | null>>({ overview: null, tasks: null, files: null });
+ 
+   const completed = tasks.filter((task) => task.done).length;
++  const pictogram = CLIENT_PICTOGRAMS[project.client];
+ 
+   function toggleTask(taskId: string) {
+     setTasks((current) => current.map((task) => (task.id === taskId ? { ...task, done: !task.done } : task)));
+@@ -57,122 +67,133 @@ function ProjectDetail({ project }: { project: Project }) {
+ 
+   return (
+     <>
+-      <nav aria-label="Breadcrumb" className="breadcrumb">
+-        <ol>
+-          <li>
+-            <Link to="/projects">Projects</Link>
+-          </li>
+-          <li aria-current="page">{project.name}</li>
+-        </ol>
+-      </nav>
+-
+-      <div className="page-header page-header-row">
+-        <div>
+-          <h1 data-testid="project-title">{project.name}</h1>
+-          <p className="muted">
+-            {project.client} · Owned by {project.owner}
+-          </p>
++      <HeaderBand
++        hue="blue"
++        cluster="projects"
++        title={project.name}
++        titleTestId="project-title"
++        before={
++          <nav aria-label="Breadcrumb" className="breadcrumb">
++            <ol>
++              <li>
++                <Link to="/projects">Projects</Link>
++              </li>
++              <li aria-current="page">{project.name}</li>
++            </ol>
++          </nav>
++        }
++        lead={`${project.client} · Owned by ${project.owner}`}
++      >
++        <div className="band-meta">
++          <StatusPill status={project.status} onField />
++        </div>
++      </HeaderBand>
++
++      <div className="page-body page-body--below-band">
++        <div className="tabs" role="tablist" aria-label="Project sections">
++          {TABS.map((tab, index) => (
++            <button
++              key={tab.id}
++              ref={(element) => {
++                tabRefs.current[tab.id] = element;
++              }}
++              type="button"
++              role="tab"
++              id={`tab-${tab.id}`}
++              className="ms-pill ms-pill--cream ms-tab"
++              aria-selected={activeTab === tab.id}
++              aria-controls={`panel-${tab.id}`}
++              tabIndex={activeTab === tab.id ? 0 : -1}
++              onClick={() => setActiveTab(tab.id)}
++              onKeyDown={(event) => onTabKeyDown(event, index)}
++              data-testid={`tab-${tab.id}`}
++            >
++              {tab.label}
++            </button>
++          ))}
+         </div>
+-        <StatusPill status={project.status} />
+-      </div>
+-
+-      <div className="tabs" role="tablist" aria-label="Project sections">
+-        {TABS.map((tab, index) => (
+-          <button
+-            key={tab.id}
+-            ref={(element) => {
+-              tabRefs.current[tab.id] = element;
+-            }}
+-            type="button"
+-            role="tab"
+-            id={`tab-${tab.id}`}
+-            className="tab"
+-            aria-selected={activeTab === tab.id}
+-            aria-controls={`panel-${tab.id}`}
+-            tabIndex={activeTab === tab.id ? 0 : -1}
+-            onClick={() => setActiveTab(tab.id)}
+-            onKeyDown={(event) => onTabKeyDown(event, index)}
+-            data-testid={`tab-${tab.id}`}
+-          >
+-            {tab.label}
+-          </button>
+-        ))}
+-      </div>
+ 
+-      {activeTab === 'overview' && (
+-        <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="panel" data-testid="panel-overview">
+-          <p>{project.description}</p>
+-          <dl className="details">
+-            <div>
+-              <dt>Budget</dt>
+-              <dd>{currency.format(project.budget)}</dd>
+-            </div>
+-            <div>
+-              <dt>Due date</dt>
+-              <dd>{formatDate(project.dueDate)}</dd>
++        {activeTab === 'overview' && (
++          <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="panel" data-testid="panel-overview">
++            <div className="project-summary">
++              {pictogram && <Plate name={pictogram} />}
++              <p className="project-description">{project.description}</p>
+             </div>
+-            <div>
+-              <dt>Tasks</dt>
+-              <dd>
+-                {completed} of {tasks.length} complete
+-              </dd>
++            <dl className="details">
++              <div>
++                <dt>Budget</dt>
++                <dd>{currency.format(project.budget)}</dd>
++              </div>
++              <div>
++                <dt>Due date</dt>
++                <dd>{formatDate(project.dueDate)}</dd>
++              </div>
++              <div>
++                <dt>Tasks</dt>
++                <dd>
++                  {completed} of {tasks.length} complete
++                </dd>
++              </div>
++              <div>
++                <dt>Files</dt>
++                <dd>{project.files.length}</dd>
++              </div>
++            </dl>
++          </section>
++        )}
++
++        {activeTab === 'tasks' && (
++          <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="panel" data-testid="panel-tasks">
++            <div className="progress-row">
++              <p data-testid="task-progress" aria-live="polite">
++                {completed} of {tasks.length} tasks complete
++              </p>
++              <progress className="progress" max={tasks.length} value={completed} aria-label="Task completion" />
+             </div>
+-            <div>
+-              <dt>Files</dt>
+-              <dd>{project.files.length}</dd>
+-            </div>
+-          </dl>
+-        </section>
+-      )}
+-
+-      {activeTab === 'tasks' && (
+-        <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="panel" data-testid="panel-tasks">
+-          <div className="progress-row">
+-            <p data-testid="task-progress" aria-live="polite">
+-              {completed} of {tasks.length} tasks complete
+-            </p>
+-            <progress className="progress" max={tasks.length} value={completed} aria-label="Task completion" />
+-          </div>
+-          <ul className="task-list">
+-            {tasks.map((task) => (
+-              <li key={task.id} className={task.done ? 'task task-done' : 'task'} data-testid="task-item">
+-                <input
+-                  id={`task-${task.id}`}
+-                  type="checkbox"
+-                  checked={task.done}
+-                  onChange={() => toggleTask(task.id)}
+-                  data-testid={`task-checkbox-${task.id}`}
+-                />
+-                <label htmlFor={`task-${task.id}`}>{task.title}</label>
+-                <span className="muted small">{task.assignee}</span>
+-              </li>
+-            ))}
+-          </ul>
+-        </section>
+-      )}
+-
+-      {activeTab === 'files' && (
+-        <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="panel" data-testid="panel-files">
+-          <table className="table">
+-            <thead>
+-              <tr>
+-                <th scope="col">File name</th>
+-                <th scope="col">Size</th>
+-                <th scope="col">Last updated</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {project.files.map((file) => (
+-                <tr key={file.id} data-testid="file-row">
+-                  <td>{file.name}</td>
+-                  <td>{file.size}</td>
+-                  <td>{formatDate(file.updated)}</td>
+-                </tr>
++            <ul className="task-list">
++              {tasks.map((task) => (
++                <li key={task.id} className={task.done ? 'task task-done' : 'task'} data-testid="task-item">
++                  <input
++                    id={`task-${task.id}`}
++                    type="checkbox"
++                    className="checkbox"
++                    checked={task.done}
++                    onChange={() => toggleTask(task.id)}
++                    data-testid={`task-checkbox-${task.id}`}
++                  />
++                  <label htmlFor={`task-${task.id}`}>{task.title}</label>
++                  <span className="muted small">{task.assignee}</span>
++                </li>
+               ))}
+-            </tbody>
+-          </table>
+-        </section>
+-      )}
++            </ul>
++          </section>
++        )}
++
++        {activeTab === 'files' && (
++          <section id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="panel" data-testid="panel-files">
++            <div className="table-frame" tabIndex={0} role="region" aria-label="Project files table">
++              <table className="table">
++                <thead>
++                  <tr>
++                    <th scope="col">File name</th>
++                    <th scope="col">Size</th>
++                    <th scope="col">Last updated</th>
++                  </tr>
++                </thead>
++                <tbody>
++                  {project.files.map((file) => (
++                    <tr key={file.id} data-testid="file-row">
++                      <td className="mono">{file.name}</td>
++                      <td>{file.size}</td>
++                      <td className="nowrap">{formatDate(file.updated)}</td>
++                    </tr>
++                  ))}
++                </tbody>
++              </table>
++            </div>
++          </section>
++        )}
++      </div>
+     </>
+   );
+ }
+diff --git a/src/pages/ProjectsPage.tsx b/src/pages/ProjectsPage.tsx
+index 9529547..4fed4e8 100644
+--- a/src/pages/ProjectsPage.tsx
++++ b/src/pages/ProjectsPage.tsx
+@@ -1,5 +1,6 @@
+ import { useSearchParams } from 'react-router';
+ import ProjectsTable from '../components/ProjectsTable';
++import { HeaderBand } from '../components/ms/Field';
+ 
+ export default function ProjectsPage() {
+   const [searchParams] = useSearchParams();
+@@ -7,12 +8,11 @@ export default function ProjectsPage() {
+ 
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Projects</h1>
+-        <p className="muted">Every initiative tracked by the operations team.</p>
++      <HeaderBand hue="blue" cluster="projects" title="Projects" lead="Every initiative tracked by the operations team." />
++      <div className="page-body page-body--below-band">
++        {/* Re-mount when the global search changes so the table picks up the new query. */}
++        <ProjectsTable key={initialQuery} heading="All projects" initialQuery={initialQuery} variant="plain" emptyHue="cream" />
+       </div>
+-      {/* Re-mount when the global search changes so the table picks up the new query. */}
+-      <ProjectsTable key={initialQuery} heading="All projects" initialQuery={initialQuery} />
+     </>
+   );
+ }
+diff --git a/src/pages/SettingsPage.tsx b/src/pages/SettingsPage.tsx
+index 920db50..53e7848 100644
+--- a/src/pages/SettingsPage.tsx
++++ b/src/pages/SettingsPage.tsx
+@@ -1,19 +1,26 @@
+ import { Link } from 'react-router';
++import { HeaderBand } from '../components/ms/Field';
++import { Composition } from '../components/ms/shapes';
+ 
+ export default function SettingsPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Settings</h1>
++      <HeaderBand hue="cream" cluster="settings" title="Settings" />
++      <div className="page-body page-body--below-band page-body--reading">
++        <section className="empty-panel ms-panel ms-hue--cream" data-testid="settings-placeholder">
++          <Composition name="padlock" />
++          <div className="empty-panel__text">
++            <h2 className="empty-panel__title">Workspace settings are coming soon</h2>
++            <p>
++              Notification rules, integrations and access control will live here. For now, ask a workspace admin to make
++              changes.
++            </p>
++            <Link to="/" className="ms-pill">
++              Back to overview
++            </Link>
++          </div>
++        </section>
+       </div>
+-      <section className="panel empty-state" data-testid="settings-placeholder">
+-        <h2>Workspace settings are coming soon</h2>
+-        <p className="muted">
+-          Notification rules, integrations and access control will live here. For now, ask a workspace admin to make
+-          changes.
+-        </p>
+-        <Link to="/">Back to overview</Link>
+-      </section>
+     </>
+   );
+ }
+diff --git a/src/pages/TeamPage.tsx b/src/pages/TeamPage.tsx
+index c6c6245..7e7c59b 100644
+--- a/src/pages/TeamPage.tsx
++++ b/src/pages/TeamPage.tsx
+@@ -1,51 +1,59 @@
++import { HeaderBand } from '../components/ms/Field';
++import { Avatar } from '../components/ms/shapes';
+ import { team } from '../data/team';
+ 
+ export default function TeamPage() {
+   return (
+     <>
+-      <div className="page-header">
+-        <h1>Team</h1>
+-        <p className="muted">{team.length} people across engineering, design and operations.</p>
+-      </div>
+-      <section className="panel" aria-label="Team members">
+-        <div className="table-wrap">
+-          <table className="table" data-testid="team-table">
+-            <thead>
+-              <tr>
+-                <th scope="col">Name</th>
+-                <th scope="col">Role</th>
+-                <th scope="col">Location</th>
+-                <th scope="col">Active projects</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {team.map((member) => (
+-                <tr key={member.id} data-testid="team-row">
+-                  <td>
+-                    <div className="person">
+-                      <span className="avatar" aria-hidden="true">
+-                        {member.name
+-                          .split(' ')
+-                          .map((part) => part[0])
+-                          .join('')}
+-                      </span>
+-                      <div>
+-                        <div>{member.name}</div>
+-                        <a href={`mailto:${member.email}`} className="small">
+-                          {member.email}
+-                        </a>
+-                      </div>
+-                    </div>
+-                  </td>
+-                  <td>{member.role}</td>
+-                  <td>{member.location}</td>
+-                  <td className="numeric">{member.activeProjects}</td>
++      <HeaderBand
++        hue="green"
++        cluster="team"
++        title="Team"
++        lead={`${team.length} people across engineering, design and operations.`}
++      />
++      <div className="page-body page-body--below-band">
++        <section className="table-section" aria-label="Team members">
++          <div className="table-frame" tabIndex={0} role="region" aria-label="Team members table">
++            <table className="table" data-testid="team-table">
++              <thead>
++                <tr>
++                  <th scope="col">Name</th>
++                  <th scope="col">Role</th>
++                  <th scope="col">Location</th>
++                  <th scope="col" className="numeric">
++                    Active projects
++                  </th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
+-      </section>
++              </thead>
++              <tbody>
++                {team.map((member) => (
++                  <tr key={member.id} data-testid="team-row">
++                    <td>
++                      <div className="person">
++                        <Avatar
++                          initials={member.name
++                            .split(' ')
++                            .map((part) => part[0])
++                            .join('')}
++                        />
++                        <div>
++                          <div className="cell-title">{member.name}</div>
++                          <a href={`mailto:${member.email}`} className="small">
++                            {member.email}
++                          </a>
++                        </div>
++                      </div>
++                    </td>
++                    <td>{member.role}</td>
++                    <td>{member.location}</td>
++                    <td className="numeric">{member.activeProjects}</td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++        </section>
++      </div>
+     </>
+   );
+ }
+diff --git a/src/styles/base.css b/src/styles/base.css
+index cc4cee9..5f7277c 100644
+--- a/src/styles/base.css
++++ b/src/styles/base.css
+@@ -1,48 +1,38 @@
+ /*
+- * Base styles for the Northwind Ops dashboard.
+- * Deliberately plain. Every color, font, radius and spacing value is a custom
+- * property in :root so the whole look can be replaced from one place.
++ * Northwind Ops on Morning Shapes (morning-shapes@0.1.0-rc.3).
++ * Tokens live in design-system/tokens.css; signature pieces in morning-shapes.css.
++ * The original custom-property names below are kept as aliases so older code keeps working.
+  */
+ :root {
+-  --color-bg: #ffffff;
+-  --color-surface: #ffffff;
+-  --color-surface-muted: #f5f5f5;
+-  --color-sidebar-bg: #f5f5f5;
+-  --color-text: #222222;
+-  --color-text-muted: #666666;
+-  --color-border: #dddddd;
+-  --color-link: #0645ad;
+-  --color-primary: #0645ad;
+-  --color-primary-text: #ffffff;
+-  --color-focus: #1a73e8;
+-  --color-positive: #2e7d32;
+-  --color-negative: #b00020;
+-  --color-status-active-bg: #e3f2e5;
+-  --color-status-active-text: #1b5e20;
+-  --color-status-paused-bg: #fff4d6;
+-  --color-status-paused-text: #7a5a00;
+-  --color-status-done-bg: #e8e8e8;
+-  --color-status-done-text: #444444;
+-  --color-chart-bar: #6f8fbf;
+-  --color-chart-axis: #999999;
+-
+-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+-  --font-size-base: 15px;
+-  --font-size-small: 13px;
+-  --font-size-h1: 24px;
+-  --font-size-h2: 18px;
+-  --line-height: 1.5;
+-
+-  --radius: 4px;
+-  --radius-pill: 999px;
+-  --border-width: 1px;
+-  --space-1: 4px;
+-  --space-2: 8px;
+-  --space-3: 12px;
+-  --space-4: 16px;
+-  --space-6: 24px;
+-  --space-8: 32px;
+-  --sidebar-width: 220px;
++  color-scheme: light dark;
++
++  --color-bg: var(--color-surface-default);
++  --color-surface: var(--color-surface-default);
++  --color-surface-muted: var(--color-surface-subtle);
++  --color-sidebar-bg: var(--color-surface-subtle);
++  --color-text: var(--color-text-primary);
++  --color-text-muted: var(--color-text-secondary);
++  --color-border: var(--color-border-default);
++  --color-link: var(--color-text-link);
++  --color-primary: var(--color-action-primary);
++  --color-primary-text: var(--color-text-on-action);
++  --color-focus: var(--color-focus-ring);
++  --color-positive: var(--color-status-success);
++  --color-negative: var(--color-status-danger);
++  --color-chart-bar: var(--color-category-1);
++  --color-chart-axis: var(--color-border-default);
++  --font-body: var(--font-family-sans);
++  --font-size-base: var(--font-size-body);
++  --font-size-small: var(--font-size-label);
++  --line-height: var(--font-line-height-body);
++  --radius: var(--radius-md);
++  --radius-pill: var(--radius-full);
++  --border-width: var(--border-width-hair);
++  --sidebar-width: var(--size-sidebar);
++}
++
++@media (prefers-color-scheme: dark) {
++  :root:not([data-theme='light']) { color-scheme: dark; }
+ }
+ 
+ *,
+@@ -57,42 +47,43 @@ body {
+ }
+ 
+ body {
+-  background: var(--color-bg);
+-  color: var(--color-text);
+-  font-family: var(--font-body);
+-  font-size: var(--font-size-base);
+-  line-height: var(--line-height);
++  background: var(--color-surface-default);
++  color: var(--color-text-primary);
++  font-family: var(--font-family-sans);
++  font-size: var(--font-size-body);
++  line-height: var(--font-line-height-body);
++  -webkit-font-smoothing: antialiased;
+ }
+ 
+ h1,
+ h2,
+-h3 {
+-  margin: 0 0 var(--space-2);
+-  line-height: 1.25;
+-}
+-
+-h1 {
+-  font-size: var(--font-size-h1);
+-}
+-
+-h2 {
+-  font-size: var(--font-size-h2);
+-}
+-
+-h3 {
+-  font-size: var(--font-size-base);
++h3,
++h4 {
++  margin: 0;
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ p {
+-  margin: 0 0 var(--space-2);
++  margin: 0;
+ }
+ 
+ a {
+-  color: var(--color-link);
++  color: var(--color-text-link);
++  text-decoration-thickness: 1px;
++  text-underline-offset: 3px;
++}
++
++@media (hover: hover) {
++  a:hover {
++    text-decoration-thickness: 2px;
++    text-underline-offset: 2px;
++  }
+ }
+ 
+ :focus-visible {
+-  outline: 2px solid var(--color-focus);
++  outline: var(--border-width-thick) solid var(--color-focus-ring);
+   outline-offset: 2px;
+ }
+ 
+@@ -111,66 +102,130 @@ a {
+ .skip-link {
+   position: absolute;
+   left: -9999px;
++  z-index: 50;
+ }
+ 
+ .skip-link:focus {
+-  left: var(--space-2);
+-  top: var(--space-2);
+-  background: var(--color-surface);
+-  padding: var(--space-2);
+-  z-index: 10;
++  left: var(--space-4);
++  top: var(--space-4);
+ }
+ 
+ .muted {
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .small {
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
+ }
+ 
+ .numeric {
+   font-variant-numeric: tabular-nums;
++  text-align: right;
+ }
+ 
+-/* Layout */
++.nowrap {
++  white-space: nowrap;
++}
++
++.mono {
++  font-family: var(--font-family-mono);
++  font-size: var(--font-size-label);
++}
++
++/* ---------- App shell ---------- */
+ .app-shell {
+   display: flex;
+   min-height: 100vh;
+ }
+ 
+ .sidebar {
+-  width: var(--sidebar-width);
++  width: var(--size-sidebar);
+   flex-shrink: 0;
+-  background: var(--color-sidebar-bg);
+-  border-right: var(--border-width) solid var(--color-border);
+-  padding: var(--space-4);
++  background: var(--color-surface-subtle);
++  padding: 0 var(--space-4);
+ }
+ 
+-.brand {
+-  font-weight: bold;
++/* The cream column runs the full page height; its contents stay in view while scrolling. */
++.sidebar-inner {
++  position: sticky;
++  top: 0;
++  max-height: 100vh;
++  overflow-y: auto;
++  padding-bottom: var(--space-8);
++}
++
++.sidebar-top {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: var(--space-2);
++  height: var(--size-header);
++  padding-inline: var(--space-4);
+   margin-bottom: var(--space-4);
+ }
+ 
++.brand {
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
++}
++
++.nav-toggle {
++  display: none;
++}
++
+ .nav-list {
+   list-style: none;
+   margin: 0;
+   padding: 0;
++  display: grid;
++  gap: var(--space-1);
+ }
+ 
+ .nav-link {
+-  display: block;
+-  padding: var(--space-2) var(--space-3);
+-  border-radius: var(--radius);
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++  height: var(--size-control);
++  padding: 0 var(--space-4);
++  border-radius: var(--radius-full);
++  color: var(--color-text-primary);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
+   text-decoration: none;
++  transition: background-color var(--motion-duration-snap) var(--motion-easing-snap);
+ }
+ 
+-.nav-link.active {
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  font-weight: bold;
++.nav-link:focus-visible {
++  outline-offset: calc(var(--border-width-thick) * -1);
+ }
+ 
++@media (hover: hover) {
++  .nav-link:hover {
++    background: var(--color-surface-hover);
++  }
++}
++
++.nav-link.active,
++.nav-link.active:hover {
++  background: var(--color-action-primary);
++  color: var(--color-text-on-action);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++}
++
++.nav-dot--yellow { background: var(--color-category-1); }
++.nav-dot--blue { background: var(--color-category-2); }
++.nav-dot--green { background: var(--color-category-3); }
++/* Utility areas are cream; on the cream sidebar the dot uses the stone partner so it stays visible. */
++.nav-dot--cream { background: var(--color-art-stone-shade); }
++.nav-link.active .nav-dot { background: currentColor; }
++
+ .main-column {
+   flex: 1;
+   min-width: 0;
+@@ -179,124 +234,141 @@ a {
+ }
+ 
+ .topbar {
++  position: sticky;
++  top: 0;
++  z-index: 20;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: var(--space-4);
+-  padding: var(--space-3) var(--space-6);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  height: var(--size-header);
++  padding: 0 var(--space-12);
++  background: var(--color-surface-default);
++  transition: box-shadow var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.topbar.is-scrolled {
++  box-shadow: var(--shadow-header);
+ }
+ 
+ .topbar-search {
+   display: flex;
++  align-items: center;
+   gap: var(--space-2);
+   flex: 1;
+-  max-width: 420px;
++  max-width: 480px;
+ }
+ 
+-.content {
+-  padding: var(--space-6);
+-  display: flex;
+-  flex-direction: column;
+-  gap: var(--space-6);
++.topbar-search .search-field {
++  flex: 1;
+ }
+ 
+-.page-header-row {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: flex-start;
+-  gap: var(--space-4);
++.topbar-search .input {
++  height: var(--size-control);
+ }
+ 
+-/* Loading placeholders (the metrics refresh) */
+-.skeleton {
+-  display: block;
+-  background: var(--color-surface-muted);
+-  border-radius: var(--radius);
++/* ---------- Text fields ---------- */
++.field {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-2);
+ }
+ 
+-.skeleton-label {
+-  width: 60%;
+-  height: 14px;
++.field-label {
++  font-weight: var(--font-weight-medium);
+ }
+ 
+-.skeleton-value {
+-  width: 40%;
+-  height: 28px;
+-  margin-top: var(--space-2);
++.input {
++  width: 100%;
++  min-width: 0;
++  height: var(--size-control-lg);
++  padding: 0 var(--space-4);
++  font: inherit;
++  color: var(--color-text-primary);
++  background: var(--color-surface-raised);
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-md);
++  transition: border-color var(--motion-duration-snap) var(--motion-easing-snap);
+ }
+ 
+-.skeleton-change {
+-  width: 50%;
+-  height: 12px;
+-  margin-top: var(--space-2);
++.input::placeholder {
++  color: var(--color-text-secondary);
++  opacity: 1;
+ }
+ 
+-.two-column {
+-  display: grid;
+-  grid-template-columns: 3fr 2fr;
+-  gap: var(--space-6);
++@media (hover: hover) {
++  .input:hover {
++    border-color: var(--color-text-secondary);
++  }
+ }
+ 
+-/* Controls */
+-.input {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-2);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  min-width: 0;
+-  flex: 1;
++.input:focus-visible,
++.input:focus {
++  outline: none;
++  border-color: var(--color-focus-ring);
+ }
+ 
+-.button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface-muted);
+-  color: var(--color-text);
+-  cursor: pointer;
++.search-field {
++  position: relative;
++  display: flex;
++  align-items: center;
+ }
+ 
+-.link-button {
+-  font: inherit;
+-  background: none;
+-  border: none;
+-  padding: 0;
+-  color: var(--color-link);
+-  text-decoration: underline;
+-  cursor: pointer;
++.search-field__icon {
++  position: absolute;
++  left: var(--space-5);
++  color: var(--color-text-icon);
++  pointer-events: none;
+ }
+ 
+-.field-inline {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++.input--search {
++  border-radius: var(--radius-full);
++  padding-inline: calc(var(--space-5) + var(--size-icon-sm) + var(--space-2)) var(--space-5);
+ }
+ 
+-/* User menu */
++/* ---------- User menu ---------- */
+ .user-menu {
+   position: relative;
+ }
+ 
+ .user-menu-button {
+-  display: flex;
+-  align-items: center;
+-  gap: var(--space-2);
++  padding-inline: var(--space-2) var(--space-4);
++  font-weight: var(--font-weight-bold);
++}
++
++.user-menu-chevron {
++  transition: transform var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.user-menu-button[aria-expanded='true'] .user-menu-chevron {
++  transform: rotate(180deg);
+ }
+ 
+ .user-menu-panel {
+   position: absolute;
+   right: 0;
+-  top: calc(100% + var(--space-1));
+-  min-width: 220px;
+-  background: var(--color-surface);
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  padding: var(--space-3);
+-  z-index: 5;
++  top: calc(100% + var(--space-2));
++  min-width: 240px;
++  padding: var(--space-2);
++  background: var(--color-surface-raised);
++  border-radius: var(--radius-md);
++  box-shadow: var(--shadow-float);
++  z-index: 30;
++  animation: menu-enter var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++@keyframes menu-enter {
++  from {
++    opacity: 0;
++    transform: translateY(8px);
++  }
++}
++
++.user-menu-email {
++  padding: var(--space-2) var(--space-3);
++  color: var(--color-text-secondary);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .user-menu-list {
+@@ -304,106 +376,284 @@ a {
+   margin: 0;
+   padding: 0;
+   display: grid;
+-  gap: var(--space-2);
+ }
+ 
+-.avatar {
+-  display: inline-flex;
++.user-menu-link {
++  display: flex;
+   align-items: center;
+-  justify-content: center;
+-  width: 28px;
+-  height: 28px;
+-  border-radius: 50%;
+-  background: var(--color-border);
+-  font-size: var(--font-size-small);
+-  font-weight: bold;
++  width: 100%;
++  height: var(--size-control);
++  padding: 0 var(--space-3);
++  border: none;
++  border-radius: var(--radius-sm);
++  background: none;
++  font: inherit;
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-primary);
++  text-decoration: none;
++  cursor: pointer;
+ }
+ 
+-.person {
++.user-menu-link:focus-visible {
++  outline-offset: calc(var(--border-width-thick) * -1);
++}
++
++@media (hover: hover) {
++  .user-menu-link:hover {
++    background: var(--color-surface-subtle);
++  }
++}
++
++/* ---------- Page body ---------- */
++.content {
++  flex: 1;
++  display: flex;
++  flex-direction: column;
++}
++
++.content:focus {
++  outline: none;
++}
++
++.page-body {
++  width: 100%;
++  max-width: var(--size-container);
++  margin-inline: auto;
++  padding: var(--space-10) var(--space-12) var(--space-16);
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-8);
++}
++
++.page-body--below-band {
++  padding-top: var(--space-12);
++}
++
++.page-body--reading {
++  max-width: calc(var(--size-reading) + var(--space-12) * 2);
++}
++
++.page-title {
++  font-size: var(--font-size-h2);
++  line-height: var(--font-line-height-heading);
++  text-wrap: balance;
++}
++
++.page-lead {
++  margin-top: var(--space-2);
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
++  color: var(--color-text-secondary);
++}
++
++/* ---------- Dashboard ---------- */
++.dash-header {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-6);
+ }
+ 
+-/* Cards and panels */
+-.panel,
+-.card {
+-  border: var(--border-width) solid var(--color-border);
+-  border-radius: var(--radius);
+-  background: var(--color-surface);
+-  padding: var(--space-4);
++.dash-header__text {
++  flex: 1;
++  min-width: 0;
+ }
+ 
+-.panel-header {
++.dash-greeting {
++  font-size: var(--font-size-body-lg);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++  color: var(--color-text-secondary);
++  margin-bottom: var(--space-1);
++}
++
++.dash-header__actions {
+   display: flex;
+-  justify-content: space-between;
+-  align-items: baseline;
++  align-items: center;
+   gap: var(--space-4);
+ }
+ 
++.refresh-button {
++  min-width: calc(var(--space-32) + var(--space-4));
++}
++
++.loading-note {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++  color: var(--color-text-secondary);
++}
++
+ .kpi-grid {
+   display: grid;
+-  grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
++  grid-template-columns: repeat(4, minmax(0, 1fr));
++  gap: var(--space-6);
++}
++
++.kpi-tile {
++  position: relative;
++  padding: var(--space-6);
++  border-radius: var(--radius-sm);
++  background: var(--ms-field);
++  color: var(--ms-on-field);
++}
++
++.kpi-tile__text {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-2);
++  min-width: 0;
++}
++
++.kpi-tile > .ms-plate {
++  position: absolute;
++  top: var(--space-6);
++  right: var(--space-6);
+ }
+ 
+ .kpi-label {
+-  font-size: var(--font-size-small);
+-  font-weight: normal;
+-  color: var(--color-text-muted);
++  min-height: var(--size-plate-sm);
++  padding-right: calc(var(--size-plate-sm) + var(--space-4));
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .kpi-value {
+-  font-size: 28px;
+-  font-weight: bold;
+-  margin: 0;
++  font-size: var(--font-size-h3);
++  font-weight: var(--font-weight-bold);
++  line-height: var(--font-line-height-heading);
++  letter-spacing: var(--font-tracking-tight);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+ .kpi-change {
+-  font-size: var(--font-size-small);
+-  margin: 0;
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-1);
++}
++
++.kpi-tile--loading {
++  display: flex;
++  flex-direction: column;
++  gap: var(--space-3);
++  background: var(--color-surface-subtle);
++}
++
++.skeleton-label {
++  width: 60%;
++  height: 14px;
++}
++
++.skeleton-value {
++  width: 40%;
++  height: 32px;
++  border-radius: var(--radius-md);
++}
++
++.skeleton-change {
++  width: 50%;
++  height: 12px;
++}
++
++.two-column {
++  display: grid;
++  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
++  gap: var(--space-8);
++  align-items: start;
+ }
+ 
+-.kpi-change-up {
+-  color: var(--color-positive);
++/* ---------- Cards and panels ---------- */
++.panel {
++  background: var(--color-surface-subtle);
++  border-radius: var(--radius-lg);
++  padding: var(--space-8);
++  min-width: 0;
+ }
+ 
+-.kpi-change-down {
+-  color: var(--color-negative);
++.panel-title {
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
++  margin-bottom: var(--space-6);
++}
++
++.panel-header {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: space-between;
++  align-items: baseline;
++  gap: var(--space-2) var(--space-4);
+ }
+ 
+-/* Chart */
++.panel-header .panel-title {
++  margin-bottom: 0;
++}
++
++/* ---------- Chart ---------- */
+ .chart {
+   margin: 0;
+ }
+ 
++.chart-head {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: space-between;
++  gap: var(--space-2) var(--space-4);
++  margin-bottom: var(--space-4);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++}
++
+ .chart-title {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
+-  margin-bottom: var(--space-2);
++  color: var(--color-text-secondary);
++}
++
++.chart-legend {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++}
++
++.chart-legend__dot {
++  background: var(--color-category-1);
++}
++
++.chart-frame {
++  width: 100%;
+ }
+ 
+ .chart-svg {
++  display: block;
+   width: 100%;
+   height: auto;
+-  display: block;
++  overflow: visible;
+ }
+ 
+ .chart-bar {
+-  fill: var(--color-chart-bar);
++  fill: var(--color-category-1);
+ }
+ 
+ .chart-axis {
+-  stroke: var(--color-chart-axis);
++  stroke: var(--color-border-default);
++  stroke-width: 1;
++}
++
++.chart-value {
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-bold);
++  fill: var(--color-text-primary);
+ }
+ 
+-.chart-value,
+ .chart-label {
+-  font-size: 12px;
+-  fill: var(--color-text);
++  font-size: var(--font-size-label);
++  font-weight: var(--font-weight-medium);
++  fill: var(--color-text-secondary);
+ }
+ 
+-/* Activity */
++/* ---------- Activity ---------- */
+ .activity-list {
+   list-style: none;
+   margin: 0;
+@@ -411,234 +661,661 @@ a {
+ }
+ 
+ .activity-item {
+-  padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  display: flex;
++  gap: var(--space-3);
++  padding: var(--space-4) 0;
++  border-top: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+-.activity-item p {
+-  margin: 0;
++.activity-item:first-child {
++  border-top: none;
++  padding-top: 0;
+ }
+ 
+-/* Toolbar & table */
+-.toolbar {
+-  display: flex;
+-  flex-wrap: wrap;
+-  justify-content: space-between;
+-  gap: var(--space-3);
+-  margin: var(--space-3) 0;
++.activity-dot {
++  /* centered on the first line of text */
++  margin-top: calc((1em * var(--font-line-height-body) - var(--size-dot)) / 2);
++  background: var(--color-category-2);
+ }
+ 
+-.segmented {
+-  display: flex;
++.activity-item .muted {
++  margin-top: var(--space-1);
+ }
+ 
+-.segmented-button {
+-  font: inherit;
+-  padding: var(--space-1) var(--space-3);
+-  border: var(--border-width) solid var(--color-border);
+-  background: var(--color-surface);
+-  color: var(--color-text);
+-  cursor: pointer;
+-  margin-left: -1px;
++/* ---------- Toolbar and table ---------- */
++.table-section {
++  display: flex;
++  flex-direction: column;
++  min-width: 0;
+ }
+ 
+-.segmented-button:first-child {
+-  border-radius: var(--radius) 0 0 var(--radius);
+-  margin-left: 0;
++.toolbar {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: space-between;
++  align-items: flex-end;
++  gap: var(--space-4) var(--space-6);
++  margin: var(--space-6) 0;
+ }
+ 
+-.segmented-button:last-child {
+-  border-radius: 0 var(--radius) var(--radius) 0;
++.filter-row {
++  display: flex;
++  gap: var(--space-2);
++  overflow-x: auto;
++  padding: var(--space-1);
++  margin: calc(var(--space-1) * -1);
+ }
+ 
+-.segmented-button[aria-pressed='true'] {
+-  background: var(--color-primary);
+-  border-color: var(--color-primary);
+-  color: var(--color-primary-text);
++.field--toolbar {
++  width: min(100%, 360px);
+ }
+ 
+-.table-wrap {
++.table-frame {
++  /* contains absolutely positioned (visually hidden) cells inside the scroll frame */
++  position: relative;
++  background: var(--color-surface-default);
++  border: var(--border-width-hair) solid var(--color-border-default);
++  border-radius: var(--radius-lg);
+   overflow-x: auto;
+ }
+ 
+ .table {
+   width: 100%;
+-  border-collapse: collapse;
++  border-collapse: separate;
++  border-spacing: 0;
+ }
+ 
+ .table th,
+ .table td {
+   text-align: left;
+-  padding: var(--space-2);
+-  border-bottom: var(--border-width) solid var(--color-border);
+-  vertical-align: top;
++  padding: 0 var(--space-4);
++  vertical-align: middle;
+ }
+ 
+ .table th {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  height: 44px;
++  background: var(--color-surface-subtle);
++  color: var(--color-text-icon);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  white-space: nowrap;
++}
++
++.table td {
++  height: var(--size-row);
++  padding-block: var(--space-2);
++  border-top: var(--border-width-hair) solid var(--color-border-default);
++}
++
++.table .numeric {
++  text-align: right;
++}
++
++.person {
++  display: flex;
++  align-items: center;
++  gap: var(--space-3);
++}
++
++.cell-title {
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++}
++
++a.cell-title {
++  color: var(--color-text-primary);
++}
++
++.table td .muted.small {
++  font-weight: var(--font-weight-medium);
+ }
+ 
+ .sort-button {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-1);
++  padding: 0;
++  border: none;
++  background: none;
+   font: inherit;
+   color: inherit;
+-  background: none;
+-  border: none;
+-  padding: 0;
++  letter-spacing: inherit;
+   cursor: pointer;
+-  display: inline-flex;
+-  gap: var(--space-1);
++}
++
++.numeric .sort-button {
++  flex-direction: row-reverse;
+ }
+ 
+ .sort-indicator {
+-  font-size: 10px;
++  display: inline-flex;
++  width: var(--size-icon-sm);
++  height: var(--size-icon-sm);
+ }
+ 
+-.pill {
+-  display: inline-block;
+-  padding: 0 var(--space-2);
+-  border-radius: var(--radius-pill);
+-  font-size: var(--font-size-small);
++.sort-indicator.is-ascending {
++  transform: rotate(180deg);
+ }
+ 
+-.pill-active {
+-  background: var(--color-status-active-bg);
+-  color: var(--color-status-active-text);
++.table-actions-head,
++.table-actions {
++  width: calc(var(--size-circle-sm) + var(--space-8));
++  text-align: right;
+ }
+ 
+-.pill-paused {
+-  background: var(--color-status-paused-bg);
+-  color: var(--color-status-paused-text);
++/* ---------- Badges ---------- */
++.badge {
++  display: inline-flex;
++  align-items: center;
++  gap: var(--space-2);
++  height: 24px;
++  padding: 0 var(--space-3);
++  border-radius: var(--radius-full);
++  background: var(--color-surface-subtle);
++  color: var(--color-text-primary);
++  font-size: var(--font-size-fine);
++  line-height: 1;
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
++  white-space: nowrap;
+ }
+ 
+-.pill-done {
+-  background: var(--color-status-done-bg);
+-  color: var(--color-status-done-text);
++.badge--status::before {
++  content: '';
++  width: var(--size-dot);
++  height: var(--size-dot);
++  border-radius: var(--radius-full);
++  background: var(--badge-dot, currentColor);
+ }
+ 
+-.empty-state {
+-  text-align: center;
+-  padding: var(--space-8) var(--space-4);
++.badge--active { --badge-dot: var(--color-status-info); }
++.badge--paused { --badge-dot: var(--color-status-warning); }
++.badge--done { --badge-dot: var(--color-status-success); }
++
++.badge--on-field {
++  background: var(--color-surface-raised);
++  color: var(--color-text-primary);
+ }
+ 
+-/* Project detail */
++/* ---------- Empty states ---------- */
++.empty-panel {
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  gap: var(--space-12);
++}
++
++.empty-panel__text {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-3);
++  max-width: 480px;
++}
++
++.empty-panel__title {
++  font-size: var(--font-size-h4);
++  line-height: var(--font-line-height-title);
++}
++
++.empty-panel__text p {
++  margin-bottom: var(--space-3);
++}
++
++/* ---------- Header band extras ---------- */
+ .breadcrumb ol {
+   list-style: none;
+   display: flex;
++  flex-wrap: wrap;
+   gap: var(--space-2);
+   margin: 0;
+   padding: 0;
+-  font-size: var(--font-size-small);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .breadcrumb li + li::before {
+   content: '/';
+   margin-right: var(--space-2);
+-  color: var(--color-text-muted);
+ }
+ 
++.breadcrumb [aria-current='page'] {
++  font-weight: var(--font-weight-bold);
++}
++
++.band-meta {
++  display: flex;
++  gap: var(--space-2);
++  margin-top: var(--space-4);
++}
++
++/* ---------- Project detail ---------- */
+ .tabs {
+   display: flex;
+-  gap: var(--space-1);
+-  border-bottom: var(--border-width) solid var(--color-border);
++  gap: var(--space-2);
++  overflow-x: auto;
++  padding: var(--space-1);
++  margin: calc(var(--space-1) * -1) calc(var(--space-1) * -1) calc(var(--space-6) - var(--space-8) - var(--space-1));
+ }
+ 
+-.tab {
+-  font: inherit;
+-  background: none;
+-  border: var(--border-width) solid transparent;
+-  border-bottom: none;
+-  border-radius: var(--radius) var(--radius) 0 0;
+-  padding: var(--space-2) var(--space-4);
+-  color: var(--color-text);
+-  cursor: pointer;
+-  margin-bottom: -1px;
++.project-summary {
++  display: flex;
++  align-items: center;
++  gap: var(--space-8);
+ }
+ 
+-.tab[aria-selected='true'] {
+-  background: var(--color-surface);
+-  border-color: var(--color-border);
+-  border-bottom: var(--border-width) solid var(--color-surface);
+-  font-weight: bold;
++.project-description {
++  max-width: var(--size-prose);
++  font-size: var(--font-size-title);
++  line-height: var(--font-line-height-body);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .details {
+   display: grid;
+-  grid-template-columns: repeat(4, 1fr);
+-  gap: var(--space-4);
+-  margin: var(--space-4) 0 0;
++  grid-template-columns: repeat(4, minmax(0, 1fr));
++  gap: var(--space-6);
++  margin: var(--space-8) 0 0;
++  padding-top: var(--space-6);
++  border-top: var(--border-width-hair) solid var(--color-border-rule);
+ }
+ 
+ .details dt {
+-  font-size: var(--font-size-small);
+-  color: var(--color-text-muted);
++  font-size: var(--font-size-label);
++  line-height: var(--font-line-height-label);
++  font-weight: var(--font-weight-medium);
++  letter-spacing: var(--font-tracking-snug);
++  color: var(--color-text-secondary);
+ }
+ 
+ .details dd {
+-  margin: 0;
++  margin: var(--space-1) 0 0;
++  font-size: var(--font-size-title);
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-tight);
++  line-height: var(--font-line-height-heading);
+ }
+ 
+ .progress-row {
+   display: flex;
++  flex-wrap: wrap;
+   align-items: center;
+-  gap: var(--space-4);
++  gap: var(--space-3) var(--space-6);
+ }
+ 
+ .progress-row p {
+-  margin: 0;
++  font-weight: var(--font-weight-bold);
++  letter-spacing: var(--font-tracking-snug);
+ }
+ 
+ .progress {
+   flex: 1;
+-  max-width: 240px;
++  max-width: 320px;
++  height: 12px;
++  appearance: none;
++  border: none;
++  border-radius: var(--radius-full);
++  background: var(--color-surface-hover);
++  overflow: hidden;
++}
++
++.progress::-webkit-progress-bar {
++  background: var(--color-surface-hover);
++  border-radius: var(--radius-full);
++}
++
++.progress::-webkit-progress-value {
++  background: var(--color-category-2);
++  border-radius: var(--radius-full);
++}
++
++.progress::-moz-progress-bar {
++  background: var(--color-category-2);
++  border-radius: var(--radius-full);
+ }
+ 
+ .task-list {
+   list-style: none;
+-  margin: var(--space-3) 0 0;
++  margin: var(--space-6) 0 0;
+   padding: 0;
+ }
+ 
+ .task {
+   display: flex;
+   align-items: center;
+-  gap: var(--space-2);
++  gap: var(--space-3);
++  min-height: var(--size-row);
+   padding: var(--space-2) 0;
+-  border-bottom: var(--border-width) solid var(--color-border);
++  border-top: var(--border-width-hair) solid var(--color-border-default);
+ }
+ 
+ .task label {
+   flex: 1;
++  cursor: pointer;
+ }
+ 
+ .task-done label {
+   text-decoration: line-through;
+-  color: var(--color-text-muted);
++  color: var(--color-text-secondary);
++}
++
++.checkbox {
++  appearance: none;
++  display: grid;
++  place-content: center;
++  flex: none;
++  width: 24px;
++  height: 24px;
++  margin: 0;
++  background: var(--color-surface-raised);
++  border: var(--border-width-thick) solid var(--color-border-strong);
++  border-radius: var(--radius-check);
++  cursor: pointer;
++  transition:
++    background-color var(--motion-duration-snap) var(--motion-easing-snap),
++    border-color var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.checkbox::before {
++  content: '';
++  width: var(--space-3);
++  height: var(--space-3);
++  background: var(--color-text-on-action);
++  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
++  transform: scale(0);
++  transition: transform var(--motion-duration-snap) var(--motion-easing-snap);
++}
++
++.checkbox:checked {
++  background: var(--color-action-primary);
++  border-color: var(--color-action-primary);
++}
++
++.checkbox:checked::before {
++  transform: scale(1);
++}
++
++@media (hover: hover) {
++  .checkbox:not(:checked):hover {
++    border-color: var(--color-text-secondary);
++  }
++}
++
++/* ---------- Error page ---------- */
++.error-band {
++  flex: 1;
++  margin-block-start: calc(var(--ms-arc) + var(--space-12));
++  padding-block: var(--space-16) var(--space-24);
++}
++
++.error-band .ms-field__inner {
++  display: flex;
++  align-items: center;
++  gap: var(--space-12);
++}
++
++.error-band__art {
++  flex: none;
++  width: var(--size-art-lg);
++  max-width: 45%;
++}
++
++.error-band__art > svg {
++  display: block;
++  width: 100%;
++  height: auto;
++}
++
++.error-band__text {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-start;
++  gap: var(--space-4);
++  max-width: 480px;
+ }
+ 
+-@media (max-width: 900px) {
++.error-band__text p {
++  font-size: var(--font-size-title);
++  letter-spacing: var(--font-tracking-snug);
++  margin-bottom: var(--space-2);
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .user-menu-panel { animation: none; }
++  .nav-link,
++  .topbar,
++  .input,
++  .checkbox,
++  .checkbox::before,
++  .user-menu-chevron { transition: none; }
++}
++
++/* ---------- Tablet ---------- */
++@media (max-width: 1023px) {
++  .topbar { padding-inline: var(--space-6); }
++  .page-body { padding-inline: var(--space-6); }
++  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++  .two-column { grid-template-columns: minmax(0, 1fr); }
++  .details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++}
++
++/* ---------- Phones ---------- */
++@media (max-width: 767px) {
+   .app-shell {
+     flex-direction: column;
+   }
+ 
+   .sidebar {
++    position: relative;
+     width: auto;
+-    border-right: none;
+-    border-bottom: var(--border-width) solid var(--color-border);
++    height: auto;
++    padding: 0;
++    overflow: visible;
++    background: var(--color-surface-default);
+   }
+ 
+-  .nav-list {
+-    display: flex;
+-    flex-wrap: wrap;
++  .sidebar-inner {
++    position: static;
++    max-height: none;
++    overflow: visible;
++    padding-bottom: 0;
++  }
++
++  .sidebar-top {
++    height: 64px;
++    margin: 0;
++    padding-inline: var(--space-4);
++  }
++
++  .nav-toggle {
++    display: inline-flex;
++  }
++
++  .primary-nav {
++    display: none;
++  }
++
++  .sidebar.is-open .primary-nav {
++    display: block;
++    position: fixed;
++    inset: 64px 0 0;
++    z-index: 40;
++    padding: var(--space-2) var(--space-4) var(--space-8);
++    background: var(--color-surface-default);
++    overflow-y: auto;
++  }
++
++  .sidebar.is-open .nav-list {
++    gap: 0;
++  }
++
++  .sidebar.is-open .nav-link,
++  .sidebar.is-open .nav-link.active {
++    height: var(--size-list-row);
++    padding: 0 var(--space-2);
++    border-radius: 0;
++    border-bottom: var(--border-width-hair) solid var(--color-border-rule);
++    background: none;
++    color: var(--color-text-primary);
++    font-size: var(--font-size-h4);
++    font-weight: var(--font-weight-bold);
++    letter-spacing: var(--font-tracking-tight);
++  }
++
++  .sidebar.is-open .nav-link.active .nav-dot--yellow { background: var(--color-category-1); }
++  .sidebar.is-open .nav-link.active .nav-dot--blue { background: var(--color-category-2); }
++  .sidebar.is-open .nav-link.active .nav-dot--green { background: var(--color-category-3); }
++  .sidebar.is-open .nav-link.active .nav-dot--cream { background: var(--color-art-stone-shade); }
++
++  .topbar {
++    position: static;
++    height: auto;
++    padding: 0 var(--space-4) var(--space-3);
+     gap: var(--space-2);
+   }
+ 
+-  .kpi-grid,
+-  .details {
+-    grid-template-columns: repeat(2, 1fr);
++  .topbar-search {
++    max-width: none;
++  }
++
++  .topbar-search__submit {
++    padding-inline: var(--space-4);
++  }
++
++  .user-menu-button {
++    width: var(--size-control);
++    padding: 0;
++  }
++
++  .user-menu-name {
++    position: absolute;
++    width: 1px;
++    height: 1px;
++    overflow: hidden;
++    clip: rect(0, 0, 0, 0);
++    white-space: nowrap;
++  }
++
++  .user-menu-chevron {
++    display: none;
++  }
++
++  .page-body {
++    padding: var(--space-8) var(--space-4) var(--space-12);
++    gap: var(--space-6);
++  }
++
++  .page-body--below-band {
++    padding-top: var(--space-8);
++  }
++
++  .page-title {
++    font-size: var(--font-size-h2mobile);
++  }
++
++  .page-lead {
++    font-size: var(--font-size-body-lg);
++  }
++
++  .dash-header {
++    flex-wrap: wrap;
++    align-items: flex-start;
++    gap: var(--space-4);
++  }
++
++  .dash-header__actions {
++    width: 100%;
++    flex-direction: row-reverse;
++    justify-content: flex-end;
++  }
++
++  .kpi-grid {
++    grid-template-columns: minmax(0, 1fr);
++    gap: var(--space-4);
++  }
++
++  .panel {
++    padding: var(--space-6);
++  }
++
++  .tabs {
++    margin-bottom: calc(var(--space-4) - var(--space-6) - var(--space-1));
++  }
++
++  .toolbar {
++    align-items: stretch;
++  }
++
++  .field--toolbar {
++    width: 100%;
++  }
++
++  /* Tables scroll in their frame with a sticky first column */
++  .table th:first-child,
++  .table td:first-child {
++    position: sticky;
++    left: 0;
++    z-index: 1;
++  }
++
++  .table td:first-child {
++    background: var(--color-surface-default);
++  }
++
++  .table td {
++    white-space: nowrap;
++  }
++
++  .empty-panel {
++    flex-direction: column;
++    gap: var(--space-6);
++    text-align: center;
++  }
++
++  .empty-panel__text {
++    align-items: center;
++  }
++
++  .empty-panel__text .ms-pill {
++    width: 100%;
++  }
++
++  .project-summary {
++    flex-direction: column-reverse;
++    align-items: flex-start;
++    gap: var(--space-6);
++  }
++
++  .project-summary .ms-plate {
++    width: var(--size-plate-sm);
++    height: var(--size-plate-sm);
++  }
++
++  .project-description {
++    font-size: var(--font-size-body-lg);
++  }
++
++  .error-band {
++    margin-block-start: calc(var(--ms-arc) + var(--space-8));
++    padding-block: var(--space-12) var(--space-16);
++  }
++
++  .error-band .ms-field__inner {
++    flex-direction: column;
++    text-align: center;
++    gap: var(--space-6);
++  }
++
++  .error-band__art {
++    width: 140px;
++    max-width: none;
+   }
+ 
+-  .two-column {
+-    grid-template-columns: 1fr;
++  .error-band__text {
++    align-items: center;
+   }
+ }
