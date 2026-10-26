@@ -1,12 +1,12 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { AppId, EvalReport, Registry } from "@pigment/schema";
+import { Registry } from "@pigment/schema";
 import { candidateStage, latestEval } from "../budget.ts";
-import { paths, rel, runsDir, templateDir } from "../paths.ts";
+import { paths, runsDir, templateDir } from "../paths.ts";
 import { loadTemplate } from "../template.ts";
-import { fail, hashDir, listFiles, ok, readJson, timestamp, writeJson } from "../util.ts";
-import type { ShotResult } from "./shoot.ts";
+import { fail, hashDir, info, listFiles, ok, readJson, timestamp, writeJson } from "../util.ts";
 import { bundle } from "./bundle.ts";
+import { missingShowcases } from "./showcase.ts";
 import { validateTemplate } from "./validate.ts";
 
 export function readRegistry(): Registry {
@@ -103,34 +103,6 @@ export function publish(id: string, version: string, approvedBy: string, carryFr
   }
   const sha = hashDir(templateDir(id, version));
 
-  // Gallery assets: the screenshots of the evaluated runs.
-  const assets = join(paths.webPublic, id, version);
-  for (const run of galleryRuns(report)) {
-    const runDir = join(runsDir(id, evaluated), run.app, run.runId);
-    const shots = readJson<ShotResult>(join(runDir, "shots.json"));
-    // Gallery assets are page captures; interaction-state captures stay in the review only.
-    // Only the appearances the system has: a dark-only system's "light" captures look the same and would
-    // offer a toggle that changes nothing.
-    const pages = shots.screenshots.filter((x) => !x.route.startsWith("state:") && tpl.manifest.tags.appearance.includes(x.scheme));
-    for (const s of pages) {
-      const dest = join(assets, run.app, s.file.replace(/^screenshots\//, ""));
-      mkdirSync(join(dest, ".."), { recursive: true });
-      cpSync(join(runDir, s.file), dest);
-    }
-    // The cover is the app's first capture route (its home), not whichever file sorts first.
-    const meta = readJson<{ routes: Array<{ path: string; capture: boolean }> }>(join(runDir, "app", "pigment.app.json"));
-    const coverRoute = meta.routes.find((r) => r.capture)?.path;
-    const pick = (viewport: string, scheme: string) =>
-      pages.find((s) => s.route === coverRoute && s.viewport === viewport && s.scheme === scheme)?.file.replace(/^screenshots\//, "");
-    writeJson(join(assets, run.app, "cover.json"), {
-      route: coverRoute,
-      desktopLight: pick("desktop", "light"),
-      desktopDark: pick("desktop", "dark"),
-      mobileLight: pick("mobile", "light"),
-      mobileDark: pick("mobile", "dark"),
-    });
-  }
-
   const registry = readRegistry();
   let entry = registry.templates.find((t) => t.id === id);
   if (!entry) {
@@ -150,8 +122,9 @@ export function publish(id: string, version: string, approvedBy: string, carryFr
     sha256: sha,
   });
   const mcpVersion = bumpMcpPackage();
-  ok(`published ${id}@${version} (sha256 ${sha.slice(0, 12)}…) — assets in ${rel(assets)}`);
+  ok(`published ${id}@${version} (sha256 ${sha.slice(0, 12)}…)`);
   ok(`pigment-mcp (npm) → ${mcpVersion}: the npm package bundles published content, so CI releases it with this version`);
+  info(`Next: pnpm harness showcase ${id}@${version} — what the site shows of a system is its showcase, and check-all requires it`);
 }
 
 /** The npm MCP server ships a snapshot of published content; a new version is a new package release. */
@@ -191,11 +164,11 @@ export function checkAll(): boolean {
       console.log(`✖ ${ref} changed after publishing — published versions are immutable`);
     }
   }
-  if (good) ok("all templates valid, published versions intact");
+  // What the site shows of a system is its showcase: the current version of every published system must have one.
+  for (const gap of missingShowcases()) {
+    good = false;
+    console.log(`✖ ${gap} — run pnpm harness showcase`);
+  }
+  if (good) ok("all templates valid, published versions intact, every system showcased");
   return good;
-}
-
-/** With several samples per app, the gallery shows each app's newest run (listed first); holdout apps never. */
-export function galleryRuns(report: EvalReport): EvalReport["runs"] {
-  return report.runs.filter((r, i) => AppId.safeParse(r.app).success && report.runs.findIndex((x) => x.app === r.app) === i);
 }

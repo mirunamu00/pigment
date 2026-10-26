@@ -13,7 +13,7 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
-import { getShots, registry } from "@pigment/content";
+import { getShowcase, registry, type ShowcaseProduct } from "@pigment/content";
 
 const pkgDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = resolve(pkgDir, "..", "..");
@@ -45,15 +45,15 @@ const published = reg.templates
 const content = join(out, "content");
 mkdirSync(content, { recursive: true });
 writeFileSync(join(content, "registry.json"), JSON.stringify({ templates: published }, null, 2) + "\n");
-const shots: Record<string, Record<string, string>> = {};
+const showcase: Record<string, ShowcaseProduct[]> = {};
 for (const t of published) {
   for (const v of t.versions) {
     const src = join(repo, "content", "templates", t.id, v.version);
     cpSync(src, join(content, "templates", t.id, v.version), { recursive: true, filter: (f) => !f.endsWith(".zip") });
-    shots[`${t.id}@${v.version}`] = getShots(t.id, v.version);
   }
+  showcase[t.id] = getShowcase(t.id);
 }
-writeFileSync(join(content, "shots.json"), JSON.stringify(shots, null, 2) + "\n");
+writeFileSync(join(content, "showcase.json"), JSON.stringify(showcase, null, 2) + "\n");
 
 writeFileSync(
   join(out, "package.json"),

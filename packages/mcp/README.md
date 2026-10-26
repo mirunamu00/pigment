@@ -47,7 +47,7 @@ propose a plan, restyle one sample screen, then report build and visual checks.
 | `get_component_spec` | One component: anatomy, variants, states, accessibility, token mapping |
 | `get_installation_guide` | Steps and approval points for `new`, `existing` or `ongoing` |
 | `get_changelog` | What changed, by date — to update a project that already has the system |
-| `get_references` | Screenshots of four reference apps restyled with the system |
+| `get_references` | Realistic products before and after the system: every page, desktop and mobile, light and dark |
 
 Requires Node 22+.
 

@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { contrastRatio, getComponents, getHistory, getManifest, getScreens, getShowcase, getTokens, listTemplates, type TemplateSummary } from "@pigment/content";
+import { contrastRatio, getComponents, getHistory, getManifest, getShowcase, getTokens, listTemplates, type TemplateSummary } from "@pigment/content";
 import { ApplyPanel } from "@/components/apply-panel";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
-import { DemoViewer } from "@/components/demo-viewer";
 import { ShowcaseViewer } from "@/components/showcase-viewer";
 import { Bloom } from "@/components/details";
 import { pageMeta } from "@/lib/meta";
@@ -124,29 +123,21 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
-        {showcase.length > 0 && (
-          <section aria-labelledby="showcase-h">
+        <section aria-labelledby="showcase-h">
+          {showcase.length > 0 ? (
             <ShowcaseViewer products={showcase} name={manifest.name} light={lightBg} dark={darkBg} appearance={manifest.tags.appearance} />
-          </section>
-        )}
+          ) : (
+            <div className="showcase">
+              <div className="section-head">
+                <h2 id="showcase-h">On a real product</h2>
+              </div>
+              <p className="showcase__lede">Screens of this system on real products are on their way. The spec below is complete and ready to apply.</p>
+            </div>
+          )}
+        </section>
 
         <div className="detail-body">
           <div className="detail-main">
-            <section aria-labelledby="demos-h">
-              <DemoViewer
-                id={id}
-                shots={summary.shots}
-                screens={getScreens(id, summary.version)}
-                light={lightBg}
-                dark={darkBg}
-                appearance={manifest.tags.appearance}
-                {...(showcase.length > 0 && {
-                  title: "Tested on four plain apps",
-                  note: "Before release, a coding agent applies every system to the same four plain test apps, and each screen is checked against the system. These are those runs, unedited.",
-                })}
-              />
-            </section>
-
             <section aria-labelledby="color-h">
               <div className="section-head">
                 <h2 id="color-h">Color</h2>

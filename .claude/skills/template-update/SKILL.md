@@ -1,6 +1,6 @@
 ---
 name: template-update
-description: Change a Pigment design system that is already published — fix a rule, change tokens, add or change a component — as a new internal version that is re-applied to the four base apps, evaluated, approved and published with a public changelog entry. Use when the user asks to fix, update, improve or extend an existing system. For a brand-new system, use template-intake.
+description: Change a Pigment design system that is already published — fix a rule, change tokens, add or change a component — as a new internal version that is re-applied to the four base apps, evaluated, approved and published with a public changelog entry, then shown on the showcase products. Use when the user asks to fix, update, improve or extend an existing system. For a brand-new system, use template-intake.
 ---
 
 # Template update
@@ -51,7 +51,9 @@ an opening paragraph of what people will notice plus concrete bullets. Wait for 
 3. `pnpm harness publish <id>@<next> --approved-by "<user's name>" --carry-from <last-rc>` — it reuses the
    last candidate's passing evaluation and screenshots and refuses if any design file differs (then
    generate, evaluate and critic the final version and publish without it). This also bumps the MCP package.
-4. Work on a `fix/<id>-<topic>` branch and open a PR (`CONTRIBUTING.md`); merge when the user asks and CI
+4. `pnpm harness showcase <id>@<next>`: the new version applied to the showcase products, which replaces what
+   the site shows of the system (`pnpm check:content` fails until it is there). Show the user the result.
+5. Work on a `fix/<id>-<topic>` branch and open a PR (`CONTRIBUTING.md`); merge when the user asks and CI
    is green. Merging deploys the site; CI releases `pigment-mcp`.
 
 Report in plain words: what changed, the date it will show, and that projects already using the system

@@ -58,6 +58,8 @@ Candidates are `<next>-rc.1`, `-rc.2`, …; only the final version is published.
 9. **Open a pull request** from a `fix/<id>-<topic>` branch (`CONTRIBUTING.md`) and merge it once CI is
    green. The rest is automatic:
    - Vercel deploys the site: the new date, changelog entry and screenshots appear.
+   - `pnpm harness showcase <id>@<next>` applies the new version to the showcase products; the site shows
+     it in place of the previous version's showcase. `pnpm check:content` fails until it is there.
    - `publish` bumped `packages/mcp/package.json`, so CI releases a new `pigment-mcp` with the update
      bundled (npm trusted publishing; see `docs/deploy.md`).
 
@@ -72,6 +74,8 @@ the apps are not generated again:
    `pnpm harness publish <id>@<next> --approved-by "<name>" --carry-from <current>`. It reuses the current
    version's evaluation and screenshots, and refuses if any token, principle, component or instruction
    file differs — then it is a design change and takes the full steps above.
+3. `pnpm harness showcase <id>@<next> --export --carry-from <current>`: the same design, so the site keeps
+   showing the current version's showcase runs under the new version.
 
 The `id` never changes: shared links, spec URLs and MCP calls keep working. A system made from this
 platform's own design may carry its brand in the name (`ownBrand: true` in its `intake.json`); its prose

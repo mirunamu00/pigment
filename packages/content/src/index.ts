@@ -49,8 +49,8 @@ export interface TemplateSummary {
   updated: string;
   /** Five representative colors for palette chips: surface, subtle surface, text, action, accent hover. */
   swatches: string[];
-  /** Demo screenshots exported at publish time, relative to the site's public folder. */
-  shots: Record<string, string>;
+  /** The home page of each showcase product with the system applied — what a system looks like at a glance. */
+  covers: ShowcaseCover[];
 }
 
 /** Only versions recorded as published in the registry are served — drafts and candidates never leak. */
@@ -190,67 +190,11 @@ export function resolveVersion(id: string, version: string): string {
   return getManifest(id, version).version;
 }
 
-/** Gallery screenshots for one version, as site-relative paths keyed `<app>.<desktopLight|…>`. */
-export function getShots(id: string, version: string): Record<string, string> {
-  return shotsFor(id, resolveVersion(id, version));
-}
-
-function shotsFor(id: string, version: string): Record<string, string> {
-  // A content snapshot shipped without the site (the npm MCP package) carries a precomputed index.
-  const index = join(contentRoot(), "shots.json");
-  if (existsSync(index)) return readJson<Record<string, Record<string, string>>>(index)[`${id}@${version}`] ?? {};
-  const dir = join(contentRoot(), "..", "apps", "web", "public", "showcase", id, version);
-  const shots: Record<string, string> = {};
-  if (!existsSync(dir)) return shots;
-  for (const app of readdirSync(dir)) {
-    // cover.json (written at publish) names the app's home captures; fall back to the first match.
-    const coverFile = join(dir, app, "cover.json");
-    const cover = existsSync(coverFile) ? readJson<Record<string, string | undefined>>(coverFile) : {};
-    const files = readdirSync(join(dir, app)).filter((f) => f.endsWith(".png"));
-    for (const [key, re] of Object.entries({ desktopLight: /desktop-light/, desktopDark: /desktop-dark/, mobileLight: /mobile-light/, mobileDark: /mobile-dark/ })) {
-      const f = cover[key] ?? files.find((x) => re.test(x));
-      if (f) shots[`${app}.${key}`] = `/showcase/${id}/${version}/${app}/${f}`;
-    }
-  }
-  return shots;
-}
-
-export interface Screen {
-  /** The route's name from the base app (e.g. "Product detail"), or one made from its file slug. */
+export interface ShowcaseCover {
+  product: string;
   name: string;
-  /** Site-relative full-page captures, keyed desktopLight | desktopDark | mobileLight | mobileDark. */
-  shots: Partial<Record<"desktopLight" | "desktopDark" | "mobileLight" | "mobileDark", string>>;
-}
-
-/**
- * Every captured screen of each demo app, in the base app's route order — for views that show a whole app
- * (the mobile showcase), not just its cover. Site only: reads the exported gallery folder.
- */
-export function getScreens(id: string, version: string): Record<string, Screen[]> {
-  const v = resolveVersion(id, version);
-  const dir = join(contentRoot(), "..", "apps", "web", "public", "showcase", id, v);
-  const out: Record<string, Screen[]> = {};
-  if (!existsSync(dir)) return out;
-  for (const app of readdirSync(dir)) {
-    const files = readdirSync(join(dir, app)).filter((f) => f.endsWith(".png"));
-    const bySlug = new Map<string, Screen["shots"]>();
-    for (const f of files) {
-      const m = /^(.+)-(desktop|mobile)-(light|dark)\.png$/.exec(f);
-      if (!m || m[1]!.startsWith("state-")) continue;
-      const key = `${m[2]}${m[3] === "light" ? "Light" : "Dark"}` as keyof Screen["shots"];
-      bySlug.set(m[1]!, { ...bySlug.get(m[1]!), [key]: `/showcase/${id}/${v}/${app}/${f}` });
-    }
-    // Route names and order come from the base app, matched by the slug the capture gives each path.
-    const metaFile = join(contentRoot(), "..", "showcase", "base-apps", app, "pigment.app.json");
-    const routes = existsSync(metaFile) ? readJson<{ routes: Array<{ path: string; name: string }> }>(metaFile).routes : [];
-    const slugOf = (p: string) => (p === "/" ? "home" : p.replace(/^\//, "").replace(/[^a-z0-9]+/gi, "-"));
-    const order = routes.map((r) => slugOf(r.path));
-    const names = new Map(routes.map((r) => [slugOf(r.path), r.name]));
-    out[app] = [...bySlug.entries()]
-      .sort(([a], [b]) => (order.indexOf(a) + 1 || 999) - (order.indexOf(b) + 1 || 999) || a.localeCompare(b))
-      .map(([slug, shots]) => ({ name: names.get(slug) ?? slug.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase()), shots }));
-  }
-  return out;
+  kind: string;
+  shots: ShotSet;
 }
 
 export type ShotSet = Partial<Record<"desktopLight" | "desktopDark" | "mobileLight" | "mobileDark", string>>;
@@ -284,10 +228,14 @@ function shotSet(dir: string, url: string, slug: string): ShotSet {
 
 /**
  * The showcase products with one system applied: realistic sites with their own design, captured before and
- * after an agent applied the system (`pnpm harness showcase`). Only products the system was applied to are
- * listed. Site only: reads the exported folder apps/web/public/products.
+ * after an agent applied the system (`pnpm harness showcase`). This is everything people and agents are shown of
+ * a system in use; the plain base apps only test it. Only products the system was applied to are listed, with
+ * site-relative image paths.
  */
 export function getShowcase(id: string): ShowcaseProduct[] {
+  // A content snapshot shipped without the site (the npm MCP package) carries a precomputed index.
+  const index = join(contentRoot(), "showcase.json");
+  if (existsSync(index)) return readJson<Record<string, ShowcaseProduct[]>>(index)[id] ?? [];
   const dir = join(contentRoot(), "..", "apps", "web", "public", "products");
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
@@ -341,7 +289,7 @@ export function listTemplates(): TemplateSummary[] {
         versions: t.versions.filter((v) => v.status === "published").map((v) => v.version),
         updated: (t.versions.find((v) => v.version === version)?.publishedAt ?? "").slice(0, 10),
         swatches: ["color.surface.default", "color.surface.subtle", "color.text.primary", "color.action.primary", "color.action.primaryHover"].map(swatch),
-        shots: shotsFor(t.id, version),
+        covers: getShowcase(t.id).map((p) => ({ product: p.id, name: p.name, kind: p.kind, shots: p.pages[0]!.applied })),
       };
     });
 }

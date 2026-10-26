@@ -6,7 +6,7 @@ import type { TemplateSummary } from "@pigment/content";
 import { buildPrompt } from "@pigment/content/prompts";
 import { Chips, CopyButton, Segmented } from "./controls";
 import { Tape } from "./details";
-import { APPS, Shot, type AppKey } from "./shot";
+import { Shot } from "./shot";
 
 const TONES = [
   ["all", "All"],
@@ -76,29 +76,33 @@ export function Gallery({ templates }: { templates: TemplateSummary[] }) {
 }
 
 function Card({ t, angles, onStatus }: { t: TemplateSummary; angles: readonly [number, number]; onStatus: (s: string) => void }) {
-  const [app, setApp] = useState<AppKey>("dashboard");
-  const label = APPS.find(([k]) => k === app)![1];
+  const [product, setProduct] = useState(t.covers[0]?.product ?? "");
+  const cover = t.covers.find((c) => c.product === product);
+  const label = cover ? `${cover.name}, ${cover.kind.toLowerCase()}` : t.name;
   const bg = t.swatches[1] ?? "#eeeeee";
+  // The system's default mode (listed first) is how it introduces itself.
+  const src = cover && (t.tags.appearance[0] === "dark" ? (cover.shots.desktopDark ?? cover.shots.desktopLight) : (cover.shots.desktopLight ?? cover.shots.desktopDark));
   return (
     <article className="card">
       <Tape style={{ top: -10, left: 36 }} rotate={angles[0]} />
       <Tape alt width={72} style={{ top: -9, right: 40 }} rotate={angles[1]} />
       <Shot
-        // The system's default mode (listed first) is how it introduces itself.
-        src={t.tags.appearance[0] === "dark" ? (t.shots[`${app}.desktopDark`] ?? t.shots[`${app}.desktopLight`]) : (t.shots[`${app}.desktopLight`] ?? t.shots[`${app}.desktopDark`])}
-        title={label}
-        meta={`${t.id} · ${app}`}
+        src={src}
+        title={t.name}
+        meta={cover ? cover.kind : "Showcase coming"}
         bg={bg}
         ink={isDark(bg) ? "#e8ebf1" : "#0e0e0c"}
         height={400}
         href={`/s/${t.id}`}
         openLabel="Details"
-        ariaLabel={`${t.name}: ${label} demo built by an agent`}
+        ariaLabel={`${t.name} applied to ${label} by an agent`}
       />
-      <div className="card__row">
-        <Segmented label={`Demo app for ${t.name}`} options={APPS} value={app} onChange={setApp} />
-        <span className="meta">Built by an agent from the standard prompt · unedited</span>
-      </div>
+      {t.covers.length > 0 && (
+        <div className="card__row">
+          <Segmented label={`Product for ${t.name}`} options={t.covers.map((c) => [c.product, c.kind] as const)} value={product} onChange={setProduct} />
+          <span className="meta">A real product, restyled by an agent · unedited</span>
+        </div>
+      )}
       <div className="card__row card__row--top">
         <div style={{ minWidth: 0 }}>
           <div className="card__name">
@@ -136,7 +140,7 @@ function EmptyGallery() {
     <div className="gallery-empty">
       <Tape style={{ top: -10, left: "calc(50% - 44px)" }} rotate={-3} />
       <p className="gallery-empty__title">The first systems are still being mixed.</p>
-      <p className="muted">Every system here is tested on four real apps before it is published. Meanwhile, connect your agent so it is ready.</p>
+      <p className="muted">Every system here is tested by an agent and shown on real products before it is published. Meanwhile, connect your agent so it is ready.</p>
       <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
         <Link href="/connect" className="btn btn--primary">
           Connect an agent

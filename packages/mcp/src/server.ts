@@ -1,5 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/server";
-import { ContentError, getAgentMd, getComponents, getComponentSpec, getGuide, getHistory, getShots, getTokenFile, listTemplates } from "@pigment/content";
+import { ContentError, getAgentMd, getComponents, getComponentSpec, getGuide, getHistory, getShowcase, getTokenFile, listTemplates } from "@pigment/content";
 import { buildPrompt, SITE_URL } from "@pigment/content/prompts";
 import { z } from "zod";
 import pkg from "../package.json" with { type: "json" };
@@ -158,22 +158,32 @@ export function createServer(): McpServer {
     {
       title: "Get references",
       description:
-        "Screenshots of four reference apps (dashboard, store, blog, settings) restyled with this system by an agent — desktop and mobile, light and dark — plus links to the system page and the spec.",
-      inputSchema: z.object({ id, app: z.string().optional().describe("Only one app: dashboard, commerce, blog or settings") }),
+        "Screenshots of realistic products (a shop, a magazine, an app) before and after an agent applied this system — every page, desktop and mobile, light and dark — plus links to the system page and the spec. Use them to see how the system treats real pages, photos and content.",
+      inputSchema: z.object({ id, product: z.string().optional().describe("Only one product, by its id (e.g. roastery)") }),
       annotations: { readOnlyHint: true },
     },
     async (args) =>
       guard(() => {
-        const shots = Object.entries(getShots(args.id, CURRENT))
-          .filter(([key]) => !args.app || key.startsWith(`${args.app}.`))
-          .map(([key, path]) => ({ view: key, url: SITE_URL + path }));
+        const url = (path?: string) => (path ? SITE_URL + path : undefined);
+        const products = getShowcase(args.id)
+          .filter((p) => !args.product || p.id === args.product)
+          .map((p) => ({
+            product: p.id,
+            name: p.name,
+            kind: p.kind,
+            pages: p.pages.map((pg) => ({
+              page: pg.name,
+              applied: Object.fromEntries(Object.entries(pg.applied).map(([view, path]) => [view, url(path)])),
+              original: url(pg.original.desktopLight),
+            })),
+          }));
         return JSON.stringify(
           {
             system: args.id,
             updated: updated(args.id),
             page: `${SITE_URL}/s/${args.id}`,
             spec: `${SITE_URL}/s/${args.id}/agent.md`,
-            screenshots: shots,
+            products,
           },
           null,
           2,

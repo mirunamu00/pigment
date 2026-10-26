@@ -63,7 +63,7 @@ export async function review(
   await pool(plan.units, options.concurrency ?? 6, async (unit) => {
     let todo: ReviewItem[] = unit.items.map((i) => byId.get(i)!);
     const merged: UnitReview = { items: [], findings: [] };
-    const record = { id: unit.id, items: unit.items.length, covered: 0, attempts: 0, durationMs: 0, turns: 0, costUsd: 0, problems: [] as string[] };
+    const record = { id: unit.id, items: unit.items.length, covered: 0, attempts: 0, durationMs: 0, turns: 0, problems: [] as string[] };
     // One retry, with only the items the first answer left out.
     while (todo.length && record.attempts < 2) {
       record.attempts++;
@@ -118,7 +118,7 @@ export async function review(
   for (let attempt = 1; attempt <= 2 && !critic; attempt++) {
     info(`lead reviewer${attempt > 1 ? " (retry)" : ""}`);
     const answer = await runReadOnlyAgent(synthesisPrompt(ctx, plan, results, homeSheets), UNIT_TIMEOUT_MS);
-    reviewReport.synthesis = { durationMs: (reviewReport.synthesis?.durationMs ?? 0) + answer.durationMs, turns: answer.turns, costUsd: answer.costUsd };
+    reviewReport.synthesis = { durationMs: (reviewReport.synthesis?.durationMs ?? 0) + answer.durationMs, turns: answer.turns };
     writeText(join(dir, `lead-${attempt}.md`), answer.text || answer.error || "");
     try {
       const parsed = CriticScores.parse(extractJson(answer.text));
@@ -151,10 +151,9 @@ export async function review(
   return { critic: merged.critic ?? critic, judged: judgeCritic(merged.critic ?? critic) };
 }
 
-function account(record: { durationMs: number; turns: number; costUsd: number }, a: AgentAnswer): void {
+function account(record: { durationMs: number; turns: number }, a: AgentAnswer): void {
   record.durationMs += a.durationMs;
   record.turns += a.turns ?? 0;
-  record.costUsd += a.costUsd ?? 0;
 }
 
 function context(id: string, version: string, plan: ReviewPlan, referenceSheet: string | null, holdout: boolean): ReviewContext {

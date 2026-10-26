@@ -111,6 +111,7 @@ export function ShowcaseViewer({
       </div>
       <p className="meta" style={{ marginTop: 14 }}>
         One run of the standard prompt on a product with its own design, captured as built. Unedited. Photos are public domain.
+        Before release, every system is also applied to six plain test apps and checked screen by screen.
       </p>
     </div>
   );

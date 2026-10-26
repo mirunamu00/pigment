@@ -1,6 +1,6 @@
 ---
 name: template-intake
-description: Turn a reference website into a tested Pigment design system template — capture, analysis, design prompt authoring, demo generation on the four base apps, evaluation, iteration and (after user approval) publishing. Use when the user submits a site they like, asks to add a template, or asks to iterate on a template candidate. To change a system that is already published, use template-update.
+description: Turn a reference website into a tested Pigment design system template — capture, analysis, design prompt authoring, demo generation on the four base apps, evaluation, iteration and (after user approval) publishing and the showcase on the realistic products. Use when the user submits a site they like, asks to add a template, or asks to iterate on a template candidate. To change a system that is already published, use template-update.
 ---
 
 # Template intake
@@ -107,7 +107,14 @@ log, and the remaining gaps as a list of known differences from the reference. O
    is the last candidate's design, so it ships on that candidate's passing evaluation and screenshots
    (another run of the same prompt adds a sample, not proof). Publish refuses if any design file differs —
    then generate, evaluate and critic the final version and publish without `--carry-from`.
-3. Set `status` in `pipeline/<slug>/intake.json` to `published`.
-4. Commit on a `feat/<id>` branch and open a PR (`CONTRIBUTING.md`); merge when the user asks and CI is green.
+3. `pnpm harness showcase <id>@<final>`: an agent applies the published system to the three showcase products
+   (`showcase/products/`) and the result is exported to the site. This is what people see of the system — the
+   base apps are only the test and are never shown. `pnpm check:content` (CI) fails until the current version
+   of every published system is on every product. It is one unscored run per product: look at it with the user,
+   and if a product failed to build or capture, read its `build.log`: a failure outside the agent's work
+   (a locked file, a busy port) is rebuilt with `--reshoot --products <id>`; otherwise run that product again
+   (`--products <id>`). Say which you did.
+4. Set `status` in `pipeline/<slug>/intake.json` to `published`.
+5. Commit on a `feat/<id>` branch and open a PR (`CONTRIBUTING.md`); merge when the user asks and CI is green.
 
-Report what was published and where the gallery assets are.
+Report what was published, and show the showcase (before and after) from `apps/web/public/products/`.

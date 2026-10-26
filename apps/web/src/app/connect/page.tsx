@@ -13,7 +13,7 @@ const TOOLS = [
   { name: "get_design_system", desc: "Tokens, visual principles and application rules for one system.", args: "id" },
   { name: "get_tokens", desc: "tokens.css or tokens.json, light and dark — copied into the project, never retyped.", args: "id  format?: css | json" },
   { name: "get_component_spec", desc: "Variants, states, accessibility and token mapping for one component.", args: "id  component" },
-  { name: "get_references", desc: "Screenshots of the four reference apps restyled with this system.", args: "id  app?" },
+  { name: "get_references", desc: "Real products before and after this system, every page.", args: "id  product?" },
   { name: "get_installation_guide", desc: "Steps, approval points and checks for your scenario.", args: "id  mode: new | existing | ongoing" },
   { name: "get_changelog", desc: "What changed, by date — used to update a project that already has the system.", args: "id" },
 ];
