@@ -5,7 +5,7 @@ import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { CompareView, type CompareItem } from "@/components/compare-view";
 import { Bloom } from "@/components/details";
 
-export const metadata: Metadata = pageMeta("Compare", "Compare Pigment design systems side by side: palette, type, spacing, radius and the same four apps restyled by an agent.", "/compare");
+export const metadata: Metadata = pageMeta("Compare", "Compare Pigment design systems side by side: palette, type, spacing, radius and the same real products restyled by an agent.", "/compare");
 export const dynamic = "force-static";
 
 function items(): CompareItem[] {
@@ -20,7 +20,7 @@ function items(): CompareItem[] {
       return {
         id: t.id,
         name: t.name,
-        shots: t.shots,
+        covers: t.covers,
         lightBg: typeof light["color.surface.subtle"] === "string" ? String(light["color.surface.subtle"]) : null,
         darkBg: typeof tokens.dark?.["color.surface.default"] === "string" ? String(tokens.dark["color.surface.default"]) : null,
         accent: s("color.action.primary"),
@@ -53,7 +53,7 @@ export default function ComparePage() {
             Compare, <span className="serif">side by side</span>.
           </h1>
           <p className="muted" style={{ margin: "14px 0 0", fontSize: 16 }}>
-            Same base app, same prompt. Only the system changes.
+            Same product, same prompt. Only the system changes.
           </p>
         </div>
         <CompareView items={items()} />

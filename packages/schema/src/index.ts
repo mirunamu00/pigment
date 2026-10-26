@@ -546,11 +546,10 @@ export const ReviewReport = z.object({
       attempts: z.number().int(),
       durationMs: z.number(),
       turns: z.number().optional(),
-      costUsd: z.number().optional(),
       problems: z.array(z.string()),
     }),
   ),
-  synthesis: z.object({ durationMs: z.number(), turns: z.number().optional(), costUsd: z.number().optional() }).optional(),
+  synthesis: z.object({ durationMs: z.number(), turns: z.number().optional() }).optional(),
 });
 export type ReviewReport = z.infer<typeof ReviewReport>;
 
@@ -577,8 +576,6 @@ export const EvalReport = z.object({
   review: z
     .object({ status: z.enum(["complete", "incomplete"]), items: z.number(), covered: z.number(), reviewers: z.number(), minutes: z.number() })
     .optional(),
-  /** Agent spend of this version and of its whole family (all candidates), for the record. */
-  cost: z.object({ versionUsd: z.number(), familyUsd: z.number(), familyRuns: z.number() }).optional(),
   verdict: z.enum(["pass", "fail", "pending-review"]),
   reasons: z.array(z.string()),
   /** The main apps (screen, confirm) or only the holdout apps (the final check). Older reports: derived. */

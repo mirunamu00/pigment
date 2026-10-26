@@ -41,7 +41,7 @@ test("no tool takes or reveals a version", async () => {
     textOf(await client.callTool({ name: "get_references", arguments: { id: "fixture-system" } })),
     textOf(await client.callTool({ name: "get_changelog", arguments: { id: "fixture-system" } })),
   ];
-  for (const out of outputs) assert.doesNotMatch(out.replace(/\/showcase\/[^"]+/g, ""), /1\.0\.0|"version"|"versions"|"latest"/);
+  for (const out of outputs) assert.doesNotMatch(out.replace(/\/products\/[^"]+/g, ""), /1\.0\.0|"version"|"versions"|"latest"/);
 });
 
 test("lists systems with their update date and filters them", async () => {

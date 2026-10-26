@@ -25,7 +25,6 @@ export const paths = {
   baseApps: join(ROOT, "showcase", "base-apps"),
   runs: join(ROOT, "showcase", "runs"),
   prompts: join(ROOT, "packages", "harness", "prompts"),
-  webPublic: join(ROOT, "apps", "web", "public", "showcase"),
 };
 
 export function templateDir(id: string, version: string): string {

@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { Segmented } from "./controls";
 import { Note, Tape } from "./details";
-import { APPS, Shot, type AppKey } from "./shot";
+import type { ShowcaseCover } from "@pigment/content";
+import { Shot } from "./shot";
 
 export interface CompareItem {
   id: string;
   name: string;
-  shots: Record<string, string>;
+  covers: ShowcaseCover[];
   lightBg: string | null;
   darkBg: string | null;
   accent: string;
@@ -25,7 +26,9 @@ function isDark(hex: string): boolean {
 
 export function CompareView({ items }: { items: CompareItem[] }) {
   const [ids, setIds] = useState<string[]>(items.slice(0, MAX).map((i) => i.id));
-  const [app, setApp] = useState<AppKey>("dashboard");
+  // Products every system was applied to, in showcase order: the same page side by side.
+  const products = (items[0]?.covers ?? []).filter((c) => items.every((i) => i.covers.some((x) => x.product === c.product)));
+  const [product, setProduct] = useState(products[0]?.product ?? "");
   const [scheme, setScheme] = useState<"light" | "dark">("light");
   const [announce, setAnnounce] = useState("");
 
@@ -46,14 +49,16 @@ export function CompareView({ items }: { items: CompareItem[] }) {
 
   const selected = ids.map((id) => items.find((i) => i.id === id)!).filter(Boolean);
   const available = items.filter((i) => !ids.includes(i.id));
-  const label = APPS.find(([k]) => k === app)![1];
+  const label = products.find((p) => p.product === product)?.kind ?? "Showcase";
   const cols = selected.length + (selected.length < MAX && available.length ? 1 : 0);
   const rowKeys = Object.keys(selected[0]?.rows ?? {});
 
   return (
     <>
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
-        <Segmented label="Demo app" options={APPS} value={app} onChange={setApp} />
+        {products.length > 0 && (
+          <Segmented label="Product" options={products.map((p) => [p.product, p.kind] as const)} value={product} onChange={setProduct} />
+        )}
         <Segmented label="Theme" options={[["light", "Light"], ["dark", "Dark"]] as const} value={scheme} onChange={setScheme} />
       </div>
 
@@ -84,9 +89,9 @@ export function CompareView({ items }: { items: CompareItem[] }) {
               <div style={{ position: "relative", paddingTop: 4 }}>
                 <Tape style={{ top: -6, left: "calc(50% - 40px)" }} width={80} rotate={[-3, 4, -5][i % 3]} />
                 <Shot
-                  src={bg ? item.shots[`${app}.desktop${scheme === "light" ? "Light" : "Dark"}`] : undefined}
+                  src={bg ? item.covers.find((c) => c.product === product)?.shots[`desktop${scheme === "light" ? "Light" : "Dark"}`] : undefined}
                   title={bg ? label : `No ${scheme} mode`}
-                  meta={bg ? `/${item.id}/${app}` : `${item.name} ships ${item.rows.appearance} only`}
+                  meta={bg ? `${item.name} · ${label}` : `${item.name} ships ${item.rows.appearance} only`}
                   bg={bg ?? "#e9e6df"}
                   ink={bg && isDark(bg) ? "#e8ebf1" : "#0e0e0c"}
                   height={360}
@@ -123,7 +128,7 @@ export function CompareView({ items }: { items: CompareItem[] }) {
 
       <div style={{ position: "relative" }}>
         <Note arrow="up-left" arrowFirst style={{ position: "relative", margin: "18px 0 0 8px" }}>
-          <span style={{ paddingTop: 10, display: "block", fontSize: 21 }}>identical app, identical prompt — only the paint differs</span>
+          <span style={{ paddingTop: 10, display: "block", fontSize: 21 }}>identical product, identical prompt — only the paint differs</span>
         </Note>
       </div>
 

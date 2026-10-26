@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { listTemplates } from "@pigment/content";
 import { INK, INK_3, LINE, Mark, OG_SIZE, PAPER, ogFonts, publicImage } from "@/lib/og";
 
-export const alt = "A Pigment design system applied to a reference app";
+export const alt = "A Pigment design system applied to a real product";
 export const size = OG_SIZE;
 export const contentType = "image/png";
 
@@ -17,8 +17,10 @@ export default async function SystemImage({ params }: { params: Promise<{ id: st
   const name = t?.name ?? "Pigment";
   const description = t?.description ?? "";
   const short = description.length > 150 ? `${description.slice(0, 147).replace(/[\s,;]+\S*$/, "")}…` : description;
-  // Unedited agent output: the dashboard app restyled with this system.
-  const shot = t && publicImage(t.shots["dashboard.desktopLight"] ?? Object.values(t.shots)[0] ?? "");
+  // Unedited agent output: the top of the first showcase product's home page with this system applied, which the
+  // harness also exports as PNG for link previews.
+  const cover = t?.covers[0]?.shots;
+  const shot = cover && publicImage((cover.desktopLight ?? cover.desktopDark ?? "").replace(/[^/]+$/, "og.png"));
 
   return new ImageResponse(
     (

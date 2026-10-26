@@ -55,7 +55,6 @@ export function recordAgentRun(agentRun: { code: number | null; stdout: string; 
     if (parsed?.is_error === true) fields.agentExitCode = fields.agentExitCode || 1;
     writeJson(join(out, "agent-meta.json"), {
       turns: parsed?.num_turns,
-      costUsd: parsed?.total_cost_usd,
       durationMs: parsed?.duration_ms,
       permissionDenials: parsed?.permission_denials,
       stopReason: parsed?.stop_reason,

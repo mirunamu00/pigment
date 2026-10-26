@@ -17,8 +17,10 @@ const PRODUCTS = join(paths.root, "showcase", "products");
 const OUT = join(paths.root, "showcase", "showcases");
 /** What the site serves: products/<product>/product.json, original/*.png and <system>/*.png. */
 const SITE = join(paths.root, "apps", "web", "public", "products");
-/** Products are served on 4320, 4321, … in folder order, so their runs go side by side. */
+/** The port the product folders are written with. */
 const BASE_PORT = 4320;
+/** Where the runs serve them: 4320, 4321, … by default; PIGMENT_SHOWCASE_PORT moves the range, so two systems can run at once. */
+const RUN_PORT = Number(process.env.PIGMENT_SHOWCASE_PORT ?? BASE_PORT);
 
 /** The showcase products: realistic sites with their own house design and CC0 photos. */
 export function showcaseProducts(): string[] {
@@ -35,7 +37,7 @@ function pick(names?: string[]): string[] {
 /** A product folder copied to the work area, served on its own port. */
 function stage(product: string, work: string): void {
   copyApp(join(PRODUCTS, product), work);
-  const port = BASE_PORT + showcaseProducts().indexOf(product);
+  const port = RUN_PORT + showcaseProducts().indexOf(product);
   for (const f of ["package.json", "vite.config.ts", "pigment.app.json"]) {
     const file = join(work, f);
     if (existsSync(file)) writeFileSync(file, readFileSync(file, "utf8").replaceAll(String(BASE_PORT), String(port)));
@@ -94,6 +96,40 @@ async function showcaseOne(id: string, version: string, product: string, runId: 
   writeJson(join(out, "run.json"), { ...record, workDir: work });
   copyApp(work, join(out, "app"));
   ok(`[${product}] ${built.ok ? "built and captured" : "BUILD FAILED"} → ${rel(out)}`);
+}
+
+/**
+ * Builds and captures the latest run of each product again, without running the agent — for a run whose build
+ * or capture failed on something outside the agent's work (a locked file, a busy port). The agent's output is
+ * untouched; the result is exported as usual.
+ */
+export async function reshootShowcase(id: string, version: string, names?: string[]): Promise<void> {
+  for (const product of pick(names)) {
+    const dir = join(OUT, id, product);
+    const runId = existsSync(dir) ? readdirSync(dir).filter((r) => existsSync(join(dir, r, "run.json"))).sort().at(-1) : undefined;
+    if (!runId) {
+      info(`[${product}] no run to reshoot`);
+      continue;
+    }
+    const out = join(dir, runId);
+    const record = JSON.parse(readFileSync(join(out, "run.json"), "utf8")) as Record<string, unknown> & { workDir?: string };
+    // The work folder lives in the temp directory; without it, the kept copy of the agent's output is rebuilt.
+    // A work folder outside the current work root (PIGMENT_WORKDIR moved) is left alone: the move is the fix.
+    const reuse = record.workDir?.startsWith(WORK_ROOT) && existsSync(join(record.workDir, "package.json"));
+    const work = reuse ? record.workDir! : join(WORK_ROOT, "_showcase", id, product, `${runId}-reshoot`);
+    if (work !== record.workDir) {
+      copyApp(join(out, "app"), work);
+      stage(product, work);
+    }
+    info(`[${product}] building ${runId} again`);
+    const built = (await install(work)) ? await build(work) : { ok: false, durationMs: 0, log: "npm install failed" };
+    writeText(join(out, "build.log"), built.log);
+    record.build = { ok: built.ok, durationMs: built.durationMs };
+    if (built.ok) record.screenshots = (await shootApp(work, out)).screenshots;
+    writeJson(join(out, "run.json"), record);
+    ok(`[${product}] ${built.ok ? "built and captured" : "BUILD FAILED"} → ${rel(out)}`);
+  }
+  await exportShowcase(id, version, names);
 }
 
 /** The products as they are, captured the same way: the "before" of every showcase. */
@@ -162,20 +198,43 @@ export async function exportOriginals(names?: string[]): Promise<void> {
   }
 }
 
-/** The latest built run of each product for one system, replacing what the site showed for it before. */
-export async function exportShowcase(id: string, version: string, names?: string[]): Promise<void> {
+/**
+ * The latest built run of each product for one system, replacing what the site showed for it before. With
+ * `carryFrom`, a metadata-only version (same design, new name or description) takes over that version's runs.
+ */
+export async function exportShowcase(id: string, version: string, names?: string[], carryFrom?: string): Promise<void> {
   const manifest = JSON.parse(readFileSync(join(templateDir(id, version), "manifest.json"), "utf8")) as { tags: { appearance: string[] } };
   for (const product of pick(names)) {
     const dir = join(OUT, id, product);
     const runs = existsSync(dir) ? readdirSync(dir).filter((r) => existsSync(join(dir, r, "shots.json"))).sort() : [];
-    const runId = runs.filter((r) => JSON.parse(readFileSync(join(dir, r, "run.json"), "utf8")).version === version).at(-1);
+    const from = carryFrom ?? version;
+    const runId = runs.filter((r) => JSON.parse(readFileSync(join(dir, r, "run.json"), "utf8")).version === from).at(-1);
     if (!runId) {
-      info(`[${product}] no captured ${id}@${version} run to export`);
+      info(`[${product}] no captured ${id}@${from} run to export`);
       continue;
     }
     const dest = join(SITE, product, id);
     await copyShots(join(dir, runId), pageShots(join(dir, runId), manifest.tags.appearance), dest);
-    writeJson(join(dest, "run.json"), { version, runId });
+    // Link previews take PNG: the top of the home page in the system's default mode.
+    const home = join(dir, runId, "screenshots", `home-desktop-${manifest.tags.appearance[0] ?? "light"}.png`);
+    if (existsSync(home)) await sharp(home).extract({ left: 0, top: 0, width: 1440, height: 900 }).resize({ width: 800 }).png().toFile(join(dest, "og.png"));
+    writeJson(join(dest, "run.json"), { version, runId, ...(carryFrom ? { carriedFrom: carryFrom } : {}) });
     ok(`[${product}] ${id} exported → ${rel(dest)}`);
   }
+}
+
+/** Published systems whose current version is not on every showcase product yet, as "id@version on product". */
+export function missingShowcases(): string[] {
+  if (!existsSync(paths.registry)) return [];
+  const registry = JSON.parse(readFileSync(paths.registry, "utf8")) as { templates: Array<{ id: string; latest: string | null }> };
+  const gaps: string[] = [];
+  for (const { id, latest } of registry.templates) {
+    if (!latest) continue;
+    for (const product of showcaseProducts()) {
+      const run = join(SITE, product, id, "run.json");
+      const version = existsSync(run) ? (JSON.parse(readFileSync(run, "utf8")) as { version?: string }).version : undefined;
+      if (version !== latest) gaps.push(`${id}@${latest} on ${product}${version ? ` (shows ${version})` : ""}`);
+    }
+  }
+  return gaps;
 }

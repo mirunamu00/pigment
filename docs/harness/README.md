@@ -20,7 +20,8 @@ reference URL
    │               pnpm harness calibrate                      → the review on candidates the user already judged (showcase/calibration.json): does it agree?
    │  8. iterate    pnpm harness author-brief <id>@<rc> --next <rc+1> → the author's generated assignment, then back to 4 (at most 4 candidates, each recorded; stop at the first candidate that passes the holdout check)
    │  9. approve    the user reviews screenshots + report      (human gate)
-   └ 10. publish    pnpm harness publish <id>@<version>        → frozen version, registry, gallery assets
+   ├ 10. publish    pnpm harness publish <id>@<version>        → frozen version, registry
+   └ 11. showcase   pnpm harness showcase <id>@<version>       → the system applied to the showcase products, exported to apps/web/public/products (what the site shows)
 ```
 
 In Claude Code, the `template-intake` skill walks through all of it and stops at the two human checkpoints:
@@ -37,7 +38,9 @@ published version: see [`updating.md`](updating.md) (the `template-update` skill
 | `content/templates/<id>/<version>/` | The product: the design prompt package (manifest, tokens, principles, components, agent instructions) |
 | `content/_template/` | Skeleton copied by `pnpm harness scaffold` |
 | `showcase/base-apps/` | The four neutral apps every template is applied to (dashboard, commerce, blog, settings), and the holdout apps used only to confirm (`"holdout": true`) |
-| `showcase/runs/` | Per template version and app: the evaluation, critic and run records, agent reports and patches (kept in git). Screenshots, motion frames and drawing crops stay local; the gallery copies what it shows into `apps/web/public/showcase` |
+| `showcase/runs/` | Per template version and app: the evaluation, critic and run records, agent reports and patches (kept in git). Screenshots, motion frames and drawing crops stay local. Base-app runs are the test only and are never shown on the site |
+| `showcase/products/` | The three showcase products (a coffee shop, a magazine, a recipe app): realistic sites with their own house design and CC0 photos. Every published system is applied to them by `pnpm harness showcase`; that is what the site and MCP `get_references` show |
+| `showcase/showcases/` | Showcase runs per system and product (records kept, images local); `_original/` holds the products as they are. The site gets WebP copies in `apps/web/public/products/` |
 | `packages/harness/` | The CLI behind every `pnpm harness` command |
 | `packages/schema/` | Data contracts (zod + emitted JSON Schema) |
 | `docs/harness/` | The rules: prompt writing, evaluation rubric, analysis guide, and the audits that shaped them |
@@ -52,5 +55,6 @@ published version: see [`updating.md`](updating.md) (the `template-update` skill
 - Published versions are **immutable**. Fixes ship as a new version ([`updating.md`](updating.md)).
 - Versions are **internal**. Everything people and agents see is the current system, its update date and
   a dated changelog.
-- Screenshots in the gallery are **unedited agent output** from the standard prompt.
+- Screenshots in the gallery are **unedited agent output** from the standard prompt, on the showcase products.
+- Showcases are **never scored, reviewed or used to change a template**: the base apps are the test.
 - A template is published only after a **human approves** the evaluation report.

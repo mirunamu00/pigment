@@ -6,7 +6,7 @@ import { after, test } from "node:test";
 import { chromium, type Browser } from "playwright";
 import type { CriticFinding, EvalReport, ReviewItem } from "@pigment/schema";
 import { copyApp } from "./appdir.ts";
-import { candidateBlock, candidateStage, compareCore, familyCost, generationBlock, latestEval, passedCandidates, versionFamily } from "./budget.ts";
+import { candidateBlock, candidateStage, compareCore, generationBlock, latestEval, passedCandidates, versionFamily } from "./budget.ts";
 import { buildPlan, planUnits } from "./review/plan.ts";
 import { checkUnit, extractJson, UNIT_MINOR_CAP } from "./review/run.ts";
 import { sheetHtml } from "./review/sheets.ts";
@@ -17,7 +17,6 @@ import { expandScrollContainers } from "./fullpage.ts";
 import { layoutTemplate, selectDeep, type Survey, type SurveyPage } from "./survey.ts";
 import { applyOverrides, GATING_CHECKS, judgeCritic, layoutCounts, promptInduced, shareOnScale } from "./commands/evaluate.ts";
 import { runQueue, sampleRunIds } from "./commands/generate.ts";
-import { galleryRuns } from "./commands/publish.ts";
 import { layFixedLayers } from "./commands/shoot.ts";
 import { estimateTokens } from "./commands/validate.ts";
 import { layoutChecks } from "./layout.ts";
@@ -135,7 +134,7 @@ test("critic verdict: older score-only files keep the score bar", () => {
   assert.equal(judgeCritic({ ...scores, polish: 2 }).ok, false);
 });
 
-// --- Cost and stopping ----------------------------------------------------------------------------------
+// --- Stopping ----------------------------------------------------------------------------------
 
 function evalReport(version: string, verdict: EvalReport["verdict"], apps: string[], samples: number): EvalReport {
   return {
@@ -150,11 +149,11 @@ function evalReport(version: string, verdict: EvalReport["verdict"], apps: strin
   };
 }
 
-function runsFixture(spend: Record<string, number>, evals: Record<string, EvalReport>) {
+function runsFixture(runs: Record<string, number>, evals: Record<string, EvalReport>) {
   const root = tmp();
-  for (const [version, usd] of Object.entries(spend)) {
-    write(join(root, "demo", version, "blog", "r1", "agent-meta.json"), { costUsd: usd / 2, durationMs: 60_000 });
-    write(join(root, "demo", version, "settings", "r1", "agent-meta.json"), { costUsd: usd / 2, durationMs: 60_000 });
+  for (const version of Object.keys(runs)) {
+    write(join(root, "demo", version, "blog", "r1", "agent-meta.json"), { durationMs: 60_000 });
+    write(join(root, "demo", version, "settings", "r1", "agent-meta.json"), { durationMs: 60_000 });
   }
   for (const [version, report] of Object.entries(evals)) write(join(root, "demo", version, "eval-1.json"), report);
   return root;
@@ -164,14 +163,6 @@ test("versions: family and core order", () => {
   assert.equal(versionFamily("1.1.0-rc.3"), "1.1.0");
   assert.ok(compareCore("1.0.0", "1.1.0-rc.1") < 0);
   assert.equal(compareCore("1.1.0", "1.1.0-rc.9"), 0);
-});
-
-test("spend sums every candidate of the family and decides nothing", () => {
-  const root = runsFixture({ "1.1.0-rc.1": 300, "1.1.0-rc.2": 30, "1.0.0": 12 }, {});
-  const cost = familyCost("demo", "1.1.0-rc.3", root);
-  assert.equal(cost.usd, 330);
-  assert.equal(cost.runs, 4);
-  assert.equal(generationBlock("demo", "1.1.0-rc.3", root), null);
 });
 
 test("stages: screen, confirm on 3 samples, then the holdout check; each blocks what comes out of order", () => {
@@ -311,15 +302,6 @@ test("generate: sample run ids sort in order; holdout apps run once with the fir
     { app: "settings", runId: ids[1] },
     { app: "docs", runId: ids[0] },
   ]);
-});
-
-test("publish: the gallery takes each main app's first listed run and never a holdout app", () => {
-  const report = evalReport("1.0.0", "pass", ["blog", "settings"], 2);
-  report.runs.push({ runId: "h1", app: "docs", gates: [], metrics: {} });
-  assert.deepEqual(
-    galleryRuns(report).map((r) => `${r.app}/${r.runId}`),
-    ["blog/r0", "settings/r0"],
-  );
 });
 
 // --- Measurements ---------------------------------------------------------------------------------------

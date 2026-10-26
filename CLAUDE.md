@@ -17,7 +17,8 @@ canvas (gallery, detail, compare, MCP, docs, mobile, interface kit).
 | `packages/harness` | `pnpm harness <command>` — the template pipeline |
 | `packages/mcp` | MCP server: stdio CLI published to npm with a content snapshot, and the site's `/mcp` route. Deploy steps: `docs/deploy.md` |
 | `content/templates/<id>/<version>/` | Template packages (the product). `content/_template/` is the skeleton |
-| `showcase/base-apps/` | The four neutral apps every template is tested on |
+| `showcase/base-apps/` | The four neutral apps every template is tested on (the test; never shown on the site) |
+| `showcase/products/` | Three realistic products every published system is applied to (`pnpm harness showcase`): what the site and MCP show |
 | `pipeline/<slug>/` | Work area for one reference submission |
 | `docs/harness/` | Pipeline, prompt-writing rules, evaluation rubric, analysis guide |
 
@@ -57,7 +58,9 @@ The PR title is the squash-commit message. Merge only when the user asks and CI'
   show a version number; people and agents see the update date and a dated changelog
   (`getHistory`). Old versioned spec URLs stay only so shared links keep working. The harness still builds a zip per
   version for the record, but the site doesn't serve it: agent.md is the offline format.
-- Gallery screenshots are unedited agent output. Never retouch or hand-pick across runs without saying so.
+- Gallery screenshots are unedited agent output on the showcase products. Never retouch or hand-pick across runs
+  without saying so. Showcases are never scored or used to change a template; a published system is not done
+  until it is showcased (`pnpm check:content` fails otherwise).
 - The platform UI follows the interface kit: ink and paper, no brand color; watercolor bloom, tape and
   pencil notes only at the edges and never inside a template preview.
 - Base apps: restyle-safe means every `data-testid`, route and behavior is preserved. Their smoke tests

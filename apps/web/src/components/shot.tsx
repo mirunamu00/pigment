@@ -1,13 +1,5 @@
 import type { CSSProperties } from "react";
 
-export const APPS = [
-  ["dashboard", "Dashboard"],
-  ["commerce", "E-commerce"],
-  ["blog", "Blog"],
-  ["settings", "Settings"],
-] as const;
-export type AppKey = (typeof APPS)[number][0];
-
 /**
  * A screenshot of agent-built output. Until a capture exists it shows a labelled placeholder in the
  * system's background color, never a mockup — the gallery only ever shows real agent output.

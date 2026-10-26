@@ -41,48 +41,6 @@ export function familyVersions(id: string, version: string, runsRoot = paths.run
   return readdirSync(dir).filter((v) => versionFamily(v) === family);
 }
 
-interface AgentMeta {
-  costUsd?: number;
-  durationMs?: number;
-}
-
-/** What one version's agent runs cost so far. */
-export function versionCost(id: string, version: string, runsRoot = paths.runs): { usd: number; runs: number; minutes: number } {
-  const dir = join(runsRoot, id, version);
-  const total = { usd: 0, runs: 0, minutes: 0 };
-  if (!existsSync(dir)) return total;
-  for (const app of readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory())) {
-    for (const run of readdirSync(join(dir, app.name), { withFileTypes: true }).filter((d) => d.isDirectory())) {
-      const file = join(dir, app.name, run.name, "agent-meta.json");
-      if (!existsSync(file)) continue;
-      const meta = readJson<AgentMeta>(file);
-      total.usd += meta.costUsd ?? 0;
-      total.minutes += (meta.durationMs ?? 0) / 60_000;
-      total.runs++;
-    }
-  }
-  return total;
-}
-
-export interface FamilyCost {
-  family: string;
-  usd: number;
-  runs: number;
-  minutes: number;
-}
-
-/** Spend across every candidate of a version family (reported, never a limit). */
-export function familyCost(id: string, version: string, runsRoot = paths.runs): FamilyCost {
-  const total = { usd: 0, runs: 0, minutes: 0 };
-  for (const v of familyVersions(id, version, runsRoot)) {
-    const c = versionCost(id, v, runsRoot);
-    total.usd += c.usd;
-    total.runs += c.runs;
-    total.minutes += c.minutes;
-  }
-  return { family: versionFamily(version), ...total };
-}
-
 export type EvalScope = "main" | "holdout";
 
 /** What an evaluation covers: the main apps (screen and confirm) or only the holdout apps (the final check). */

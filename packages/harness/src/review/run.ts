@@ -16,7 +16,6 @@ export interface AgentAnswer {
   text: string;
   durationMs: number;
   turns?: number;
-  costUsd?: number;
   error?: string;
 }
 
@@ -30,7 +29,6 @@ export async function runReadOnlyAgent(prompt: string, timeoutMs: number): Promi
       text: typeof parsed?.result === "string" ? parsed.result : "",
       durationMs: parsed?.duration_ms ?? r.durationMs,
       turns: parsed?.num_turns,
-      costUsd: parsed?.total_cost_usd,
       error: parsed?.is_error ? String(parsed?.result ?? "agent error") : undefined,
     };
   } catch {

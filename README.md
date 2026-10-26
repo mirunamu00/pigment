@@ -103,6 +103,7 @@ unedited output, cropped to the first screen. Four systems so far:
 | **Measured, not adjectival** | Every rule carries a value: color, type, spacing, radius, elevation and motion — light and dark. |
 | **Rules, not page templates** | Decision rules for any product. A system is tested on four demo apps but never written for them: a lint flags rules that name a demo app's screens, data or copy. |
 | **Proven before publishing** | Every system — and every update — is applied by an agent to four reference apps, then to two more of a different shape (a landing page and a docs site) that never steer the design. Three samples, gated on builds, tests, accessibility and design adherence, then reviewed against the reference. |
+| **Shown on real products** | What you see of a system is an agent applying it to three realistic products — a shop, a magazine and an app with their own design and photos — every page, before and after, unedited. |
 | **Yours to keep** | Your project keeps its own copy. Updates come with a dated changelog and land only when you ask. |
 
 ## What your agent gets
@@ -158,10 +159,11 @@ whole pipeline and stops for approval after the analysis and before publishing.
 | --- | --- |
 | `apps/web` | The site: gallery, docs, `/api/v1`, `/mcp`, downloads |
 | `packages/mcp` | MCP server — the site's `/mcp` route and the `pigment-mcp` npm package |
-| `packages/harness` | `pnpm harness` — capture → prompt → demo runs → evaluation → publish |
+| `packages/harness` | `pnpm harness` — capture → prompt → demo runs → evaluation → publish → showcase |
 | `packages/content` · `packages/schema` | Read-only content access and the data contracts |
 | `content/templates` | The systems themselves |
-| `showcase/base-apps` | The four neutral apps every system is tested on, and two holdout apps (landing, docs) used only to confirm |
+| `showcase/base-apps` | The four neutral apps every system is tested on, and two holdout apps (landing, docs) used only to confirm — the test, never shown |
+| `showcase/products` | Three realistic products every published system is applied to; what the site shows (`pnpm harness showcase`) |
 
 | Variable | Default | |
 | --- | --- | --- |

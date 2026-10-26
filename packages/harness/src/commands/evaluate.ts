@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { CriticScores, EvalReport, type CriticFinding, type RunAppId } from "@pigment/schema";
 import { baseApps, e2e, holdoutApps } from "../appdir.ts";
-import { evalScope, familyCost, versionCost } from "../budget.ts";
+import { evalScope } from "../budget.ts";
 import { distance, isMostlyOpaque, nearest, toHex } from "../color.ts";
 import type { StyleSample } from "../extract.ts";
 import { paths, rel, runsDir } from "../paths.ts";
@@ -308,8 +308,6 @@ export async function evaluate(id: string, version: string, options: { skipE2e?:
     }
   }
 
-  const spent = familyCost(id, version);
-  report.cost = { versionUsd: round2(versionCost(id, version).usd), familyUsd: round2(spent.usd), familyRuns: spent.runs };
 
   for (const r of report.runs) for (const g of r.gates) g.gating = GATING_CHECKS.has(g.name);
   for (const g of report.crossApp) g.gating = false;
@@ -336,7 +334,6 @@ function checkResult(g: EvalReport["crossApp"][number]): string {
 
 function renderMarkdown(r: EvalReport): string {
   const lines = [`# ${r.template}@${r.version} — evaluation ${r.iteration}`, "", `Verdict: **${r.verdict}** · ${r.evaluatedAt}`, ""];
-  if (r.cost) lines.push(`Agent spend: this candidate $${r.cost.versionUsd.toFixed(0)} · family $${r.cost.familyUsd.toFixed(0)} over ${r.cost.familyRuns} runs`, "");
   for (const run of r.runs) {
     lines.push(`## ${run.app} (${run.runId})`, "", "| Gate | Result | Value | Threshold |", "| --- | --- | --- | --- |");
     for (const g of run.gates) lines.push(`| ${g.name} | ${checkResult(g)} | ${g.value ?? ""} | ${g.threshold ?? ""} |`);
