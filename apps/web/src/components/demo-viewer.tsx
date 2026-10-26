@@ -23,6 +23,8 @@ export function DemoViewer({
   light,
   dark,
   appearance = ["light", "dark"],
+  title = "Built with this system",
+  note = "Built by a coding agent from this system's prompt, on the same base apps as every other system. Unedited.",
 }: {
   id: string;
   shots: Record<string, string>;
@@ -31,6 +33,8 @@ export function DemoViewer({
   dark: string;
   /** The modes the system has, its default first; a single-mode system shows no theme switch. */
   appearance?: Array<"light" | "dark">;
+  title?: string;
+  note?: string;
 }) {
   const [app, setApp] = useState<AppKey>("dashboard");
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
@@ -43,7 +47,7 @@ export function DemoViewer({
   return (
     <>
       <div className="section-head">
-        <h2 id="demos-h">Built with this system</h2>
+        <h2 id="demos-h">{title}</h2>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           <Segmented label="Viewport" options={[["desktop", "Desktop"], ["mobile", "Mobile"]] as const} value={viewport} onChange={setViewport} />
           {appearance.length > 1 && (
@@ -94,7 +98,7 @@ export function DemoViewer({
         })}
       </div>
       <p className="meta" style={{ marginTop: 14 }}>
-        Built by a coding agent from this system's prompt, on the same base apps as every other system. Unedited.
+        {note}
       </p>
     </>
   );

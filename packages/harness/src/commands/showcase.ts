@@ -1,10 +1,11 @@
-import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import sharp from "sharp";
 import { build, copyApp, install, WORK_ROOT } from "../appdir.ts";
 import { paths, rel, templateDir } from "../paths.ts";
 import { fail, info, ok, runId as newRunId, timestamp, writeJson, writeText } from "../util.ts";
 import { recordAgentRun, runAgent, type Agent } from "./generate.ts";
-import { shootApp } from "./shoot.ts";
+import { shootApp, type ShotResult } from "./shoot.ts";
 
 export interface ShowcaseOptions {
   products?: string[];
@@ -14,6 +15,8 @@ export interface ShowcaseOptions {
 
 const PRODUCTS = join(paths.root, "showcase", "products");
 const OUT = join(paths.root, "showcase", "showcases");
+/** What the site serves: products/<product>/product.json, original/*.png and <system>/*.png. */
+const SITE = join(paths.root, "apps", "web", "public", "products");
 /** Products are served on 4320, 4321, … in folder order, so their runs go side by side. */
 const BASE_PORT = 4320;
 
@@ -52,6 +55,7 @@ export async function showcase(id: string, version: string, options: ShowcaseOpt
   const base = newRunId();
   info(`showcasing ${id}@${version} on ${products.join(", ")} with ${options.agent} (run ${base})`);
   await Promise.all(products.map((p) => showcaseOne(id, version, p, base, template, options)));
+  await exportShowcase(id, version);
   ok(`finished. Screenshots in ${rel(join(OUT, id))}`);
 }
 
@@ -105,5 +109,73 @@ export async function showcaseOriginals(names?: string[]): Promise<void> {
     const shots = await shootApp(work, out);
     writeJson(join(out, "run.json"), { product, capturedAt: timestamp(), screenshots: shots.screenshots });
     ok(`[${product}] original captured → ${rel(out)}`);
+  }
+  await exportOriginals(names);
+}
+
+/** Page captures only (no interaction states), in the given schemes. */
+function pageShots(runDir: string, schemes: string[]): string[] {
+  const shots = JSON.parse(readFileSync(join(runDir, "shots.json"), "utf8")) as ShotResult;
+  return shots.screenshots.filter((s) => !s.route.startsWith("state:") && schemes.includes(s.scheme)).map((s) => s.file);
+}
+
+/**
+ * Page captures as WebP for the site: the products are photo-heavy, and full-page PNGs of them run to megabytes
+ * each. WebP stops at 16,383px, so a page longer than that is scaled down to fit (only very long phone captures).
+ */
+async function copyShots(runDir: string, files: string[], dest: string): Promise<void> {
+  rmSync(dest, { recursive: true, force: true });
+  mkdirSync(dest, { recursive: true });
+  for (const f of files) {
+    const img = sharp(join(runDir, f));
+    const { height = 0 } = await img.metadata();
+    const out = join(dest, f.replace(/^screenshots\//, "").replace(/\.png$/, ".webp"));
+    await (height > 16_383 ? img.resize({ height: 16_383 }) : img).webp({ quality: 82 }).toFile(out);
+  }
+}
+
+/** The originals and each product's page list (names and order from its pigment.app.json) for the site. */
+export async function exportOriginals(names?: string[]): Promise<void> {
+  for (const product of pick(names)) {
+    const runDir = join(OUT, "_original", product);
+    if (!existsSync(join(runDir, "shots.json"))) {
+      info(`[${product}] no original capture to export — run \`pnpm harness showcase --originals\``);
+      continue;
+    }
+    const meta = JSON.parse(readFileSync(join(PRODUCTS, product, "pigment.app.json"), "utf8")) as {
+      name: string;
+      kind?: string;
+      order?: number;
+      routes: Array<{ path: string; name: string; capture: boolean }>;
+    };
+    // The house design is light only; its dark captures would only repeat it.
+    await copyShots(runDir, pageShots(runDir, ["light"]), join(SITE, product, "original"));
+    const slug = (p: string) => (p === "/" ? "home" : p.replace(/^\//, "").replace(/[^a-z0-9]+/gi, "-"));
+    writeJson(join(SITE, product, "product.json"), {
+      id: product,
+      name: meta.name,
+      kind: meta.kind ?? product,
+      order: meta.order ?? 99,
+      pages: meta.routes.filter((r) => r.capture).map((r) => ({ slug: slug(r.path), name: r.name })),
+    });
+    ok(`[${product}] original exported → ${rel(join(SITE, product))}`);
+  }
+}
+
+/** The latest built run of each product for one system, replacing what the site showed for it before. */
+export async function exportShowcase(id: string, version: string, names?: string[]): Promise<void> {
+  const manifest = JSON.parse(readFileSync(join(templateDir(id, version), "manifest.json"), "utf8")) as { tags: { appearance: string[] } };
+  for (const product of pick(names)) {
+    const dir = join(OUT, id, product);
+    const runs = existsSync(dir) ? readdirSync(dir).filter((r) => existsSync(join(dir, r, "shots.json"))).sort() : [];
+    const runId = runs.filter((r) => JSON.parse(readFileSync(join(dir, r, "run.json"), "utf8")).version === version).at(-1);
+    if (!runId) {
+      info(`[${product}] no captured ${id}@${version} run to export`);
+      continue;
+    }
+    const dest = join(SITE, product, id);
+    await copyShots(join(dir, runId), pageShots(join(dir, runId), manifest.tags.appearance), dest);
+    writeJson(join(dest, "run.json"), { version, runId });
+    ok(`[${product}] ${id} exported → ${rel(dest)}`);
   }
 }

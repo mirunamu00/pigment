@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { contrastRatio, getComponents, getHistory, getManifest, getScreens, getTokens, listTemplates, type TemplateSummary } from "@pigment/content";
+import { contrastRatio, getComponents, getHistory, getManifest, getScreens, getShowcase, getTokens, listTemplates, type TemplateSummary } from "@pigment/content";
 import { ApplyPanel } from "@/components/apply-panel";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { DemoViewer } from "@/components/demo-viewer";
+import { ShowcaseViewer } from "@/components/showcase-viewer";
 import { Bloom } from "@/components/details";
 import { pageMeta } from "@/lib/meta";
 
@@ -87,6 +88,9 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
   const history = getHistory(id);
   const bodyFont = manifest.fonts.find((f) => f.role === "body") ?? manifest.fonts[0]!;
   const headingFont = manifest.fonts.find((f) => f.role === "heading" || f.role === "display") ?? bodyFont;
+  const showcase = getShowcase(id);
+  const lightBg = summary.swatches[1] ?? "#eeeeee";
+  const darkBg = String(tokens.dark?.["color.surface.default"] ?? "#111111");
 
   return (
     <>
@@ -120,10 +124,27 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
+        {showcase.length > 0 && (
+          <section aria-labelledby="showcase-h">
+            <ShowcaseViewer products={showcase} name={manifest.name} light={lightBg} dark={darkBg} appearance={manifest.tags.appearance} />
+          </section>
+        )}
+
         <div className="detail-body">
           <div className="detail-main">
             <section aria-labelledby="demos-h">
-              <DemoViewer id={id} shots={summary.shots} screens={getScreens(id, summary.version)} light={summary.swatches[1] ?? "#eeeeee"} dark={String(tokens.dark?.["color.surface.default"] ?? "#111111")} appearance={manifest.tags.appearance} />
+              <DemoViewer
+                id={id}
+                shots={summary.shots}
+                screens={getScreens(id, summary.version)}
+                light={lightBg}
+                dark={darkBg}
+                appearance={manifest.tags.appearance}
+                {...(showcase.length > 0 && {
+                  title: "Tested on four plain apps",
+                  note: "Before release, a coding agent applies every system to the same four plain test apps, and each screen is checked against the system. These are those runs, unedited.",
+                })}
+              />
             </section>
 
             <section aria-labelledby="color-h">
@@ -157,7 +178,8 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
                 </span>
               </div>
               <div className="spec-rows">
-                {sizes.slice(0, 5).map((s) => (
+                {/* Display sizes past 72px would fill the column with one word; the specimen shows the sizes a page uses most. */}
+                {sizes.filter((s) => parseFloat(s.value) <= 72).slice(0, 5).map((s) => (
                   <div key={s.name}>
                     <span className="mono">
                       font.size.{s.name} · {s.value}
@@ -192,19 +214,22 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
                   {components.filter((c) => c.status === "specified").length} fully specified · {components.length} listed
                 </span>
               </div>
-              <div className="spec-rows">
-                {components.map((c) => (
-                  <div key={c.name}>
-                    <span className="mono">
-                      {c.category} / {c.name}
-                    </span>
-                    <span style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                      <span className={`status-pill status-pill--${c.status}`}>{c.status === "unsupported" ? "not specified" : c.status}</span>
-                      <span className="meta">{c.states.join(" · ")}</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <details className="spec-components">
+                <summary>Every component and its states</summary>
+                <div className="spec-rows">
+                  {components.map((c) => (
+                    <div key={c.name}>
+                      <span className="mono">
+                        {c.category} / {c.name}
+                      </span>
+                      <span style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                        <span className={`status-pill status-pill--${c.status}`}>{c.status === "unsupported" ? "not specified" : c.status}</span>
+                        <span className="meta">{c.states.join(" · ")}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </details>
             </section>
 
             <section aria-labelledby="log-h">
