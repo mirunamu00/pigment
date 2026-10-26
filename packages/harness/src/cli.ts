@@ -17,6 +17,7 @@ import { intake } from "./commands/intake.ts";
 import { checkAll, publish } from "./commands/publish.ts";
 import { review } from "./commands/review.ts";
 import { scaffold } from "./commands/scaffold.ts";
+import { showcase } from "./commands/showcase.ts";
 import { validate } from "./commands/validate.ts";
 
 const program = new Command("pnpm harness").description("Pigment template pipeline. See docs/harness/README.md.");
@@ -108,6 +109,18 @@ program
       timeoutMinutes: Number(opts.timeout),
       samples: Number(opts.samples),
     });
+  });
+
+program
+  .command("showcase")
+  .description("gallery: a coding agent builds each product brief (showcase/briefs.json) from an empty project with a published system — never scored")
+  .argument("<ref>", "a published <id>@<version>")
+  .option("--briefs <briefs...>", "subset of the briefs")
+  .option("--agent <agent>", "claude | codex (experimental)", "claude")
+  .option("--timeout <minutes>", "per-brief agent timeout", "60")
+  .action(async (ref: string, opts) => {
+    const { id, version } = parseRef(ref);
+    await showcase(id, version, { briefs: opts.briefs, agent: opts.agent as Agent, timeoutMinutes: Number(opts.timeout) });
   });
 
 program

@@ -33,13 +33,37 @@ const CLAUDE_ALLOWED = [
 ];
 const CLAUDE_DENIED = ["WebFetch", "WebSearch", "Bash(git push:*)", "PowerShell(git push:*)"];
 
-async function runAgent(agent: Agent, cwd: string, prompt: string, timeoutMs: number) {
+export async function runAgent(agent: Agent, cwd: string, prompt: string, timeoutMs: number) {
   if (agent === "claude") {
     const args = ["-p", "--permission-mode", "acceptEdits", "--output-format", "json", "--allowedTools", ...CLAUDE_ALLOWED, "--disallowedTools", ...CLAUDE_DENIED];
     return run("claude", args, { cwd, input: prompt, timeoutMs, shell: false });
   }
   // Codex support is experimental: flags follow `codex exec --help` at the time of writing.
   return run("codex", ["exec", "--full-auto", "-"], { cwd, input: prompt, timeoutMs });
+}
+
+/** Keeps the agent's log, report and usage next to a run; returns the record fields they settle. */
+export function recordAgentRun(agentRun: { code: number | null; stdout: string; stderr: string }, out: string): { agentExitCode: number | null; model?: string } {
+  const fields: { agentExitCode: number | null; model?: string } = { agentExitCode: agentRun.code };
+  writeText(join(out, "agent.log"), agentRun.stdout + "\n--- stderr ---\n" + agentRun.stderr);
+  try {
+    const parsed = JSON.parse(agentRun.stdout);
+    if (typeof parsed?.result === "string") writeText(join(out, "agent-report.md"), parsed.result);
+    const models = Object.keys(parsed?.modelUsage ?? {});
+    if (models.length) fields.model = models.join(", ");
+    // A run that ended in an error is not a usable run, whatever the exit code says.
+    if (parsed?.is_error === true) fields.agentExitCode = fields.agentExitCode || 1;
+    writeJson(join(out, "agent-meta.json"), {
+      turns: parsed?.num_turns,
+      costUsd: parsed?.total_cost_usd,
+      durationMs: parsed?.duration_ms,
+      permissionDenials: parsed?.permission_denials,
+      stopReason: parsed?.stop_reason,
+    });
+  } catch {
+    // codex or non-JSON output — the raw log is kept
+  }
+  return fields;
 }
 
 export interface GenerateOptions {
@@ -153,25 +177,7 @@ async function generateOne(id: string, version: string, app: RunAppId, runId: st
   writeText(join(out, "prompt.md"), prompt);
   info(`[${app}] agent working in ${work}`);
   const agentRun = await runAgent(options.agent, work, prompt, options.timeoutMinutes * 60_000);
-  record.agentExitCode = agentRun.code;
-  writeText(join(out, "agent.log"), agentRun.stdout + "\n--- stderr ---\n" + agentRun.stderr);
-  try {
-    const parsed = JSON.parse(agentRun.stdout);
-    if (typeof parsed?.result === "string") writeText(join(out, "agent-report.md"), parsed.result);
-    const models = Object.keys(parsed?.modelUsage ?? {});
-    if (models.length) record.model = models.join(", ");
-    // A run that ended in an error is not a usable run, whatever the exit code says.
-    if (parsed?.is_error === true) record.agentExitCode = record.agentExitCode || 1;
-    writeJson(join(out, "agent-meta.json"), {
-      turns: parsed?.num_turns,
-      costUsd: parsed?.total_cost_usd,
-      durationMs: parsed?.duration_ms,
-      permissionDenials: parsed?.permission_denials,
-      stopReason: parsed?.stop_reason,
-    });
-  } catch {
-    // codex or non-JSON output — the raw log is kept
-  }
+  Object.assign(record, recordAgentRun(agentRun, out));
 
   const diff = await run("git", ["diff", "--stat", "HEAD"], { cwd: work });
   const patch = await run("git", ["diff", "HEAD"], { cwd: work });
