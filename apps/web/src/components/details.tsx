@@ -93,20 +93,6 @@ export function Note({ children, arrow, arrowFirst, style }: { children: ReactNo
   );
 }
 
-/** The one brush swash on the site, under the italic word of the gallery headline. */
-export function Swash({ children }: { children: ReactNode }) {
-  return (
-    <span className="swash serif">
-      <svg aria-hidden="true" viewBox="0 0 200 40" preserveAspectRatio="none">
-        <g filter="url(#wcs)">
-          <path d="M6 24 C 50 14, 120 30, 194 16" fill="none" stroke="var(--bloom-blue)" strokeWidth={16} strokeLinecap="round" opacity={0.32} />
-        </g>
-      </svg>
-      {children}
-    </span>
-  );
-}
-
 export function Blot({ color, mix, size = 22 }: { color: string; mix: string; size?: number }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 48 48" width={size} height={size} style={{ overflow: "visible", flex: "none" }}>

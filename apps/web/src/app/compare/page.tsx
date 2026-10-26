@@ -50,7 +50,7 @@ export default function ComparePage() {
         <Bloom size={700} style={{ right: -200, top: -60 }} />
         <div style={{ position: "relative", zIndex: 1, paddingBottom: 32 }}>
           <h1 style={{ margin: 0, fontSize: "clamp(36px, 5vw, 48px)", lineHeight: 1, fontWeight: 600, letterSpacing: "-0.04em" }}>
-            Compare, <span className="serif">side by side</span>.
+            Compare systems side by side.
           </h1>
           <p className="muted" style={{ margin: "14px 0 0", fontSize: 16 }}>
             Same product, same prompt. Only the system changes.

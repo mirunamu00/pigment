@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://pigmentui.com"><img src="docs/assets/banner.png" alt="Pigment — give your agent a palette, not a prompt." width="100%" /></a>
+<a href="https://pigmentui.com"><img src="docs/assets/banner.png" alt="Pigment — design systems your coding agent can apply." width="100%" /></a>
 
 <h3>Design systems your coding agent can actually follow.</h3>
 

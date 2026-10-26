@@ -1,4 +1,4 @@
-<a href="https://pigmentui.com"><img src="https://pigmentui.com/opengraph-image" alt="Pigment — give your agent a palette, not a prompt." width="100%" /></a>
+<a href="https://pigmentui.com"><img src="https://pigmentui.com/opengraph-image" alt="Pigment — design systems your coding agent can apply." width="100%" /></a>
 
 # pigment-mcp
 

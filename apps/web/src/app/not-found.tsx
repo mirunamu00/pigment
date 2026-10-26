@@ -8,7 +8,7 @@ export default function NotFound() {
       <main className="page" style={{ padding: "120px var(--gutter) 40px", textAlign: "center" }}>
         <p className="eyebrow">404</p>
         <h1 style={{ margin: 0, fontSize: 40, fontWeight: 600, letterSpacing: "-0.035em" }}>
-          This page washed <span className="serif">out</span>.
+          Page not found.
         </h1>
         <p className="muted" style={{ marginTop: 14 }}>
           The system or page you were looking for does not exist.

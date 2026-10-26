@@ -60,7 +60,7 @@ export function Gallery({ templates }: { templates: TemplateSummary[] }) {
         </div>
       </div>
       {shown.length === 0 ? (
-        <p className="gallery-empty-filter">No system matches that mix yet. Try clearing a filter.</p>
+        <p className="gallery-empty-filter">No system matches these filters. Try clearing one.</p>
       ) : (
         <div className="gallery-grid">
           {shown.map((t, i) => (
@@ -139,7 +139,7 @@ function EmptyGallery() {
   return (
     <div className="gallery-empty">
       <Tape style={{ top: -10, left: "calc(50% - 44px)" }} rotate={-3} />
-      <p className="gallery-empty__title">The first systems are still being mixed.</p>
+      <p className="gallery-empty__title">No systems are published yet.</p>
       <p className="muted">Every system here is tested by an agent and shown on real products before it is published. Meanwhile, connect your agent so it is ready.</p>
       <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
         <Link href="/connect" className="btn btn--primary">

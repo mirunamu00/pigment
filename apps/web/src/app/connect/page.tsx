@@ -26,7 +26,7 @@ export default function ConnectPage() {
         <div style={{ maxWidth: 780 }}>
           <p className="eyebrow">MCP server</p>
           <h1 style={{ margin: 0, fontSize: "clamp(38px, 5vw, 56px)", lineHeight: 1, fontWeight: 600, letterSpacing: "-0.045em" }}>
-            Connect an agent <span className="serif">once</span>.
+            Connect your agent.
           </h1>
           <p style={{ margin: "18px 0 0", fontSize: 17, color: "var(--ink-2)" }}>
             One server for every MCP client. It only reads specs — it never writes to your project. Your agent does the editing, with your permissions.

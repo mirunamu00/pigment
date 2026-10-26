@@ -85,7 +85,7 @@ export function ApplyPanel({ id, name }: { id: string; name: string }) {
             <p className="apply__ask">“{request}”</p>
             <span className="meta">No prompt to paste — the agent reads the spec through the Pigment tools and copies it into your project.</span>
             <Note arrow="up-left" arrowFirst style={{ right: 4, bottom: -40, color: "var(--ink-2)" }}>
-              <span style={{ paddingTop: 10, display: "block", fontSize: 20 }}>yours to keep</span>
+              <span style={{ paddingTop: 10, display: "block", fontSize: 20 }}>copied into your project</span>
             </Note>
           </div>
         </>
