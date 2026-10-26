@@ -37,10 +37,16 @@ function pick(names?: string[]): string[] {
 /** A product folder copied to the work area, served on its own port. */
 function stage(product: string, work: string): void {
   copyApp(join(PRODUCTS, product), work);
+  servePort(product, work);
+}
+
+/** Points an app folder (a fresh product, or an agent's finished work) at this product's run port. */
+function servePort(product: string, work: string): void {
+  const from = (JSON.parse(readFileSync(join(work, "pigment.app.json"), "utf8")) as { port: number }).port;
   const port = RUN_PORT + showcaseProducts().indexOf(product);
   for (const f of ["package.json", "vite.config.ts", "pigment.app.json"]) {
     const file = join(work, f);
-    if (existsSync(file)) writeFileSync(file, readFileSync(file, "utf8").replaceAll(String(BASE_PORT), String(port)));
+    if (existsSync(file)) writeFileSync(file, readFileSync(file, "utf8").replaceAll(String(from), String(port)));
   }
 }
 
@@ -118,8 +124,9 @@ export async function reshootShowcase(id: string, version: string, names?: strin
     const reuse = record.workDir?.startsWith(WORK_ROOT) && existsSync(join(record.workDir, "package.json"));
     const work = reuse ? record.workDir! : join(WORK_ROOT, "_showcase", id, product, `${runId}-reshoot`);
     if (work !== record.workDir) {
+      // The kept copy is the agent's work: only its port changes, never its files.
       copyApp(join(out, "app"), work);
-      stage(product, work);
+      servePort(product, work);
     }
     info(`[${product}] building ${runId} again`);
     const built = (await install(work)) ? await build(work) : { ok: false, durationMs: 0, log: "npm install failed" };
@@ -213,6 +220,12 @@ export async function exportShowcase(id: string, version: string, names?: string
       info(`[${product}] no captured ${id}@${from} run to export`);
       continue;
     }
+    // A run that captured the product as it was (a rebuild that lost the agent's work) must never reach the site.
+    const original = join(OUT, "_original", product, "screenshots", "home-desktop-light.png");
+    const applied = join(dir, runId, "screenshots", "home-desktop-light.png");
+    if (existsSync(original) && existsSync(applied) && (await difference(original, applied)) < 2) {
+      fail(`[${product}] ${id}@${version} run ${runId} looks the same as the original product — not exported. Check its build.`);
+    }
     const dest = join(SITE, product, id);
     await copyShots(join(dir, runId), pageShots(join(dir, runId), manifest.tags.appearance), dest);
     // Link previews take PNG: the top of the home page in the system's default mode.
@@ -237,4 +250,14 @@ export function missingShowcases(): string[] {
     }
   }
   return gaps;
+}
+
+/** Mean per-pixel difference (0–255) between the first screens of two captures, compared small and in grey. */
+async function difference(a: string, b: string): Promise<number> {
+  const small = (file: string) =>
+    sharp(file).extract({ left: 0, top: 0, width: 1440, height: 900 }).resize(360, 225, { fit: "fill" }).greyscale().raw().toBuffer();
+  const [x, y] = await Promise.all([small(a), small(b)]);
+  let sum = 0;
+  for (let i = 0; i < x.length; i++) sum += Math.abs(x[i]! - y[i]!);
+  return sum / x.length;
 }
