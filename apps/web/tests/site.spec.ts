@@ -48,6 +48,8 @@ test.describe("system detail", () => {
     expect(await page.locator("main, .page").first().innerText()).not.toMatch(/\bv?\d+\.\d+\.\d+\b/);
     await expect(page.getByText("text.primary", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Components" })).toBeVisible();
+    // The full list is folded away under the showcase and the spec; it opens on request.
+    await page.getByText("Every component and its states").click();
     await expect(page.getByText("data-display / table")).toBeVisible();
   });
 

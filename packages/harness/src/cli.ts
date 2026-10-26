@@ -17,6 +17,7 @@ import { intake } from "./commands/intake.ts";
 import { checkAll, publish } from "./commands/publish.ts";
 import { review } from "./commands/review.ts";
 import { scaffold } from "./commands/scaffold.ts";
+import { exportOriginals, exportShowcase, showcase, showcaseOriginals } from "./commands/showcase.ts";
 import { validate } from "./commands/validate.ts";
 
 const program = new Command("pnpm harness").description("Pigment template pipeline. See docs/harness/README.md.");
@@ -108,6 +109,24 @@ program
       timeoutMinutes: Number(opts.timeout),
       samples: Number(opts.samples),
     });
+  });
+
+program
+  .command("showcase")
+  .description("gallery: a coding agent applies a published system to each showcase product (showcase/products) — never scored")
+  .argument("[ref]", "a published <id>@<version>; omit with --originals")
+  .option("--products <products...>", "subset of the products")
+  .option("--originals", "capture the products as they are (the before), no agent")
+  .option("--export", "only copy the latest captures to the site (apps/web/public/products), no agent")
+  .option("--agent <agent>", "claude | codex (experimental)", "claude")
+  .option("--timeout <minutes>", "per-product agent timeout", "75")
+  .action(async (ref: string | undefined, opts) => {
+    if (opts.originals && opts.export) return exportOriginals(opts.products);
+    if (opts.originals) return showcaseOriginals(opts.products);
+    if (!ref) throw new Error("give a published <id>@<version>, or --originals");
+    const { id, version } = parseRef(ref);
+    if (opts.export) return exportShowcase(id, version, opts.products);
+    await showcase(id, version, { products: opts.products, agent: opts.agent as Agent, timeoutMinutes: Number(opts.timeout) });
   });
 
 program

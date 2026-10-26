@@ -253,6 +253,62 @@ export function getScreens(id: string, version: string): Record<string, Screen[]
   return out;
 }
 
+export type ShotSet = Partial<Record<"desktopLight" | "desktopDark" | "mobileLight" | "mobileDark", string>>;
+
+export interface ShowcasePage {
+  slug: string;
+  name: string;
+  /** The product's own house design (light only). */
+  original: ShotSet;
+  /** The same page after an agent applied the system. */
+  applied: ShotSet;
+}
+
+export interface ShowcaseProduct {
+  id: string;
+  name: string;
+  /** What kind of product it is, e.g. "Coffee shop". */
+  kind: string;
+  pages: ShowcasePage[];
+}
+
+function shotSet(dir: string, url: string, slug: string): ShotSet {
+  const set: ShotSet = {};
+  if (!existsSync(dir)) return set;
+  for (const f of readdirSync(dir)) {
+    const m = /^(.+)-(desktop|mobile)-(light|dark)\.webp$/.exec(f);
+    if (m && m[1] === slug) set[`${m[2]}${m[3] === "light" ? "Light" : "Dark"}` as keyof ShotSet] = `${url}/${f}`;
+  }
+  return set;
+}
+
+/**
+ * The showcase products with one system applied: realistic sites with their own design, captured before and
+ * after an agent applied the system (`pnpm harness showcase`). Only products the system was applied to are
+ * listed. Site only: reads the exported folder apps/web/public/products.
+ */
+export function getShowcase(id: string): ShowcaseProduct[] {
+  const dir = join(contentRoot(), "..", "apps", "web", "public", "products");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((p) => existsSync(join(dir, p, "product.json")) && existsSync(join(dir, p, id)))
+    .map((p) => {
+      const meta = readJson<{ id: string; name: string; kind: string; order?: number; pages: Array<{ slug: string; name: string }> }>(join(dir, p, "product.json"));
+      return {
+        order: meta.order ?? 99,
+        id: meta.id,
+        name: meta.name,
+        kind: meta.kind,
+        pages: meta.pages
+          .map((pg) => ({ ...pg, original: shotSet(join(dir, p, "original"), `/products/${p}/original`, pg.slug), applied: shotSet(join(dir, p, id), `/products/${p}/${id}`, pg.slug) }))
+          .filter((pg) => pg.applied.desktopLight || pg.applied.desktopDark),
+      };
+    })
+    .filter((p) => p.pages.length > 0)
+    .sort((a, b) => a.order - b.order)
+    .map(({ order: _order, ...product }) => product);
+}
+
 /** WCAG 2.x contrast ratio for two hex colors. */
 export function contrastRatio(fg: string, bg: string): number {
   const lum = (hex: string) => {
