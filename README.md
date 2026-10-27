@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://pigmentui.com"><img src="docs/assets/pigment-motion.gif" alt="One site, any design system: a coffee shop site restyled in turn by four Pigment systems, then the four results side by side." width="100%" /></a>
+<a href="https://pigmentui.com"><img src="docs/assets/pigment-motion.gif" alt="Three ways to use a Pigment system: set one up when a project starts, move a site that already works onto one (a coffee shop restyled by four systems), and weeks later a new agent session builds a screen from the system kept in the project." width="100%" /></a>
 
 <h3>Design systems your coding agent can actually follow.</h3>
 
