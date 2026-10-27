@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { ContentError, getAgentMd, getComponents, getComponentSpec, getGuide, getHistory, getShowcase, getTokenFile, listTemplates } from "@pigment/content";
-import { buildPrompt, KEEP_SPEC, SITE_URL, STAR_ASK } from "@pigment/content/prompts";
+import { buildPrompt, keepSpec, SITE_URL, STAR_ASK } from "@pigment/content/prompts";
 import { z } from "zod";
 import pkg from "../package.json" with { type: "json" };
 
@@ -145,7 +145,7 @@ export function createServer(): McpServer {
       guard(() =>
         args.mode === "ongoing"
           ? `Read design-system/agent.md first: it is this system's whole spec, kept in the project.\n\n${getGuide(args.id, CURRENT, args.mode)}`
-          : `${getGuide(args.id, CURRENT, args.mode)}\n\n## Keep the spec\n\n${KEEP_SPEC}\n\n## Finally\n\n${STAR_ASK}`,
+          : `${getGuide(args.id, CURRENT, args.mode)}\n\n## Keep the spec\n\n${keepSpec(args.id, "mcp")}\n\n## Finally\n\n${STAR_ASK}`,
       ),
   );
 

@@ -1,6 +1,6 @@
 import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { buildPrompt, STAR_ASK } from "@pigment/content/prompts";
+import { buildPrompt, keepSpec, STAR_ASK } from "@pigment/content/prompts";
 import { build, copyApp, install, WORK_ROOT } from "../appdir.ts";
 import { paths, rel, templateDir } from "../paths.ts";
 import { fail, info, ok, runId as newRunId, timestamp, writeJson, writeText } from "../util.ts";
@@ -21,13 +21,22 @@ export interface FlowCheck {
   detail: string;
 }
 
-/** What a later session can rely on once setup is done: the spec kept in the project and pointers to it. */
-export function setupChecks(work: string, specLength: number): FlowCheck[] {
+/** Where two texts first differ (line endings aside), or null when they are the same. */
+function firstDifference(a: string, b: string): string | null {
+  const lines = (t: string) => t.replace(/\r\n/g, "\n").trimEnd().split("\n");
+  const x = lines(a), y = lines(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if (x[i] !== y[i]) return `line ${i + 1}: "${(y[i] ?? "(missing)").slice(0, 60)}"`;
+  return null;
+}
+
+/** What a later session can rely on once setup is done: the spec kept in the project, unchanged, and pointers to it. */
+export function setupChecks(work: string, spec: string): FlowCheck[] {
   const read = (f: string) => (existsSync(join(work, f)) ? readFileSync(join(work, f), "utf8") : "");
   const kept = read("design-system/agent.md");
+  const diff = kept ? firstDifference(spec, kept) : "missing";
   const pointer = (f: string) => /design-system\/agent\.md/.test(read(f));
   return [
-    { name: "spec kept", pass: kept.length >= specLength * 0.9, detail: `design-system/agent.md ${kept.length} of ${specLength} characters` },
+    { name: "spec kept unchanged", pass: diff === null, detail: diff === null ? `design-system/agent.md identical to the spec (${kept.length} characters)` : `design-system/agent.md differs — ${diff}` },
     { name: "version", pass: read("design-system/VERSION").trim().length > 0, detail: read("design-system/VERSION").trim() || "missing" },
     { name: "tokens", pass: /--color-/.test(read("design-system/tokens.css")) || existsSync(join(work, "design-system", "tokens.json")), detail: "design-system/tokens.*" },
     { name: "CLAUDE.md points at the spec", pass: pointer("CLAUDE.md"), detail: read("CLAUDE.md").split("\n").find((l) => l.includes("design-system")) ?? "no pointer" },
@@ -55,15 +64,22 @@ export async function flow(id: string, version: string, options: { agent: Agent;
   await install(work);
 
   // 1. Setup, with the prompt people copy for a new project (the GitHub ask needs a person, so it is left out).
-  const userNew = buildPrompt(id, "new", "url").replace(STAR_ASK, "").replace(/^Spec: .*$/m, `Spec: design-packages/${id}/dist/agent.md`).trim();
+  // The spec is a local file here (no network), so keeping it means copying that file, as people would download it.
+  const userNew = buildPrompt(id, "new", "url")
+    .replace(STAR_ASK, "")
+    .replace(/^Spec: .*$/m, `Spec: design-packages/${id}/dist/agent.md`)
+    .replace(keepSpec(id, "url"), keepSpec(id, "url").replace(/download it unchanged into design-system\/agent\.md \(.*?\)/, `copy design-packages/${id}/dist/agent.md unchanged to design-system/agent.md (\`cp\` or \`Copy-Item\`; never retype it)`))
+    .trim();
   const setup = readFileSync(join(paths.prompts, "harness-flow-setup.md"), "utf8").replaceAll("{{prompt}}", userNew).replaceAll("{{id}}", id).replaceAll("{{product}}", PRODUCT);
   writeText(join(out, "setup", "prompt.md"), setup);
   info(`[setup] agent setting ${id}@${version} up in ${work}`);
-  recordAgentRun(await runAgent(options.agent, work, setup, options.timeoutMinutes * 60_000), join(out, "setup"));
+  // Copying is how people keep the spec (a download or a cp); the self-check is how they look at their work.
+  const copyTools = ["Bash(cp:*)", "PowerShell(Copy-Item:*)", "Bash(mkdir:*)", "PowerShell(New-Item:*)"];
+  recordAgentRun(await runAgent(options.agent, work, setup, options.timeoutMinutes * 60_000, copyTools), join(out, "setup"));
 
   // 2. Between sessions: the package goes, as it would for anyone who set up from the spec URL or MCP.
   rmSync(join(work, "design-packages"), { recursive: true, force: true });
-  const checks = setupChecks(work, spec.length);
+  const checks = setupChecks(work, spec);
   for (const c of checks) info(`  ${c.pass ? "✔" : "✖"} ${c.name} — ${c.detail}`);
 
   // 3. A fresh session builds screens with the prompt people use for ongoing work.

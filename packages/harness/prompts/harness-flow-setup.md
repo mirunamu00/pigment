@@ -8,4 +8,6 @@ not stop to ask. No one is here to answer the final GitHub question: skip it.
 The product is {{product}}. Set the system up for it; its screens come later.
 
 You may run exactly these commands, from the project root and without a `cd` prefix: `npm install`,
-`npm run build`, `npm run typecheck`.
+`npm run build`, `npm run typecheck`, `node pigment-snap.mjs`, and `cp` / `Copy-Item` / `mkdir` / `New-Item` for files.
+`node pigment-snap.mjs` builds the app and writes screenshots of every page in `pigment.app.json` to `.snaps/` at
+1440px and 390px, light and dark: look at them before you finish.
