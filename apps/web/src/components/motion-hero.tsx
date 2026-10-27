@@ -356,6 +356,9 @@ function RestyleFilm({ onDone }: { onDone?: () => void }) {
 /* ---------------------------------------------------------------------------------------------------------------- */
 /* Film 3 — every screen after: a fresh session builds from what the project kept.                                   */
 
+/** The screens a later session built (unedited flow captures). */
+const NEW_SCREENS = ["flow-goal-detail", "flow-insights", "flow-habits"];
+
 function OngoingFilm({ onDone }: { onDone?: () => void }) {
   const film = useFilm((tl) => {
     gsap.set(words(".mh-intro"), { yPercent: 110, filter: "blur(10px)" });
@@ -374,18 +377,21 @@ function OngoingFilm({ onDone }: { onDone?: () => void }) {
       .to(words(".mh-o1"), { yPercent: 0, duration: 0.8, ease: E, stagger: 0.06 }, 4.75)
       .set(".mh-idx", { textContent: "NEW SESSION · NO MEMORY" }, 4.75)
       .fromTo(".mh-ask", { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0, duration: 0.7, ease: E }, 4.8)
-      .fromTo(".mh-reads", { autoAlpha: 0, scale: 0.9 }, { autoAlpha: 1, scale: 1, duration: 0.6, ease: E }, 5.6)
-      .to(".mh-reads", { autoAlpha: 0, duration: 0.4 }, 7.4)
-      .to(".mh-ask", { autoAlpha: 0, y: 20, duration: 0.4, ease: "expo.in" }, 7.4);
-    writeIn(tl, "mh-goal", 6.6);
-    tl.to(".mh-goal img", { y: -60, duration: 1.6, ease: "sine.inOut" }, 7.7)
-      .to(words(".mh-o1"), { yPercent: -110, duration: 0.45, ease: "expo.in" }, 8.8)
-      .to(words(".mh-o2"), { yPercent: 0, duration: 0.8, ease: E, stagger: 0.06 }, 9.15)
-      .set(".mh-idx", { textContent: "SAME SYSTEM" }, 9.15);
+      .fromTo(".mh-reads", { autoAlpha: 0, scale: 0.9 }, { autoAlpha: 1, scale: 1, duration: 0.6, ease: E }, 5.3)
+      .to([".mh-reads", ".mh-ask"], { autoAlpha: 0, duration: 0.4, ease: "expo.in" }, 6.6);
+    // Three screens, written one after another.
+    NEW_SCREENS.forEach((_, k) => {
+      const t = 5.9 + k * 1.6;
+      writeIn(tl, `mh-new${k}`, t);
+      tl.to(`.mh-new${k} img`, { y: -110, duration: 1.1, ease: "sine.inOut" }, t + 0.8);
+    });
+    tl.to(words(".mh-o1"), { yPercent: -110, duration: 0.45, ease: "expo.in" }, 9.6)
+      .to(words(".mh-o2"), { yPercent: 0, duration: 0.8, ease: E, stagger: 0.06 }, 9.95)
+      .set(".mh-idx", { textContent: "SAME SYSTEM" }, 9.95);
   }, onDone);
 
   return (
-    <Stage film={film} label="Every screen after: weeks later a new agent session with no memory reads the design system kept in the project and builds a new screen on it">
+    <Stage film={film} label="Every screen after: weeks later a new agent session with no memory reads the design system kept in the project and builds three new screens on it">
       <div className="mh-intro">
         <Mask words={["Weeks", "later,"]} />
         <span className="mh-muted">
@@ -400,8 +406,8 @@ function OngoingFilm({ onDone }: { onDone?: () => void }) {
             <Mask words={["the", "system"]} />
           </div>
           <div className="mh-name mh-o1">
-            <Mask words={["Asks", "for", "a"]} />
-            <Mask words={["new", "screen"]} />
+            <Mask words={["Asks", "for"]} />
+            <Mask words={["new", "screens"]} />
           </div>
           <div className="mh-name mh-o2">
             <Mask words={["Still", "on"]} />
@@ -415,9 +421,11 @@ function OngoingFilm({ onDone }: { onDone?: () => void }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={img("flow-today")} alt="" />
         </div>
-        <Strips id="flow-goal" cls="mh-goal" />
+        {NEW_SCREENS.map((id, k) => (
+          <Strips key={id} id={id} cls={`mh-new${k}`} />
+        ))}
       </Window>
-      <div className="mh-ask">“Add a screen to create a team goal.”</div>
+      <div className="mh-ask">“Add a goal page, team insights and a list of every habit.”</div>
       <div className="mh-reads">reads design-system/agent.md</div>
     </Stage>
   );
