@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { ComponentIndex, Manifest, Registry, resolveTokens, type TokenTree } from "@pigment/schema";
+import { keepSpec, STAR_ASK, type Delivery } from "./prompts.ts";
 
 export type ErrorCode = "unknown_template" | "unknown_version" | "invalid_component" | "unavailable_artifact" | "invalid_mode";
 
@@ -133,6 +134,16 @@ export function getGuide(id: string, version: string, mode: string): string {
   const next = rest.indexOf("\n## ", 3);
   const verification = text.slice(text.indexOf("## Verification"));
   return (next > 0 ? rest.slice(0, next) : rest).trim() + "\n\n" + verification.trim();
+}
+
+/**
+ * The installation guide people's agents follow: the spec's own steps for the scenario, plus keeping the whole spec in
+ * the project and the closing ask (setup), or reading the kept spec first (ongoing). MCP and the HTTP API both serve it.
+ */
+export function getInstallationGuide(id: string, version: string, mode: string, delivery: Delivery): string {
+  const guide = getGuide(id, version, mode);
+  if (mode === "ongoing") return `Read design-system/agent.md first: it is this system's whole spec, kept in the project.\n\n${guide}`;
+  return `${guide}\n\n## Keep the spec\n\n${keepSpec(id, delivery)}\n\n## Finally\n\n${STAR_ASK}`;
 }
 
 export function getAgentMd(id: string, version: string): string {

@@ -36,7 +36,8 @@ export default function HomePage() {
               Design systems your coding agent can&nbsp;apply.
             </h1>
             <p className="gallery-intro__sub">
-              Each one is shown on real products and tested before release. Claude Code, Codex and any MCP client can apply it.
+              Set one up when a project starts, move a product you already have onto it, and every screen after follows it. Works with
+              Claude Code, Codex and any MCP client.
               {templates.length > 0 && " Pick one below."}
             </p>
           </div>
@@ -68,10 +69,10 @@ export default function HomePage() {
               <span className="mono">01</span>Connect the MCP server once.
             </li>
             <li>
-              <span className="mono">02</span>Ask your agent to apply a system.
+              <span className="mono">02</span>Ask your agent to set a system up — new project or existing.
             </li>
             <li>
-              <span className="mono">03</span>Every new screen stays on-system.
+              <span className="mono">03</span>Every screen after that follows it, in any session.
             </li>
           </ol>
           <p className="meta" style={{ marginTop: 28 }}>

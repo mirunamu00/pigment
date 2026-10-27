@@ -229,7 +229,7 @@ export default async function SystemPage({ params }: { params: Promise<{ id: str
                 <span className="meta">Your project keeps its own copy</span>
               </div>
               <p className="changelog__intro">
-                Applying a system copies its tokens and rules into your project&apos;s <code>design-system/</code> folder, and every
+                Setting a system up keeps its whole spec (<code>design-system/agent.md</code>) and tokens in your project, and every
                 later screen is built from that copy. Updates here never restyle a project on their own — ask your agent to
                 update and it applies only what changed since your copy.
               </p>

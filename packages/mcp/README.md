@@ -34,8 +34,13 @@ Start a new session and just ask:
 
 > Apply the Pigment design system margin-notes to this project.
 
-Or run the `apply` prompt (Claude Code: `/mcp__pigment__apply`), which adds the working agreement: audit first,
-propose a plan, restyle one sample screen, then report build and visual checks.
+Or set one up in a new project ("Set up the Pigment design system morning-shapes in this project."), and later just
+ask for screens: every session reads the system from `design-system/agent.md`.
+
+The `apply` prompt (Claude Code: `/mcp__pigment__apply`) adds the working agreement: audit first, propose a plan
+(asking whether the product is light, dark or both), restyle one sample screen, keep the whole spec in
+`design-system/agent.md`, report build and visual checks — and finally ask once whether to star Pigment on GitHub,
+which happens only on your yes.
 
 ## Tools
 
@@ -45,7 +50,7 @@ propose a plan, restyle one sample screen, then report build and visual checks.
 | `get_design_system` | The full spec of a system: rules, token tables, setup, verification |
 | `get_tokens` | `tokens.css` or `tokens.json`, to copy verbatim |
 | `get_component_spec` | One component: anatomy, variants, states, accessibility, token mapping |
-| `get_installation_guide` | Steps and approval points for `new`, `existing` or `ongoing` |
+| `get_installation_guide` | Steps, approval points and checks for `new`, `existing` or `ongoing` — including keeping the spec in `design-system/agent.md` |
 | `get_changelog` | What changed, by date — to update a project that already has the system |
 | `get_references` | Realistic products before and after the system: every page, desktop and mobile, light and dark |
 

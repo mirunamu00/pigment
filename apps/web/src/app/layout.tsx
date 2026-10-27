@@ -11,7 +11,7 @@ const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["nor
 const hand = Caveat({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-hand", display: "swap" });
 
 const TITLE = "Pigment — Design systems for coding agents";
-const DESCRIPTION = "Design systems that Claude Code, Codex and any MCP client can apply to new and existing codebases.";
+const DESCRIPTION = "Design systems your coding agent sets up in your project — at the start, on a product you already have, and for every screen after. For Claude Code, Codex and any MCP client.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

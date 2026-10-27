@@ -17,8 +17,8 @@ Open an issue first for anything bigger than a small fix, so we can agree on the
 spend time on it.
 
 **Design systems are made by the pipeline, not by hand.** A new system or an update to a published one is
-written from a measured reference, applied by an agent to four reference apps, evaluated and approved
-before it is published (`docs/harness/`). That run needs coding-agent time, so the maintainer runs it —
+written from a measured reference, applied by an agent to four test apps (three times) and two holdout apps, reviewed
+against the reference and approved before it is published, then shown on the three showcase products (`docs/harness/`). That run needs coding-agent time, so the maintainer runs it —
 suggest systems and report problems with them through issues. Pull requests that hand-edit a published
 system's folder can't be merged: published versions are immutable, and CI checks it.
 

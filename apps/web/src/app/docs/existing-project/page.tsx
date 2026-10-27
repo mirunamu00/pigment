@@ -2,16 +2,18 @@ import type { Metadata } from "next";
 import { pageMeta } from "@/lib/meta";
 import Link from "next/link";
 import { Bloom, Note } from "@/components/details";
+import { buildPrompt } from "@pigment/content/prompts";
 import { DocsShell } from "@/components/docs-shell";
 
-export const metadata: Metadata = pageMeta("Apply a system to an existing project", "Restyle an existing codebase with a Pigment design system without changing behavior, routes or tests.", "/docs/existing-project");
+export const metadata: Metadata = pageMeta("Apply a system to an existing project", "Move a working product onto a Pigment design system screen by screen, without changing behavior, routes or tests.", "/docs/existing-project");
 
 const STEPS = [
   ["Audit", "The agent maps your styling approach, shared components, routes and tests, and lists what the change would touch."],
-  ["Plan, then wait for approval", "You get the affected areas, what will be preserved, and the order of work. Nothing changes until you approve."],
+  ["Plan, then wait for approval", "You get the affected areas, what will be preserved, and the order of work, and are asked whether your product is light only, dark only or both when the system has both. Nothing changes until you approve."],
   ["Bring in the tokens", "Tokens are mapped onto your existing variables and theme, then the first screen is restyled as a sample — and the agent stops again for review."],
   ["Restyle screen by screen", "One commit per screen, so any step can be reverted on its own. Layouts adapt to your information structure — they are never forced to match a reference image."],
-  ["Verify and report", "Build, tests and a visual pass. The report lists changed files, risks and anything left unfinished."],
+  ["Keep the spec", "The whole spec goes into design-system/agent.md, downloaded unchanged, with the tokens and a VERSION file, and AGENTS.md and CLAUDE.md point at it — so the product keeps its design system after the migration."],
+  ["Verify and report", "Build, tests and a visual pass. The report lists changed files, risks and anything left unfinished — then one optional question: may it star Pigment on GitHub? Only a yes does anything."],
 ] as const;
 
 export default function ExistingProjectGuide() {
@@ -30,8 +32,8 @@ export default function ExistingProjectGuide() {
       </p>
       <h1 style={{ position: "relative" }}>Apply a system to an existing project</h1>
       <p className="lead" style={{ position: "relative" }}>
-        Your agent restyles what you already have — screen by screen — without touching routes, data flow or business logic. Expect a plan before any file
-        changes.
+        Your product gets a design system of its own: the agent moves what you already have onto it, screen by screen, without touching routes, data flow
+        or business logic. Expect a plan before any file changes.
       </p>
 
       <div className="panel" style={{ marginTop: 36, padding: "20px 22px" }}>
@@ -75,13 +77,7 @@ export default function ExistingProjectGuide() {
       </div>
 
       <h2 id="prompt">The prompt</h2>
-      <pre className="code">
-        Apply design system <span className="s">&lt;system&gt;</span> to this project.{"\n"}
-        Preserve features, routes, business logic, API contracts, tests and accessibility.{"\n"}
-        Audit styles and components first, then propose a migration plan and wait for my approval.{"\n"}
-        Restyle one screen as a sample and wait again.{"\n"}
-        Report build results, visual checks and anything left unimplemented.
-      </pre>
+      <pre className="code" style={{ whiteSpace: "pre-wrap" }}>{buildPrompt("<system>", "existing", "url")}</pre>
       <p className="meta">Copy it ready-made from any system page.</p>
 
       <h2 id="files">What lands in your repo</h2>

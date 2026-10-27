@@ -73,7 +73,7 @@ export function buildPrompt(id: string, mode: Mode, delivery: Delivery): string 
   return [
     `Build this with the installed design system ${id}.`,
     "Follow design-system/agent.md - its rules, Applying the concept and component specs - and use its semantic tokens and the project's existing components. Don't hard-code new style values.",
-    "If the spec doesn't cover something, ask me with options before deciding.",
+    "If the spec doesn't cover something, compose it from the existing tokens and components and note it in design-system/components.md; if a request conflicts with the system, ask me with options before deciding.",
   ].join("\n");
 }
 
