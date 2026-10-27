@@ -78,6 +78,9 @@ export default function HomePage() {
           <p className="meta" style={{ marginTop: 28 }}>
             No MCP? Every system also has a plain spec URL.
           </p>
+          <p className="meta">
+            <Link href="/how">How each system is made and tested →</Link>
+          </p>
         </div>
         <div className="how__code">
           <div className="code-panel">

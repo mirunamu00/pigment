@@ -47,7 +47,8 @@ export default function DocsOverview() {
         <li>
           <strong>Proof</strong> — before a system is published, and with every update, an agent applies it to four plain test apps three times and to two
           apps it was never tuned on, and the results are reviewed against the reference. What you see on the site is separate: the system applied to three
-          realistic products (a coffee shop, a magazine, a recipe app), every page before and after, unedited.
+          realistic products (a coffee shop, a magazine, a recipe app), every page before and after, unedited.{" "}
+          <Link href="/how">How a system is made</Link>
         </li>
       </ul>
 
