@@ -492,7 +492,7 @@ export function ProjectScene() {
         </div>
         <div className="hs-pwin week3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/motion/flow-goal.webp" alt="" />
+          <img src="/motion/flow-insights.webp" alt="" />
           <span className="hs-when w3">Week 3 · new screen</span>
         </div>
       </div>
