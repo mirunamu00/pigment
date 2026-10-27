@@ -102,6 +102,8 @@ function useFilm(build: (tl: gsap.core.Timeline) => void, onDone?: () => void) {
       io.observe(el);
       reduce.addEventListener("change", sync);
       sync();
+      // The stage stays hidden (CSS) until every element has its starting state and the stage its scale.
+      st.style.visibility = "visible";
       return () => {
         io.disconnect();
         reduce.removeEventListener("change", sync);
