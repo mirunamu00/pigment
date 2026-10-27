@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://pigmentui.com"><img src="docs/assets/banner.png" alt="Pigment — design systems your coding agent can apply." width="100%" /></a>
+<a href="https://pigmentui.com"><img src="docs/assets/pigment-motion.gif" alt="One site, any design system: a coffee shop site restyled in turn by four Pigment systems, then the four results side by side." width="100%" /></a>
 
 <h3>Design systems your coding agent can actually follow.</h3>
 

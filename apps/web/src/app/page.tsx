@@ -3,6 +3,7 @@ import { listTemplates, type TemplateSummary } from "@pigment/content";
 import { MCP_URL, SITE_URL } from "@pigment/content/prompts";
 import { SiteFooter, SiteHeader } from "@/components/chrome";
 import { Bloom, Note } from "@/components/details";
+import { MotionHero } from "@/components/motion-hero";
 import { Gallery } from "@/components/gallery";
 
 export const dynamic = "force-static";
@@ -48,6 +49,8 @@ export default function HomePage() {
             </Note>
           )}
         </div>
+
+        <MotionHero />
 
         <div className="gallery-stage">
           <Bloom size={760} strength={0.34} style={{ right: -180, top: 240 }} />
