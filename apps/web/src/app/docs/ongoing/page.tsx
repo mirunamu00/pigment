@@ -9,7 +9,7 @@ export default function OngoingGuide() {
     <DocsShell current="/docs/ongoing">
       <p className="meta">Guides / Ongoing development</p>
       <h1>Keep new screens on-system</h1>
-      <p className="lead">Once a system is installed, the pointer in AGENTS.md and CLAUDE.md makes every new session read design-system/ before building UI.</p>
+      <p className="lead">Once a system is installed, the pointer in AGENTS.md and CLAUDE.md makes every new session read design-system/agent.md, the whole spec kept in your project, before building UI.</p>
 
       <h2 id="rules">What your agent does</h2>
       <ul>

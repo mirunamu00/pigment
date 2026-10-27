@@ -17,6 +17,7 @@ import { intake } from "./commands/intake.ts";
 import { checkAll, publish } from "./commands/publish.ts";
 import { review } from "./commands/review.ts";
 import { scaffold } from "./commands/scaffold.ts";
+import { flow } from "./commands/flow.ts";
 import { exportOriginals, exportShowcase, reshootShowcase, showcase, showcaseOriginals } from "./commands/showcase.ts";
 import { validate } from "./commands/validate.ts";
 
@@ -130,6 +131,17 @@ program
     if (opts.export) return exportShowcase(id, version, opts.products, opts.carryFrom);
     if (opts.reshoot) return reshootShowcase(id, version, opts.products);
     await showcase(id, version, { products: opts.products, agent: opts.agent as Agent, timeoutMinutes: Number(opts.timeout) });
+  });
+
+program
+  .command("flow")
+  .description("new-project path: one agent sets a system up in an empty project, a fresh one builds screens from what the project kept — never scored")
+  .argument("<ref>", "<id>@<version>")
+  .option("--agent <agent>", "claude | codex (experimental)", "claude")
+  .option("--timeout <minutes>", "per-session agent timeout", "60")
+  .action(async (ref: string, opts) => {
+    const { id, version } = parseRef(ref);
+    await flow(id, version, { agent: opts.agent as Agent, timeoutMinutes: Number(opts.timeout) });
   });
 
 program

@@ -33,9 +33,9 @@ const CLAUDE_ALLOWED = [
 ];
 const CLAUDE_DENIED = ["WebFetch", "WebSearch", "Bash(git push:*)", "PowerShell(git push:*)"];
 
-export async function runAgent(agent: Agent, cwd: string, prompt: string, timeoutMs: number) {
+export async function runAgent(agent: Agent, cwd: string, prompt: string, timeoutMs: number, extraTools: string[] = []) {
   if (agent === "claude") {
-    const args = ["-p", "--permission-mode", "acceptEdits", "--output-format", "json", "--allowedTools", ...CLAUDE_ALLOWED, "--disallowedTools", ...CLAUDE_DENIED];
+    const args = ["-p", "--permission-mode", "acceptEdits", "--output-format", "json", "--allowedTools", ...CLAUDE_ALLOWED, ...extraTools, "--disallowedTools", ...CLAUDE_DENIED];
     return run("claude", args, { cwd, input: prompt, timeoutMs, shell: false });
   }
   // Codex support is experimental: flags follow `codex exec --help` at the time of writing.

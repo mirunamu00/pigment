@@ -27,6 +27,20 @@ export function specRef(id: string, delivery: Delivery): string {
  * A system may ship light and dark; a product may support only one. Without asking, tokens.css follows the
  * operating system and a light-only product turns dark for some of its users.
  */
+/**
+ * Later sessions start with no memory of the setup: everything they follow must live in the project. The spec's own
+ * steps keep only tokens and a short note in design-system/, so the prompt has the whole spec kept there too.
+ */
+export function keepSpec(id: string, delivery: Delivery): string {
+  // Copied, never retyped: an agent rewriting a long spec by hand can drop or change parts of it, and every later
+  // session would follow the damaged copy.
+  const how =
+    delivery === "url"
+      ? `download it unchanged into design-system/agent.md (for example \`curl -fsSL ${SITE_URL}/s/${id}/agent.md -o design-system/agent.md\`; only if you can't download, copy it exactly, never summarized)`
+      : "write the text get_design_system returned into design-system/agent.md exactly as it came, never summarized";
+  return `Keep the whole spec in the project: ${how}, next to VERSION and the tokens, and make the AGENTS.md / CLAUDE.md line read: "UI work follows design-system/agent.md - read its rules and Applying the concept before building any screen."`;
+}
+
 const APPEARANCE =
   "If the system offers both light and dark, ask which my product supports (light only, dark only, or both) as part of the plan: with one, fix that mode; with both, follow the system setting and connect an existing theme switch, adding one only if I ask.";
 
@@ -39,6 +53,7 @@ export function buildPrompt(id: string, mode: Mode, delivery: Delivery): string 
       "First inspect the framework, styling approach and component structure, then propose an installation plan and wait for my approval.",
       APPEARANCE,
       "Don't add libraries that don't fit the existing stack. Leave an AGENTS.md / CLAUDE.md pointer so future screens reuse the system.",
+      keepSpec(id, delivery),
       "Report build results, visual checks and anything left unimplemented.",
       STAR_ASK,
     ].join("\n");
@@ -50,13 +65,14 @@ export function buildPrompt(id: string, mode: Mode, delivery: Delivery): string 
       "Preserve features, routes, business logic, API contracts, tests and accessibility.",
       "Audit styles and components first, then propose a migration plan and wait for my approval. Restyle one screen as a sample and wait again.",
       APPEARANCE,
+      keepSpec(id, delivery),
       "Report build results, visual checks and anything left unimplemented.",
       STAR_ASK,
     ].join("\n");
   }
   return [
     `Build this with the installed design system ${id}.`,
-    "Use its semantic tokens and component conventions from design-system/. Don't hard-code new style values.",
+    "Follow design-system/agent.md - its rules, Applying the concept and component specs - and use its semantic tokens and the project's existing components. Don't hard-code new style values.",
     "If the spec doesn't cover something, ask me with options before deciding.",
   ].join("\n");
 }
