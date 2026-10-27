@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Caveat, Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Caveat, Figtree, Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { SITE_URL } from "@pigment/content/prompts";
 import { WatercolorFilters } from "@/components/details";
 import "./globals.css";
@@ -9,6 +9,8 @@ const sans = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap
 const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-serif", display: "swap" });
 const hand = Caveat({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-hand", display: "swap" });
+// Only for the films that show Morning Shapes' own type.
+const figtree = Figtree({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-figtree", display: "swap", preload: false });
 
 const TITLE = "Pigment — Design systems for coding agents";
 const DESCRIPTION = "Design systems your coding agent sets up in your project — at the start, on a product you already have, and for every screen after. For Claude Code, Codex and any MCP client.";
@@ -30,7 +32,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable} ${serif.variable} ${hand.variable}`}>
+    <html lang="en" className={`${sans.variable} ${mono.variable} ${serif.variable} ${hand.variable} ${figtree.variable}`}>
       <body>
         <WatercolorFilters />
         <div className="clip-x">{children}</div>

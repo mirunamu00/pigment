@@ -82,7 +82,7 @@ export default function HowPage() {
     <>
       <SiteHeader active="how" />
       <main className="page how-page">
-        <Bloom size={680} style={{ right: -220, top: -40 }} />
+        <Bloom size={620} style={{ right: -260, top: -260 }} />
         <div className="how-page__intro">
           <p className="eyebrow">How it&apos;s made</p>
           <h1>From a site people love to a system your agent follows.</h1>
