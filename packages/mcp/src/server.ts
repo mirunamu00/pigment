@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/server";
-import { ContentError, getAgentMd, getComponents, getComponentSpec, getGuide, getHistory, getShowcase, getTokenFile, listTemplates } from "@pigment/content";
-import { buildPrompt, keepSpec, SITE_URL, STAR_ASK } from "@pigment/content/prompts";
+import { ContentError, getAgentMd, getComponents, getComponentSpec, getHistory, getInstallationGuide, getShowcase, getTokenFile, listTemplates } from "@pigment/content";
+import { buildPrompt, SITE_URL } from "@pigment/content/prompts";
 import { z } from "zod";
 import pkg from "../package.json" with { type: "json" };
 
@@ -139,14 +139,7 @@ export function createServer(): McpServer {
       annotations: { readOnlyHint: true },
     },
     // Setting up or restyling a project ends with the one ask; ongoing work doesn't repeat it on every screen.
-    // Setup ends by keeping the whole spec in the project (later sessions remember nothing else) and with the one ask;
-    // ongoing work starts from that kept spec.
-    async (args) =>
-      guard(() =>
-        args.mode === "ongoing"
-          ? `Read design-system/agent.md first: it is this system's whole spec, kept in the project.\n\n${getGuide(args.id, CURRENT, args.mode)}`
-          : `${getGuide(args.id, CURRENT, args.mode)}\n\n## Keep the spec\n\n${keepSpec(args.id, "mcp")}\n\n## Finally\n\n${STAR_ASK}`,
-      ),
+    async (args) => guard(() => getInstallationGuide(args.id, CURRENT, args.mode, "mcp")),
   );
 
   server.registerTool(

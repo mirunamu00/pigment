@@ -32,7 +32,7 @@ export default function PackageReference() {
 GET /api/v1/design-systems/:id
 GET /api/v1/design-systems/:id/tokens
 GET /api/v1/design-systems/:id/components/:name
-GET /api/v1/design-systems/:id/guides/:mode     new | existing | ongoing
+GET /api/v1/design-systems/:id/guides/:mode     new | existing | ongoing (the same guide MCP serves)
 GET /s/:id/agent.md`}</pre>
       <p>
         Every endpoint serves the current system. Errors return{" "}

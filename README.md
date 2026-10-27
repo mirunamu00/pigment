@@ -35,12 +35,15 @@ states and decision rules — so every screen it builds, today or next month, lo
 claude mcp add --transport http pigment https://pigmentui.com/mcp
 ```
 
-**2 · Ask your agent**
+**2 · Ask your agent** — at whichever point your project is
 
-> Apply the Pigment design system margin-notes to this project.
+> Set up the Pigment design system morning-shapes in this project. &nbsp;*(starting out)*
+>
+> Apply the Pigment design system morning-shapes to this project. &nbsp;*(a product that already works)*
 
-That's it. Your agent copies the system into your project's `design-system/` folder and builds every new screen
-from that copy — updates to the system never restyle your project unless you ask for them.
+That's it. Your agent sets the system up as your project's own design system: it keeps the whole spec in
+`design-system/agent.md` with the tokens, and points AGENTS.md and CLAUDE.md at it — so every screen any later
+session builds follows it. Updates to the system never restyle your project unless you ask for them.
 
 <details>
 <summary><b>Codex, Cursor and other MCP clients</b></summary>
@@ -114,7 +117,7 @@ desktop and mobile, light and dark.
 | --- | --- |
 | **Measured, not adjectival** | Every rule carries a value: color, type, spacing, radius, elevation and motion — light and dark. |
 | **Rules, not page templates** | Decision rules for any product. A system is tested on four demo apps but never written for them: a lint flags rules that name a demo app's screens, data or copy. |
-| **Proven before publishing** | Every system — and every update — is applied by an agent to four reference apps, then to two more of a different shape (a landing page and a docs site) that never steer the design. Three samples, gated on builds, tests, accessibility and design adherence, then reviewed against the reference. |
+| **Proven before publishing** | Every system — and every update — is applied by an agent to four test apps, three times each, then to two more of a different shape (a landing page and a docs site) that never steer the design. The apps must build and pass their tests, and a review scores how close the results come to the reference's design quality before anything is published. |
 | **Shown on real products** | What you see of a system is an agent applying it to three realistic products — a shop, a magazine and an app with their own design and photos — every page, before and after, unedited. |
 | **Yours to keep** | Your project keeps its own copy. Updates come with a dated changelog and land only when you ask. |
 
@@ -169,7 +172,7 @@ whole pipeline and stops for approval after the analysis and before publishing.
 
 | Path | What |
 | --- | --- |
-| `apps/web` | The site: gallery, docs, `/api/v1`, `/mcp`, downloads |
+| `apps/web` | The site: gallery, docs, `/api/v1`, `/mcp`, the `agent.md` spec URLs |
 | `packages/mcp` | MCP server — the site's `/mcp` route and the `pigment-mcp` npm package |
 | `packages/harness` | `pnpm harness` — capture → prompt → demo runs → evaluation → publish → showcase |
 | `packages/content` · `packages/schema` | Read-only content access and the data contracts |
