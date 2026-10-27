@@ -64,7 +64,7 @@ export default function ExistingProjectGuide() {
 
       <div style={{ position: "relative", marginTop: 32 }}>
         <div className="callout">
-          <p style={{ fontWeight: 600, color: "var(--ink)" }}>Two approval points</p>
+          <p className="callout__title">Two approval points</p>
           <p>The agent pauses after the plan (step 02) and after the first restyled screen (step 03). After that it works screen by screen without stopping.</p>
         </div>
         <Note arrow="left" arrowFirst style={{ right: -150, top: 4 }}>
