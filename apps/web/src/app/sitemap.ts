@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { listTemplates, registry } from "@pigment/content";
 import { SITE_URL } from "@pigment/content/prompts";
 
-const PAGES = ["/", "/compare", "/connect", "/docs", "/docs/new-project", "/docs/existing-project", "/docs/ongoing", "/docs/package"];
+const PAGES = ["/", "/how", "/compare", "/connect", "/docs", "/docs/new-project", "/docs/existing-project", "/docs/ongoing", "/docs/package"];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const published = new Map(registry().templates.map((t) => [t.id, t.versions.find((v) => v.version === t.latest)?.publishedAt]));

@@ -4,6 +4,7 @@ import { StarButton } from "./star-button";
 const NAV = [
   { href: "/", label: "Systems", key: "systems" },
   { href: "/compare", label: "Compare", key: "compare" },
+  { href: "/how", label: "How it's made", key: "how" },
   { href: "/docs", label: "Docs", key: "docs" },
   { href: "/connect", label: "MCP", key: "mcp" },
 ] as const;

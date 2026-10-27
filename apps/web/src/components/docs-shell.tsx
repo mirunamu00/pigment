@@ -21,6 +21,7 @@ const SECTIONS = [
   {
     title: "Reference",
     links: [
+      { href: "/how", label: "How it's made" },
       { href: "/docs/package", label: "Spec and API" },
       { href: "/connect", label: "MCP tools" },
       { href: "/api/v1/design-systems", label: "HTTP API" },
