@@ -18,7 +18,7 @@ export default function NewProjectGuide() {
           ["Inspect and plan", "The agent checks your framework and styling setup and proposes how to install the system. You approve the plan."],
           ["Install tokens and fonts", "tokens.css (or tokens.json mapped into your theme) and the fonts with their fallbacks."],
           ["Build the base components", "Every component in the spec, with every specified state."],
-          ["Leave the pointer", "A design-system/ folder and one line in AGENTS.md and CLAUDE.md, so future sessions read it."],
+          ["Keep the spec", "A design-system/ folder with the whole spec as agent.md, and one line in AGENTS.md and CLAUDE.md, so every later session reads it."],
         ].map(([title, text], i) => (
           <li key={title}>
             <span className="mono meta" style={{ paddingTop: 3 }}>

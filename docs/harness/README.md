@@ -22,6 +22,7 @@ reference URL
    │  9. approve    the user reviews screenshots + report      (human gate)
    ├ 10. publish    pnpm harness publish <id>@<version>        → frozen version, registry
    └ 11. showcase   pnpm harness showcase <id>@<version>       → the system applied to the showcase products, exported to apps/web/public/products (what the site shows)
+     check     pnpm harness flow <id>@<version>           → the new-project path: one session sets the system up in an empty project, a fresh one builds screens from what the project kept (showcase/flows/)
 ```
 
 In Claude Code, the `template-intake` skill walks through all of it and stops at the two human checkpoints:
@@ -40,6 +41,8 @@ published version: see [`updating.md`](updating.md) (the `template-update` skill
 | `showcase/base-apps/` | The four neutral apps every template is applied to (dashboard, commerce, blog, settings), and the holdout apps used only to confirm (`"holdout": true`) |
 | `showcase/runs/` | Per template version and app: the evaluation, critic and run records, agent reports and patches (kept in git). Screenshots, motion frames and drawing crops stay local. Base-app runs are the test only and are never shown on the site |
 | `showcase/products/` | The three showcase products (a coffee shop, a magazine, a recipe app): realistic sites with their own house design and CC0 photos. Every published system is applied to them by `pnpm harness showcase`; that is what the site and MCP `get_references` show |
+| `showcase/starter/` | An empty React project for `pnpm harness flow` |
+| `showcase/flows/` | Flow runs: the setup checks (spec kept in `design-system/agent.md`, pointers in CLAUDE.md and AGENTS.md), both sessions' prompts and reports; images local |
 | `showcase/showcases/` | Showcase runs per system and product (records kept, images local); `_original/` holds the products as they are. The site gets WebP copies in `apps/web/public/products/` |
 | `packages/harness/` | The CLI behind every `pnpm harness` command |
 | `packages/schema/` | Data contracts (zod + emitted JSON Schema) |

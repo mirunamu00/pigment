@@ -87,6 +87,9 @@ export default function ExistingProjectGuide() {
       <h2 id="files">What lands in your repo</h2>
       <pre className="code code--light">
         {`design-system/
+├── agent.md          `}
+        <span style={{ color: "var(--ink-4)" }}>the whole spec, kept for every later session</span>
+        {`
 ├── tokens.css        `}
         <span className="c" style={{ color: "var(--ink-4)" }}>
           CSS variables, light and dark
@@ -102,7 +105,7 @@ export default function ExistingProjectGuide() {
         <span style={{ color: "var(--ink-4)" }}>the system and the date of this copy</span>
         {`
 AGENTS.md             `}
-        <span style={{ color: "var(--ink-4)" }}>one line pointing at design-system/</span>
+        <span style={{ color: "var(--ink-4)" }}>one line pointing at design-system/agent.md</span>
         {`
 CLAUDE.md             `}
         <span style={{ color: "var(--ink-4)" }}>same pointer, for Claude Code</span>

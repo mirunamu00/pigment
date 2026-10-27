@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { ContentError, getAgentMd, getComponents, getComponentSpec, getGuide, getHistory, getShowcase, getTokenFile, listTemplates } from "@pigment/content";
-import { buildPrompt, SITE_URL, STAR_ASK } from "@pigment/content/prompts";
+import { buildPrompt, KEEP_SPEC, SITE_URL, STAR_ASK } from "@pigment/content/prompts";
 import { z } from "zod";
 import pkg from "../package.json" with { type: "json" };
 
@@ -16,10 +16,10 @@ const mode = z.enum(["new", "existing", "ongoing"]);
 // Sent to the client at connection time; most hosts put it in the agent's context.
 const INSTRUCTIONS = [
   "Pigment serves design systems for coding agents. Every tool returns the current system; there is nothing to choose or pin.",
-  "Applying a system copies it into the project's design-system/ folder (tokens, component notes and a VERSION file naming the system and its update date).",
+  "Applying a system copies it into the project's design-system/ folder: the whole spec as agent.md (the text get_design_system returns, unchanged), the tokens, component notes and a VERSION file naming the system and its update date.",
   "If the system offers both light and dark, ask the user which their product supports (light only, dark only, or both) before applying it: with one, fix that mode; with both, follow the system setting and connect an existing theme switch, adding one only if asked.",
-  "From then on design-system/ is the project's source of truth: build new screens from it and don't re-fetch tokens unless the user asks to update.",
-  "To update, call get_changelog, apply only the entries dated after the date in design-system/VERSION, and then write the new date.",
+  "From then on design-system/ is the project's source of truth: build every new screen from design-system/agent.md and don't re-fetch the spec unless the user asks to update.",
+  "To update, call get_changelog, apply only the entries dated after the date in design-system/VERSION, replace design-system/agent.md with the current spec, and then write the new date.",
 ].join("\n");
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
@@ -139,7 +139,14 @@ export function createServer(): McpServer {
       annotations: { readOnlyHint: true },
     },
     // Setting up or restyling a project ends with the one ask; ongoing work doesn't repeat it on every screen.
-    async (args) => guard(() => getGuide(args.id, CURRENT, args.mode) + (args.mode === "ongoing" ? "" : `\n\n## Finally\n\n${STAR_ASK}`)),
+    // Setup ends by keeping the whole spec in the project (later sessions remember nothing else) and with the one ask;
+    // ongoing work starts from that kept spec.
+    async (args) =>
+      guard(() =>
+        args.mode === "ongoing"
+          ? `Read design-system/agent.md first: it is this system's whole spec, kept in the project.\n\n${getGuide(args.id, CURRENT, args.mode)}`
+          : `${getGuide(args.id, CURRENT, args.mode)}\n\n## Keep the spec\n\n${KEEP_SPEC}\n\n## Finally\n\n${STAR_ASK}`,
+      ),
   );
 
   server.registerTool(
