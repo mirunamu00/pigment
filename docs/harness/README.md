@@ -59,6 +59,11 @@ Discovery formats: [Codex skills](https://learn.chatgpt.com/docs/build-skills) a
 ## Agent and model selection
 
 All agent-backed commands (`generate`, `review`, `calibrate`, `showcase`, `flow`) share runtime selection.
+Inside Codex, the harness locates the nearest running Codex executable in its parent process chain
+instead of using a potentially older `codex` on PATH. This covers IDE-bundled and desktop executables
+without storing machine-specific paths in the repository. If discovery is unavailable, supply the current
+executable's absolute path through process-scoped `PIGMENT_CODEX_BIN`; discovery failure stops execution.
+Outside a Codex session, an explicitly selected Codex backend uses PATH unless this override is supplied.
 An unambiguous `CODEX_THREAD_ID` or `CLAUDECODE` environment identifies the active host. The host must
 pass its current model; launching a child CLI does not inherit the chat's model. No personal CLI config
 is read to guess it. If the host is unknown/ambiguous or the model is missing, the command fails before
@@ -82,9 +87,11 @@ models in `run.json`/`agent-meta.json`; reviews record selection in `execution.j
 Changing models changes evaluation conditions: compare records and recalibrate before treating different
 review models as interchangeable. Review prompts, coverage checks and verdict rules remain harness-owned.
 
-Codex uses JSONL output and explicit `--model`, with `workspace-write` for generation and `read-only`
-for review; it ignores personal config so it cannot silently import a different execution setup. A failed
-or incomplete turn is never accepted as a finished run, even if it emitted partial text. Claude likewise
+Codex uses JSONL output and explicit `--model`, with a named workspace permission profile for generation
+(network access for dependency installation) and `:read-only` for review. Windows uses the CLI's elevated
+sandbox, which must already be initialized on the machine. It ignores personal config so it cannot silently
+import a different execution setup. A failed or incomplete turn is never accepted as a finished run, even
+if it emitted partial text; generation that changes no project files is also an execution failure. Claude likewise
 receives explicit `--model` and retains its generation/read-only tool restrictions.
 
 ## Folders

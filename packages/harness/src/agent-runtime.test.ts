@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { spawnSync } from "node:child_process";
-import { agentInvocation, parseAgentOutput, resolveExecution } from "./agent-runtime.ts";
+import { agentInvocation, parseAgentOutput, resolveExecution, selectCodexCommand } from "./agent-runtime.ts";
+import { resolve } from "node:path";
 import { run, type RunResult } from "./util.ts";
 
 const result = (stdout: string, code = 0): RunResult => ({ stdout, code, stderr: "", durationMs: 1 });
+
+test("Codex uses the nearest host executable instead of a stale PATH install", () => {
+  const current = resolve("host with spaces", process.platform === "win32" ? "codex.exe" : "codex");
+  assert.equal(selectCodexCommand({}, [process.execPath, current, resolve("older", "codex")]), current);
+  assert.equal(selectCodexCommand({ PIGMENT_CODEX_BIN: current }, []), current);
+  assert.throws(() => selectCodexCommand({ PIGMENT_CODEX_BIN: "relative/codex" }, []), /absolute/);
+  assert.equal(selectCodexCommand({}, []), "codex");
+});
 
 test("active host is used, and missing/ambiguous hosts or models never fall back", () => {
   assert.deepEqual(resolveExecution({ model: "codex-session-model", reasoningEffort: "low" }, { CODEX_THREAD_ID: "current" }), {
@@ -36,7 +45,9 @@ test("both providers receive exact model; Codex review keeps a read-only sandbox
       assert.ok(!invocation.args.includes("--full-auto"));
       assert.ok(!invocation.args.includes("--dangerously-bypass-approvals-and-sandbox"));
       if (agent === "codex") {
-        assert.equal(invocation.args[invocation.args.indexOf("--sandbox") + 1], access === "read" ? "read-only" : "workspace-write");
+        assert.ok(invocation.args.includes(`default_permissions=${JSON.stringify(access === "read" ? ":read-only" : "pigment-write")}`));
+        assert.equal(invocation.args.includes('permissions.pigment-write.extends=":workspace"'), access === "write");
+        assert.equal(invocation.args.includes("permissions.pigment-write.network.enabled=true"), access === "write");
         assert.ok(invocation.args.includes("--ignore-user-config"));
       } else if (access === "read") {
         assert.ok(invocation.args.slice(invocation.args.indexOf("--disallowedTools")).includes("Write"));

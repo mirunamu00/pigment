@@ -6,7 +6,7 @@ import { generationBlock } from "../budget.ts";
 import { paths, rel, runsDir, templateDir } from "../paths.ts";
 import { bundle } from "./bundle.ts";
 import { shootApp } from "./shoot.ts";
-import { fail, info, ok, run, runId as newRunId, timestamp, writeJson, writeText } from "../util.ts";
+import { fail, info, ok, run, runId as newRunId, timestamp, writeJson, writeText, readJson } from "../util.ts";
 
 import { executeAgent, executionLabel, parseAgentOutput, resolveExecution, type Agent, type AgentExecution } from "../agent-runtime.ts";
 export type { Agent } from "../agent-runtime.ts";
@@ -154,6 +154,14 @@ async function generateOne(id: string, version: string, app: RunAppId, runId: st
   const patch = await run("git", ["diff", "HEAD"], { cwd: work });
   writeText(join(out, "diff-stat.txt"), diff.stdout);
   writeText(join(out, "changes.patch"), patch.stdout);
+  if (record.agentExitCode === 0 && !patch.stdout.trim()) {
+    // A provider may finish its turn successfully while reporting that policy prevented all work.
+    // Building the untouched baseline is not a successful template application.
+    record.agentExitCode = 1;
+    const metaFile = join(out, "agent-meta.json");
+    writeJson(metaFile, { ...readJson<Record<string, unknown>>(metaFile), error: "Agent completed without changing any project files; the template was not applied." });
+    info(`[${app}] agent made no changes — marking execution failed`);
+  }
 
   info(`[${app}] installing and building`);
   const installed = await install(work);
