@@ -1,6 +1,28 @@
 import { run, type RunResult } from "./util.ts";
-import { basename, isAbsolute } from "node:path";
-import { readlinkSync } from "node:fs";
+import { basename, dirname, delimiter, isAbsolute, join } from "node:path";
+import { cpSync, existsSync, mkdirSync, readlinkSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { paths } from "./paths.ts";
+
+function nodeToolDirectory(): string {
+  const source = dirname(realpathSync(process.execPath));
+  if (process.platform !== "win32") return source;
+  // Elevated sandbox users cannot traverse private fnm/nvm directories under AppData.
+  // Stage only the public Node/npm distribution in ignored project cache, never user settings.
+  const target = join(paths.root, ".cache", "harness-tools", `node-${process.versions.node}`);
+  const complete = join(target, ".complete");
+  if (!existsSync(complete)) {
+    if (!existsSync(join(source, "node_modules", "npm"))) throw new Error(`Cannot find npm beside the active Node executable: ${source}`);
+    mkdirSync(target, { recursive: true });
+    for (const file of ["node.exe", "npm", "npm.cmd", "npx", "npx.cmd", "LICENSE"]) {
+      if (existsSync(join(source, file))) cpSync(join(source, file), join(target, file));
+    }
+    cpSync(join(source, "node_modules", "npm"), join(target, "node_modules", "npm"), { recursive: true, dereference: true });
+    writeFileSync(complete, `${process.versions.node}\n`);
+  }
+  // PowerShell should use the standard .cmd shims, not .ps1 shims blocked by its default policy.
+  for (const name of ["npm.ps1", "npx.ps1"]) rmSync(join(target, name), { force: true });
+  return target;
+}
 
 /** Prefer the running host over PATH, which can point to an older standalone CLI. */
 export function selectCodexCommand(env: NodeJS.ProcessEnv, ancestors: string[]): string {
@@ -88,17 +110,22 @@ const OUTPUT_FILTERS = ["Bash(head:*)", "Bash(tail:*)", "Bash(grep:*)", "PowerSh
 const EDIT_TOOLS = ["Read", "Edit", "Write", "Glob", "Grep", ...SHELL_COMMANDS.flatMap((c) => [`Bash(${c})`, `PowerShell(${c})`]), ...OUTPUT_FILTERS];
 
 /** Shared provider/model selection; capability boundary differs between generation and review. */
-export function agentInvocation(execution: AgentExecution, access: "write" | "read", extraTools: string[] = []) {
+export function agentInvocation(execution: AgentExecution, access: "write" | "read", extraTools: string[] = [], env: NodeJS.ProcessEnv = process.env) {
   // Validate even direct programmatic callers before spawning a process.
   const e = resolveExecution(execution, {});
   if (e.agent === "codex") {
+    const hostPermission = env.CODEX_THREAD_ID ? env.CODEX_PERMISSION_PROFILE : undefined;
+    if (access === "write" && hostPermission && ![":workspace", ":danger-full-access"].includes(hostPermission)) {
+      throw new Error(`Cannot reproduce the current Codex generation permissions '${hostPermission}' without its profile configuration. Use a writable built-in host profile before generation.`);
+    }
+    const permission = access === "read" ? ":read-only" : hostPermission ?? "pigment-write";
     return { command: "codex", args: [
       "exec", "--ignore-user-config", "--json", "--model", e.model,
       // Explicit permission profiles survive the host's inherited permission-profile context.
       // The legacy --sandbox flag alone can otherwise silently start this child read-only.
-      "-c", `default_permissions=${JSON.stringify(access === "read" ? ":read-only" : "pigment-write")}`,
-      ...(access === "write" ? ["-c", 'permissions.pigment-write.extends=":workspace"', "-c", "permissions.pigment-write.network.enabled=true"] : []),
-      ...(process.platform === "win32" ? ["-c", 'windows.sandbox="elevated"'] : []),
+      "-c", `default_permissions=${JSON.stringify(permission)}`,
+      ...(permission === "pigment-write" ? ["-c", 'permissions.pigment-write.extends=":workspace"', "-c", "permissions.pigment-write.network.enabled=true"] : []),
+      ...(process.platform === "win32" && permission !== ":danger-full-access" ? ["-c", 'windows.sandbox="elevated"'] : []),
       "-c", 'approval_policy="never"',
       ...(e.reasoningEffort ? ["-c", `model_reasoning_effort=${JSON.stringify(e.reasoningEffort)}`] : []),
       "-",
@@ -117,6 +144,18 @@ export function agentInvocation(execution: AgentExecution, access: "write" | "re
 
 export async function executeAgent(execution: AgentExecution, access: "write" | "read", cwd: string, prompt: string, timeoutMs: number, extraTools: string[] = []): Promise<RunResult> {
   const { command, args } = agentInvocation(execution, access, extraTools);
+  if (execution.agent === "codex") {
+    // Windows sandbox shells can rebuild PATH and lose shell-managed Node installations (fnm/nvm).
+    // Hand off only PATH, not the parent's full environment or credentials.
+    const pathKey = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
+    const nodeDir = access === "write" ? nodeToolDirectory() : dirname(realpathSync(process.execPath));
+    const toolPath = [nodeDir, process.env[pathKey] ?? ""].filter(Boolean).join(delimiter);
+    args.splice(args.length - 1, 0, "-c", `shell_environment_policy.set.PATH=${JSON.stringify(toolPath)}`);
+    if (access === "write") args.splice(args.length - 1, 0, "-c", `shell_environment_policy.set.NPM_CONFIG_CACHE=${JSON.stringify(join(cwd, "node_modules", ".cache", "npm"))}`);
+    if (access === "write" && process.platform === "win32" && !process.env.CODEX_PERMISSION_PROFILE) {
+      args.splice(args.length - 1, 0, "-c", `permissions.pigment-write.filesystem={${JSON.stringify(nodeDir)}="read"}`);
+    }
+  }
   // Both CLIs are executables. Avoid Windows shell re-parsing model/config arguments.
   return run(execution.agent === "codex" ? await resolveCodexCommand() : command, args, { cwd, input: prompt, timeoutMs, shell: false });
 }

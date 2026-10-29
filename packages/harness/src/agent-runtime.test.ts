@@ -40,7 +40,7 @@ test("session handoff works but stale model/provider settings cannot cross provi
 test("both providers receive exact model; Codex review keeps a read-only sandbox", () => {
   for (const agent of ["claude", "codex"] as const) {
     for (const access of ["read", "write"] as const) {
-      const invocation = agentInvocation({ agent, model: "exact-session-model" }, access);
+      const invocation = agentInvocation({ agent, model: "exact-session-model" }, access, [], {});
       assert.equal(invocation.command, agent);
       assert.equal(invocation.args[invocation.args.indexOf("--model") + 1], "exact-session-model");
       assert.ok(!invocation.args.includes("--full-auto"));
@@ -57,6 +57,13 @@ test("both providers receive exact model; Codex review keeps a read-only sandbox
   }
   const effort = agentInvocation({ agent: "codex", model: "m", reasoningEffort: "low" }, "read");
   assert.ok(effort.args.includes('model_reasoning_effort="low"'));
+});
+
+test("generation preserves the host's permission choice and reviews stay read-only", () => {
+  const env = { CODEX_THREAD_ID: "current", CODEX_PERMISSION_PROFILE: ":danger-full-access" };
+  assert.ok(agentInvocation({ agent: "codex", model: "m" }, "write", [], env).args.includes('default_permissions=":danger-full-access"'));
+  assert.ok(agentInvocation({ agent: "codex", model: "m" }, "read", [], env).args.includes('default_permissions=":read-only"'));
+  assert.throws(() => agentInvocation({ agent: "codex", model: "m" }, "write", [], { ...env, CODEX_PERMISSION_PROFILE: ":read-only" }), /current Codex generation permissions/);
 });
 
 test("Codex JSONL accepts only completed turns and extracts the final answer", () => {

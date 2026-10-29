@@ -87,10 +87,15 @@ models in `run.json`/`agent-meta.json`; reviews record selection in `execution.j
 Changing models changes evaluation conditions: compare records and recalibrate before treating different
 review models as interchangeable. Review prompts, coverage checks and verdict rules remain harness-owned.
 
-Codex uses JSONL output and explicit `--model`, with a named workspace permission profile for generation
-(network access for dependency installation) and `:read-only` for review. Windows uses the CLI's elevated
-sandbox, which must already be initialized on the machine. It ignores personal config so it cannot silently
-import a different execution setup. A failed or incomplete turn is never accepted as a finished run, even
+Codex uses JSONL output and explicit `--model`. Generation preserves the active host's built-in writable
+permission profile (`:workspace` or `:danger-full-access`); a read-only or unknown custom host profile is
+rejected rather than silently increased. Without an active Codex host, generation uses a named workspace
+profile with dependency-install network access. Reviews always use `:read-only`, regardless of host access.
+Sandboxed Windows calls use the CLI's initialized elevated sandbox. Windows generation stages the public
+Node/npm distribution in ignored `.cache/harness-tools` and uses standard `.cmd` shims, so private fnm/nvm
+paths and PowerShell's script policy do not hide npm. Its npm cache stays under the work copy's node_modules.
+It ignores personal config so it cannot silently import a different execution setup.
+A failed or incomplete turn is never accepted as a finished run, even
 if it emitted partial text; generation that changes no project files is also an execution failure. Claude likewise
 receives explicit `--model` and retains its generation/read-only tool restrictions.
 

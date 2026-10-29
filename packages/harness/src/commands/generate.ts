@@ -26,6 +26,7 @@ export function recordAgentRun(agentRun: { code: number | null; stdout: string; 
   if (answer.text || answer.error) writeText(join(out, "agent-report.md"), answer.text || answer.error!);
   writeJson(join(out, "agent-meta.json"), {
     agent: execution.agent, requestedModel: execution.model, reasoningEffort: execution.reasoningEffort,
+    requestedPermissionProfile: execution.agent === "codex" ? (process.env.CODEX_THREAD_ID ? process.env.CODEX_PERMISSION_PROFILE : undefined) ?? "pigment-write" : undefined,
     model: answer.model, turns: answer.turns, durationMs: agentRun.durationMs, error: answer.error,
     permissionDenials: claudeMeta.permission_denials, stopReason: claudeMeta.stop_reason,
   });
