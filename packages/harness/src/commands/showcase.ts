@@ -7,9 +7,13 @@ import { fail, info, ok, runId as newRunId, timestamp, writeJson, writeText } fr
 import { recordAgentRun, runAgent, type Agent } from "./generate.ts";
 import { shootApp, type ShotResult } from "./shoot.ts";
 
+import { resolveExecution, executionLabel } from "../agent-runtime.ts";
+
 export interface ShowcaseOptions {
   products?: string[];
   agent: Agent;
+  model: string;
+  reasoningEffort?: string;
   timeoutMinutes: number;
 }
 
@@ -56,12 +60,13 @@ function servePort(product: string, work: string): void {
  * to the original. Showcases are never scored, reviewed or fed back into a template: the base apps stay the test.
  */
 export async function showcase(id: string, version: string, options: ShowcaseOptions): Promise<void> {
+  resolveExecution(options, {});
   const published = existsSync(paths.published) && Object.keys(JSON.parse(readFileSync(paths.published, "utf8"))).includes(`${id}@${version}`);
   if (!published) fail(`${id}@${version} is not published — showcases are made from published systems only`);
   const products = pick(options.products);
   const template = readFileSync(join(paths.prompts, "harness-showcase.md"), "utf8");
   const base = newRunId();
-  info(`showcasing ${id}@${version} on ${products.join(", ")} with ${options.agent} (run ${base})`);
+  info(`showcasing ${id}@${version} on ${products.join(", ")} with ${executionLabel(options)} (run ${base})`);
   await Promise.all(products.map((p) => showcaseOne(id, version, p, base, template, options)));
   await exportShowcase(id, version);
   ok(`finished. Screenshots in ${rel(join(OUT, id))}`);
@@ -77,13 +82,13 @@ async function showcaseOne(id: string, version: string, product: string, runId: 
 
   const prompt = template.replaceAll("{{id}}", id);
   writeText(join(out, "prompt.md"), prompt);
-  const record: Record<string, unknown> = { runId, template: id, version, product, scenario: "existing", agent: options.agent, startedAt: timestamp() };
+  const record: Record<string, unknown> = { runId, template: id, version, product, scenario: "existing", agent: options.agent, requestedModel: options.model, reasoningEffort: options.reasoningEffort, startedAt: timestamp() };
 
   // The agent may install packages itself, but its self-check needs them from the start.
   await install(work);
   info(`[${product}] agent working in ${work}`);
-  const agentRun = await runAgent(options.agent, work, prompt, options.timeoutMinutes * 60_000);
-  Object.assign(record, recordAgentRun(agentRun, out));
+  const agentRun = await runAgent(options, work, prompt, options.timeoutMinutes * 60_000);
+  Object.assign(record, recordAgentRun(agentRun, out, options));
 
   info(`[${product}] installing and building`);
   const installed = await install(work);

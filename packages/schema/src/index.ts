@@ -387,6 +387,8 @@ export const RunRecord = z.object({
   scenario: Scenario,
   agent: z.enum(["claude", "codex"]),
   model: z.string().optional(),
+  requestedModel: z.string().optional(),
+  reasoningEffort: z.string().optional(),
   promptFile: z.string(),
   startedAt: z.string(),
   finishedAt: z.string().optional(),
@@ -532,6 +534,9 @@ export const UnitReview = z.object({
 export type UnitReview = z.infer<typeof UnitReview>;
 
 export const ReviewReport = z.object({
+  agent: z.enum(["claude", "codex"]).optional(),
+  model: z.string().optional(),
+  reasoningEffort: z.string().optional(),
   template: TemplateId,
   version: SemVer,
   evaluation: z.number().int(),
@@ -546,10 +551,11 @@ export const ReviewReport = z.object({
       attempts: z.number().int(),
       durationMs: z.number(),
       turns: z.number().optional(),
+      model: z.string().optional(),
       problems: z.array(z.string()),
     }),
   ),
-  synthesis: z.object({ durationMs: z.number(), turns: z.number().optional() }).optional(),
+  synthesis: z.object({ durationMs: z.number(), turns: z.number().optional(), model: z.string().optional() }).optional(),
 });
 export type ReviewReport = z.infer<typeof ReviewReport>;
 

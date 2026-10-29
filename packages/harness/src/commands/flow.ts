@@ -4,7 +4,8 @@ import { buildPrompt, keepSpec, STAR_ASK } from "@pigment/content/prompts";
 import { build, copyApp, install, WORK_ROOT } from "../appdir.ts";
 import { paths, rel, templateDir } from "../paths.ts";
 import { fail, info, ok, runId as newRunId, timestamp, writeJson, writeText } from "../util.ts";
-import { recordAgentRun, runAgent, type Agent } from "./generate.ts";
+import { recordAgentRun, runAgent } from "./generate.ts";
+import { resolveExecution, executionLabel, type AgentExecution } from "../agent-runtime.ts";
 import { shootApp } from "./shoot.ts";
 
 const STARTER = join(paths.root, "showcase", "starter");
@@ -50,7 +51,9 @@ export function setupChecks(work: string, spec: string): FlowCheck[] {
  * project kept — builds screens with the "ongoing" prompt. Records whether the project kept what later sessions
  * need, and captures the screens they built. Never scored, never fed back into a template.
  */
-export async function flow(id: string, version: string, options: { agent: Agent; timeoutMinutes: number }): Promise<void> {
+export async function flow(id: string, version: string, options: AgentExecution & { timeoutMinutes: number }): Promise<void> {
+  resolveExecution(options, {});
+  info(`flow with ${executionLabel(options)}`);
   if (!existsSync(templateDir(id, version))) fail(`no template ${id}@${version}`);
   const runId = newRunId();
   const work = join(WORK_ROOT, "_flow", id, runId);
@@ -75,7 +78,7 @@ export async function flow(id: string, version: string, options: { agent: Agent;
   info(`[setup] agent setting ${id}@${version} up in ${work}`);
   // Copying is how people keep the spec (a download or a cp); the self-check is how they look at their work.
   const copyTools = ["Bash(cp:*)", "PowerShell(Copy-Item:*)", "Bash(mkdir:*)", "PowerShell(New-Item:*)"];
-  recordAgentRun(await runAgent(options.agent, work, setup, options.timeoutMinutes * 60_000, copyTools), join(out, "setup"));
+  recordAgentRun(await runAgent(options, work, setup, options.timeoutMinutes * 60_000, copyTools), join(out, "setup"), options);
 
   // 2. Between sessions: the package goes, as it would for anyone who set up from the spec URL or MCP.
   rmSync(join(work, "design-packages"), { recursive: true, force: true });
@@ -86,7 +89,7 @@ export async function flow(id: string, version: string, options: { agent: Agent;
   const ongoing = readFileSync(join(paths.prompts, "harness-flow-ongoing.md"), "utf8").replaceAll("{{prompt}}", buildPrompt(id, "ongoing", "url")).replaceAll("{{screens}}", SCREENS);
   writeText(join(out, "ongoing", "prompt.md"), ongoing);
   info(`[ongoing] a fresh agent session builds screens`);
-  recordAgentRun(await runAgent(options.agent, work, ongoing, options.timeoutMinutes * 60_000), join(out, "ongoing"));
+  recordAgentRun(await runAgent(options, work, ongoing, options.timeoutMinutes * 60_000), join(out, "ongoing"), options);
 
   // 4. Build and capture what the user would see.
   const built = (await install(work)) ? await build(work) : { ok: false, durationMs: 0, log: "npm install failed" };
@@ -99,7 +102,7 @@ export async function flow(id: string, version: string, options: { agent: Agent;
       writeText(join(out, "capture.log"), String((e as Error).stack ?? e));
     }
   }
-  writeJson(join(out, "flow.json"), { id, version, runId, finishedAt: timestamp(), product: PRODUCT, setupChecks: checks, build: built.ok, screenshots, workDir: work });
+  writeJson(join(out, "flow.json"), { id, version, runId, agent: options.agent, requestedModel: options.model, reasoningEffort: options.reasoningEffort, finishedAt: timestamp(), product: PRODUCT, setupChecks: checks, build: built.ok, screenshots, workDir: work });
   copyApp(work, join(out, "app"));
   const passed = checks.filter((c) => c.pass).length;
   ok(`flow ${id}@${version}: setup ${passed}/${checks.length} checks, build ${built.ok ? "ok" : "FAILED"}, ${screenshots.length} screenshot(s) → ${rel(out)}`);

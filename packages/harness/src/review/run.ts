@@ -1,39 +1,24 @@
 import { UnitReview, type ReviewItem } from "@pigment/schema";
 import { paths } from "../paths.ts";
-import { run } from "../util.ts";
+import { executeAgent, parseAgentOutput, type AgentExecution } from "../agent-runtime.ts";
 
 /**
  * Reviewers are run by the harness, not handed to them by an orchestrator: the same prompt every time, read-only
  * tools, and an answer that is checked against the checklist before it counts.
  */
-const READ_ONLY = ["Read", "Glob", "Grep"];
-const DENIED = ["Write", "Edit", "Bash", "PowerShell", "WebFetch", "WebSearch", "NotebookEdit", "Task", "Agent"];
-/** Every review runs on the same model, whatever the machine's default, so verdicts are comparable. */
-export const REVIEW_MODEL = "opus";
-
 export interface AgentAnswer {
   ok: boolean;
   text: string;
+  model?: string;
   durationMs: number;
   turns?: number;
   error?: string;
 }
 
-export async function runReadOnlyAgent(prompt: string, timeoutMs: number): Promise<AgentAnswer> {
-  const args = ["-p", "--model", REVIEW_MODEL, "--output-format", "json", "--allowedTools", ...READ_ONLY, "--disallowedTools", ...DENIED];
-  const r = await run("claude", args, { cwd: paths.root, input: prompt, timeoutMs, shell: false });
-  try {
-    const parsed = JSON.parse(r.stdout);
-    return {
-      ok: r.code === 0 && parsed?.is_error !== true,
-      text: typeof parsed?.result === "string" ? parsed.result : "",
-      durationMs: parsed?.duration_ms ?? r.durationMs,
-      turns: parsed?.num_turns,
-      error: parsed?.is_error ? String(parsed?.result ?? "agent error") : undefined,
-    };
-  } catch {
-    return { ok: false, text: r.stdout, durationMs: r.durationMs, error: (r.stderr || r.stdout).slice(-500) || `exit ${r.code}` };
-  }
+export async function runReadOnlyAgent(execution: AgentExecution, prompt: string, timeoutMs: number): Promise<AgentAnswer> {
+  const r = await executeAgent(execution, "read", paths.root, prompt, timeoutMs);
+  const answer = parseAgentOutput(execution.agent, r);
+  return { ...answer, durationMs: r.durationMs };
 }
 
 /** The JSON object in an agent's answer: a fenced ```json block, else the outermost braces. */

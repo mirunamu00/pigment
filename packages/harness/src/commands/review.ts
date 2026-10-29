@@ -11,6 +11,8 @@ import { loadTemplate } from "../template.ts";
 import { fail, info, ok, readJson, writeJson, writeText } from "../util.ts";
 import { judgeCritic, mergeCritic } from "./evaluate.ts";
 
+import { resolveExecution, executionLabel, type AgentExecution } from "../agent-runtime.ts";
+
 const UNIT_TIMEOUT_MS = 40 * 60_000;
 
 /**
@@ -21,8 +23,10 @@ const UNIT_TIMEOUT_MS = 40 * 60_000;
 export async function review(
   id: string,
   version: string,
-  options: { holdout?: boolean; concurrency?: number; record?: boolean },
+  options: AgentExecution & { holdout?: boolean; concurrency?: number; record?: boolean },
 ): Promise<{ critic: CriticScores; judged: ReturnType<typeof judgeCritic> }> {
+  resolveExecution(options, {});
+  info(`review with ${executionLabel(options)}`);
   const scope = options.holdout ? "holdout" : "main";
   const report = latestEval(id, version, paths.runs, scope);
   if (!report) fail(`no ${scope} evaluation for ${id}@${version} — run pnpm harness evaluate${options.holdout ? " --holdout" : ""} first`);
@@ -54,6 +58,7 @@ export async function review(
     info(`direction check for the user: ${rel(file)}`);
   }
   writeJson(join(dir, "plan.json"), plan);
+  writeJson(join(dir, "execution.json"), { agent: options.agent, model: options.model, reasoningEffort: options.reasoningEffort });
 
   const ctx = context(id, version, plan, referenceSheet, !!options.holdout);
   const byId = new Map(plan.items.map((i) => [i.id, i]));
@@ -63,15 +68,16 @@ export async function review(
   await pool(plan.units, options.concurrency ?? 6, async (unit) => {
     let todo: ReviewItem[] = unit.items.map((i) => byId.get(i)!);
     const merged: UnitReview = { items: [], findings: [] };
-    const record = { id: unit.id, items: unit.items.length, covered: 0, attempts: 0, durationMs: 0, turns: 0, problems: [] as string[] };
+    const record = { id: unit.id, items: unit.items.length, covered: 0, attempts: 0, durationMs: 0, turns: 0, model: undefined as string | undefined, problems: [] as string[] };
     // One retry, with only the items the first answer left out.
     while (todo.length && record.attempts < 2) {
       record.attempts++;
       info(`[${unit.id}] reviewing ${todo.length} item(s)${record.attempts > 1 ? " (retry)" : ""}`);
-      const answer = await runReadOnlyAgent(unitPrompt(ctx, todo), UNIT_TIMEOUT_MS);
+      const answer = await runReadOnlyAgent(options, unitPrompt(ctx, todo), UNIT_TIMEOUT_MS);
       account(record, answer);
       writeText(join(dir, "units", `${unit.id}-${record.attempts}.md`), answer.text || answer.error || "");
       let parsed: unknown = null;
+      if (!answer.ok) { record.problems.push(answer.error ?? "agent failed"); continue; }
       try {
         parsed = extractJson(answer.text);
       } catch (e) {
@@ -96,6 +102,7 @@ export async function review(
   const covered = unitRecords.reduce((a, u) => a + u.covered, 0);
   const complete = covered === plan.items.length;
   const reviewReport: ReviewReport = {
+    agent: options.agent, model: options.model, reasoningEffort: options.reasoningEffort,
     template: id,
     version,
     evaluation: n,
@@ -117,9 +124,10 @@ export async function review(
   let critic: CriticScores | null = null;
   for (let attempt = 1; attempt <= 2 && !critic; attempt++) {
     info(`lead reviewer${attempt > 1 ? " (retry)" : ""}`);
-    const answer = await runReadOnlyAgent(synthesisPrompt(ctx, plan, results, homeSheets), UNIT_TIMEOUT_MS);
-    reviewReport.synthesis = { durationMs: (reviewReport.synthesis?.durationMs ?? 0) + answer.durationMs, turns: answer.turns };
+    const answer = await runReadOnlyAgent(options, synthesisPrompt(ctx, plan, results, homeSheets), UNIT_TIMEOUT_MS);
+    reviewReport.synthesis = { durationMs: (reviewReport.synthesis?.durationMs ?? 0) + answer.durationMs, turns: answer.turns, model: answer.model };
     writeText(join(dir, `lead-${attempt}.md`), answer.text || answer.error || "");
+    if (!answer.ok) { info(`lead reviewer failed: ${answer.error ?? "incomplete execution"}`); continue; }
     try {
       const parsed = CriticScores.parse(extractJson(answer.text));
       if (!parsed.findings) throw new Error("no findings array");
@@ -151,9 +159,10 @@ export async function review(
   return { critic: merged.critic ?? critic, judged: judgeCritic(merged.critic ?? critic) };
 }
 
-function account(record: { durationMs: number; turns: number }, a: AgentAnswer): void {
+function account(record: { durationMs: number; turns: number; model?: string }, a: AgentAnswer): void {
   record.durationMs += a.durationMs;
   record.turns += a.turns ?? 0;
+  if (a.model) record.model = a.model;
 }
 
 function context(id: string, version: string, plan: ReviewPlan, referenceSheet: string | null, holdout: boolean): ReviewContext {
