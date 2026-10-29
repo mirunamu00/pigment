@@ -1,5 +1,6 @@
 import { run, type RunResult } from "./util.ts";
 import { basename, isAbsolute } from "node:path";
+import { readlinkSync } from "node:fs";
 
 /** Prefer the running host over PATH, which can point to an older standalone CLI. */
 export function selectCodexCommand(env: NodeJS.ProcessEnv, ancestors: string[]): string {
@@ -8,7 +9,7 @@ export function selectCodexCommand(env: NodeJS.ProcessEnv, ancestors: string[]):
     if (!isAbsolute(override)) throw new Error("PIGMENT_CODEX_BIN must be an absolute executable path.");
     return override;
   }
-  return ancestors.find((p) => /^codex(?:\.exe)?$/i.test(basename(p))) ?? "codex";
+  return ancestors.find((p) => isAbsolute(p) && /^codex(?:\.exe)?$/i.test(basename(p))) ?? "codex";
 }
 
 let codexCommand: Promise<string> | undefined;
@@ -28,7 +29,12 @@ async function resolveCodexCommand(): Promise<string> {
         const r = await run("ps", ["-p", String(pid), "-o", "ppid=", "-o", "comm="], { cwd: process.cwd(), shell: false, timeoutMs: 2000 });
         const match = r.stdout.trim().match(/^(\d+)\s+(.+)$/);
         if (r.code !== 0 || !match) break;
-        ancestors.push(match[2]!.trim());
+        let executable = match[2]!.trim();
+        // Linux ps's comm column contains only a name; /proc exposes the real executable.
+        if (process.platform === "linux") {
+          try { executable = readlinkSync(`/proc/${pid}/exe`); } catch { /* The process may have exited. */ }
+        }
+        ancestors.push(executable);
         pid = Number(match[1]);
       }
     }

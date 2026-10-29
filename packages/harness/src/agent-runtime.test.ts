@@ -13,6 +13,7 @@ test("Codex uses the nearest host executable instead of a stale PATH install", (
   assert.equal(selectCodexCommand({ PIGMENT_CODEX_BIN: current }, []), current);
   assert.throws(() => selectCodexCommand({ PIGMENT_CODEX_BIN: "relative/codex" }, []), /absolute/);
   assert.equal(selectCodexCommand({}, []), "codex");
+  assert.equal(selectCodexCommand({}, ["codex", "somewhere/codex"]), "codex");
 });
 
 test("active host is used, and missing/ambiguous hosts or models never fall back", () => {
