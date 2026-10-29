@@ -3,6 +3,24 @@
 Project instructions live in `CLAUDE.md`; they apply to every coding agent working in this repository.
 The template pipeline is documented in `docs/harness/README.md`.
 
+## Codex
+
+Project skills are discovered in `.agents/skills/`; invoke them with `$template-intake`,
+`$template-update`, `$hyperframes`, `$hyperframes-cli` or `$hyperframes-registry`.
+Their Codex entrypoints read the maintained workflows in `.claude/skills/`, including the upstream
+HyperFrames resources, so updating those sources also updates what Codex follows.
+Resolve a source document's relative links from its own directory.
+
+Project custom agents live in `.codex/agents/*.toml`: `reference-analyst`, `prompt-author` and
+`design-critic`. Delegate the analysis and authoring stages as directed by the template skills;
+keep the author's context free of base-app source. The critic is a role reference only:
+candidate reviews must run through `pnpm harness review`, which currently invokes Claude CLI.
+Adding these Codex entrypoints does not change the harness execution backend.
+
+When changing a shared workflow, edit its `.claude/` source; change the Codex adapter only for
+Codex-specific behavior. These adapters are project-owned files, not installations tracked by
+the external `skills` CLI. See `docs/harness/README.md` for invocation and maintenance details.
+
 <!-- BEGIN:turborepo-agent-rules -->
 
 # This is NOT the Turborepo you know
