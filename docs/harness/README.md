@@ -25,11 +25,36 @@ reference URL
      check     pnpm harness flow <id>@<version>           → the new-project path: one session sets the system up in an empty project, a fresh one builds screens from what the project kept (showcase/flows/)
 ```
 
-In Claude Code, the `template-intake` skill walks through all of it and stops at the two human checkpoints:
-after the analysis (step 3) and before publishing (step 9).
+In Claude Code (`/template-intake`) and Codex (`$template-intake`), the `template-intake` skill walks
+through the pipeline. It stops after the analysis (step 3), for direction approval after the first
+passing screen, and before publishing (step 9).
 
 **Changing a system that is already published** follows the same steps from 4 on, starting from the
 published version: see [`updating.md`](updating.md) (the `template-update` skill).
+
+## Codex setup and maintenance
+
+Codex discovers project skills under `.agents/skills/` and custom agents under `.codex/agents/`.
+The skills are small Codex adapters over the existing `.claude/skills/` workflows and resources;
+the agents read the corresponding `.claude/agents/` role documents. No global installation is needed.
+If new skills do not appear in an existing session, restart Codex in this repository.
+
+Use `$template-intake` for a new system, `$template-update` for a published system, and
+`$hyperframes`, `$hyperframes-cli` and `$hyperframes-registry` for films. The analysis and authoring
+stages use isolated subagents; hosts without custom-agent selection can pass the matching TOML's
+instructions to a fresh subagent. A host without subagents must report the isolation limitation.
+
+The harness execution backend is separate from these project instructions: generation defaults to
+Claude (Codex is an experimental `--agent codex` option), and `pnpm harness review` currently runs
+Claude CLI. The `design-critic` custom agent does not replace that command or its generated prompts.
+
+Update shared instructions and upstream HyperFrames resources in `.claude/`; the Codex adapters
+read those files on invocation. Keep Codex-specific adaptations in `.agents/skills/` and
+`.codex/agents/`. The adapters themselves are maintained in Git, not by `npx skills update`.
+Do not install another copy of the same skill name into `.agents/skills/` without reconciling the adapter.
+
+Discovery formats: [Codex skills](https://learn.chatgpt.com/docs/build-skills) and
+[custom agents](https://learn.chatgpt.com/docs/agent-configuration/subagents).
 
 ## Folders
 
