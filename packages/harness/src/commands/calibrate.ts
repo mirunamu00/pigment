@@ -20,7 +20,7 @@ export interface CalibrationCase {
 
 export const CALIBRATION_FILE = join(paths.root, "showcase", "calibration.json");
 
-export async function calibrate(only?: string): Promise<boolean> {
+export async function calibrate(execution: import("../agent-runtime.ts").AgentExecution, only?: string): Promise<boolean> {
   if (!existsSync(CALIBRATION_FILE)) {
     info(`no ${rel(CALIBRATION_FILE)} — list the candidates the user has judged there`);
     return false;
@@ -36,7 +36,7 @@ export async function calibrate(only?: string): Promise<boolean> {
       continue;
     }
     info(`calibration: reviewing ${c.ref} (the user said ${c.expect}: ${c.why})`);
-    const { critic, judged } = await review(id, version, { record: false });
+    const { critic, judged } = await review(id, version, { ...execution, record: false });
     const got = judged.ok ? "pass" : "fail";
     ran++;
     if (got === c.expect) agreed++;

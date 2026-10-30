@@ -6,63 +6,31 @@ import { generationBlock } from "../budget.ts";
 import { paths, rel, runsDir, templateDir } from "../paths.ts";
 import { bundle } from "./bundle.ts";
 import { shootApp } from "./shoot.ts";
-import { fail, info, ok, run, runId as newRunId, timestamp, writeJson, writeText } from "../util.ts";
+import { fail, info, ok, run, runId as newRunId, timestamp, writeJson, writeText, readJson } from "../util.ts";
 
-export type Agent = "claude" | "codex";
+import { executeAgent, executionLabel, parseAgentOutput, resolveExecution, type Agent, type AgentExecution } from "../agent-runtime.ts";
+export type { Agent } from "../agent-runtime.ts";
 
-/**
- * Permissions for the unattended agent: edit files and run the project's own scripts, nothing else.
- * Passed on the command line: headless runs do not pick up a project settings file in a fresh, untrusted
- * folder. On Windows the agent may use PowerShell instead of Bash, so both are listed.
- */
-// The project's own smoke tests too: a user's agent runs a project's tests, and without them the run's agent
-// only learned at evaluation that a restyle broke a click.
-const SHELL_COMMANDS = ["npm run build:*", "npm run typecheck:*", "npm run test:e2e:*", "npm install:*", "npx tsc:*", "node pigment-snap.mjs:*"];
-// Output filters people's agents use all the time (`npm run build 2>&1 | Select-Object -Last 25`). Without
-// them a piped command is denied as a whole, and the run's agent never sees its own screenshots — a handicap
-// a real user's agent doesn't have, which made the lab judge the prompt on blind output.
-const OUTPUT_FILTERS = ["Bash(head:*)", "Bash(tail:*)", "Bash(grep:*)", "PowerShell(Select-Object:*)", "PowerShell(Select-String:*)"];
-const CLAUDE_ALLOWED = [
-  "Read",
-  "Edit",
-  "Write",
-  "Glob",
-  "Grep",
-  ...SHELL_COMMANDS.flatMap((c) => [`Bash(${c})`, `PowerShell(${c})`]),
-  ...OUTPUT_FILTERS,
-];
-const CLAUDE_DENIED = ["WebFetch", "WebSearch", "Bash(git push:*)", "PowerShell(git push:*)"];
-
-export async function runAgent(agent: Agent, cwd: string, prompt: string, timeoutMs: number, extraTools: string[] = []) {
-  if (agent === "claude") {
-    const args = ["-p", "--permission-mode", "acceptEdits", "--output-format", "json", "--allowedTools", ...CLAUDE_ALLOWED, ...extraTools, "--disallowedTools", ...CLAUDE_DENIED];
-    return run("claude", args, { cwd, input: prompt, timeoutMs, shell: false });
-  }
-  // Codex support is experimental: flags follow `codex exec --help` at the time of writing.
-  return run("codex", ["exec", "--full-auto", "-"], { cwd, input: prompt, timeoutMs });
+export async function runAgent(execution: AgentExecution, cwd: string, prompt: string, timeoutMs: number, extraTools: string[] = []) {
+  return executeAgent(execution, "write", cwd, prompt, timeoutMs, extraTools);
 }
 
 /** Keeps the agent's log, report and usage next to a run; returns the record fields they settle. */
-export function recordAgentRun(agentRun: { code: number | null; stdout: string; stderr: string }, out: string): { agentExitCode: number | null; model?: string } {
-  const fields: { agentExitCode: number | null; model?: string } = { agentExitCode: agentRun.code };
-  writeText(join(out, "agent.log"), agentRun.stdout + "\n--- stderr ---\n" + agentRun.stderr);
-  try {
-    const parsed = JSON.parse(agentRun.stdout);
-    if (typeof parsed?.result === "string") writeText(join(out, "agent-report.md"), parsed.result);
-    const models = Object.keys(parsed?.modelUsage ?? {});
-    if (models.length) fields.model = models.join(", ");
-    // A run that ended in an error is not a usable run, whatever the exit code says.
-    if (parsed?.is_error === true) fields.agentExitCode = fields.agentExitCode || 1;
-    writeJson(join(out, "agent-meta.json"), {
-      turns: parsed?.num_turns,
-      durationMs: parsed?.duration_ms,
-      permissionDenials: parsed?.permission_denials,
-      stopReason: parsed?.stop_reason,
-    });
-  } catch {
-    // codex or non-JSON output — the raw log is kept
+export function recordAgentRun(agentRun: { code: number | null; stdout: string; stderr: string; durationMs: number }, out: string, execution: AgentExecution): { agentExitCode: number | null; model?: string } {
+  const answer = parseAgentOutput(execution.agent, agentRun);
+  let claudeMeta: { permission_denials?: unknown; stop_reason?: unknown } = {};
+  if (execution.agent === "claude") {
+    try { claudeMeta = JSON.parse(agentRun.stdout); } catch { /* Raw output remains in agent.log. */ }
   }
-  return fields;
+  writeText(join(out, "agent.log"), agentRun.stdout + "\n--- stderr ---\n" + agentRun.stderr);
+  if (answer.text || answer.error) writeText(join(out, "agent-report.md"), answer.text || answer.error!);
+  writeJson(join(out, "agent-meta.json"), {
+    agent: execution.agent, requestedModel: execution.model, reasoningEffort: execution.reasoningEffort,
+    requestedPermissionProfile: execution.agent === "codex" ? (process.env.CODEX_THREAD_ID ? process.env.CODEX_PERMISSION_PROFILE : undefined) ?? "pigment-write" : undefined,
+    model: answer.model, turns: answer.turns, durationMs: agentRun.durationMs, error: answer.error,
+    permissionDenials: claudeMeta.permission_denials, stopReason: claudeMeta.stop_reason,
+  });
+  return { agentExitCode: answer.ok ? 0 : (agentRun.code || 1), model: answer.model ?? execution.model };
 }
 
 export interface GenerateOptions {
@@ -70,6 +38,8 @@ export interface GenerateOptions {
   /** Also run each holdout app once (the confirm step). */
   holdout?: boolean;
   agent: Agent;
+  model: string;
+  reasoningEffort?: string;
   concurrency: number;
   timeoutMinutes: number;
   /** Independent runs per app. One run is one sample of what a user's agent might build; several show which
@@ -100,6 +70,7 @@ function isAlive(pid: number): boolean {
 }
 
 export async function generate(id: string, version: string, options: GenerateOptions): Promise<RunRecord[]> {
+  resolveExecution(options, {});
   const known = [...baseApps(), ...holdoutApps()];
   const apps = (options.apps ?? (baseApps() as RunAppId[])).filter((a) => known.includes(a));
   const holdout = options.holdout ? (holdoutApps() as RunAppId[]).filter((a) => !apps.includes(a)) : [];
@@ -132,7 +103,7 @@ async function generateLocked(id: string, version: string, apps: RunAppId[], hol
   const template = readFileSync(join(paths.prompts, "harness-existing.md"), "utf8");
   const prompt = template.replaceAll("{{id}}", id).replaceAll("{{version}}", version);
   info(
-    `generating ${id}@${version} on ${apps.join(", ")}${holdout.length ? ` + holdout ${holdout.join(", ")} (once)` : ""} with ${options.agent} (run ${base}${samples > 1 ? `, ${samples} samples` : ""})`,
+    `generating ${id}@${version} on ${apps.join(", ")}${holdout.length ? ` + holdout ${holdout.join(", ")} (once)` : ""} with ${executionLabel(options)} (run ${base}${samples > 1 ? `, ${samples} samples` : ""})`,
   );
 
   const queue = runQueue(ids, apps, holdout);
@@ -169,19 +140,29 @@ async function generateOne(id: string, version: string, app: RunAppId, runId: st
     app,
     scenario: "existing",
     agent: options.agent,
+    requestedModel: options.model,
+    reasoningEffort: options.reasoningEffort,
     promptFile: "prompt.md",
     startedAt: timestamp(),
     screenshots: [],
   };
   writeText(join(out, "prompt.md"), prompt);
   info(`[${app}] agent working in ${work}`);
-  const agentRun = await runAgent(options.agent, work, prompt, options.timeoutMinutes * 60_000);
-  Object.assign(record, recordAgentRun(agentRun, out));
+  const agentRun = await runAgent(options, work, prompt, options.timeoutMinutes * 60_000);
+  Object.assign(record, recordAgentRun(agentRun, out, options));
 
   const diff = await run("git", ["diff", "--stat", "HEAD"], { cwd: work });
   const patch = await run("git", ["diff", "HEAD"], { cwd: work });
   writeText(join(out, "diff-stat.txt"), diff.stdout);
   writeText(join(out, "changes.patch"), patch.stdout);
+  if (record.agentExitCode === 0 && !patch.stdout.trim()) {
+    // A provider may finish its turn successfully while reporting that policy prevented all work.
+    // Building the untouched baseline is not a successful template application.
+    record.agentExitCode = 1;
+    const metaFile = join(out, "agent-meta.json");
+    writeJson(metaFile, { ...readJson<Record<string, unknown>>(metaFile), error: "Agent completed without changing any project files; the template was not applied." });
+    info(`[${app}] agent made no changes — marking execution failed`);
+  }
 
   info(`[${app}] installing and building`);
   const installed = await install(work);

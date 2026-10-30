@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { resolveExecution } from "./agent-runtime.ts";
 import { Command } from "commander";
 import { RunAppId } from "@pigment/schema";
 import { parseRef, rel } from "./paths.ts";
@@ -12,7 +13,7 @@ import { checkAnalysis } from "./commands/check-analysis.ts";
 import { criticBrief } from "./commands/critic-brief.ts";
 import { evaluate, mergeCritic } from "./commands/evaluate.ts";
 import { makeFixture } from "./commands/fixture.ts";
-import { baseline, generate, reshoot, type Agent } from "./commands/generate.ts";
+import { baseline, generate, reshoot } from "./commands/generate.ts";
 import { intake } from "./commands/intake.ts";
 import { checkAll, publish } from "./commands/publish.ts";
 import { review } from "./commands/review.ts";
@@ -94,7 +95,9 @@ program
   .argument("<ref>")
   .option("--apps <apps...>", "subset of the main apps (dashboard, commerce, blog, settings)")
   .option("--holdout", "also run each holdout app once — for the confirm step only")
-  .option("--agent <agent>", "claude | codex (experimental)", "claude")
+  .option("--agent <agent>", "active host, or explicitly claude | codex (no provider default)")
+  .option("--model <model>", "current session model; required unless PIGMENT_MODEL is supplied")
+  .option("--reasoning-effort <effort>", "current Codex session reasoning effort")
   .option("--concurrency <n>", "apps in parallel (one sample of four apps runs in one wave at 4)", "4")
   .option("--timeout <minutes>", "per-app agent timeout", "45")
   .option("--samples <n>", "independent runs per app (judge the prompt, not one lucky or unlucky run)", "1")
@@ -105,7 +108,7 @@ program
       afterPass: !!opts.afterPass,
       apps: opts.apps?.map((a: string) => RunAppId.parse(a)),
       holdout: !!opts.holdout,
-      agent: opts.agent as Agent,
+      ...resolveExecution(opts),
       concurrency: Number(opts.concurrency),
       timeoutMinutes: Number(opts.timeout),
       samples: Number(opts.samples),
@@ -121,7 +124,9 @@ program
   .option("--export", "only copy the latest captures to the site (apps/web/public/products), no agent")
   .option("--carry-from <version>", "with --export: a metadata-only version shows this version's runs")
   .option("--reshoot", "build and capture the latest runs again, without the agent (a build or capture that failed outside its work)")
-  .option("--agent <agent>", "claude | codex (experimental)", "claude")
+  .option("--agent <agent>", "active host, or explicitly claude | codex (no provider default)")
+  .option("--model <model>", "current session model; required unless PIGMENT_MODEL is supplied")
+  .option("--reasoning-effort <effort>", "current Codex session reasoning effort")
   .option("--timeout <minutes>", "per-product agent timeout", "75")
   .action(async (ref: string | undefined, opts) => {
     if (opts.originals && opts.export) return exportOriginals(opts.products);
@@ -130,18 +135,20 @@ program
     const { id, version } = parseRef(ref);
     if (opts.export) return exportShowcase(id, version, opts.products, opts.carryFrom);
     if (opts.reshoot) return reshootShowcase(id, version, opts.products);
-    await showcase(id, version, { products: opts.products, agent: opts.agent as Agent, timeoutMinutes: Number(opts.timeout) });
+    await showcase(id, version, { products: opts.products, ...resolveExecution(opts), timeoutMinutes: Number(opts.timeout) });
   });
 
 program
   .command("flow")
   .description("new-project path: one agent sets a system up in an empty project, a fresh one builds screens from what the project kept — never scored")
   .argument("<ref>", "<id>@<version>")
-  .option("--agent <agent>", "claude | codex (experimental)", "claude")
+  .option("--agent <agent>", "active host, or explicitly claude | codex (no provider default)")
+  .option("--model <model>", "current session model; required unless PIGMENT_MODEL is supplied")
+  .option("--reasoning-effort <effort>", "current Codex session reasoning effort")
   .option("--timeout <minutes>", "per-session agent timeout", "60")
   .action(async (ref: string, opts) => {
     const { id, version } = parseRef(ref);
-    await flow(id, version, { agent: opts.agent as Agent, timeoutMinutes: Number(opts.timeout) });
+    await flow(id, version, { ...resolveExecution(opts), timeoutMinutes: Number(opts.timeout) });
   });
 
 program
@@ -195,21 +202,28 @@ program
 
 program
   .command("review")
+  .option("--agent <agent>", "active host, or explicitly claude | codex")
+  .option("--model <model>", "current session model (or PIGMENT_MODEL)")
+  .option("--reasoning-effort <effort>", "current Codex session reasoning effort")
   .description("7. review every checklist item of the latest evaluation (reviewers run by the harness), then settle the verdict")
   .argument("<ref>")
   .option("--holdout", "review the holdout evaluation (only after the main apps passed the confirm)")
   .option("--concurrency <n>", "reviewers in parallel", "6")
+  .option("--resume", "reuse validated reviewer results when the plan, execution and evidence are unchanged")
   .action(async (ref: string, opts) => {
     const { id, version } = parseRef(ref);
-    await review(id, version, { holdout: !!opts.holdout, concurrency: Number(opts.concurrency) });
+    await review(id, version, { ...resolveExecution(opts), holdout: !!opts.holdout, concurrency: Number(opts.concurrency), resume: !!opts.resume });
   });
 
 program
   .command("calibrate")
+  .option("--agent <agent>", "active host, or explicitly claude | codex")
+  .option("--model <model>", "current session model (or PIGMENT_MODEL)")
+  .option("--reasoning-effort <effort>", "current Codex session reasoning effort")
   .description("8c. run the review on candidates the user already judged (showcase/calibration.json) and report whether it agrees")
   .option("--case <ref>", "one case only")
   .action(async (opts) => {
-    const agrees = await calibrate(opts.case);
+    const agrees = await calibrate(resolveExecution(opts), opts.case);
     if (!agrees) process.exitCode = 1;
   });
 

@@ -14,8 +14,11 @@ Resolve a source document's relative links from its own directory.
 Project custom agents live in `.codex/agents/*.toml`: `reference-analyst`, `prompt-author` and
 `design-critic`. Delegate the analysis and authoring stages as directed by the template skills;
 keep the author's context free of base-app source. The critic is a role reference only:
-candidate reviews must run through `pnpm harness review`, which currently invokes Claude CLI.
-Adding these Codex entrypoints does not change the harness execution backend.
+candidate reviews must run through `pnpm harness review`. Generation and review must use the current
+host and its current model. Pass `--agent`, `--model`, and the current Codex `--reasoning-effort`
+explicitly, or hand them off with `PIGMENT_AGENT`, `PIGMENT_MODEL`, `PIGMENT_REASONING_EFFORT`.
+Never assume a child CLI's personal default matches the chat. Missing model or ambiguous host means
+stop before launching a provider; do not switch provider/model after a limit or other error.
 
 When changing a shared workflow, edit its `.claude/` source; change the Codex adapter only for
 Codex-specific behavior. These adapters are project-owned files, not installations tracked by

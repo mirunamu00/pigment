@@ -14,6 +14,11 @@ Runs the pipeline in `docs/harness/README.md`. Read that file, `docs/harness/pro
 and `docs/harness/evaluation-rubric.md` before starting. Every stage writes files; resume from whatever
 already exists in `pipeline/<slug>/`.
 
+Before any agent-backed command, follow `CLAUDE.md`'s runtime selection rule: use the active host,
+exact current model and current Codex reasoning effort. Supply them explicitly via CLI options or
+process-scoped `PIGMENT_AGENT`, `PIGMENT_MODEL`, `PIGMENT_REASONING_EFFORT`. Command examples below
+assume this context has been supplied. Never fall back to another provider/model when a run fails.
+
 ## 0. Intake
 
 - Choose a slug (`<reference>-study`). A domain is enough (`example.com`); pages the user names are kept

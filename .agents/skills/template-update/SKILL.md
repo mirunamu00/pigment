@@ -14,5 +14,6 @@ the approved general goal. If custom-agent selection is unavailable, supply
 `.codex/agents/prompt-author.toml` to a fresh subagent. Keep base-app source out of its context.
 If isolated delegation is unavailable, report the limitation before authoring.
 
-Preserve published versions and all user approval checkpoints. Run reviews through the harness,
-which currently uses Claude CLI; do not substitute a manually started critic.
+Preserve published versions and all user approval checkpoints. Run reviews through the harness using
+the current session's provider/model as described in the intake adapter; do not substitute a manually
+started critic or another provider/model after an execution error.

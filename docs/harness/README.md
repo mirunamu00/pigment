@@ -44,9 +44,9 @@ Use `$template-intake` for a new system, `$template-update` for a published syst
 stages use isolated subagents; hosts without custom-agent selection can pass the matching TOML's
 instructions to a fresh subagent. A host without subagents must report the isolation limitation.
 
-The harness execution backend is separate from these project instructions: generation defaults to
-Claude (Codex is an experimental `--agent codex` option), and `pnpm harness review` currently runs
-Claude CLI. The `design-critic` custom agent does not replace that command or its generated prompts.
+The harness execution backend is selected for each command. Generation and review use the active host
+and explicitly supplied current model; there is no Claude or Opus default. The `design-critic` custom
+agent does not replace `pnpm harness review` or its generated prompts.
 
 Update shared instructions and upstream HyperFrames resources in `.claude/`; the Codex adapters
 read those files on invocation. Keep Codex-specific adaptations in `.agents/skills/` and
@@ -55,6 +55,57 @@ Do not install another copy of the same skill name into `.agents/skills/` withou
 
 Discovery formats: [Codex skills](https://learn.chatgpt.com/docs/build-skills) and
 [custom agents](https://learn.chatgpt.com/docs/agent-configuration/subagents).
+
+## Agent and model selection
+
+All agent-backed commands (`generate`, `review`, `calibrate`, `showcase`, `flow`) share runtime selection.
+Inside Codex, the harness locates the nearest running Codex executable in its parent process chain
+instead of using a potentially older `codex` on PATH. This covers IDE-bundled and desktop executables
+without storing machine-specific paths in the repository. If discovery is unavailable, supply the current
+executable's absolute path through process-scoped `PIGMENT_CODEX_BIN`; discovery failure stops execution.
+Outside a Codex session, an explicitly selected Codex backend uses PATH unless this override is supplied.
+An unambiguous `CODEX_THREAD_ID` or `CLAUDECODE` environment identifies the active host. The host must
+pass its current model; launching a child CLI does not inherit the chat's model. No personal CLI config
+is read to guess it. If the host is unknown/ambiguous or the model is missing, the command fails before
+starting an agent. Running from a plain terminal requires an explicit provider and model.
+
+```sh
+# Substitute the actual current session values; these are placeholders, not default models.
+pnpm harness generate <id>@<candidate> --agent codex --model <current-model> --reasoning-effort <current-effort>
+pnpm harness review <id>@<candidate> --agent codex --model <current-model> --reasoning-effort <current-effort>
+pnpm harness generate <id>@<candidate> --agent claude --model <current-model>
+pnpm harness review <id>@<candidate> --agent claude --model <current-model>
+```
+
+For a command process, the host may hand off `PIGMENT_AGENT`, `PIGMENT_MODEL` and, for Codex,
+`PIGMENT_REASONING_EFFORT`. Do not commit a person's current model as a repository default. An explicit
+provider switch must include its own model rather than reusing model/effort settings from the old host.
+Provider limits/errors fail the run; there is no automatic provider or model fallback.
+
+Every command prints the provider/model before execution. Generation records requested and reported
+models in `run.json`/`agent-meta.json`; reviews record selection in `execution.json`/`review.json`.
+Changing models changes evaluation conditions: compare records and recalibrate before treating different
+review models as interchangeable. Review prompts, coverage checks and verdict rules remain harness-owned.
+
+Codex uses JSONL output and explicit `--model`. Generation preserves the active host's built-in writable
+permission profile (`:workspace` or `:danger-full-access`); a read-only or unknown custom host profile is
+rejected rather than silently increased. Without an active Codex host, generation uses a named workspace
+profile with dependency-install network access. Reviews always use `:read-only`, regardless of host access.
+Sandboxed Windows calls use the CLI's initialized elevated sandbox. Windows generation stages the public
+Node/npm distribution in ignored `.cache/harness-tools` and uses standard `.cmd` shims, so private fnm/nvm
+paths and PowerShell's script policy do not hide npm. Its npm cache stays under the work copy's node_modules.
+It ignores personal config so it cannot silently import a different execution setup.
+A failed or incomplete turn is never accepted as a finished run, even
+if it emitted partial text; generation that changes no project files is also an execution failure. Claude likewise
+receives explicit `--model` and retains its generation/read-only tool restrictions.
+
+If a review was interrupted, run `pnpm harness review <ref> --resume` with the same runtime options.
+It revalidates saved unit answers and reruns only unfinished units and the lead reviewer. Reuse requires
+an identical plan and provider/model/effort, plus matching hashes of the prompts and evidence. For older
+records without hashes, every input must predate the saved plan; the first resume then records hashes.
+Changed inputs require a fresh review. Prior lead-attempt logs are preserved.
+An explicit provider usage/quota exhaustion stops immediate retries and defers queued units; completed
+answers stay available for the next resume. Transient rate or connection errors retain the bounded retry.
 
 ## Folders
 

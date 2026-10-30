@@ -28,6 +28,14 @@ canvas (gallery, detail, compare, MCP, docs, mobile, interface kit).
 - `pnpm dev` — the site
 - `pnpm harness --help` — pipeline commands; `pnpm check:content` before committing content
 
+Agent-backed commands (`generate`, `review`, `calibrate`, `showcase`, `flow`) must use the active
+host and model. Pass `--agent claude|codex --model <current-session-model>` (and the current Codex
+`--reasoning-effort`), or supply `PIGMENT_AGENT`, `PIGMENT_MODEL`, `PIGMENT_REASONING_EFFORT` for the
+command process. The harness can detect an unambiguous host but cannot universally discover a chat's
+selected model. Never substitute the CLI's configured default or another provider. If current model
+information is unavailable, stop before agent execution and request it. Explicit provider/model changes
+require the user's request. See `docs/harness/README.md` for runtime selection and records.
+
 ## Git workflow
 
 `main` is protected (see `CONTRIBUTING.md`): never commit or push to it directly, and never force-push.

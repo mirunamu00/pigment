@@ -16,8 +16,11 @@ unavailable, report that limitation before proceeding with a stage that requires
 
 Keep the analysis approval, screen direction approval and final publication approval with the user.
 Run reviews only through `pnpm harness review`; do not start `design-critic` manually or replace
-the harness-generated reviewers with Codex subagents. The review command currently uses Claude CLI.
-Leave generation on the workflow's default agent unless the user requests the experimental Codex backend.
+the harness-generated reviewers with Codex subagents. Use the current Codex session's exact model and
+reasoning effort for both generation and review: pass `--agent codex --model <current-session-model>
+--reasoning-effort <current-effort>` or the corresponding process-scoped `PIGMENT_*` variables.
+Do not guess the model from global CLI settings. If unavailable, stop before execution. Provider errors
+do not authorize a switch to Claude or another model.
 
 Use Codex image-viewing tools to inspect evidence. Show the actual images or artifact links at checkpoints.
 For long commands, use the host's background process/session support and report progress.

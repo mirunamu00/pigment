@@ -71,6 +71,10 @@ export function run(
     let stdout = "";
     let stderr = "";
     const timer = options.timeoutMs ? setTimeout(() => child.kill(), options.timeoutMs) : undefined;
+    child.on("error", (error) => {
+      if (timer) clearTimeout(timer);
+      resolve({ code: 1, stdout, stderr: `${stderr}\n${error.message}`, durationMs: Date.now() - started });
+    });
     child.stdout.on("data", (chunk: Buffer) => {
       stdout += chunk;
       if (options.echo) process.stdout.write(chunk);
