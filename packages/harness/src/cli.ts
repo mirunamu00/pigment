@@ -209,9 +209,10 @@ program
   .argument("<ref>")
   .option("--holdout", "review the holdout evaluation (only after the main apps passed the confirm)")
   .option("--concurrency <n>", "reviewers in parallel", "6")
+  .option("--resume", "reuse validated reviewer results when the plan, execution and evidence are unchanged")
   .action(async (ref: string, opts) => {
     const { id, version } = parseRef(ref);
-    await review(id, version, { ...resolveExecution(opts), holdout: !!opts.holdout, concurrency: Number(opts.concurrency) });
+    await review(id, version, { ...resolveExecution(opts), holdout: !!opts.holdout, concurrency: Number(opts.concurrency), resume: !!opts.resume });
   });
 
 program

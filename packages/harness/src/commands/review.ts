@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { CriticScores, ReviewPlan, ReviewReport, type ReviewItem, type UnitReview } from "@pigment/schema";
 import { candidateStage, compareCore, latestEval } from "../budget.ts";
@@ -7,6 +7,7 @@ import { buildPlan, referenceImages } from "../review/plan.ts";
 import { synthesisPrompt, unitPrompt, type ReviewContext } from "../review/prompts.ts";
 import { checkUnit, extractJson, pool, runReadOnlyAgent, type AgentAnswer } from "../review/run.ts";
 import { renderSheets } from "../review/sheets.ts";
+import { assertReviewResume, reviewInputs, type ReviewInputs } from "../review/resume.ts";
 import { loadTemplate } from "../template.ts";
 import { fail, info, ok, readJson, writeJson, writeText } from "../util.ts";
 import { judgeCritic, mergeCritic } from "./evaluate.ts";
@@ -23,7 +24,7 @@ const UNIT_TIMEOUT_MS = 40 * 60_000;
 export async function review(
   id: string,
   version: string,
-  options: AgentExecution & { holdout?: boolean; concurrency?: number; record?: boolean },
+  options: AgentExecution & { holdout?: boolean; concurrency?: number; record?: boolean; resume?: boolean },
 ): Promise<{ critic: CriticScores; judged: ReturnType<typeof judgeCritic> }> {
   resolveExecution(options, {});
   info(`review with ${executionLabel(options)}`);
@@ -40,33 +41,64 @@ export async function review(
   // A calibration run (record: false) keeps its own folder and never touches the evaluation.
   const calibration = options.record === false ? `-calibration-${new Date().toISOString().replace(/[:.]/g, "-")}` : "";
   const dir = join(runsDir(id, version), `review-${n}${options.holdout ? "-holdout" : ""}${calibration}`);
+  const previous = options.resume ? {
+    plan: readJson(join(dir, "plan.json")), execution: readJson(join(dir, "execution.json")),
+    inputs: existsSync(join(dir, "inputs.json")) ? readJson<ReviewInputs>(join(dir, "inputs.json")) : undefined,
+    planMtime: statSync(join(dir, "plan.json")).mtimeMs,
+    report: existsSync(join(dir, "review.json")) ? ReviewReport.parse(readJson(join(dir, "review.json"))) : null,
+  } : null;
+  if (previous?.report?.status === "complete") fail("review already complete — nothing to resume");
   const plan = ReviewPlan.parse({ ...buildPlan({ id, version, report, reviewDir: dir }), referenceSheet: null });
   const refShots = referenceImages(id, version, dir);
   const referenceSheet = refShots.length ? rel(join(dir, "sheets", "_reference.png")) : null;
   plan.referenceSheet = referenceSheet;
   plan.referenceSet = refShots.map((r) => ({ file: r.file, shows: r.shows }));
   info(`review ${id}@${version} (${scope}): ${plan.items.length} checklist items, ${plan.units.length} reviewer(s), ${plan.samples} sample(s)`);
-  await renderSheets(plan.items, referenceSheet ? { file: referenceSheet, shots: refShots } : null);
+  if (!options.resume) await renderSheets(plan.items, referenceSheet ? { file: referenceSheet, shots: refShots } : null);
   // Only what was written: a crop that failed is not offered to a reviewer.
   plan.referenceSet = plan.referenceSet.filter((r) => existsSync(join(paths.root, r.file)));
   for (const item of plan.items) item.crops = item.crops?.map((c) => (c && existsSync(join(paths.root, c)) ? c : ""));
   if (!plan.referenceSet.length) info("no reference set: reviewers judge against the spec only — add referenceSet to the analysis");
+  const ctx = context(id, version, plan, referenceSheet, !!options.holdout);
+  const execution = { agent: options.agent, model: options.model, reasoningEffort: options.reasoningEffort };
+  const inputs = reviewInputs({ plan, execution, ctx, prompts: plan.units.map((u) => unitPrompt(ctx, plan.items.filter((i) => u.items.includes(i.id)))) }, [
+    ctx.spec, ...(ctx.analysis ? [ctx.analysis] : []), ...ctx.earlier,
+    ...plan.referenceSet.map((r) => r.file), ...(referenceSheet ? [referenceSheet] : []),
+    ...plan.items.flatMap((i) => [i.sheet, ...(i.crops ?? []).filter(Boolean), ...i.sources.flat()]),
+    "packages/harness/src/review/prompts.ts", "packages/harness/src/review/plan.ts", "packages/harness/src/commands/evaluate.ts",
+  ].map((f) => join(paths.root, f)));
+  if (previous) assertReviewResume(previous, { plan, execution, inputs });
   // The screen: a page for the user's direction check (the reference at its best next to what the agents built).
   if (!options.holdout && plan.samples === 1) {
     const file = join(dir, "direction.html");
     writeText(file, directionPage(`${id}@${version}`, plan, dir));
     info(`direction check for the user: ${rel(file)}`);
   }
-  writeJson(join(dir, "plan.json"), plan);
-  writeJson(join(dir, "execution.json"), { agent: options.agent, model: options.model, reasoningEffort: options.reasoningEffort });
+  if (!previous) writeJson(join(dir, "plan.json"), plan);
+  writeJson(join(dir, "execution.json"), execution);
+  writeJson(join(dir, "inputs.json"), inputs);
 
-  const ctx = context(id, version, plan, referenceSheet, !!options.holdout);
   const byId = new Map(plan.items.map((i) => [i.id, i]));
   const unitRecords: ReviewReport["units"] = [];
   const results: Array<{ id: string; review: UnitReview }> = [];
 
   await pool(plan.units, options.concurrency ?? 6, async (unit) => {
     let todo: ReviewItem[] = unit.items.map((i) => byId.get(i)!);
+    const cachedFile = join(dir, "units", `${unit.id}.json`);
+    if (previous && existsSync(cachedFile)) {
+      try {
+        const cached = checkUnit(todo, readJson(cachedFile));
+        if (cached.review && !cached.missing.length) {
+          const recordFile = join(dir, "units", `${unit.id}-record.json`);
+          const cachedRecord = previous.report?.units.find((r) => r.id === unit.id)
+            ?? (existsSync(recordFile) ? readJson<ReviewReport["units"][number]>(recordFile) : null);
+          results.push({ id: unit.id, review: cached.review });
+          unitRecords.push({ ...(cachedRecord ?? { id: unit.id, attempts: 0, durationMs: 0, turns: 0, problems: ["Prior timing unavailable; reused validated saved answers."] }), items: todo.length, covered: todo.length });
+          info(`[${unit.id}] reused ${todo.length} validated item(s)`);
+          return;
+        }
+      } catch { info(`[${unit.id}] saved answers invalid — reviewing again`); }
+    }
     const merged: UnitReview = { items: [], findings: [] };
     const record = { id: unit.id, items: unit.items.length, covered: 0, attempts: 0, durationMs: 0, turns: 0, model: undefined as string | undefined, problems: [] as string[] };
     // One retry, with only the items the first answer left out.
@@ -94,6 +126,7 @@ export async function review(
     }
     record.covered = merged.items.length;
     writeJson(join(dir, "units", `${unit.id}.json`), merged);
+    writeJson(join(dir, "units", `${unit.id}-record.json`), record);
     unitRecords.push(record);
     results.push({ id: unit.id, review: merged });
     ok(`[${unit.id}] ${record.covered}/${record.items} items in ${Math.round(record.durationMs / 60_000)} min`);
@@ -122,11 +155,12 @@ export async function review(
     .filter((i) => i.kind === "page" && i.subject === "/")
     .flatMap((i) => [i.sheet, ...(i.crops ?? []).filter(Boolean)]);
   let critic: CriticScores | null = null;
+  const priorLeadAttempts = Math.max(0, ...readdirSync(dir).map((f) => Number(/^lead-(\d+)\.md$/.exec(f)?.[1] ?? 0)));
   for (let attempt = 1; attempt <= 2 && !critic; attempt++) {
     info(`lead reviewer${attempt > 1 ? " (retry)" : ""}`);
     const answer = await runReadOnlyAgent(options, synthesisPrompt(ctx, plan, results, homeSheets), UNIT_TIMEOUT_MS);
     reviewReport.synthesis = { durationMs: (reviewReport.synthesis?.durationMs ?? 0) + answer.durationMs, turns: answer.turns, model: answer.model };
-    writeText(join(dir, `lead-${attempt}.md`), answer.text || answer.error || "");
+    writeText(join(dir, `lead-${priorLeadAttempts + attempt}.md`), answer.text || answer.error || "");
     if (!answer.ok) { info(`lead reviewer failed: ${answer.error ?? "incomplete execution"}`); continue; }
     try {
       const parsed = CriticScores.parse(extractJson(answer.text));

@@ -99,6 +99,12 @@ A failed or incomplete turn is never accepted as a finished run, even
 if it emitted partial text; generation that changes no project files is also an execution failure. Claude likewise
 receives explicit `--model` and retains its generation/read-only tool restrictions.
 
+If a review was interrupted, run `pnpm harness review <ref> --resume` with the same runtime options.
+It revalidates saved unit answers and reruns only unfinished units and the lead reviewer. Reuse requires
+an identical plan and provider/model/effort, plus matching hashes of the prompts and evidence. For older
+records without hashes, every input must predate the saved plan; the first resume then records hashes.
+Changed inputs require a fresh review. Prior lead-attempt logs are preserved.
+
 ## Folders
 
 | Path | What lives there |
