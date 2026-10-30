@@ -4,6 +4,14 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assertReviewResume, reviewInputs } from "./review/resume.ts";
+import { isQuotaFailure } from "./review/run.ts";
+
+test("review defers quota exhaustion rather than treating transient errors as exhausted quota", () => {
+  assert.equal(isQuotaFailure("You’ve hit your usage limit. Try again at 8:45 PM."), true);
+  assert.equal(isQuotaFailure("insufficient_quota"), true);
+  assert.equal(isQuotaFailure("429 rate limit exceeded; retry shortly"), false);
+  assert.equal(isQuotaFailure("connection closed"), false);
+});
 
 test("review resume detects changed evidence even at the same paths", (t) => {
   const prefix = join(tmpdir(), "pigment-review-resume-");

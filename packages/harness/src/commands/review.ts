@@ -5,7 +5,7 @@ import { candidateStage, compareCore, latestEval } from "../budget.ts";
 import { paths, rel, runsDir, templateDir } from "../paths.ts";
 import { buildPlan, referenceImages } from "../review/plan.ts";
 import { synthesisPrompt, unitPrompt, type ReviewContext } from "../review/prompts.ts";
-import { checkUnit, extractJson, pool, runReadOnlyAgent, type AgentAnswer } from "../review/run.ts";
+import { checkUnit, extractJson, isQuotaFailure, pool, runReadOnlyAgent, type AgentAnswer } from "../review/run.ts";
 import { renderSheets } from "../review/sheets.ts";
 import { assertReviewResume, reviewInputs, type ReviewInputs } from "../review/resume.ts";
 import { loadTemplate } from "../template.ts";
@@ -81,6 +81,7 @@ export async function review(
   const byId = new Map(plan.items.map((i) => [i.id, i]));
   const unitRecords: ReviewReport["units"] = [];
   const results: Array<{ id: string; review: UnitReview }> = [];
+  let providerBlock: string | undefined;
 
   await pool(plan.units, options.concurrency ?? 6, async (unit) => {
     let todo: ReviewItem[] = unit.items.map((i) => byId.get(i)!);
@@ -99,6 +100,11 @@ export async function review(
         }
       } catch { info(`[${unit.id}] saved answers invalid — reviewing again`); }
     }
+    if (providerBlock) {
+      unitRecords.push({ id: unit.id, items: todo.length, covered: 0, attempts: 0, durationMs: 0, turns: 0, problems: [providerBlock] });
+      info(`[${unit.id}] deferred after provider quota failure`);
+      return;
+    }
     const merged: UnitReview = { items: [], findings: [] };
     const record = { id: unit.id, items: unit.items.length, covered: 0, attempts: 0, durationMs: 0, turns: 0, model: undefined as string | undefined, problems: [] as string[] };
     // One retry, with only the items the first answer left out.
@@ -109,7 +115,11 @@ export async function review(
       account(record, answer);
       writeText(join(dir, "units", `${unit.id}-${record.attempts}.md`), answer.text || answer.error || "");
       let parsed: unknown = null;
-      if (!answer.ok) { record.problems.push(answer.error ?? "agent failed"); continue; }
+      if (!answer.ok) {
+        record.problems.push(answer.error ?? "agent failed");
+        if (isQuotaFailure(answer.error)) { providerBlock = answer.error; break; }
+        continue;
+      }
       try {
         parsed = extractJson(answer.text);
       } catch (e) {
@@ -161,7 +171,11 @@ export async function review(
     const answer = await runReadOnlyAgent(options, synthesisPrompt(ctx, plan, results, homeSheets), UNIT_TIMEOUT_MS);
     reviewReport.synthesis = { durationMs: (reviewReport.synthesis?.durationMs ?? 0) + answer.durationMs, turns: answer.turns, model: answer.model };
     writeText(join(dir, `lead-${priorLeadAttempts + attempt}.md`), answer.text || answer.error || "");
-    if (!answer.ok) { info(`lead reviewer failed: ${answer.error ?? "incomplete execution"}`); continue; }
+    if (!answer.ok) {
+      info(`lead reviewer failed: ${answer.error ?? "incomplete execution"}`);
+      if (isQuotaFailure(answer.error)) break;
+      continue;
+    }
     try {
       const parsed = CriticScores.parse(extractJson(answer.text));
       if (!parsed.findings) throw new Error("no findings array");
@@ -175,7 +189,7 @@ export async function review(
   if (!critic) {
     reviewReport.status = "incomplete";
     writeJson(join(dir, "review.json"), reviewReport);
-    fail("the lead reviewer gave no valid verdict twice — no verdict");
+    fail("the lead reviewer did not complete a valid verdict — no verdict");
   }
   if (options.holdout) critic.findings = critic.findings!.map((f) => ({ ...f, holdoutOnly: true }));
   critic.notes = [`Review: ${covered}/${plan.items.length} checklist items by ${plan.units.length} reviewer(s) and a lead reviewer (${rel(dir)}).`, ...critic.notes];

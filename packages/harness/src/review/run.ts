@@ -15,6 +15,11 @@ export interface AgentAnswer {
   error?: string;
 }
 
+/** Quota exhaustion cannot be repaired by immediately replaying the same review request. */
+export function isQuotaFailure(error: string | undefined): boolean {
+  return !!error && /hit your usage limit|weekly (?:usage )?limit|insufficient_quota|quota exceeded|credit balance is too low/i.test(error);
+}
+
 export async function runReadOnlyAgent(execution: AgentExecution, prompt: string, timeoutMs: number): Promise<AgentAnswer> {
   const r = await executeAgent(execution, "read", paths.root, prompt, timeoutMs);
   const answer = parseAgentOutput(execution.agent, r);

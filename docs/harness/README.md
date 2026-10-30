@@ -104,6 +104,8 @@ It revalidates saved unit answers and reruns only unfinished units and the lead 
 an identical plan and provider/model/effort, plus matching hashes of the prompts and evidence. For older
 records without hashes, every input must predate the saved plan; the first resume then records hashes.
 Changed inputs require a fresh review. Prior lead-attempt logs are preserved.
+An explicit provider usage/quota exhaustion stops immediate retries and defers queued units; completed
+answers stay available for the next resume. Transient rate or connection errors retain the bounded retry.
 
 ## Folders
 
